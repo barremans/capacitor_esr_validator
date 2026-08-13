@@ -1,0 +1,161 @@
+{
+  "_comment": "English translation. Falls back to nl_NL.json for any missing key.",
+  "app": {
+    "titel": "Capacitor and ESR Validator"
+  },
+  "taal": {
+    "nl_NL": "Nederlands",
+    "en_US": "English"
+  },
+  "menu": {
+    "bestand": "File",
+    "afsluiten": "Exit",
+    "test": "Test",
+    "esr_test": "ESR Test",
+    "help": "Help",
+    "over": "About"
+  },
+  "scherm": {
+    "esr_test": "ESR Test",
+    "resultaat": "Result",
+    "veiligheid": "Safety",
+    "waarschuwingen": "Warnings",
+    "meetcontext": "Measurement context",
+    "meetwaarden": "Measurement values"
+  },
+  "veld": {
+    "nominale_capaciteit": "Nominal capacitance",
+    "eenheid_capaciteit": "Capacitance unit",
+    "tolerantie": "Tolerance (%)",
+    "nominale_spanning": "Nominal voltage (V)",
+    "condensatortype": "Capacitor type",
+    "meetfrequentie": "Test frequency",
+    "testspanning": "Test voltage",
+    "gemeten_capaciteit": "Measured capacitance",
+    "gemeten_esr": "Measured ESR",
+    "eenheid_esr": "ESR unit",
+    "d_waarde": "D value (dissipation factor)",
+    "omgevingstemperatuur": "Ambient temperature (°C)",
+    "in_circuit": "Measurement taken in-circuit",
+    "fabrikant": "Manufacturer",
+    "serie": "Series",
+    "open_verbinding": "Suspected open connection or short circuit",
+    "veiligheid_bevestigd": "Circuit is de-energised and capacitor is safely discharged"
+  },
+  "placeholder": {
+    "d_waarde": "0.05 (optional)"
+  },
+  "knop": {
+    "beoordeel": "Assess",
+    "wissen": "Clear",
+    "sluiten": "Close",
+    "kopieer": "Copy result"
+  },
+  "veiligheid": {
+    "waarschuwing_1": "Never measure on a circuit that is still under voltage.",
+    "waarschuwing_2": "Verify the absence of voltage with a suitable measuring instrument.",
+    "waarschuwing_3": "Discharge the capacitor in a controlled manner.",
+    "waarschuwing_4": "Large capacitors can build up voltage again over time.",
+    "waarschuwing_5": "In-circuit measurements can be inaccurate.",
+    "waarschuwing_6": "When in doubt, disconnect at least one terminal.",
+    "waarschuwing_7": "An LCR measurement does not automatically test leakage current, insulation, or breakdown voltage.",
+    "waarschuwing_8": "A good ESR value does not prove the capacitor is safe at its rated voltage.",
+    "waarschuwing_9": "This app is not a formal safety clearance.",
+    "frequentie_wijkt_af": "Reference frequency differs from the measurement frequency — no automatic conversion performed.",
+    "in_circuit": "Measurement was taken in-circuit; the result is less reliable.",
+    "eenhedenfout": "Strong indication of a unit error in C, ESR, or D — check the entered values."
+  },
+  "status": {
+    "capaciteit": {
+      "binnen_tolerantie": "within tolerance",
+      "op_grens": "at the boundary",
+      "buiten_tolerantie": "outside tolerance",
+      "niet_beoordeelbaar": "cannot be assessed"
+    },
+    "esr": {
+      "waarschijnlijk_normaal": "likely normal",
+      "aandachtspunt": "point of attention",
+      "verdacht": "suspicious",
+      "waarschijnlijk_defect": "likely defective",
+      "niet_te_beoordelen": "cannot be assessed"
+    },
+    "consistentie": {
+      "niet_beoordeeld": "not assessed (no D value entered)",
+      "consistent": "consistent",
+      "mogelijke_inconsistentie": "possible inconsistency",
+      "sterke_aanwijzing_eenhedenfout": "strong indication of a unit error"
+    },
+    "betrouwbaarheid": {
+      "hoog": "high",
+      "middel": "medium",
+      "laag": "low"
+    },
+    "eindstatus": {
+      "niet_beoordeeld": "not assessed",
+      "waarschijnlijk_goed": "likely good",
+      "aandachtspunt": "point of attention",
+      "twijfelachtig": "questionable",
+      "waarschijnlijk_defect": "likely defective",
+      "niet_te_beoordelen": "cannot be assessed"
+    }
+  },
+  "toelichting": {
+    "capaciteit": {
+      "tolerantie_onbekend": "Tolerance unknown; capacitance cannot be assessed.",
+      "resultaat": "Measured {gemeten:.4g} {eenheid} vs. nominal {nominaal:.4g} {eenheid}: deviation {afwijking:+.2f}% (tolerance ±{tolerantie:.2f}%)."
+    },
+    "esr": {
+      "geen_referentie": "No suitable reference available (validation_rules.md §2).",
+      "referentie_ongeldig": "Reference value is invalid (≤ 0); ESR cannot be assessed.",
+      "resultaat": "Measured/reference ratio = {factor:.2f}× (source: {bron}, level {niveau}, {frequentie:.0f} Hz, {typisch_of_maximaal}).",
+      "frequentie_waarschuwing": " Note: measured at {meetfrequentie:.0f} Hz, reference applies to {referentiefrequentie:.0f} Hz — no automatic conversion performed."
+    },
+    "consistentie": {
+      "geen_d": "No D value entered; consistency check not performed.",
+      "ongeldige_invoer": "Capacitance or frequency invalid; consistency check not performed.",
+      "niet_positief": "Expected or measured ESR is ≤ 0; consistency check not meaningful.",
+      "consistent": "Measured ESR ({esr_gemeten:.4g} Ω) matches the ESR expected from D ({esr_verwacht:.4g} Ω) within a margin of {marge:.1f}×.",
+      "mogelijke_inconsistentie": "Measured ESR ({esr_gemeten:.4g} Ω) deviates {factor:.1f}× from the ESR expected from D ({esr_verwacht:.4g} Ω) — possibly a mΩ/Ω mix-up, wrong frequency, or rounding. No automatic correction applied.",
+      "sterke_aanwijzing": "Measured ESR deviates {factor:.0f}× from the ESR expected from D — strong indication of a unit error (e.g. mF instead of µF). Check the entered values."
+    }
+  },
+  "betrouwbaarheid_factor": {
+    "referentiefrequentie_wijkt_af": "reference frequency differs from the measurement frequency",
+    "temperatuur_onbekend": "ambient temperature unknown",
+    "condensatortype_onbekend": "capacitor type unknown or non-electrolytic",
+    "in_circuit": "measurement was taken in-circuit",
+    "typisch_niet_maximaal": "reference value is a typical value, not a maximum",
+    "fabrikant_serie_onbekend": "manufacturer and/or series unknown",
+    "mogelijke_inconsistentie": "possible inconsistency between C, ESR, and D flagged",
+    "geen_verlagende_factoren": "no reducing factors"
+  },
+  "eindstatus_reden": {
+    "invoer_onvolledig": "Input incomplete or no measurement started.",
+    "tolerantie_onbekend": "Capacitance tolerance unknown.",
+    "geen_referentie": "No suitable ESR reference available.",
+    "veiligheid_ontbreekt": "Safety confirmation (de-energised/discharged) is missing.",
+    "capaciteit_buiten_tolerantie_defect": "Capacitance strongly outside tolerance.",
+    "open_verbinding_vermoed": "Open connection or short circuit suspected.",
+    "betrouwbaarheid_label": "Reliability: {niveau}.",
+    "betrouwbaarheid_met_factoren": "Reliability: {niveau} ({factoren}).",
+    "meerdere_criteria": "Multiple independent criteria indicate a defect:",
+    "geen_striktere_regel": "None of the stricter rules clearly applied; conservatively assessed as a point of attention."
+  },
+  "eindstatus_vervolgstap": {
+    "vul_aan": "Complete the missing information.",
+    "vul_aan_of_bevestig": "Complete the missing information or confirm the safety steps before further assessment.",
+    "vervang_component": "Replace the component; do not use further without additional investigation.",
+    "vervang_of_bevestig": "Replace the capacitor or confirm with a second, independent measurement.",
+    "vergelijk_of_ontkoppel": "Compare with an identical new unit or disconnect one terminal for a more accurate measurement.",
+    "herhaal_meting": "Repeat the measurement if possible with a more reliable reference or setup.",
+    "geen_actie": "No further action needed; keep monitoring periodically if this is a critical component.",
+    "controleer_handmatig": "Check the individual sub-results manually."
+  },
+  "fout": {
+    "ongeldig_getal": "Invalid number: {waarde}",
+    "verplicht_veld": "This field is required.",
+    "veiligheid_verplicht": "Confirm the safety steps first.",
+    "titel": "Error",
+    "onverwacht": "Unexpected error: {bericht}"
+  }
+}

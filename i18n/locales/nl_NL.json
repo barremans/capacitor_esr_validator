@@ -1,0 +1,161 @@
+{
+  "_comment": "Brontaal (Nederlands). Volledig; alle andere taalbestanden vallen op ontbrekende sleutels op dit bestand terug.",
+  "app": {
+    "titel": "Condensator- en ESR-validator"
+  },
+  "taal": {
+    "nl_NL": "Nederlands",
+    "en_US": "English"
+  },
+  "menu": {
+    "bestand": "Bestand",
+    "afsluiten": "Afsluiten",
+    "test": "Test",
+    "esr_test": "ESR-test",
+    "help": "Help",
+    "over": "Over"
+  },
+  "scherm": {
+    "esr_test": "ESR-test",
+    "resultaat": "Resultaat",
+    "veiligheid": "Veiligheid",
+    "waarschuwingen": "Waarschuwingen",
+    "meetcontext": "Meetcontext",
+    "meetwaarden": "Meetwaarden"
+  },
+  "veld": {
+    "nominale_capaciteit": "Nominale capaciteit",
+    "eenheid_capaciteit": "Eenheid capaciteit",
+    "tolerantie": "Tolerantie (%)",
+    "nominale_spanning": "Nominale werkspanning (V)",
+    "condensatortype": "Condensatortype",
+    "meetfrequentie": "Meetfrequentie",
+    "testspanning": "Testspanning",
+    "gemeten_capaciteit": "Gemeten capaciteit",
+    "gemeten_esr": "Gemeten ESR",
+    "eenheid_esr": "Eenheid ESR",
+    "d_waarde": "D-waarde (dissipation factor)",
+    "omgevingstemperatuur": "Omgevingstemperatuur (°C)",
+    "in_circuit": "Meting in-circuit uitgevoerd",
+    "fabrikant": "Fabrikant",
+    "serie": "Serie",
+    "open_verbinding": "Open verbinding of kortsluiting vermoed",
+    "veiligheid_bevestigd": "Schakeling is spanningsloos en condensator is veilig ontladen"
+  },
+  "placeholder": {
+    "d_waarde": "0.05 (optioneel)"
+  },
+  "knop": {
+    "beoordeel": "Beoordeel",
+    "wissen": "Wissen",
+    "sluiten": "Sluiten",
+    "kopieer": "Kopieer resultaat"
+  },
+  "veiligheid": {
+    "waarschuwing_1": "Meet nooit aan een onder spanning staande schakeling.",
+    "waarschuwing_2": "Controleer afwezigheid van spanning met een geschikt meetinstrument.",
+    "waarschuwing_3": "Ontlaad de condensator gecontroleerd.",
+    "waarschuwing_4": "Grote condensatoren kunnen opnieuw spanning opbouwen.",
+    "waarschuwing_5": "In-circuit metingen kunnen foutief zijn.",
+    "waarschuwing_6": "Neem bij twijfel een aansluiting los.",
+    "waarschuwing_7": "Een LCR-meting test niet automatisch lekstroom, isolatie of doorslagspanning.",
+    "waarschuwing_8": "Een goede ESR-waarde bewijst niet dat de condensator veilig is op nominale spanning.",
+    "waarschuwing_9": "De app is geen formele veiligheidsvrijgave.",
+    "frequentie_wijkt_af": "Referentiefrequentie wijkt af van de meetfrequentie — geen automatische omrekening uitgevoerd.",
+    "in_circuit": "Meting is in-circuit uitgevoerd; resultaat is minder betrouwbaar.",
+    "eenhedenfout": "Sterke aanwijzing voor een eenhedenfout in C, ESR of D — controleer de invoer."
+  },
+  "status": {
+    "capaciteit": {
+      "binnen_tolerantie": "binnen tolerantie",
+      "op_grens": "op grens",
+      "buiten_tolerantie": "buiten tolerantie",
+      "niet_beoordeelbaar": "niet beoordeelbaar"
+    },
+    "esr": {
+      "waarschijnlijk_normaal": "waarschijnlijk normaal",
+      "aandachtspunt": "aandachtspunt",
+      "verdacht": "verdacht",
+      "waarschijnlijk_defect": "waarschijnlijk defect",
+      "niet_te_beoordelen": "niet te beoordelen"
+    },
+    "consistentie": {
+      "niet_beoordeeld": "niet beoordeeld (geen D-waarde ingevoerd)",
+      "consistent": "consistent",
+      "mogelijke_inconsistentie": "mogelijke inconsistentie",
+      "sterke_aanwijzing_eenhedenfout": "sterke aanwijzing voor eenhedenfout"
+    },
+    "betrouwbaarheid": {
+      "hoog": "hoog",
+      "middel": "middel",
+      "laag": "laag"
+    },
+    "eindstatus": {
+      "niet_beoordeeld": "niet beoordeeld",
+      "waarschijnlijk_goed": "waarschijnlijk goed",
+      "aandachtspunt": "aandachtspunt",
+      "twijfelachtig": "twijfelachtig",
+      "waarschijnlijk_defect": "waarschijnlijk defect",
+      "niet_te_beoordelen": "niet te beoordelen"
+    }
+  },
+  "toelichting": {
+    "capaciteit": {
+      "tolerantie_onbekend": "Tolerantie onbekend; capaciteit kan niet beoordeeld worden.",
+      "resultaat": "Gemeten {gemeten:.4g} {eenheid} t.o.v. nominaal {nominaal:.4g} {eenheid}: afwijking {afwijking:+.2f}% (tolerantie ±{tolerantie:.2f}%)."
+    },
+    "esr": {
+      "geen_referentie": "Geen geschikte referentie beschikbaar (validation_rules.md §2).",
+      "referentie_ongeldig": "Referentiewaarde is ongeldig (≤ 0); ESR kan niet beoordeeld worden.",
+      "resultaat": "Verhouding gemeten/referentie = {factor:.2f}× (bron: {bron}, niveau {niveau}, {frequentie:.0f} Hz, {typisch_of_maximaal}).",
+      "frequentie_waarschuwing": " Let op: gemeten bij {meetfrequentie:.0f} Hz, referentie geldt voor {referentiefrequentie:.0f} Hz — geen automatische omrekening uitgevoerd (§9 context)."
+    },
+    "consistentie": {
+      "geen_d": "Geen D-waarde ingevoerd; consistentiecontrole niet uitgevoerd.",
+      "ongeldige_invoer": "Capaciteit of frequentie ongeldig; consistentiecontrole niet uitgevoerd.",
+      "niet_positief": "Verwachte of gemeten ESR is ≤ 0; consistentiecontrole niet betekenisvol.",
+      "consistent": "Gemeten ESR ({esr_gemeten:.4g} Ω) komt overeen met de uit D verwachte ESR ({esr_verwacht:.4g} Ω) binnen een marge van {marge:.1f}×.",
+      "mogelijke_inconsistentie": "Gemeten ESR ({esr_gemeten:.4g} Ω) wijkt {factor:.1f}× af van de uit D verwachte ESR ({esr_verwacht:.4g} Ω) — mogelijk mΩ/Ω-verwisseling, verkeerde frequentie of afronding. Geen automatische correctie uitgevoerd.",
+      "sterke_aanwijzing": "Gemeten ESR wijkt {factor:.0f}× af van de uit D verwachte ESR — sterke aanwijzing voor een eenhedenfout (bv. mF i.p.v. µF). Controleer de ingevoerde waarden."
+    }
+  },
+  "betrouwbaarheid_factor": {
+    "referentiefrequentie_wijkt_af": "referentiefrequentie wijkt af van de meetfrequentie",
+    "temperatuur_onbekend": "omgevingstemperatuur onbekend",
+    "condensatortype_onbekend": "condensatortype onbekend of niet-elektrolytisch",
+    "in_circuit": "meting is in-circuit uitgevoerd",
+    "typisch_niet_maximaal": "referentiewaarde is een typische waarde, geen maximum",
+    "fabrikant_serie_onbekend": "fabrikant en/of serie onbekend",
+    "mogelijke_inconsistentie": "mogelijke inconsistentie tussen C, ESR en D gesignaleerd",
+    "geen_verlagende_factoren": "geen verlagende factoren"
+  },
+  "eindstatus_reden": {
+    "invoer_onvolledig": "Invoer onvolledig of geen meting gestart.",
+    "tolerantie_onbekend": "Capaciteitstolerantie onbekend.",
+    "geen_referentie": "Geen geschikte ESR-referentie beschikbaar.",
+    "veiligheid_ontbreekt": "Veiligheidsbevestiging (spanningsloos/ontladen) ontbreekt.",
+    "capaciteit_buiten_tolerantie_defect": "Capaciteit sterk buiten tolerantie.",
+    "open_verbinding_vermoed": "Open verbinding of kortsluiting vermoed.",
+    "betrouwbaarheid_label": "Betrouwbaarheid: {niveau}.",
+    "betrouwbaarheid_met_factoren": "Betrouwbaarheid: {niveau} ({factoren}).",
+    "meerdere_criteria": "Meerdere onafhankelijke criteria wijzen op een defect:",
+    "geen_striktere_regel": "Geen van de striktere regels was eenduidig van toepassing; voorzichtigheidshalve als aandachtspunt beoordeeld."
+  },
+  "eindstatus_vervolgstap": {
+    "vul_aan": "Vul de ontbrekende gegevens aan.",
+    "vul_aan_of_bevestig": "Vul de ontbrekende gegevens aan of bevestig de veiligheidsstappen vóór verdere beoordeling.",
+    "vervang_component": "Component vervangen; niet meer gebruiken zonder verder onderzoek.",
+    "vervang_of_bevestig": "Vervang de condensator of bevestig met een tweede, onafhankelijke meting.",
+    "vergelijk_of_ontkoppel": "Vergelijk met een identiek nieuw exemplaar of neem een aansluiting los voor een nauwkeurigere meting.",
+    "herhaal_meting": "Herhaal de meting indien mogelijk met een betrouwbaardere referentie of meetopstelling.",
+    "geen_actie": "Geen verdere actie nodig; blijf periodiek controleren indien dit een kritisch onderdeel is.",
+    "controleer_handmatig": "Controleer de individuele deelresultaten handmatig."
+  },
+  "fout": {
+    "ongeldig_getal": "Ongeldig getal: {waarde}",
+    "verplicht_veld": "Dit veld is verplicht.",
+    "veiligheid_verplicht": "Bevestig eerst de veiligheidsstappen.",
+    "titel": "Fout",
+    "onverwacht": "Onverwachte fout: {bericht}"
+  }
+}

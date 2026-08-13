@@ -1,0 +1,8 @@
+[project]
+name = "capacitor-esr-validator"
+version = "0.1.0"
+description = "Nederlandstalige Windows-app voor het registreren en indicatief beoordelen van condensatormetingen."
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
