@@ -23,6 +23,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import json
+import os
+from pathlib import Path
+
+SETTINGS_PATH = Path("settings.json")
 
 # ---------------------------------------------------------------------------
 # Vaste keuzelijsten (docs/data_model.md §9)
@@ -93,9 +98,31 @@ class AppInstellingen:
 
 
 def laad_instellingen() -> AppInstellingen:
-    """Geeft de actieve instellingen terug.
-
-    Nu nog een vaste default; dit is het aanknopingspunt voor een later
-    instellingenscherm dat waarden kan overschrijven.
-    """
+    """Laadt instellingen uit settings.json, of default als bestand ontbreekt."""
+    if SETTINGS_PATH.exists():
+        try:
+            with SETTINGS_PATH.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+            return AppInstellingen(
+                taal=data.get("language", "nl_NL"),
+                beoordeling=BeoordelingsInstellingen(**data.get("beoordeling", {}))
+            )
+        except Exception:
+            pass
     return AppInstellingen()
+
+def sla_instellingen_op(instellingen: AppInstellingen) -> None:
+    """Slaat instellingen op naar settings.json."""
+    data = {
+        "language": instellingen.taal,
+        "beoordeling": {
+            "esr_factor_normaal": instellingen.beoordeling.esr_factor_normaal,
+            "esr_factor_aandachtspunt": instellingen.beoordeling.esr_factor_aandachtspunt,
+            "esr_factor_verdacht": instellingen.beoordeling.esr_factor_verdacht,
+            "capaciteit_marge_binnen": instellingen.beoordeling.capaciteit_marge_binnen,
+            "consistentie_marge": instellingen.beoordeling.consistentie_marge,
+            "consistentie_eenhedenfout_drempel": instellingen.beoordeling.consistentie_eenhedenfout_drempel,
+        }
+    }
+    with SETTINGS_PATH.open("w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)

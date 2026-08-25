@@ -157,5 +157,16 @@
     "veiligheid_verplicht": "Confirm the safety steps first.",
     "titel": "Error",
     "onverwacht": "Unexpected error: {bericht}"
-  }
+  },
+  "dialog": {
+  "veiligheid_titel": "Safety Instructions",
+  "help_titel": "Help",
+  "changelog_titel": "Changelog",
+  "over_titel": "About",
+  "over_tekst": "<h2>Capacitor and ESR Validator</h2><p>Version 1.1.0</p><p>A tool for the indicative assessment of capacitor measurements.</p><p>Not a formal safety approval.</p>"
+},
+"tool": {
+  "esr": "ESR Validator",
+  "esr_omschrijving": "Enter and assess capacitor and ESR measurements"
+}
 }

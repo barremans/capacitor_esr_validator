@@ -46,6 +46,13 @@ class EsrTestScreen(QWidget):
         super().__init__(parent)
         self.taal = taal
         self._build_ui()
+        
+        # Dynamische venstergrootte: maximaal schermhoogte - 40 px
+        from PySide6.QtGui import QScreen
+        screen = QScreen.availableGeometry(self.screen() or QApplication.primaryScreen())
+        max_h = screen.height() - 40
+        self.setMaximumHeight(max_h)
+        self.resize(min(950, screen.width() - 100), min(800, max_h))
 
     def _t(self, sleutel, **kwargs):
         """Korte hulp voor vertalingen."""
@@ -65,13 +72,35 @@ class EsrTestScreen(QWidget):
         container_layout.setSpacing(12)
 
         # === VEILIGHEIDSWAARSCHUWINGEN ===
+        # === VEILIGHEIDSWAARSCHUWINGEN ===
         safety_group = QGroupBox(self._t("scherm.veiligheid"))
         safety_group.setStyleSheet(GROUP_BOX_STYLE)
         safety_layout = QVBoxLayout(safety_group)
 
+        # Checkbox + ?-knop in één rij
+        safety_row = QHBoxLayout()
         self.safety_check = QCheckBox(self._t("veld.veiligheid_bevestigd"))
         self.safety_check.setStyleSheet("font-weight: bold; color: #FF9800;")
-        safety_layout.addWidget(self.safety_check)
+        safety_row.addWidget(self.safety_check)
+
+        help_btn = QPushButton(self._t("knop.help"))
+        help_btn.setFixedSize(24, 24)
+        help_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #555;
+                color: #F0F0F0;
+                border-radius: 12px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover { background-color: #0078D7; }
+        """)
+        help_btn.setToolTip(self._t("dialog.veiligheid_titel"))
+        help_btn.clicked.connect(self._show_safety_help)
+        safety_row.addWidget(help_btn)
+        safety_row.addStretch()
+
+        safety_layout.addLayout(safety_row)
 
         # Toon de 9 vaste waarschuwingen
         for i in range(1, 10):
@@ -392,3 +421,17 @@ class EsrTestScreen(QWidget):
         self.in_circuit_check.setChecked(False)
         self.open_connection_check.setChecked(False)
         self.result_group.setVisible(False)
+        
+    def _show_safety_help(self):
+        """Toont een popup met de volledige veiligheidstekst."""
+        waarschuwingen = []
+        for i in range(1, 10):
+            waarschuwingen.append(f"• {self._t(f'veiligheid.waarschuwing_{i}')}")
+        tekst = "<br><br>".join(waarschuwingen)
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle(self._t("dialog.veiligheid_titel"))
+        msg.setTextFormat(Qt.TextFormat.RichText)
+        msg.setText(f"<h3>{self._t('scherm.veiligheid')}</h3><p>{tekst}</p>")
+        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg.exec()

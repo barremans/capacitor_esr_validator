@@ -157,5 +157,16 @@
     "veiligheid_verplicht": "Bevestig eerst de veiligheidsstappen.",
     "titel": "Fout",
     "onverwacht": "Onverwachte fout: {bericht}"
+  },
+    "dialog": {
+    "veiligheid_titel": "Veiligheidsinstructies",
+    "help_titel": "Help",
+    "changelog_titel": "Changelog",
+    "over_titel": "Over",
+    "over_tekst": "<h2>Condensator- en ESR-validator</h2><p>Versie 1.1.0</p><p>Een tool voor het indicatief beoordelen van condensatormetingen.</p><p>Geen formele veiligheidsvrijgave.</p>"
+  },
+  "tool": {
+    "esr": "ESR-validator",
+    "esr_omschrijving": "Condensator- en ESR-metingen invoeren en beoordelen"
   }
 }
