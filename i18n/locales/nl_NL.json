@@ -1,5 +1,5 @@
 {
-  "_comment": "Brontaal (Nederlands). Volledig; alle andere taalbestanden vallen op ontbrekende sleutels op dit bestand terug.",
+  "_comment": "Brontaal Nederlands. v1.2: compacte ESR-GUI, meetmethoden, out-of-range en detailweergave.",
   "app": {
     "titel": "Condensator- en ESR-validator"
   },
@@ -21,7 +21,8 @@
     "veiligheid": "Veiligheid",
     "waarschuwingen": "Waarschuwingen",
     "meetcontext": "Meetcontext",
-    "meetwaarden": "Meetwaarden"
+    "meetwaarden": "Meetwaarden",
+    "condensator": "Condensator"
   },
   "veld": {
     "nominale_capaciteit": "Nominale capaciteit",
@@ -40,7 +41,9 @@
     "fabrikant": "Fabrikant",
     "serie": "Serie",
     "open_verbinding": "Open verbinding of kortsluiting vermoed",
-    "veiligheid_bevestigd": "Schakeling is spanningsloos en condensator is veilig ontladen"
+    "veiligheid_bevestigd": "Schakeling is spanningsloos en condensator is veilig ontladen",
+    "meetmethode": "Meetmethode",
+    "buiten_bereik": "OL / buiten meetbereik"
   },
   "placeholder": {
     "d_waarde": "0.05 (optioneel)"
@@ -49,7 +52,10 @@
     "beoordeel": "Beoordeel",
     "wissen": "Wissen",
     "sluiten": "Sluiten",
-    "kopieer": "Kopieer resultaat"
+    "kopieer": "Kopieer resultaat",
+    "help": "?",
+    "veiligheidsinstructies": "Veiligheidsinstructies",
+    "details": "Details"
   },
   "veiligheid": {
     "waarschuwing_1": "Meet nooit aan een onder spanning staande schakeling.",
@@ -63,7 +69,10 @@
     "waarschuwing_9": "De app is geen formele veiligheidsvrijgave.",
     "frequentie_wijkt_af": "Referentiefrequentie wijkt af van de meetfrequentie — geen automatische omrekening uitgevoerd.",
     "in_circuit": "Meting is in-circuit uitgevoerd; resultaat is minder betrouwbaar.",
-    "eenhedenfout": "Sterke aanwijzing voor een eenhedenfout in C, ESR of D — controleer de invoer."
+    "eenhedenfout": "Sterke aanwijzing voor een eenhedenfout in C, ESR of D — controleer de invoer.",
+    "one_leg": "Meting met één aansluiting los; betrouwbaarder dan volledig in-circuit, maar nog contextafhankelijk.",
+    "referentietype_wijkt_af": "Het condensatortype van de referentie wijkt af van het te beoordelen component.",
+    "buiten_bereik": "Het meettoestel geeft een waarde buiten meetbereik/OL aan; numerieke beoordeling is niet betrouwbaar."
   },
   "status": {
     "capaciteit": {
@@ -127,7 +136,9 @@
     "typisch_niet_maximaal": "referentiewaarde is een typische waarde, geen maximum",
     "fabrikant_serie_onbekend": "fabrikant en/of serie onbekend",
     "mogelijke_inconsistentie": "mogelijke inconsistentie tussen C, ESR en D gesignaleerd",
-    "geen_verlagende_factoren": "geen verlagende factoren"
+    "geen_verlagende_factoren": "geen verlagende factoren",
+    "one_leg": "meting met één aansluiting los: betrouwbaarheid maximaal middel",
+    "referentietype_wijkt_af": "referentietype wijkt af van condensatortype"
   },
   "eindstatus_reden": {
     "invoer_onvolledig": "Invoer onvolledig of geen meting gestart.",
@@ -139,7 +150,8 @@
     "betrouwbaarheid_label": "Betrouwbaarheid: {niveau}.",
     "betrouwbaarheid_met_factoren": "Betrouwbaarheid: {niveau} ({factoren}).",
     "meerdere_criteria": "Meerdere onafhankelijke criteria wijzen op een defect:",
-    "geen_striktere_regel": "Geen van de striktere regels was eenduidig van toepassing; voorzichtigheidshalve als aandachtspunt beoordeeld."
+    "geen_striktere_regel": "Geen van de striktere regels was eenduidig van toepassing; voorzichtigheidshalve als aandachtspunt beoordeeld.",
+    "buiten_bereik": "Minstens één meetwaarde ligt buiten het meetbereik of wordt als OL weergegeven."
   },
   "eindstatus_vervolgstap": {
     "vul_aan": "Vul de ontbrekende gegevens aan.",
@@ -149,7 +161,8 @@
     "vergelijk_of_ontkoppel": "Vergelijk met een identiek nieuw exemplaar of neem een aansluiting los voor een nauwkeurigere meting.",
     "herhaal_meting": "Herhaal de meting indien mogelijk met een betrouwbaardere referentie of meetopstelling.",
     "geen_actie": "Geen verdere actie nodig; blijf periodiek controleren indien dit een kritisch onderdeel is.",
-    "controleer_handmatig": "Controleer de individuele deelresultaten handmatig."
+    "controleer_handmatig": "Controleer de individuele deelresultaten handmatig.",
+    "controleer_meetbereik": "Controleer meetbereik, aansluiting en toestelinstelling; herhaal de meting."
   },
   "fout": {
     "ongeldig_getal": "Ongeldig getal: {waarde}",
@@ -158,15 +171,37 @@
     "titel": "Fout",
     "onverwacht": "Onverwachte fout: {bericht}"
   },
-    "dialog": {
+  "dialog": {
     "veiligheid_titel": "Veiligheidsinstructies",
     "help_titel": "Help",
     "changelog_titel": "Changelog",
     "over_titel": "Over",
-    "over_tekst": "<h2>Condensator- en ESR-validator</h2><p>Versie 1.1.0</p><p>Een tool voor het indicatief beoordelen van condensatormetingen.</p><p>Geen formele veiligheidsvrijgave.</p>"
+    "over_tekst": "<h2>Condensator- en ESR-validator</h2><p>Versie 1.1.0</p><p>Een tool voor het indicatief beoordelen van condensatormetingen.</p><p>Geen formele veiligheidsvrijgave.</p>",
+    "resultaat_details": "Resultaatdetails"
   },
   "tool": {
     "esr": "ESR-validator",
     "esr_omschrijving": "Condensator- en ESR-metingen invoeren en beoordelen"
+  },
+  "meetmethode": {
+    "ex_situ": "Volledig uitgebouwd",
+    "one_leg": "Één aansluiting los",
+    "in_circuit": "In-circuit",
+    "uitleg_ex_situ": "Meest betrouwbare opstelling: component volledig los van de schakeling.",
+    "uitleg_one_leg": "Goede praktische tussenstap: parallelle circuitpaden zijn grotendeels onderbroken.",
+    "uitleg_in_circuit": "Indicatieve meting: parallelle componenten kunnen capaciteit en ESR beïnvloeden."
+  },
+  "tooltip": {
+    "buiten_bereik": "Gebruik dit wanneer het meettoestel OL, overrange of under-range aangeeft."
+  },
+  "resultaat": {
+    "samenvatting": "Betrouwbaarheid: {betrouwbaarheid}   |   C-afwijking: {cap_afwijking}   |   ESR-factor: {esr_factor}\nAdvies: {advies}",
+    "eindstatus": "Eindstatus",
+    "capaciteit": "Capaciteit",
+    "esr": "ESR",
+    "consistentie": "C-ESR-D-consistentie",
+    "betrouwbaarheid": "Betrouwbaarheid",
+    "redenen": "Redenen",
+    "vervolgstap": "Aanbevolen vervolgstap"
   }
 }

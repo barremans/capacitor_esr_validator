@@ -2,436 +2,559 @@
 ================================================================================
 Module:     app/gui/esr_test_screen.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.1.0
-Datum:      2026-08-12
+Versie:     1.2.0
+Datum:      2026-09-26
 Auteur:     Ontwikkelaar
 
-Doel:       Het ESR-testscherm — invoer van meetwaarden, veiligheidscheck,
-            en weergave van het beoordelingsresultaat.
+Doel:       Compact ESR-diagnosescherm voor nominale gegevens, meetcontext,
+            meetwaarden en transparante beoordeling zonder primaire scrollbar.
 
 Wijzigingen:
   v1.0.0 (2026-08-11)  Initiele versie.
-  v1.1.0 (2026-08-12)  Alle hardcoded strings vervangen door vertaalbare
-                       sleutels via self._t(). Placeholders, foutmeldingen,
-                       groupbox-titels en statusbartekst zijn nu vertaald.
+  v1.1.0 (2026-08-12)  Alle GUI-teksten via i18n-sleutels.
+  v1.2.0 (2026-09-26)  GUI compact herwerkt zonder QScrollArea; vaste
+                       veiligheidstekst achter knop; drie exclusieve
+                       meetmethoden toegevoegd; numerieke velden versmald;
+                       OL/out-of-range toegevoegd; resultaat samengevat met
+                       afzonderlijke detaildialoog.
+
+Versiebeheer:
+  - MAJOR: incompatibele architectuur/API-wijziging.
+  - MINOR: nieuwe functionaliteit met behoud van projectdoel.
+  - PATCH: bugfix/refactor zonder functionele uitbreiding.
+  - Bij elke wijziging: Versie, Datum en Wijzigingen hierboven bijwerken.
 ================================================================================
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QLabel, QLineEdit, QComboBox, QCheckBox,
-    QPushButton, QGroupBox, QScrollArea, QFrame,
-    QMessageBox, QTextEdit,
-)
-from PySide6.QtCore import Qt
+from __future__ import annotations
 
-from app.helpers.i18n import vertaal
-from app.helpers.units import parse_decimaal
-from app.services.assessment_service import beoordeel_meting, status_label
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTextBrowser,
+    QVBoxLayout,
+    QWidget,
+)
+
 from app.config.settings import (
-    EENHEDEN_CAPACITEIT, EENHEDEN_ESR, MEETFREQUENTIES_HZ,
     CONDENSATORTYPES,
+    EENHEDEN_CAPACITEIT,
+    EENHEDEN_ESR,
+    MEETFREQUENTIES_HZ,
 )
 from app.data.references import zoek_referentie
 from app.gui.styles import (
-    STATUS_COLORS, RESULT_STATUS_STYLE, ASSESS_BUTTON_STYLE,
-    SAFETY_WARNING_STYLE, GROUP_BOX_STYLE,
+    ASSESS_BUTTON_STYLE,
+    GROUP_BOX_STYLE,
+    RESULT_STATUS_STYLE,
+    STATUS_COLORS,
+)
+from app.helpers.i18n import vertaal
+from app.helpers.units import parse_decimaal
+from app.services.assessment_service import (
+    Meetmethode,
+    beoordeel_meting,
+    status_label,
 )
 
 
-class EsrTestScreen(QWidget):
-    """Het ESR-testscherm met invoer, veiligheidscheck en resultaatweergave."""
+NUMERIC_WIDTH = 115
+UNIT_WIDTH = 80
+TEXT_WIDTH = 190
+COMBO_WIDTH = 220
 
-    def __init__(self, taal="nl_NL", parent=None):
+
+class EsrTestScreen(QWidget):
+    """Compacte ESR-diagnose-interface."""
+
+    def __init__(self, taal: str = "nl_NL", parent=None):
         super().__init__(parent)
         self.taal = taal
+        self._laatste_resultaat_html = ""
         self._build_ui()
-        
-        # Dynamische venstergrootte: maximaal schermhoogte - 40 px
-        from PySide6.QtGui import QScreen
-        screen = QScreen.availableGeometry(self.screen() or QApplication.primaryScreen())
-        max_h = screen.height() - 40
-        self.setMaximumHeight(max_h)
-        self.resize(min(950, screen.width() - 100), min(800, max_h))
+        self.setMinimumSize(1040, 620)
+        self.resize(1120, 690)
 
-    def _t(self, sleutel, **kwargs):
-        """Korte hulp voor vertalingen."""
+    def _t(self, sleutel: str, **kwargs) -> str:
         return vertaal(sleutel, taal=self.taal, **kwargs)
 
-    def _build_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setSpacing(12)
-        layout.setContentsMargins(16, 16, 16, 16)
+    @staticmethod
+    def _set_numeric_width(widget: QWidget) -> None:
+        widget.setFixedWidth(NUMERIC_WIDTH)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
+    @staticmethod
+    def _set_unit_width(widget: QWidget) -> None:
+        widget.setFixedWidth(UNIT_WIDTH)
 
-        container = QWidget()
-        container_layout = QVBoxLayout(container)
-        container_layout.setSpacing(12)
+    def _build_ui(self) -> None:
+        root = QVBoxLayout(self)
+        root.setContentsMargins(14, 14, 14, 14)
+        root.setSpacing(10)
 
-        # === VEILIGHEIDSWAARSCHUWINGEN ===
-        # === VEILIGHEIDSWAARSCHUWINGEN ===
-        safety_group = QGroupBox(self._t("scherm.veiligheid"))
-        safety_group.setStyleSheet(GROUP_BOX_STYLE)
-        safety_layout = QVBoxLayout(safety_group)
+        root.addLayout(self._build_safety_row())
 
-        # Checkbox + ?-knop in één rij
-        safety_row = QHBoxLayout()
-        self.safety_check = QCheckBox(self._t("veld.veiligheid_bevestigd"))
-        self.safety_check.setStyleSheet("font-weight: bold; color: #FF9800;")
-        safety_row.addWidget(self.safety_check)
+        columns = QHBoxLayout()
+        columns.setSpacing(10)
+        columns.addWidget(self._build_component_group(), 1)
+        columns.addWidget(self._build_context_group(), 1)
+        columns.addWidget(self._build_measurement_group(), 1)
+        root.addLayout(columns)
 
-        help_btn = QPushButton(self._t("knop.help"))
-        help_btn.setFixedSize(24, 24)
-        help_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #555;
-                color: #F0F0F0;
-                border-radius: 12px;
-                font-weight: bold;
-                font-size: 12px;
-            }
-            QPushButton:hover { background-color: #0078D7; }
-        """)
-        help_btn.setToolTip(self._t("dialog.veiligheid_titel"))
+        root.addLayout(self._build_action_row())
+        root.addWidget(self._build_result_group())
+        root.addStretch(1)
+
+    def _build_safety_row(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+
+        self.safety_check = QPushButton(self._t("veld.veiligheid_bevestigd"))
+        self.safety_check.setCheckable(True)
+        self.safety_check.setMinimumHeight(34)
+        self.safety_check.setStyleSheet(
+            "QPushButton { font-weight: 600; padding: 6px 10px; }"
+            "QPushButton:checked { background-color: #245c35; }"
+        )
+        row.addWidget(self.safety_check, 1)
+
+        help_btn = QPushButton(self._t("knop.veiligheidsinstructies"))
+        help_btn.setMinimumHeight(34)
         help_btn.clicked.connect(self._show_safety_help)
-        safety_row.addWidget(help_btn)
-        safety_row.addStretch()
+        row.addWidget(help_btn)
 
-        safety_layout.addLayout(safety_row)
+        return row
 
-        # Toon de 9 vaste waarschuwingen
-        for i in range(1, 10):
-            lbl = QLabel(f"  • {self._t(f'veiligheid.waarschuwing_{i}')}")
-            lbl.setWordWrap(True)
-            lbl.setStyleSheet(SAFETY_WARNING_STYLE)
-            safety_layout.addWidget(lbl)
+    def _build_component_group(self) -> QGroupBox:
+        group = QGroupBox(self._t("scherm.condensator"))
+        group.setStyleSheet(GROUP_BOX_STYLE)
+        grid = QGridLayout(group)
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(8)
 
-        container_layout.addWidget(safety_group)
-
-        # === NOMINALE GEGEVENS ===
-        nominal_group = QGroupBox(self._t("veld.nominale_capaciteit"))
-        nominal_group.setStyleSheet(GROUP_BOX_STYLE)
-        nominal_layout = QGridLayout(nominal_group)
-        nominal_layout.setSpacing(8)
-
-        # Nominale capaciteit
-        nominal_layout.addWidget(QLabel(self._t("veld.nominale_capaciteit")), 0, 0)
+        grid.addWidget(QLabel(self._t("veld.nominale_capaciteit")), 0, 0)
         self.nom_cap_input = QLineEdit()
         self.nom_cap_input.setPlaceholderText("470")
-        nominal_layout.addWidget(self.nom_cap_input, 0, 1)
+        self._set_numeric_width(self.nom_cap_input)
+        grid.addWidget(self.nom_cap_input, 0, 1)
 
         self.nom_cap_unit = QComboBox()
         self.nom_cap_unit.addItems(EENHEDEN_CAPACITEIT)
         self.nom_cap_unit.setCurrentText("µF")
-        nominal_layout.addWidget(self.nom_cap_unit, 0, 2)
+        self._set_unit_width(self.nom_cap_unit)
+        grid.addWidget(self.nom_cap_unit, 0, 2)
 
-        # Tolerantie
-        nominal_layout.addWidget(QLabel(self._t("veld.tolerantie")), 1, 0)
+        grid.addWidget(QLabel(self._t("veld.tolerantie")), 1, 0)
         self.tolerance_input = QLineEdit()
         self.tolerance_input.setPlaceholderText("20")
-        nominal_layout.addWidget(self.tolerance_input, 1, 1)
-        nominal_layout.addWidget(QLabel("%"), 1, 2)
+        self._set_numeric_width(self.tolerance_input)
+        grid.addWidget(self.tolerance_input, 1, 1)
+        grid.addWidget(QLabel("%"), 1, 2)
 
-        # Nominale spanning
-        nominal_layout.addWidget(QLabel(self._t("veld.nominale_spanning")), 2, 0)
+        grid.addWidget(QLabel(self._t("veld.nominale_spanning")), 2, 0)
         self.nom_voltage_input = QLineEdit()
         self.nom_voltage_input.setPlaceholderText("25")
-        nominal_layout.addWidget(self.nom_voltage_input, 2, 1)
-        nominal_layout.addWidget(QLabel("V"), 2, 2)
+        self._set_numeric_width(self.nom_voltage_input)
+        grid.addWidget(self.nom_voltage_input, 2, 1)
+        grid.addWidget(QLabel("V"), 2, 2)
 
-        # Condensatortype
-        nominal_layout.addWidget(QLabel(self._t("veld.condensatortype")), 3, 0)
+        grid.addWidget(QLabel(self._t("veld.condensatortype")), 3, 0)
         self.type_combo = QComboBox()
         self.type_combo.addItems(CONDENSATORTYPES)
-        nominal_layout.addWidget(self.type_combo, 3, 1, 1, 2)
+        self.type_combo.setFixedWidth(COMBO_WIDTH)
+        grid.addWidget(self.type_combo, 3, 1, 1, 2)
 
-        # Fabrikant
-        nominal_layout.addWidget(QLabel(self._t("veld.fabrikant")), 4, 0)
+        grid.addWidget(QLabel(self._t("veld.fabrikant")), 4, 0)
         self.mfg_input = QLineEdit()
-        nominal_layout.addWidget(self.mfg_input, 4, 1, 1, 2)
+        self.mfg_input.setFixedWidth(TEXT_WIDTH)
+        grid.addWidget(self.mfg_input, 4, 1, 1, 2)
 
-        # Serie
-        nominal_layout.addWidget(QLabel(self._t("veld.serie")), 5, 0)
+        grid.addWidget(QLabel(self._t("veld.serie")), 5, 0)
         self.series_input = QLineEdit()
-        nominal_layout.addWidget(self.series_input, 5, 1, 1, 2)
+        self.series_input.setFixedWidth(TEXT_WIDTH)
+        grid.addWidget(self.series_input, 5, 1, 1, 2)
 
-        container_layout.addWidget(nominal_group)
+        grid.setColumnStretch(3, 1)
+        return group
 
-        # === MEETCONTEXT ===
-        context_group = QGroupBox(self._t("scherm.meetcontext"))
-        context_group.setStyleSheet(GROUP_BOX_STYLE)
-        context_layout = QGridLayout(context_group)
-        context_layout.setSpacing(8)
+    def _build_context_group(self) -> QGroupBox:
+        group = QGroupBox(self._t("scherm.meetcontext"))
+        group.setStyleSheet(GROUP_BOX_STYLE)
+        grid = QGridLayout(group)
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(8)
 
-        # Meetfrequentie
-        context_layout.addWidget(QLabel(self._t("veld.meetfrequentie")), 0, 0)
+        grid.addWidget(QLabel(self._t("veld.meetmethode")), 0, 0)
+        self.method_combo = QComboBox()
+        self.method_combo.addItem(
+            self._t("meetmethode.ex_situ"), Meetmethode.EX_SITU.value
+        )
+        self.method_combo.addItem(
+            self._t("meetmethode.one_leg"), Meetmethode.ONE_LEG.value
+        )
+        self.method_combo.addItem(
+            self._t("meetmethode.in_circuit"), Meetmethode.IN_CIRCUIT.value
+        )
+        self.method_combo.setFixedWidth(COMBO_WIDTH)
+        grid.addWidget(self.method_combo, 0, 1, 1, 2)
+
+        grid.addWidget(QLabel(self._t("veld.meetfrequentie")), 1, 0)
         self.freq_combo = QComboBox()
-        self.freq_combo.addItems([f"{f} Hz" for f in MEETFREQUENTIES_HZ])
-        self.freq_combo.setCurrentText("1000 Hz")
-        context_layout.addWidget(self.freq_combo, 0, 1)
+        for freq in MEETFREQUENTIES_HZ:
+            self.freq_combo.addItem(f"{freq:g} Hz", freq)
+        idx = self.freq_combo.findData(1000)
+        if idx >= 0:
+            self.freq_combo.setCurrentIndex(idx)
+        self.freq_combo.setFixedWidth(COMBO_WIDTH)
+        grid.addWidget(self.freq_combo, 1, 1, 1, 2)
 
-        # In-circuit
-        self.in_circuit_check = QCheckBox(self._t("veld.in_circuit"))
-        context_layout.addWidget(self.in_circuit_check, 1, 0, 1, 2)
-
-        # Temperatuur
-        context_layout.addWidget(QLabel(self._t("veld.omgevingstemperatuur")), 2, 0)
+        grid.addWidget(QLabel(self._t("veld.omgevingstemperatuur")), 2, 0)
         self.temp_input = QLineEdit()
         self.temp_input.setPlaceholderText("20")
-        context_layout.addWidget(self.temp_input, 2, 1)
-        context_layout.addWidget(QLabel("°C"), 2, 2)
+        self._set_numeric_width(self.temp_input)
+        grid.addWidget(self.temp_input, 2, 1)
+        grid.addWidget(QLabel("°C"), 2, 2)
 
-        container_layout.addWidget(context_group)
+        self.method_info = QLabel(self._t("meetmethode.uitleg_ex_situ"))
+        self.method_info.setWordWrap(True)
+        self.method_info.setStyleSheet("color: #AAAAAA; font-size: 11px;")
+        grid.addWidget(self.method_info, 3, 0, 1, 3)
+        self.method_combo.currentIndexChanged.connect(self._update_method_info)
 
-        # === MEETWAARDEN ===
-        measurement_group = QGroupBox(self._t("scherm.meetwaarden"))
-        measurement_group.setStyleSheet(GROUP_BOX_STYLE)
-        measurement_layout = QGridLayout(measurement_group)
-        measurement_layout.setSpacing(8)
+        grid.setRowStretch(4, 1)
+        return group
 
-        # Gemeten capaciteit
-        measurement_layout.addWidget(QLabel(self._t("veld.gemeten_capaciteit")), 0, 0)
+    def _build_measurement_group(self) -> QGroupBox:
+        group = QGroupBox(self._t("scherm.meetwaarden"))
+        group.setStyleSheet(GROUP_BOX_STYLE)
+        grid = QGridLayout(group)
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(8)
+
+        grid.addWidget(QLabel(self._t("veld.gemeten_capaciteit")), 0, 0)
         self.meas_cap_input = QLineEdit()
-        measurement_layout.addWidget(self.meas_cap_input, 0, 1)
+        self._set_numeric_width(self.meas_cap_input)
+        grid.addWidget(self.meas_cap_input, 0, 1)
+
         self.meas_cap_unit = QComboBox()
         self.meas_cap_unit.addItems(EENHEDEN_CAPACITEIT)
         self.meas_cap_unit.setCurrentText("µF")
-        measurement_layout.addWidget(self.meas_cap_unit, 0, 2)
+        self._set_unit_width(self.meas_cap_unit)
+        grid.addWidget(self.meas_cap_unit, 0, 2)
 
-        # Gemeten ESR
-        measurement_layout.addWidget(QLabel(self._t("veld.gemeten_esr")), 1, 0)
+        grid.addWidget(QLabel(self._t("veld.gemeten_esr")), 1, 0)
         self.meas_esr_input = QLineEdit()
-        measurement_layout.addWidget(self.meas_esr_input, 1, 1)
+        self._set_numeric_width(self.meas_esr_input)
+        grid.addWidget(self.meas_esr_input, 1, 1)
+
         self.meas_esr_unit = QComboBox()
         self.meas_esr_unit.addItems(EENHEDEN_ESR)
-        measurement_layout.addWidget(self.meas_esr_unit, 1, 2)
+        self._set_unit_width(self.meas_esr_unit)
+        grid.addWidget(self.meas_esr_unit, 1, 2)
 
-        # D-waarde
-        measurement_layout.addWidget(QLabel(self._t("veld.d_waarde")), 2, 0)
+        grid.addWidget(QLabel(self._t("veld.d_waarde")), 2, 0)
         self.d_input = QLineEdit()
         self.d_input.setPlaceholderText(self._t("placeholder.d_waarde"))
-        measurement_layout.addWidget(self.d_input, 2, 1, 1, 2)
+        self._set_numeric_width(self.d_input)
+        grid.addWidget(self.d_input, 2, 1, 1, 2)
 
-        # Open verbinding vermoed
-        self.open_connection_check = QCheckBox(self._t("veld.open_verbinding"))
-        measurement_layout.addWidget(self.open_connection_check, 3, 0, 1, 3)
+        self.out_of_range_check = QPushButton(self._t("veld.buiten_bereik"))
+        self.out_of_range_check.setCheckable(True)
+        self.out_of_range_check.setToolTip(self._t("tooltip.buiten_bereik"))
+        grid.addWidget(self.out_of_range_check, 3, 0, 1, 3)
 
-        container_layout.addWidget(measurement_group)
+        self.open_connection_check = QPushButton(self._t("veld.open_verbinding"))
+        self.open_connection_check.setCheckable(True)
+        grid.addWidget(self.open_connection_check, 4, 0, 1, 3)
 
-        # === ACTIEKNOPPEN ===
-        button_layout = QHBoxLayout()
+        grid.setRowStretch(5, 1)
+        return group
+
+    def _build_action_row(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+
         self.assess_btn = QPushButton(self._t("knop.beoordeel"))
         self.assess_btn.setStyleSheet(ASSESS_BUTTON_STYLE)
         self.assess_btn.clicked.connect(self._on_assess)
-        button_layout.addWidget(self.assess_btn)
+        row.addWidget(self.assess_btn)
 
-        self.clear_btn = QPushButton(self._t("knop.wissen"))
-        self.clear_btn.clicked.connect(self._on_clear)
-        button_layout.addWidget(self.clear_btn)
+        clear_btn = QPushButton(self._t("knop.wissen"))
+        clear_btn.clicked.connect(self._on_clear)
+        row.addWidget(clear_btn)
 
-        button_layout.addStretch()
-        container_layout.addLayout(button_layout)
+        row.addStretch(1)
+        return row
 
-        # === RESULTAAT ===
+    def _build_result_group(self) -> QGroupBox:
         self.result_group = QGroupBox(self._t("scherm.resultaat"))
         self.result_group.setStyleSheet(GROUP_BOX_STYLE)
         self.result_group.setVisible(False)
-        result_layout = QVBoxLayout(self.result_group)
+
+        layout = QGridLayout(self.result_group)
+        layout.setHorizontalSpacing(12)
 
         self.result_status = QLabel()
         self.result_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.result_status.setStyleSheet(RESULT_STATUS_STYLE.format(color="#9E9E9E"))
-        result_layout.addWidget(self.result_status)
+        self.result_status.setMinimumWidth(220)
+        self.result_status.setStyleSheet(
+            RESULT_STATUS_STYLE.format(color="#9E9E9E")
+        )
+        layout.addWidget(self.result_status, 0, 0, 2, 1)
 
-        self.result_details = QTextEdit()
-        self.result_details.setReadOnly(True)
-        self.result_details.setMinimumHeight(250)
-        result_layout.addWidget(self.result_details)
+        self.result_summary = QLabel()
+        self.result_summary.setWordWrap(True)
+        self.result_summary.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        layout.addWidget(self.result_summary, 0, 1)
 
-        container_layout.addWidget(self.result_group)
+        details_btn = QPushButton(self._t("knop.details"))
+        details_btn.clicked.connect(self._show_result_details)
+        layout.addWidget(details_btn, 1, 1, alignment=Qt.AlignmentFlag.AlignRight)
 
-        container_layout.addStretch()
-        scroll.setWidget(container)
-        layout.addWidget(scroll)
+        layout.setColumnStretch(1, 1)
+        return self.result_group
 
-    def _parse_optional(self, text):
-        """Parst een optioneel getalveld. None bij leeg."""
+    def _update_method_info(self) -> None:
+        method = self.method_combo.currentData()
+        key = {
+            Meetmethode.EX_SITU.value: "meetmethode.uitleg_ex_situ",
+            Meetmethode.ONE_LEG.value: "meetmethode.uitleg_one_leg",
+            Meetmethode.IN_CIRCUIT.value: "meetmethode.uitleg_in_circuit",
+        }.get(method, "meetmethode.uitleg_ex_situ")
+        self.method_info.setText(self._t(key))
+
+    def _parse_optional(self, text: str):
         text = text.strip()
         if not text:
             return None
         try:
             return parse_decimaal(text)
-        except ValueError:
-            raise ValueError(self._t("fout.ongeldig_getal", waarde=text))
+        except ValueError as exc:
+            raise ValueError(
+                self._t("fout.ongeldig_getal", waarde=text)
+            ) from exc
 
-    def _on_assess(self):
-        """Voert de beoordeling uit."""
-        # Controleer veiligheid
+    def _on_assess(self) -> None:
         if not self.safety_check.isChecked():
             QMessageBox.warning(
                 self,
                 self._t("scherm.veiligheid"),
-                self._t("fout.veiligheid_verplicht")
+                self._t("fout.veiligheid_verplicht"),
             )
             return
 
         try:
-            # Parse invoer
             nom_cap = parse_decimaal(self.nom_cap_input.text())
-            nom_cap_unit = self.nom_cap_unit.currentText()
             tolerance = self._parse_optional(self.tolerance_input.text())
             nom_voltage = self._parse_optional(self.nom_voltage_input.text())
 
             meas_cap = parse_decimaal(self.meas_cap_input.text())
-            meas_cap_unit = self.meas_cap_unit.currentText()
             meas_esr = parse_decimaal(self.meas_esr_input.text())
-            meas_esr_unit = self.meas_esr_unit.currentText()
-
             d_value = self._parse_optional(self.d_input.text())
-
-            freq_text = self.freq_combo.currentText()
-            freq_hz = int(freq_text.replace(" Hz", "").replace(" ", ""))
-
             temp = self._parse_optional(self.temp_input.text())
 
             cond_type = self.type_combo.currentText()
-            in_circuit = self.in_circuit_check.isChecked()
+            meetmethode = self.method_combo.currentData()
+            freq_hz = float(self.freq_combo.currentData())
             fabrikant = self.mfg_input.text().strip()
             serie = self.series_input.text().strip()
 
-            # Zoek referentie
             from app.helpers.units import converteer_capaciteit
-            nom_cap_uf = converteer_capaciteit(nom_cap, nom_cap_unit, "µF")
+
+            nom_cap_uf = converteer_capaciteit(
+                nom_cap, self.nom_cap_unit.currentText(), "µF"
+            )
 
             referentie = None
             if cond_type == "Aluminium elektrolytisch" and nom_voltage:
                 referentie = zoek_referentie(nom_cap_uf, nom_voltage)
 
-            # Voer beoordeling uit
             resultaat = beoordeel_meting(
                 nominale_capaciteit=nom_cap,
-                eenheid_nominaal=nom_cap_unit,
+                eenheid_nominaal=self.nom_cap_unit.currentText(),
                 tolerantie_percent=tolerance,
                 gemeten_capaciteit=meas_cap,
-                eenheid_gemeten_capaciteit=meas_cap_unit,
+                eenheid_gemeten_capaciteit=self.meas_cap_unit.currentText(),
                 gemeten_esr=meas_esr,
-                eenheid_gemeten_esr=meas_esr_unit,
+                eenheid_gemeten_esr=self.meas_esr_unit.currentText(),
                 meetfrequentie_hz=freq_hz,
                 D=d_value,
                 condensatortype=cond_type,
-                in_circuit=in_circuit,
+                meetmethode=meetmethode,
                 omgevingstemperatuur_c=temp,
                 veiligheid_bevestigd=True,
                 referentie=referentie,
                 fabrikant_bekend=bool(fabrikant),
                 serie_bekend=bool(serie),
-                vermoedelijke_open_verbinding_of_kortsluiting=self.open_connection_check.isChecked(),
+                vermoedelijke_open_verbinding_of_kortsluiting=(
+                    self.open_connection_check.isChecked()
+                ),
+                meetwaarde_buiten_bereik=self.out_of_range_check.isChecked(),
                 taal=self.taal,
             )
-
             self._show_result(resultaat)
 
-        except ValueError as e:
-            QMessageBox.warning(self, self._t("fout.titel"), str(e))
-        except Exception as e:
+        except ValueError as exc:
+            QMessageBox.warning(self, self._t("fout.titel"), str(exc))
+        except Exception as exc:
             QMessageBox.critical(
                 self,
                 self._t("fout.titel"),
-                self._t("fout.onverwacht", bericht=str(e))
+                self._t("fout.onverwacht", bericht=str(exc)),
             )
 
-    def _show_result(self, resultaat):
-        """Toont het beoordelingsresultaat."""
+    def _show_result(self, resultaat) -> None:
         status_key = resultaat.eindstatus.value
         color = STATUS_COLORS.get(status_key, "#9E9E9E")
+        status_text = status_label(
+            "status.eindstatus", status_key, self.taal
+        )
 
-        status_text = status_label("status.eindstatus", status_key, self.taal)
         self.result_status.setText(status_text.upper())
-        self.result_status.setStyleSheet(RESULT_STATUS_STYLE.format(color=color))
+        self.result_status.setStyleSheet(
+            RESULT_STATUS_STYLE.format(color=color)
+        )
 
-        # Bouw detailtekst
-        details = []
+        reliability = status_label(
+            "status.betrouwbaarheid",
+            resultaat.betrouwbaarheid.niveau.value,
+            self.taal,
+        )
+        cap = resultaat.capaciteit
+        esr = resultaat.esr
 
-        details.append(f"<h3>{self._t('scherm.resultaat')}</h3>")
-        details.append(f"<p><b>Eindstatus:</b> {status_text}</p>")
+        cap_text = (
+            f"{cap.afwijking_percent:+.1f}%"
+            if cap.afwijking_percent is not None
+            else "—"
+        )
+        esr_factor = (
+            f"{esr.factor:.2f}×" if esr.factor is not None else "—"
+        )
 
-        details.append("<h4>Capaciteit</h4>")
-        c = resultaat.capaciteit
-        cap_status = status_label("status.capaciteit", c.status.value, self.taal)
-        details.append(f"<p><b>Status:</b> {cap_status}</p>")
-        details.append(f"<p>{c.toelichting}</p>")
+        self.result_summary.setText(
+            self._t(
+                "resultaat.samenvatting",
+                betrouwbaarheid=reliability,
+                cap_afwijking=cap_text,
+                esr_factor=esr_factor,
+                advies=resultaat.aanbevolen_vervolgstap,
+            )
+        )
 
-        details.append("<h4>ESR</h4>")
-        e = resultaat.esr
-        esr_status = status_label("status.esr", e.status.value, self.taal)
-        details.append(f"<p><b>Status:</b> {esr_status}</p>")
-        if e.toelichting:
-            details.append(f"<p>{e.toelichting}</p>")
-
-        details.append("<h4>Consistentie C-ESR-D</h4>")
-        cons = resultaat.consistentie
-        cons_status = status_label("status.consistentie", cons.status.value, self.taal)
-        details.append(f"<p><b>Status:</b> {cons_status}</p>")
-        details.append(f"<p>{cons.toelichting}</p>")
-
-        details.append("<h4>Betrouwbaarheid</h4>")
-        b = resultaat.betrouwbaarheid
-        betr_status = status_label("status.betrouwbaarheid", b.niveau.value, self.taal)
-        details.append(f"<p><b>Niveau:</b> {betr_status}</p>")
-        if b.verlagende_factoren:
-            details.append("<ul>")
-            for factor in b.verlagende_factoren:
-                details.append(f"<li>{factor}</li>")
-            details.append("</ul>")
-
-        details.append("<h4>Redenen</h4>")
-        details.append("<ul>")
-        for reden in resultaat.redenen:
-            details.append(f"<li>{reden}</li>")
-        details.append("</ul>")
-
-        details.append("<h4>Aanbevolen vervolgstap</h4>")
-        details.append(f"<p>{resultaat.aanbevolen_vervolgstap}</p>")
-
-        if resultaat.waarschuwingen:
-            details.append(f"<h4>{self._t('scherm.waarschuwingen')}</h4>")
-            details.append("<ul>")
-            for w in resultaat.waarschuwingen:
-                details.append(f"<li>{w}</li>")
-            details.append("</ul>")
-
-        self.result_details.setHtml("\n".join(details))
+        self._laatste_resultaat_html = self._build_result_html(resultaat)
         self.result_group.setVisible(True)
 
-    def _on_clear(self):
-        """Wist alle velden."""
-        self.nom_cap_input.clear()
-        self.tolerance_input.clear()
-        self.nom_voltage_input.clear()
-        self.mfg_input.clear()
-        self.series_input.clear()
-        self.meas_cap_input.clear()
-        self.meas_esr_input.clear()
-        self.d_input.clear()
-        self.temp_input.clear()
+    def _build_result_html(self, resultaat) -> str:
+        status_text = status_label(
+            "status.eindstatus", resultaat.eindstatus.value, self.taal
+        )
+        c = resultaat.capaciteit
+        e = resultaat.esr
+        cons = resultaat.consistentie
+        b = resultaat.betrouwbaarheid
+
+        html = [
+            f"<h2>{self._t('scherm.resultaat')}</h2>",
+            f"<p><b>{self._t('resultaat.eindstatus')}:</b> {status_text}</p>",
+            f"<h3>{self._t('resultaat.capaciteit')}</h3>",
+            f"<p>{c.toelichting}</p>",
+            f"<h3>{self._t('resultaat.esr')}</h3>",
+            f"<p>{e.toelichting}</p>",
+            f"<h3>{self._t('resultaat.consistentie')}</h3>",
+            f"<p>{cons.toelichting}</p>",
+            f"<h3>{self._t('resultaat.betrouwbaarheid')}</h3>",
+            f"<p>{status_label('status.betrouwbaarheid', b.niveau.value, self.taal)}</p>",
+        ]
+
+        if b.verlagende_factoren:
+            html.append("<ul>")
+            html.extend(f"<li>{x}</li>" for x in b.verlagende_factoren)
+            html.append("</ul>")
+
+        html.append(f"<h3>{self._t('resultaat.redenen')}</h3><ul>")
+        html.extend(f"<li>{x}</li>" for x in resultaat.redenen)
+        html.append("</ul>")
+
+        html.append(
+            f"<h3>{self._t('resultaat.vervolgstap')}</h3>"
+            f"<p>{resultaat.aanbevolen_vervolgstap}</p>"
+        )
+
+        if resultaat.waarschuwingen:
+            html.append(
+                f"<h3>{self._t('scherm.waarschuwingen')}</h3><ul>"
+            )
+            html.extend(
+                f"<li>{x}</li>" for x in resultaat.waarschuwingen
+            )
+            html.append("</ul>")
+
+        return "\n".join(html)
+
+    def _show_result_details(self) -> None:
+        if not self._laatste_resultaat_html:
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self._t("dialog.resultaat_details"))
+        dialog.resize(720, 560)
+
+        layout = QVBoxLayout(dialog)
+        browser = QTextBrowser()
+        browser.setHtml(self._laatste_resultaat_html)
+        layout.addWidget(browser)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Close
+        )
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        dialog.exec()
+
+    def _on_clear(self) -> None:
+        for widget in (
+            self.nom_cap_input,
+            self.tolerance_input,
+            self.nom_voltage_input,
+            self.mfg_input,
+            self.series_input,
+            self.meas_cap_input,
+            self.meas_esr_input,
+            self.d_input,
+            self.temp_input,
+        ):
+            widget.clear()
+
+        self.nom_cap_unit.setCurrentText("µF")
+        self.meas_cap_unit.setCurrentText("µF")
         self.safety_check.setChecked(False)
-        self.in_circuit_check.setChecked(False)
+        self.out_of_range_check.setChecked(False)
         self.open_connection_check.setChecked(False)
+        self.method_combo.setCurrentIndex(0)
         self.result_group.setVisible(False)
-        
-    def _show_safety_help(self):
-        """Toont een popup met de volledige veiligheidstekst."""
-        waarschuwingen = []
-        for i in range(1, 10):
-            waarschuwingen.append(f"• {self._t(f'veiligheid.waarschuwing_{i}')}")
-        tekst = "<br><br>".join(waarschuwingen)
+        self._laatste_resultaat_html = ""
+
+    def _show_safety_help(self) -> None:
+        waarschuwingen = [
+            f"• {self._t(f'veiligheid.waarschuwing_{i}')}"
+            for i in range(1, 10)
+        ]
 
         msg = QMessageBox(self)
         msg.setWindowTitle(self._t("dialog.veiligheid_titel"))
         msg.setTextFormat(Qt.TextFormat.RichText)
-        msg.setText(f"<h3>{self._t('scherm.veiligheid')}</h3><p>{tekst}</p>")
+        msg.setText(
+            f"<h3>{self._t('scherm.veiligheid')}</h3>"
+            f"<p>{'<br><br>'.join(waarschuwingen)}</p>"
+        )
         msg.setStandardButtons(QMessageBox.StandardButton.Ok)
         msg.exec()

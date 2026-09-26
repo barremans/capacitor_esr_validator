@@ -1,5 +1,5 @@
 {
-  "_comment": "English translation. Falls back to nl_NL.json for any missing key.",
+  "_comment": "English translation. v1.2: compact ESR GUI, measurement methods, out-of-range and detail view.",
   "app": {
     "titel": "Capacitor and ESR Validator"
   },
@@ -21,7 +21,8 @@
     "veiligheid": "Safety",
     "waarschuwingen": "Warnings",
     "meetcontext": "Measurement context",
-    "meetwaarden": "Measurement values"
+    "meetwaarden": "Measurement values",
+    "condensator": "Capacitor"
   },
   "veld": {
     "nominale_capaciteit": "Nominal capacitance",
@@ -40,7 +41,9 @@
     "fabrikant": "Manufacturer",
     "serie": "Series",
     "open_verbinding": "Suspected open connection or short circuit",
-    "veiligheid_bevestigd": "Circuit is de-energised and capacitor is safely discharged"
+    "veiligheid_bevestigd": "Circuit is de-energised and capacitor is safely discharged",
+    "meetmethode": "Measurement method",
+    "buiten_bereik": "OL / out of range"
   },
   "placeholder": {
     "d_waarde": "0.05 (optional)"
@@ -49,7 +52,10 @@
     "beoordeel": "Assess",
     "wissen": "Clear",
     "sluiten": "Close",
-    "kopieer": "Copy result"
+    "kopieer": "Copy result",
+    "help": "?",
+    "veiligheidsinstructies": "Safety instructions",
+    "details": "Details"
   },
   "veiligheid": {
     "waarschuwing_1": "Never measure on a circuit that is still under voltage.",
@@ -63,7 +69,10 @@
     "waarschuwing_9": "This app is not a formal safety clearance.",
     "frequentie_wijkt_af": "Reference frequency differs from the measurement frequency — no automatic conversion performed.",
     "in_circuit": "Measurement was taken in-circuit; the result is less reliable.",
-    "eenhedenfout": "Strong indication of a unit error in C, ESR, or D — check the entered values."
+    "eenhedenfout": "Strong indication of a unit error in C, ESR, or D — check the entered values.",
+    "one_leg": "Measurement with one terminal disconnected; more reliable than fully in-circuit, but still context-dependent.",
+    "referentietype_wijkt_af": "The reference capacitor type differs from the component being assessed.",
+    "buiten_bereik": "The meter indicates an out-of-range/OL value; numerical assessment is not reliable."
   },
   "status": {
     "capaciteit": {
@@ -127,7 +136,9 @@
     "typisch_niet_maximaal": "reference value is a typical value, not a maximum",
     "fabrikant_serie_onbekend": "manufacturer and/or series unknown",
     "mogelijke_inconsistentie": "possible inconsistency between C, ESR, and D flagged",
-    "geen_verlagende_factoren": "no reducing factors"
+    "geen_verlagende_factoren": "no reducing factors",
+    "one_leg": "one terminal disconnected: reliability capped at medium",
+    "referentietype_wijkt_af": "reference type differs from capacitor type"
   },
   "eindstatus_reden": {
     "invoer_onvolledig": "Input incomplete or no measurement started.",
@@ -139,7 +150,8 @@
     "betrouwbaarheid_label": "Reliability: {niveau}.",
     "betrouwbaarheid_met_factoren": "Reliability: {niveau} ({factoren}).",
     "meerdere_criteria": "Multiple independent criteria indicate a defect:",
-    "geen_striktere_regel": "None of the stricter rules clearly applied; conservatively assessed as a point of attention."
+    "geen_striktere_regel": "None of the stricter rules clearly applied; conservatively assessed as a point of attention.",
+    "buiten_bereik": "At least one measurement is outside the instrument range or displayed as OL."
   },
   "eindstatus_vervolgstap": {
     "vul_aan": "Complete the missing information.",
@@ -149,7 +161,8 @@
     "vergelijk_of_ontkoppel": "Compare with an identical new unit or disconnect one terminal for a more accurate measurement.",
     "herhaal_meting": "Repeat the measurement if possible with a more reliable reference or setup.",
     "geen_actie": "No further action needed; keep monitoring periodically if this is a critical component.",
-    "controleer_handmatig": "Check the individual sub-results manually."
+    "controleer_handmatig": "Check the individual sub-results manually.",
+    "controleer_meetbereik": "Check the measurement range, connections and instrument settings, then repeat the measurement."
   },
   "fout": {
     "ongeldig_getal": "Invalid number: {waarde}",
@@ -159,14 +172,36 @@
     "onverwacht": "Unexpected error: {bericht}"
   },
   "dialog": {
-  "veiligheid_titel": "Safety Instructions",
-  "help_titel": "Help",
-  "changelog_titel": "Changelog",
-  "over_titel": "About",
-  "over_tekst": "<h2>Capacitor and ESR Validator</h2><p>Version 1.1.0</p><p>A tool for the indicative assessment of capacitor measurements.</p><p>Not a formal safety approval.</p>"
-},
-"tool": {
-  "esr": "ESR Validator",
-  "esr_omschrijving": "Enter and assess capacitor and ESR measurements"
-}
+    "veiligheid_titel": "Safety Instructions",
+    "help_titel": "Help",
+    "changelog_titel": "Changelog",
+    "over_titel": "About",
+    "over_tekst": "<h2>Capacitor and ESR Validator</h2><p>Version 1.1.0</p><p>A tool for the indicative assessment of capacitor measurements.</p><p>Not a formal safety approval.</p>",
+    "resultaat_details": "Result details"
+  },
+  "tool": {
+    "esr": "ESR Validator",
+    "esr_omschrijving": "Enter and assess capacitor and ESR measurements"
+  },
+  "meetmethode": {
+    "ex_situ": "Fully removed",
+    "one_leg": "One terminal disconnected",
+    "in_circuit": "In-circuit",
+    "uitleg_ex_situ": "Most reliable setup: component fully isolated from the circuit.",
+    "uitleg_one_leg": "Good practical intermediate setup: most parallel paths are interrupted.",
+    "uitleg_in_circuit": "Indicative measurement: parallel components can affect capacitance and ESR."
+  },
+  "tooltip": {
+    "buiten_bereik": "Use when the meter displays OL, overrange or under-range."
+  },
+  "resultaat": {
+    "samenvatting": "Reliability: {betrouwbaarheid}   |   C deviation: {cap_afwijking}   |   ESR factor: {esr_factor}\nAdvice: {advies}",
+    "eindstatus": "Final status",
+    "capaciteit": "Capacitance",
+    "esr": "ESR",
+    "consistentie": "C-ESR-D consistency",
+    "betrouwbaarheid": "Reliability",
+    "redenen": "Reasons",
+    "vervolgstap": "Recommended next step"
+  }
 }

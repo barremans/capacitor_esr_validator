@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/services/assessment_service.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.0.0
-Datum:      2026-08-11
+Versie:     1.1.0
+Datum:      2026-09-26
 Auteur:     Ontwikkelaar
 
 Doel:       Kernlogica van de indicatieve beoordeling: capaciteitsvalidatie,
@@ -16,6 +16,9 @@ Wijzigingen:
                        C-validatie -> ESR -> consistentie -> betrouwbaarheid
                        -> eindstatus. Alle regels uit validation_rules.md
                        geimplementeerd.
+  v1.1.0 (2026-09-26)  Meetmethode als expliciete enum toegevoegd
+                       (EX_SITU / ONE_LEG / IN_CIRCUIT), out-of-range/OL
+                       toegevoegd en type-mismatch van referenties bewaakt.
 
 Referentie: docs/validation_rules.md (volledig), in het bijzonder:
             §2 referentiehiërarchie, §3 capaciteitsvalidatie,
@@ -80,6 +83,14 @@ class Betrouwbaarheid(str, Enum):
     HOOG = "hoog"
     MIDDEL = "middel"
     LAAG = "laag"
+
+
+class Meetmethode(str, Enum):
+    """Fysieke meetopstelling; exact één waarde per meting."""
+
+    EX_SITU = "EX_SITU"
+    ONE_LEG = "ONE_LEG"
+    IN_CIRCUIT = "IN_CIRCUIT"
 
 
 class Eindstatus(str, Enum):
@@ -455,20 +466,28 @@ def bepaal_betrouwbaarheid(
     meetfrequentie_hz: float,
     omgevingstemperatuur_c: Optional[float],
     condensatortype: str,
-    in_circuit: bool,
+    meetmethode: Meetmethode | str,
     referentie_typisch_of_maximaal: Optional[str],
     fabrikant_bekend: bool,
     serie_bekend: bool,
     consistentie_status: ConsistentieStatus,
+    referentie_condensatortype: Optional[str] = None,
     taal: str = STANDAARD_TAAL,
 ) -> BetrouwbaarheidsResultaat:
-    """Bepaalt de betrouwbaarheid volgens docs/validation_rules.md §6.
+    """Bepaalt betrouwbaarheid uit bronkwaliteit en meetcontext.
 
-    Startniveau volgt uit het referentieniveau (§2): 1-3 -> hoog,
-    4-5 -> middel, 6-7 (of geen referentie) -> laag. Daarna wordt voor
-    elke van toepassing zijnde verlagende voorwaarde één niveau
-    afgetrokken, cumulatief tot een minimum van 'laag'.
+    De meetmethode is geen losse boolean meer:
+    EX_SITU  -> geen extra bovengrens;
+    ONE_LEG  -> betrouwbaarheid maximaal MIDDEL;
+    IN_CIRCUIT -> betrouwbaarheid maximaal LAAG.
+
+    Andere verlagende factoren blijven cumulatief van toepassing.
     """
+
+    try:
+        methode = meetmethode if isinstance(meetmethode, Meetmethode) else Meetmethode(meetmethode)
+    except ValueError as exc:
+        raise ValueError(f"Onbekende meetmethode: {meetmethode}") from exc
 
     if referentieniveau is None:
         start_niveau = Betrouwbaarheid.LAAG
@@ -487,15 +506,22 @@ def bepaal_betrouwbaarheid(
         )
 
     if omgevingstemperatuur_c is None:
-        verlagende_factoren.append(vertaal("betrouwbaarheid_factor.temperatuur_onbekend", taal=taal))
+        verlagende_factoren.append(
+            vertaal("betrouwbaarheid_factor.temperatuur_onbekend", taal=taal)
+        )
 
     if condensatortype != "Aluminium elektrolytisch":
         verlagende_factoren.append(
             vertaal("betrouwbaarheid_factor.condensatortype_onbekend", taal=taal)
         )
 
-    if in_circuit:
-        verlagende_factoren.append(vertaal("betrouwbaarheid_factor.in_circuit", taal=taal))
+    if (
+        referentie_condensatortype
+        and referentie_condensatortype != condensatortype
+    ):
+        verlagende_factoren.append(
+            vertaal("betrouwbaarheid_factor.referentietype_wijkt_af", taal=taal)
+        )
 
     if referentie_typisch_of_maximaal == "typisch":
         verlagende_factoren.append(
@@ -517,10 +543,31 @@ def bepaal_betrouwbaarheid(
 
     ordinaal = _BETROUWBAARHEID_ORDINAAL[start_niveau] - len(verlagende_factoren)
     ordinaal = max(0, ordinaal)
+
+    if methode == Meetmethode.ONE_LEG:
+        verlagende_factoren.append(
+            vertaal("betrouwbaarheid_factor.one_leg", taal=taal)
+        )
+        ordinaal = min(ordinaal, _BETROUWBAARHEID_ORDINAAL[Betrouwbaarheid.MIDDEL])
+    elif methode == Meetmethode.IN_CIRCUIT:
+        verlagende_factoren.append(
+            vertaal("betrouwbaarheid_factor.in_circuit", taal=taal)
+        )
+        ordinaal = _BETROUWBAARHEID_ORDINAAL[Betrouwbaarheid.LAAG]
+
+    # Een bewust gekozen referentie van een ander condensatortype is nooit
+    # betrouwbaarder dan LAAG.
+    if (
+        referentie_condensatortype
+        and referentie_condensatortype != condensatortype
+    ):
+        ordinaal = _BETROUWBAARHEID_ORDINAAL[Betrouwbaarheid.LAAG]
+
     eind_niveau = _ORDINAAL_NAAR_BETROUWBAARHEID[ordinaal]
 
     return BetrouwbaarheidsResultaat(
-        niveau=eind_niveau, verlagende_factoren=tuple(verlagende_factoren)
+        niveau=eind_niveau,
+        verlagende_factoren=tuple(verlagende_factoren),
     )
 
 
@@ -535,6 +582,7 @@ def bepaal_eindstatus(
     veiligheid_bevestigd: bool,
     invoer_volledig: bool = True,
     vermoedelijke_open_verbinding_of_kortsluiting: bool = False,
+    meetwaarde_buiten_bereik: bool = False,
     taal: str = STANDAARD_TAAL,
 ) -> tuple[Eindstatus, tuple[str, ...], str]:
     """Stelt de eindstatus samen uit de deelresultaten
@@ -543,6 +591,13 @@ def bepaal_eindstatus(
 
     Geeft (eindstatus, redenen, aanbevolen_vervolgstap) terug.
     """
+
+    if meetwaarde_buiten_bereik:
+        return (
+            Eindstatus.NIET_TE_BEOORDELEN,
+            (vertaal("eindstatus_reden.buiten_bereik", taal=taal),),
+            vertaal("eindstatus_vervolgstap.controleer_meetbereik", taal=taal),
+        )
 
     if not invoer_volledig:
         return (
@@ -687,24 +742,27 @@ def beoordeel_meting(
     meetfrequentie_hz: float,
     D: Optional[float],
     condensatortype: str,
-    in_circuit: bool,
+    meetmethode: Meetmethode | str,
     omgevingstemperatuur_c: Optional[float],
     veiligheid_bevestigd: bool,
     referentie: Optional[ReferentieContext] = None,
     fabrikant_bekend: bool = False,
     serie_bekend: bool = False,
     vermoedelijke_open_verbinding_of_kortsluiting: bool = False,
+    meetwaarde_buiten_bereik: bool = False,
     invoer_volledig: bool = True,
     instellingen: Optional[BeoordelingsInstellingen] = None,
     taal: str = STANDAARD_TAAL,
 ) -> Beoordeling:
-    """Voert de volledige beoordeling van een meting uit, in de vaste
-    volgorde van docs/validation_rules.md §1, en geeft een volledig
-    transparant Beoordeling-object terug (§18 context), in de gevraagde
-    taal (default Nederlands).
+    """Voert de volledige beoordelingsketen uit.
+
+    `meetmethode` is verplicht en exclusief. `meetwaarde_buiten_bereik`
+    forceert de eindstatus naar NIET_TE_BEOORDELEN; ingevoerde numerieke
+    waarden worden dan alleen als registratie beschouwd.
     """
 
     instellingen = instellingen or laad_instellingen().beoordeling
+    methode = meetmethode if isinstance(meetmethode, Meetmethode) else Meetmethode(meetmethode)
 
     capaciteit_resultaat = beoordeel_capaciteit(
         nominale_capaciteit,
@@ -714,6 +772,13 @@ def beoordeel_meting(
         tolerantie_percent,
         instellingen,
         taal,
+    )
+
+    # Automatische type mismatch wordt niet aanvaard als betrouwbare bron.
+    referentie_type_mismatch = bool(
+        referentie
+        and referentie.condensatortype
+        and referentie.condensatortype != condensatortype
     )
 
     esr_resultaat = beoordeel_esr(
@@ -742,11 +807,12 @@ def beoordeel_meting(
         meetfrequentie_hz=meetfrequentie_hz,
         omgevingstemperatuur_c=omgevingstemperatuur_c,
         condensatortype=condensatortype,
-        in_circuit=in_circuit,
+        meetmethode=methode,
         referentie_typisch_of_maximaal=referentie.typisch_of_maximaal if referentie else None,
         fabrikant_bekend=fabrikant_bekend,
         serie_bekend=serie_bekend,
         consistentie_status=consistentie_resultaat.status,
+        referentie_condensatortype=referentie.condensatortype if referentie else None,
         taal=taal,
     )
 
@@ -758,16 +824,43 @@ def beoordeel_meting(
         veiligheid_bevestigd,
         invoer_volledig,
         vermoedelijke_open_verbinding_of_kortsluiting,
+        meetwaarde_buiten_bereik,
         taal,
     )
 
-    waarschuwingen: list[str] = list(veiligheidswaarschuwingen(taal))
+    waarschuwingen: list[str] = []
+
     if esr_resultaat.frequentie_wijkt_af:
-        waarschuwingen.append(vertaal("veiligheid.frequentie_wijkt_af", taal=taal))
-    if in_circuit:
-        waarschuwingen.append(vertaal("veiligheid.in_circuit", taal=taal))
-    if consistentie_resultaat.status == ConsistentieStatus.STERKE_AANWIJZING_EENHEDENFOUT:
-        waarschuwingen.append(vertaal("veiligheid.eenhedenfout", taal=taal))
+        waarschuwingen.append(
+            vertaal("veiligheid.frequentie_wijkt_af", taal=taal)
+        )
+
+    if methode == Meetmethode.IN_CIRCUIT:
+        waarschuwingen.append(
+            vertaal("veiligheid.in_circuit", taal=taal)
+        )
+    elif methode == Meetmethode.ONE_LEG:
+        waarschuwingen.append(
+            vertaal("veiligheid.one_leg", taal=taal)
+        )
+
+    if referentie_type_mismatch:
+        waarschuwingen.append(
+            vertaal("veiligheid.referentietype_wijkt_af", taal=taal)
+        )
+
+    if meetwaarde_buiten_bereik:
+        waarschuwingen.append(
+            vertaal("veiligheid.buiten_bereik", taal=taal)
+        )
+
+    if (
+        consistentie_resultaat.status
+        == ConsistentieStatus.STERKE_AANWIJZING_EENHEDENFOUT
+    ):
+        waarschuwingen.append(
+            vertaal("veiligheid.eenhedenfout", taal=taal)
+        )
 
     return Beoordeling(
         eindstatus=eindstatus,

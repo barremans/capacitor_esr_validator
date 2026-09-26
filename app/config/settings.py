@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/config/settings.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.0.0
-Datum:      2026-08-11
+Versie:     1.1.0
+Datum:      2026-09-26
 Auteur:     Ontwikkelaar
 
 Doel:       Centrale, aanpasbare instellingen voor de app.
@@ -12,6 +12,8 @@ Doel:       Centrale, aanpasbare instellingen voor de app.
 Wijzigingen:
   v1.0.0 (2026-08-11)  Initiele versie. Configureerbare drempels,
                        vaste keuzelijsten, eenheidsconversiefactoren.
+  v1.1.0 (2026-09-26)  Expliciete meetmethoden toegevoegd: EX_SITU,
+                       ONE_LEG en IN_CIRCUIT.
                        Gebaseerd op docs/validation_rules.md §11.
 
 Referentie: docs/validation_rules.md §11 (Samenvatting configureerbare
@@ -43,6 +45,7 @@ TYPISCH_OF_MAXIMAAL = ("typisch", "maximaal")
 BETROUWBAARHEIDSNIVEAUS = ("hoog", "middel", "laag")
 V_LOSS_EENHEDEN = ("V", "mV", "%", "dimensieloos", "onbekend")
 STABILITEIT_OPTIES = ("stabiel", "schommelt licht", "schommelt sterk", "onbekend")
+MEETMETHODEN = ("EX_SITU", "ONE_LEG", "IN_CIRCUIT")
 
 # Vermenigvuldigingsfactoren t.o.v. de basiseenheid (F voor capaciteit,
 # Ω voor ESR) — gebruikt door app/helpers/units.py, hier gecentraliseerd

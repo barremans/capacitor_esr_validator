@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_assessment.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.0.0
-Datum:      2026-08-11
+Versie:     1.1.0
+Datum:      2026-09-26
 Auteur:     Ontwikkelaar
 
 Doel:       Unit tests voor de assessment_service. Test alle 20 testgevallen
@@ -13,6 +13,9 @@ Wijzigingen:
   v1.0.0 (2026-08-11)  Initiele versie. Tests voor capaciteitsvalidatie,
                        ESR-beoordeling, consistentie, betrouwbaarheid,
                        eindstatus en volledige metingen.
+  v1.1.0 (2026-09-26)  Tests aangepast aan expliciete meetmethode;
+                       tests toegevoegd voor EX_SITU, ONE_LEG,
+                       IN_CIRCUIT en out-of-range.
 ================================================================================
 """
 
@@ -31,6 +34,7 @@ from app.services.assessment_service import (
     Betrouwbaarheid,
     Eindstatus,
     ReferentieContext,
+    Meetmethode,
 )
 
 
@@ -155,14 +159,14 @@ class TestBetrouwbaarheid(unittest.TestCase):
     """Testgevallen 9, 10 uit PROJECT_CONTEXT §22."""
 
     def test_hoog(self):
-        """Testgeval 10: meting met één aansluiting los (niet in-circuit)."""
+        """EX_SITU: volledig uitgebouwd, hoogste meetcontext-betrouwbaarheid."""
         r = bepaal_betrouwbaarheid(
             referentieniveau=1,
             referentiefrequentie_hz=1000,
             meetfrequentie_hz=1000,
             omgevingstemperatuur_c=20,
             condensatortype="Aluminium elektrolytisch",
-            in_circuit=False,
+            meetmethode=Meetmethode.EX_SITU,
             referentie_typisch_of_maximaal="maximaal",
             fabrikant_bekend=True,
             serie_bekend=True,
@@ -178,7 +182,22 @@ class TestBetrouwbaarheid(unittest.TestCase):
             meetfrequentie_hz=1000,
             omgevingstemperatuur_c=20,
             condensatortype="Aluminium elektrolytisch",
-            in_circuit=True,
+            meetmethode=Meetmethode.IN_CIRCUIT,
+            referentie_typisch_of_maximaal="maximaal",
+            fabrikant_bekend=True,
+            serie_bekend=True,
+            consistentie_status=ConsistentieStatus.CONSISTENT,
+        )
+        self.assertEqual(r.niveau, Betrouwbaarheid.LAAG)
+
+    def test_one_leg_maximaal_middel(self):
+        r = bepaal_betrouwbaarheid(
+            referentieniveau=1,
+            referentiefrequentie_hz=1000,
+            meetfrequentie_hz=1000,
+            omgevingstemperatuur_c=20,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.ONE_LEG,
             referentie_typisch_of_maximaal="maximaal",
             fabrikant_bekend=True,
             serie_bekend=True,
@@ -194,7 +213,7 @@ class TestBetrouwbaarheid(unittest.TestCase):
             meetfrequentie_hz=1000,
             omgevingstemperatuur_c=None,
             condensatortype="Anders",
-            in_circuit=True,
+            meetmethode=Meetmethode.IN_CIRCUIT,
             referentie_typisch_of_maximaal="typisch",
             fabrikant_bekend=False,
             serie_bekend=False,
@@ -218,7 +237,8 @@ class TestEindstatus(unittest.TestCase):
         cons = controleer_consistentie(100, "µF", 0.08, "Ω", None, 1000)
         betr = bepaal_betrouwbaarheid(
             1, 1000, 1000, 20, "Aluminium elektrolytisch",
-            False, "maximaal", True, True, ConsistentieStatus.NIET_BEOORDEELD
+            Meetmethode.EX_SITU, "maximaal", True, True,
+            ConsistentieStatus.NIET_BEOORDEELD
         )
         status, redenen, stap = bepaal_eindstatus(cap, esr, cons, betr, True)
         self.assertEqual(status, Eindstatus.WAARSCHIJNLIJK_GOED)
@@ -235,7 +255,8 @@ class TestEindstatus(unittest.TestCase):
         cons = controleer_consistentie(100, "µF", 0.08, "Ω", None, 1000)
         betr = bepaal_betrouwbaarheid(
             1, 1000, 1000, 20, "Aluminium elektrolytisch",
-            False, "maximaal", True, True, ConsistentieStatus.NIET_BEOORDEELD
+            Meetmethode.EX_SITU, "maximaal", True, True,
+            ConsistentieStatus.NIET_BEOORDEELD
         )
         status, redenen, stap = bepaal_eindstatus(cap, esr, cons, betr, False)
         self.assertEqual(status, Eindstatus.NIET_TE_BEOORDELEN)
@@ -262,7 +283,7 @@ class TestVolledigeMeting(unittest.TestCase):
             meetfrequentie_hz=1000,
             D=0.05,
             condensatortype="Aluminium elektrolytisch",
-            in_circuit=False,
+            meetmethode=Meetmethode.EX_SITU,
             omgevingstemperatuur_c=20,
             veiligheid_bevestigd=True,
             referentie=ref,
@@ -292,7 +313,7 @@ class TestVolledigeMeting(unittest.TestCase):
             meetfrequentie_hz=1000,
             D=None,
             condensatortype="Aluminium elektrolytisch",
-            in_circuit=False,
+            meetmethode=Meetmethode.EX_SITU,
             omgevingstemperatuur_c=20,
             veiligheid_bevestigd=True,
             referentie=ref,
@@ -301,6 +322,38 @@ class TestVolledigeMeting(unittest.TestCase):
         )
         # ESR factor = 0.5Ω / 0.12Ω = 4.17 -> waarschijnlijk defect
         self.assertEqual(resultaat.esr.status, EsrStatus.WAARSCHIJNLIJK_DEFECT)
+
+
+    def test_out_of_range_geeft_niet_te_beoordelen(self):
+        ref = ReferentieContext(
+            esr_waarde=120,
+            eenheid="mΩ",
+            bron="Test",
+            referentieniveau=1,
+            frequentie_hz=1000,
+            typisch_of_maximaal="maximaal",
+            condensatortype="Aluminium elektrolytisch",
+        )
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=470,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=470,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=0.1,
+            eenheid_gemeten_esr="Ω",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=ref,
+            fabrikant_bekend=True,
+            serie_bekend=True,
+            meetwaarde_buiten_bereik=True,
+        )
+        self.assertEqual(resultaat.eindstatus, Eindstatus.NIET_TE_BEOORDELEN)
 
 
 if __name__ == "__main__":
