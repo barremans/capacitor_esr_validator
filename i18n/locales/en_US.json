@@ -1,5 +1,5 @@
 {
-  "_comment": "English translation. v1.2: compact ESR GUI, measurement methods, out-of-range and detail view.",
+  "_comment": "English translation. v1.5.1: result summary split across three real lines.",
   "app": {
     "titel": "Capacitor and ESR Validator"
   },
@@ -13,7 +13,10 @@
     "test": "Test",
     "esr_test": "ESR Test",
     "help": "Help",
-    "over": "About"
+    "over": "About",
+    "instellingen": "Settings",
+    "talen": "Languages",
+    "changelog": "Changelog"
   },
   "scherm": {
     "esr_test": "ESR Test",
@@ -43,7 +46,8 @@
     "open_verbinding": "Suspected open connection or short circuit",
     "veiligheid_bevestigd": "Circuit is de-energised and capacitor is safely discharged",
     "meetmethode": "Measurement method",
-    "buiten_bereik": "OL / out of range"
+    "buiten_bereik": "OL / out of range",
+    "meetinstrument": "Instrument"
   },
   "placeholder": {
     "d_waarde": "0.05 (optional)"
@@ -55,7 +59,8 @@
     "kopieer": "Copy result",
     "help": "?",
     "veiligheidsinstructies": "Safety instructions",
-    "details": "Details"
+    "details": "Details",
+    "terug": "← Back"
   },
   "veiligheid": {
     "waarschuwing_1": "Never measure on a circuit that is still under voltage.",
@@ -181,7 +186,8 @@
   },
   "tool": {
     "esr": "ESR Validator",
-    "esr_omschrijving": "Enter and assess capacitor and ESR measurements"
+    "esr_omschrijving": "Enter and assess capacitor and ESR measurements",
+    "toekomstig": "Future tool"
   },
   "meetmethode": {
     "ex_situ": "Fully removed",
@@ -192,7 +198,9 @@
     "uitleg_in_circuit": "Indicative measurement: parallel components can affect capacitance and ESR."
   },
   "tooltip": {
-    "buiten_bereik": "Use when the meter displays OL, overrange or under-range."
+    "buiten_bereik": "Use when the meter displays OL, overrange or under-range.",
+    "veiligheid_bevestigen": "Tick this box only after verifying that the circuit is de-energised and the capacitor has been safely discharged.",
+    "tolerantie_standaard": "Default suggestion ±20% for aluminium electrolytic capacitors. Use the actual datasheet value when known."
   },
   "resultaat": {
     "samenvatting": "Reliability: {betrouwbaarheid}   |   C deviation: {cap_afwijking}   |   ESR factor: {esr_factor}\nAdvice: {advies}",
@@ -202,6 +210,18 @@
     "consistentie": "C-ESR-D consistency",
     "betrouwbaarheid": "Reliability",
     "redenen": "Reasons",
-    "vervolgstap": "Recommended next step"
+    "vervolgstap": "Recommended next step",
+    "samenvatting_grenzen": "Reliability: {betrouwbaarheid}   |   C: {cap_gemeten}   |   limits: {cap_grenzen}   |   deviation: {cap_afwijking}\nESR: {esr_gemeten}   |   reference: {esr_ref}   |   factor: {esr_factor}\nAdvice: {advies}",
+    "toegestane_capaciteit": "Tolerance limits",
+    "esr_referentie": "ESR reference used",
+    "esr_zones": "Indicative assessment zones",
+    "esr_normaal": "Normal",
+    "esr_aandacht": "Attention",
+    "esr_verdacht": "Suspicious",
+    "esr_defect_indicatief": "Likely defective",
+    "esr_zones_disclaimer": "These ESR zones are derived from the selected reference and current configurable factors; they are not universal rejection limits.",
+    "meetfrequentie": "Measurement frequency",
+    "referentiebron": "Reference source",
+    "referentieniveau": "Reference level"
   }
 }

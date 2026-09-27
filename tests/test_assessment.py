@@ -2,7 +2,7 @@
 ================================================================================
 Module:     tests/test_assessment.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.1.0
+Versie:     1.1.1
 Datum:      2026-09-26
 Auteur:     Ontwikkelaar
 
@@ -16,6 +16,8 @@ Wijzigingen:
   v1.1.0 (2026-09-26)  Tests aangepast aan expliciete meetmethode;
                        tests toegevoegd voor EX_SITU, ONE_LEG,
                        IN_CIRCUIT en out-of-range.
+  v1.1.1 (2026-09-26)  Verwachting voor meerdere verlagende factoren
+                       aangepast: IN_CIRCUIT telt nu expliciet mee.
 ================================================================================
 """
 
@@ -206,7 +208,7 @@ class TestBetrouwbaarheid(unittest.TestCase):
         self.assertEqual(r.niveau, Betrouwbaarheid.MIDDEL)
 
     def test_meerdere_verlagende_factoren(self):
-        """Testgeval 16: Polymercondensator waarvoor elektrolytische tabel wordt gekozen."""
+        """Testgeval 16: meerdere onafhankelijke factoren verlagen betrouwbaarheid."""
         r = bepaal_betrouwbaarheid(
             referentieniveau=5,
             referentiefrequentie_hz=100000,
@@ -219,8 +221,19 @@ class TestBetrouwbaarheid(unittest.TestCase):
             serie_bekend=False,
             consistentie_status=ConsistentieStatus.MOGELIJKE_INCONSISTENTIE,
         )
+
         self.assertEqual(r.niveau, Betrouwbaarheid.LAAG)
-        self.assertEqual(len(r.verlagende_factoren), 6)
+
+        # In v1.3 telt IN_CIRCUIT als expliciete extra verlagende factor.
+        # Dit scenario bevat minimaal:
+        # - frequentieverschil
+        # - temperatuur onbekend
+        # - condensatortype afwijkend/onbekend
+        # - typische referentiewaarde
+        # - fabrikant/serie onbekend
+        # - mogelijke C-ESR-D-inconsistentie
+        # - in-circuit meetmethode
+        self.assertGreaterEqual(len(r.verlagende_factoren), 7)
 
 
 class TestEindstatus(unittest.TestCase):

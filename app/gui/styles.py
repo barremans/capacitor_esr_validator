@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/styles.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.0.0
+Versie:     1.1.0
 Datum:      2026-08-11
 Auteur:     Ontwikkelaar
 
@@ -12,6 +12,9 @@ Doel:       Centrale stijldefinities voor de Qt6 GUI.
 Wijzigingen:
   v1.0.0 (2026-08-11)  Initiele versie. Donker palet, statuskleuren per
                        eindstatus, Segoe UI font.
+  v1.1.0 (2026-09-26)  Consistente donkere invoervelden, comboboxen,
+                       tekstweergave en checkboxen toegevoegd voor beter
+                       contrast in het volledige donkere thema.
 ================================================================================
 """
 
@@ -109,6 +112,44 @@ def apply_dark_theme(app):
         QMenu::item:selected {
             background-color: #0078D7;
             color: white;
+        }
+
+        QLineEdit, QComboBox, QTextBrowser {
+            background-color: #1E1E1E;
+            color: #F0F0F0;
+            border: 1px solid #666666;
+            border-radius: 4px;
+            padding: 4px 6px;
+            selection-background-color: #0078D7;
+            selection-color: #FFFFFF;
+        }
+
+        QLineEdit:focus, QComboBox:focus, QTextBrowser:focus {
+            border: 1px solid #4AA3FF;
+        }
+
+        QLineEdit:disabled, QComboBox:disabled {
+            background-color: #333333;
+            color: #A0A0A0;
+            border-color: #555555;
+        }
+
+        QComboBox QAbstractItemView {
+            background-color: #252526;
+            color: #F0F0F0;
+            selection-background-color: #0078D7;
+            selection-color: #FFFFFF;
+        }
+
+        QCheckBox {
+            color: #F0F0F0;
+            spacing: 8px;
+        }
+
+        QToolTip {
+            background-color: #F4F4F4;
+            color: #202020;
+            border: 1px solid #777777;
         }
     """)
 

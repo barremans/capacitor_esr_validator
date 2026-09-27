@@ -1,5 +1,5 @@
 {
-  "_comment": "Brontaal Nederlands. v1.2: compacte ESR-GUI, meetmethoden, out-of-range en detailweergave.",
+  "_comment": "Brontaal Nederlands. v1.5.1: resultaatweergave over drie echte regels.",
   "app": {
     "titel": "Condensator- en ESR-validator"
   },
@@ -13,7 +13,10 @@
     "test": "Test",
     "esr_test": "ESR-test",
     "help": "Help",
-    "over": "Over"
+    "over": "Over",
+    "instellingen": "Instellingen",
+    "talen": "Talen",
+    "changelog": "Changelog"
   },
   "scherm": {
     "esr_test": "ESR-test",
@@ -43,7 +46,8 @@
     "open_verbinding": "Open verbinding of kortsluiting vermoed",
     "veiligheid_bevestigd": "Schakeling is spanningsloos en condensator is veilig ontladen",
     "meetmethode": "Meetmethode",
-    "buiten_bereik": "OL / buiten meetbereik"
+    "buiten_bereik": "OL / buiten meetbereik",
+    "meetinstrument": "Meetinstrument"
   },
   "placeholder": {
     "d_waarde": "0.05 (optioneel)"
@@ -55,7 +59,8 @@
     "kopieer": "Kopieer resultaat",
     "help": "?",
     "veiligheidsinstructies": "Veiligheidsinstructies",
-    "details": "Details"
+    "details": "Details",
+    "terug": "← Terug"
   },
   "veiligheid": {
     "waarschuwing_1": "Meet nooit aan een onder spanning staande schakeling.",
@@ -181,7 +186,8 @@
   },
   "tool": {
     "esr": "ESR-validator",
-    "esr_omschrijving": "Condensator- en ESR-metingen invoeren en beoordelen"
+    "esr_omschrijving": "Condensator- en ESR-metingen invoeren en beoordelen",
+    "toekomstig": "Toekomstige tool"
   },
   "meetmethode": {
     "ex_situ": "Volledig uitgebouwd",
@@ -192,7 +198,9 @@
     "uitleg_in_circuit": "Indicatieve meting: parallelle componenten kunnen capaciteit en ESR beïnvloeden."
   },
   "tooltip": {
-    "buiten_bereik": "Gebruik dit wanneer het meettoestel OL, overrange of under-range aangeeft."
+    "buiten_bereik": "Gebruik dit wanneer het meettoestel OL, overrange of under-range aangeeft.",
+    "veiligheid_bevestigen": "Vink dit vak alleen aan nadat je hebt gecontroleerd dat de schakeling spanningsloos is en de condensator veilig is ontladen.",
+    "tolerantie_standaard": "Standaardvoorstel ±20% voor aluminium elektrolytisch. Gebruik de werkelijke datasheetwaarde wanneer die bekend is."
   },
   "resultaat": {
     "samenvatting": "Betrouwbaarheid: {betrouwbaarheid}   |   C-afwijking: {cap_afwijking}   |   ESR-factor: {esr_factor}\nAdvies: {advies}",
@@ -202,6 +210,18 @@
     "consistentie": "C-ESR-D-consistentie",
     "betrouwbaarheid": "Betrouwbaarheid",
     "redenen": "Redenen",
-    "vervolgstap": "Aanbevolen vervolgstap"
+    "vervolgstap": "Aanbevolen vervolgstap",
+    "samenvatting_grenzen": "Betrouwbaarheid: {betrouwbaarheid}   |   C: {cap_gemeten}   |   grens: {cap_grenzen}   |   afwijking: {cap_afwijking}\nESR: {esr_gemeten}   |   referentie: {esr_ref}   |   factor: {esr_factor}\nAdvies: {advies}",
+    "toegestane_capaciteit": "Tolerantiegrenzen",
+    "esr_referentie": "Gebruikte ESR-referentie",
+    "esr_zones": "Indicatieve beoordelingszones",
+    "esr_normaal": "Normaal",
+    "esr_aandacht": "Aandacht",
+    "esr_verdacht": "Verdacht",
+    "esr_defect_indicatief": "Waarschijnlijk defect",
+    "esr_zones_disclaimer": "Deze ESR-zones zijn afgeleid van de gekozen referentie en de huidige configureerbare factoren; het zijn geen universele afkeurgrenzen.",
+    "meetfrequentie": "Meetfrequentie",
+    "referentiebron": "Referentiebron",
+    "referentieniveau": "Referentieniveau"
   }
 }

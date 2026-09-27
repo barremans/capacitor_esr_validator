@@ -874,3 +874,35 @@ maar eerder:
 > “Wat heb je gemeten, hoe betrouwbaar is die meting, hoe verhoudt die zich tot bekende gegevens, welke onzekerheden zijn er, en wat is de verstandigste volgende diagnosestap?”
 
 Dat is het centrale concept voor alle toekomstige tools in deze applicatie.
+
+## Update 2026-09-26 — ESR GUI v1.4
+
+Uitgevoerd:
+- invoervelden/comboboxen/tekstdialogen krijgen expliciet donker thema met hoog contrast;
+- veiligheidsbevestiging is een echte checkbox, neutraal vóór bevestiging en groen na bevestiging;
+- aluminium elektrolytisch krijgt in de GUI een wijzigbaar standaardvoorstel van ±20%;
+- de tolerantie staat als echte veldwaarde in `QLineEdit`, zodat de assessment-service ze ontvangt;
+- regressietest toegevoegd voor de praktijkmeting 330 µF / 35 V: 286,2 µF, 62,3 mΩ, D=1,1207 bij 10 kHz / 0,3 Vrms;
+- venster-X blijft contextueel via `main_window.py`: op ESR-pagina terug naar Tool Hub, op Tool Hub applicatie afsluiten.
+
+Belangrijk:
+- ±20% is een GUI-voorstel voor aluminium elektrolytisch, geen universele fabrikantgarantie.
+- Exacte datasheetwaarde blijft leidend.
+- Geen automatische ESR-frequentieconversie.
+
+## Update 2026-09-26 — ESR GUI v1.5
+
+- Frequentiekeuze wordt getoond als `100 Hz`, `1 kHz`, `10 kHz`; intern blijven de waarden Hz.
+- Compact resultaat toont nu capaciteitstolerantiegrenzen en gebruikte ESR-referentie.
+- Details toont afgeleide ESR-zones op basis van de huidige configureerbare factoren.
+- ESR-zones worden expliciet als indicatief aangeduid; ze zijn geen universele afkeurgrenzen.
+- De ESR-data en bronselectie zijn in v1.5 bewust niet gewijzigd. Dat volgt in de aparte data-audit.
+- Toekomstige data-architectuur: JSON per condensatortechnologie/type; nog niet implementeren vóór de bron-audit.
+
+## Update 2026-09-26 — ESR GUI v1.5.1
+
+- Bugfix: `\n` wordt niet meer letterlijk in de resultaatbalk weergegeven.
+- Compact resultaat gebruikt drie regels: capaciteit, ESR en advies.
+- Gemeten capaciteit en gemeten ESR worden rechtstreeks in de samenvatting getoond.
+- Geen wijziging aan assessment-logica of ESR-referentiedata.
+- Na visuele bevestiging is de GUI-fase afgesloten; volgende fase is data/logica-audit.

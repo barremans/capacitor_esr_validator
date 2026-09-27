@@ -12,12 +12,19 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Applicatie: GEEN APPLICATIE
         # Versie: V1.0.0
         ```
-      - 📄 **/app/config/settings.py**
+      - 📄 **/app/config/instrument_profiles.py**
         ```text
         # Beschrijving: GEEN BESCHRIJVING
         # Auteur: Ontwikkelaar
         # Applicatie: GEEN APPLICATIE
         # Versie: 1.0.0
+        ```
+      - 📄 **/app/config/settings.py**
+        ```text
+        # Beschrijving: GEEN BESCHRIJVING
+        # Auteur: Ontwikkelaar
+        # Applicatie: GEEN APPLICATIE
+        # Versie: 1.1.0
         ```
     - 📁 **data/**
       - 📁 **references/**
@@ -58,21 +65,21 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: GEEN BESCHRIJVING
         # Auteur: Ontwikkelaar
         # Applicatie: GEEN APPLICATIE
-        # Versie: 1.1.0
+        # Versie: 1.5.1
         ```
       - 📄 **/app/gui/main_window.py**
         ```text
         # Beschrijving: GEEN BESCHRIJVING
         # Auteur: Bart Bossuyt
         # Applicatie: GEEN APPLICATIE
-        # Versie: 2.0.0
+        # Versie: 2.1.1
         ```
       - 📄 **/app/gui/styles.py**
         ```text
         # Beschrijving: GEEN BESCHRIJVING
         # Auteur: Ontwikkelaar
         # Applicatie: GEEN APPLICATIE
-        # Versie: 1.0.0
+        # Versie: 1.1.0
         ```
     - 📁 **helpers/**
       - 📄 **/app/helpers/__init__.py**
@@ -109,7 +116,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: GEEN BESCHRIJVING
         # Auteur: Ontwikkelaar
         # Applicatie: GEEN APPLICATIE
-        # Versie: 1.0.0
+        # Versie: 1.2.0
         ```
     - 📄 **/app/__init__.py**
       ```text
@@ -131,7 +138,11 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       - 📄 **/assets/icons/ESR.png**
   - 📁 **docs/**
     - 📄 **/docs/changelog.md**
+    - 📄 **/docs/context.md**
     - 📄 **/docs/data_model.md**
+    - 📄 **/docs/future_tools.md**
+    - 📄 **/docs/PROJECT_STRUCTURE.md**
+    - 📄 **/docs/python_header_standard.md**
     - 📄 **/docs/testgevallen_analyse.md**
     - 📄 **/docs/validation_rules.md**
   - 📁 **i18n/**
@@ -165,6 +176,27 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: GEEN BESCHRIJVING
       # Auteur: Ontwikkelaar
       # Applicatie: GEEN APPLICATIE
+      # Versie: 1.1.1
+      ```
+    - 📄 **/tests/test_gui_regressions.py**
+      ```text
+      # Beschrijving: GEEN BESCHRIJVING
+      # Auteur: Ontwikkelaar
+      # Applicatie: GEEN APPLICATIE
+      # Versie: 1.0.0
+      ```
+    - 📄 **/tests/test_instrument_profiles.py**
+      ```text
+      # Beschrijving: GEEN BESCHRIJVING
+      # Auteur: Ontwikkelaar
+      # Applicatie: GEEN APPLICATIE
+      # Versie: 1.0.0
+      ```
+    - 📄 **/tests/test_measurement_methods.py**
+      ```text
+      # Beschrijving: GEEN BESCHRIJVING
+      # Auteur: Ontwikkelaar
+      # Applicatie: GEEN APPLICATIE
       # Versie: 1.0.0
       ```
     - 📄 **/tests/test_units.py**
@@ -186,3 +218,11 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     ```
   - 📄 **/pyproject.toml**
   - 📄 **/README.md**
+  - 📄 **/README_PATCH.md**
+  - 📄 **/requirements.txt**
+    ```text
+    # Beschrijving: GEEN BESCHRIJVING
+    # Auteur: GEEN AUTEUR
+    # Applicatie: GEEN APPLICATIE
+    # Versie: V1.0.0
+    ```

@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     2.0.0
+Versie:     2.1.1
 Datum:      2026-08-13
 Auteur:     Bart Bossuyt
 
@@ -15,6 +15,12 @@ Wijzigingen:
                        meerdere tools. ESR-test opent als apart venster.
                        Menu: Bestand, Tools, Instellingen, Help.
                        Snelkoppelingen: Ctrl+Q, Ctrl+E, F1.
+  v2.1.0 (2026-09-26)  Eén-venster-navigatie met QStackedWidget. ESR-tool
+                       opent nu als interne pagina; terugkeer naar Tool Hub
+                       zonder tweede top-level venster.
+  v2.1.1 (2026-09-26)  Sluitknop (X) gedraagt zich contextueel: vanuit een
+                       toolpagina terug naar Tool Hub; vanuit Tool Hub sluit
+                       de applicatie wel volledig.
 ================================================================================
 """
 
@@ -22,7 +28,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGridLayout, QPushButton, QLabel, QMenuBar, QMenu,
     QMessageBox, QTextBrowser, QDialog, QDialogButtonBox,
-    QScrollArea, QFrame,
+    QScrollArea, QFrame, QStackedWidget,
 )
 from PySide6.QtGui import QAction, QKeySequence, QShortcut, QIcon, QPixmap
 from PySide6.QtCore import Qt, QSize
@@ -39,7 +45,6 @@ class ToolHubWindow(QMainWindow):
         self.taal = taal
         self.instellingen = laad_instellingen()
         self.taal = self.instellingen.taal
-        self.esr_window = None
         self._build_ui()
         self._apply_language()
 
@@ -48,35 +53,45 @@ class ToolHubWindow(QMainWindow):
 
     def _build_ui(self):
         self.setWindowTitle(self._t("app.titel"))
-        self.setMinimumSize(500, 400)
-        self.resize(500, 400)
+        self.setMinimumSize(900, 600)
+        self.resize(1100, 700)
 
-        # Centrale widget
+        self.stack = QStackedWidget()
+        self.setCentralWidget(self.stack)
+
+        self.hub_page = self._build_hub_page()
+        self.stack.addWidget(self.hub_page)
+
+        from app.gui.esr_test_screen import EsrTestScreen
+        self.esr_page = EsrTestScreen(taal=self.taal)
+        self.esr_page.back_requested.connect(self._show_hub)
+        self.stack.addWidget(self.esr_page)
+
+        self.stack.setCurrentWidget(self.hub_page)
+        self._build_menu()
+
+    def _build_hub_page(self):
         central = QWidget()
-        self.setCentralWidget(central)
         layout = QVBoxLayout(central)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        # Titel
         title = QLabel(self._t("app.titel"))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #F0F0F0;")
+        title.setStyleSheet(
+            "font-size: 20px; font-weight: bold; color: #F0F0F0;"
+        )
         layout.addWidget(title)
 
-        # Subtitel
         subtitle = QLabel("Tool Hub")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         subtitle.setStyleSheet("font-size: 12px; color: #AAAAAA;")
         layout.addWidget(subtitle)
-
         layout.addSpacing(20)
 
-        # Tool-knoppen grid
         tools_grid = QGridLayout()
         tools_grid.setSpacing(16)
 
-        # ESR-tool knop
         self.esr_btn = QPushButton()
         self.esr_btn.setFixedSize(140, 140)
         self.esr_btn.setStyleSheet("""
@@ -88,13 +103,15 @@ class ToolHubWindow(QMainWindow):
                 font-size: 14px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #4C4C4C; border-color: #0078D7; }
+            QPushButton:hover {
+                background-color: #4C4C4C;
+                border-color: #0078D7;
+            }
             QPushButton:pressed { background-color: #2C2C2C; }
         """)
         self.esr_btn.setToolTip(self._t("tool.esr_omschrijving"))
         self.esr_btn.clicked.connect(self._open_esr_test)
 
-        # Icoon laden (fallback naar tekst als icoon ontbreekt)
         icon_path = "assets/icons/esr.png"
         if QPixmap(icon_path).isNull():
             self.esr_btn.setText("ESR")
@@ -103,9 +120,10 @@ class ToolHubWindow(QMainWindow):
             self.esr_btn.setIconSize(QSize(64, 64))
             self.esr_btn.setText("ESR")
 
-        tools_grid.addWidget(self.esr_btn, 0, 0, Qt.AlignmentFlag.AlignCenter)
+        tools_grid.addWidget(
+            self.esr_btn, 0, 0, Qt.AlignmentFlag.AlignCenter
+        )
 
-        # Placeholder voor toekomstige tools
         placeholder = QPushButton("...")
         placeholder.setFixedSize(140, 140)
         placeholder.setStyleSheet("""
@@ -118,15 +136,19 @@ class ToolHubWindow(QMainWindow):
             }
         """)
         placeholder.setEnabled(False)
-        placeholder.setToolTip("Toekomstige tool")
-        tools_grid.addWidget(placeholder, 0, 1, Qt.AlignmentFlag.AlignCenter)
+        placeholder.setToolTip(self._t("tool.toekomstig"))
+        tools_grid.addWidget(
+            placeholder, 0, 1, Qt.AlignmentFlag.AlignCenter
+        )
 
         tools_grid.setColumnStretch(2, 1)
         layout.addLayout(tools_grid)
         layout.addStretch()
+        return central
 
-        # Menubalk
-        self._build_menu()
+    def _show_hub(self):
+        self.stack.setCurrentWidget(self.hub_page)
+        self.setWindowTitle(self._t("app.titel"))
 
     def _build_menu(self):
         menubar = self.menuBar()
@@ -197,16 +219,28 @@ class ToolHubWindow(QMainWindow):
         self.setWindowTitle(self._t("app.titel"))
         self.menuBar().clear()
         self._build_menu()
+        if hasattr(self, "esr_btn"):
+            self.esr_btn.setToolTip(self._t("tool.esr_omschrijving"))
 
     def _open_esr_test(self):
-        from app.gui.esr_test_screen import EsrTestScreen
-        if self.esr_window is None or not self.esr_window.isVisible():
-            self.esr_window = EsrTestScreen(taal=self.taal)
-            self.esr_window.setWindowTitle(self._t("app.titel") + " — " + self._t("scherm.esr_test"))
-            self.esr_window.show()
-        else:
-            self.esr_window.raise_()
-            self.esr_window.activateWindow()
+        self.stack.setCurrentWidget(self.esr_page)
+        self.setWindowTitle(
+            self._t("app.titel") + " — " + self._t("scherm.esr_test")
+        )
+
+    def closeEvent(self, event):
+        """Sluit contextueel.
+
+        Als een toolpagina actief is, werkt de venster-X als 'Terug' naar de
+        Tool Hub. Alleen wanneer de Tool Hub zelf zichtbaar is, wordt de
+        applicatie echt afgesloten.
+        """
+        if hasattr(self, "stack") and self.stack.currentWidget() is not self.hub_page:
+            self._show_hub()
+            event.ignore()
+            return
+
+        event.accept()
 
     def _show_settings(self):
         QMessageBox.information(self, self._t("menu.instellingen"), "Instellingen-dialoog (TODO)")

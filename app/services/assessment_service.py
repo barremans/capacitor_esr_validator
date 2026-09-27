@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/services/assessment_service.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.1.0
+Versie:     1.2.0
 Datum:      2026-09-26
 Auteur:     Ontwikkelaar
 
@@ -19,6 +19,9 @@ Wijzigingen:
   v1.1.0 (2026-09-26)  Meetmethode als expliciete enum toegevoegd
                        (EX_SITU / ONE_LEG / IN_CIRCUIT), out-of-range/OL
                        toegevoegd en type-mismatch van referenties bewaakt.
+  v1.2.0 (2026-09-26)  Instrumentcode en testspanning toegevoegd aan de
+                       meetcontext van het resultaat; nog zonder effect op
+                       de ESR-grensfactoren.
 
 Referentie: docs/validation_rules.md (volledig), in het bijzonder:
             §2 referentiehiërarchie, §3 capaciteitsvalidatie,
@@ -203,6 +206,9 @@ class Beoordeling:
     esr: EsrResultaat
     consistentie: ConsistentieResultaat
     betrouwbaarheid: BetrouwbaarheidsResultaat
+    meetmethode: Meetmethode
+    instrument_code: Optional[str]
+    testspanning_vrms: Optional[float]
 
 
 # ---------------------------------------------------------------------------
@@ -744,6 +750,8 @@ def beoordeel_meting(
     condensatortype: str,
     meetmethode: Meetmethode | str,
     omgevingstemperatuur_c: Optional[float],
+    instrument_code: Optional[str] = None,
+    testspanning_vrms: Optional[float] = None,
     veiligheid_bevestigd: bool,
     referentie: Optional[ReferentieContext] = None,
     fabrikant_bekend: bool = False,
@@ -871,4 +879,7 @@ def beoordeel_meting(
         esr=esr_resultaat,
         consistentie=consistentie_resultaat,
         betrouwbaarheid=betrouwbaarheid_resultaat,
+        meetmethode=methode,
+        instrument_code=instrument_code,
+        testspanning_vrms=testspanning_vrms,
     )
