@@ -1,5 +1,5 @@
 {
-  "_comment": "English translation. v1.5.1: result summary split across three real lines.",
+  "_comment": "English translation. v1.6.0: Settings dialog added.",
   "app": {
     "titel": "Capacitor and ESR Validator"
   },
@@ -16,7 +16,9 @@
     "over": "About",
     "instellingen": "Settings",
     "talen": "Languages",
-    "changelog": "Changelog"
+    "changelog": "Changelog",
+    "diagnose": "Diagnostics",
+    "open_diagnose": "Open diagnostics"
   },
   "scherm": {
     "esr_test": "ESR Test",
@@ -25,7 +27,9 @@
     "waarschuwingen": "Warnings",
     "meetcontext": "Measurement context",
     "meetwaarden": "Measurement values",
-    "condensator": "Capacitor"
+    "condensator": "Capacitor",
+    "hoofdmenu": "Main menu",
+    "diagnose": "Diagnostics"
   },
   "veld": {
     "nominale_capaciteit": "Nominal capacitance",
@@ -47,7 +51,8 @@
     "veiligheid_bevestigd": "Circuit is de-energised and capacitor is safely discharged",
     "meetmethode": "Measurement method",
     "buiten_bereik": "OL / out of range",
-    "meetinstrument": "Instrument"
+    "meetinstrument": "Instrument",
+    "omgevingstemperatuur_kort": "Ambient temp."
   },
   "placeholder": {
     "d_waarde": "0.05 (optional)"
@@ -182,12 +187,17 @@
     "changelog_titel": "Changelog",
     "over_titel": "About",
     "over_tekst": "<h2>Capacitor and ESR Validator</h2><p>Version 1.1.0</p><p>A tool for the indicative assessment of capacitor measurements.</p><p>Not a formal safety approval.</p>",
-    "resultaat_details": "Result details"
+    "resultaat_details": "Result details",
+    "documentatie_placeholder": "The documentation section will be developed further in a later phase."
   },
   "tool": {
     "esr": "ESR Validator",
     "esr_omschrijving": "Enter and assess capacitor and ESR measurements",
-    "toekomstig": "Future tool"
+    "toekomstig": "Future tool",
+    "diagnose": "Diagnostics",
+    "diagnose_omschrijving": "Open the available diagnostic tools",
+    "documentatie": "Documentation",
+    "documentatie_omschrijving": "Open technical documentation and references"
   },
   "meetmethode": {
     "ex_situ": "Fully removed",
@@ -200,7 +210,8 @@
   "tooltip": {
     "buiten_bereik": "Use when the meter displays OL, overrange or under-range.",
     "veiligheid_bevestigen": "Tick this box only after verifying that the circuit is de-energised and the capacitor has been safely discharged.",
-    "tolerantie_standaard": "Default suggestion ±20% for aluminium electrolytic capacitors. Use the actual datasheet value when known."
+    "tolerantie_standaard": "Default suggestion ±20% for aluminium electrolytic capacitors. Use the actual datasheet value when known.",
+    "omgevingstemperatuur": "Ambient temperature"
   },
   "resultaat": {
     "samenvatting": "Reliability: {betrouwbaarheid}   |   C deviation: {cap_afwijking}   |   ESR factor: {esr_factor}\nAdvice: {advies}",
@@ -223,5 +234,58 @@
     "meetfrequentie": "Measurement frequency",
     "referentiebron": "Reference source",
     "referentieniveau": "Reference level"
+  },
+  "settings": {
+    "titel": "Settings",
+    "tab": {
+      "algemeen": "General",
+      "esr": "ESR / Capacitor",
+      "rapportage": "Reporting"
+    },
+    "knop": {
+      "herstellen": "Restore defaults",
+      "annuleren": "Cancel",
+      "toepassen": "Apply",
+      "ok": "OK"
+    },
+    "algemeen": {
+      "taal": "Language",
+      "thema": "Theme",
+      "thema_donker": "Dark",
+      "thema_tooltip": "Dark theme is currently the supported theme.",
+      "tooltips": "Enable tooltips"
+    },
+    "esr": {
+      "cap_eenheid": "Capacitance unit",
+      "tolerantie": "Tolerance",
+      "werkspanning": "Working voltage",
+      "geen_default": "No default",
+      "type": "Capacitor type",
+      "fabrikant": "Manufacturer",
+      "meetmethode": "Measurement method",
+      "instrument": "Instrument",
+      "frequentie": "Measurement frequency",
+      "testspanning": "Test voltage",
+      "temperatuur": "Temperature",
+      "esr_eenheid": "ESR unit",
+      "bevestig_wissen": "Ask for confirmation when clearing"
+    },
+    "meetmethode": {
+      "EX_SITU": "Out of circuit",
+      "ONE_LEG": "One lead disconnected",
+      "IN_CIRCUIT": "In circuit"
+    },
+    "rapportage": {
+      "uitleg": "These preferences prepare future reporting; no report is generated in this phase.",
+      "grafiek": "Include graph by default",
+      "details": "Include technical details",
+      "referentie": "Include reference source",
+      "datum": "Include date/time",
+      "werkplaats": "Workshop / company"
+    },
+    "herstellen": {
+      "titel": "Restore defaults",
+      "tekst": "Restore defaults for the active tab only?"
+    }
   }
 }

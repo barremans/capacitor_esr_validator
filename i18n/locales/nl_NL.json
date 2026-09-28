@@ -1,5 +1,5 @@
 {
-  "_comment": "Brontaal Nederlands. v1.5.1: resultaatweergave over drie echte regels.",
+  "_comment": "Brontaal Nederlands. v1.6.0: Settings-dialoog toegevoegd.",
   "app": {
     "titel": "Condensator- en ESR-validator"
   },
@@ -16,7 +16,9 @@
     "over": "Over",
     "instellingen": "Instellingen",
     "talen": "Talen",
-    "changelog": "Changelog"
+    "changelog": "Changelog",
+    "diagnose": "Diagnose",
+    "open_diagnose": "Diagnose openen"
   },
   "scherm": {
     "esr_test": "ESR-test",
@@ -25,7 +27,9 @@
     "waarschuwingen": "Waarschuwingen",
     "meetcontext": "Meetcontext",
     "meetwaarden": "Meetwaarden",
-    "condensator": "Condensator"
+    "condensator": "Condensator",
+    "hoofdmenu": "Hoofdmenu",
+    "diagnose": "Diagnose"
   },
   "veld": {
     "nominale_capaciteit": "Nominale capaciteit",
@@ -47,7 +51,8 @@
     "veiligheid_bevestigd": "Schakeling is spanningsloos en condensator is veilig ontladen",
     "meetmethode": "Meetmethode",
     "buiten_bereik": "OL / buiten meetbereik",
-    "meetinstrument": "Meetinstrument"
+    "meetinstrument": "Meetinstrument",
+    "omgevingstemperatuur_kort": "Omgevingstemp."
   },
   "placeholder": {
     "d_waarde": "0.05 (optioneel)"
@@ -182,12 +187,17 @@
     "changelog_titel": "Changelog",
     "over_titel": "Over",
     "over_tekst": "<h2>Condensator- en ESR-validator</h2><p>Versie 1.1.0</p><p>Een tool voor het indicatief beoordelen van condensatormetingen.</p><p>Geen formele veiligheidsvrijgave.</p>",
-    "resultaat_details": "Resultaatdetails"
+    "resultaat_details": "Resultaatdetails",
+    "documentatie_placeholder": "De documentatiesectie wordt in een latere fase verder uitgewerkt."
   },
   "tool": {
     "esr": "ESR-validator",
     "esr_omschrijving": "Condensator- en ESR-metingen invoeren en beoordelen",
-    "toekomstig": "Toekomstige tool"
+    "toekomstig": "Toekomstige tool",
+    "diagnose": "Diagnose",
+    "diagnose_omschrijving": "Open de beschikbare diagnostische tools",
+    "documentatie": "Documentatie",
+    "documentatie_omschrijving": "Open technische documentatie en referenties"
   },
   "meetmethode": {
     "ex_situ": "Volledig uitgebouwd",
@@ -200,7 +210,8 @@
   "tooltip": {
     "buiten_bereik": "Gebruik dit wanneer het meettoestel OL, overrange of under-range aangeeft.",
     "veiligheid_bevestigen": "Vink dit vak alleen aan nadat je hebt gecontroleerd dat de schakeling spanningsloos is en de condensator veilig is ontladen.",
-    "tolerantie_standaard": "Standaardvoorstel ±20% voor aluminium elektrolytisch. Gebruik de werkelijke datasheetwaarde wanneer die bekend is."
+    "tolerantie_standaard": "Standaardvoorstel ±20% voor aluminium elektrolytisch. Gebruik de werkelijke datasheetwaarde wanneer die bekend is.",
+    "omgevingstemperatuur": "Omgevingstemperatuur"
   },
   "resultaat": {
     "samenvatting": "Betrouwbaarheid: {betrouwbaarheid}   |   C-afwijking: {cap_afwijking}   |   ESR-factor: {esr_factor}\nAdvies: {advies}",
@@ -223,5 +234,58 @@
     "meetfrequentie": "Meetfrequentie",
     "referentiebron": "Referentiebron",
     "referentieniveau": "Referentieniveau"
+  },
+  "settings": {
+    "titel": "Instellingen",
+    "tab": {
+      "algemeen": "Algemeen",
+      "esr": "ESR / Condensator",
+      "rapportage": "Rapportage"
+    },
+    "knop": {
+      "herstellen": "Standaardwaarden herstellen",
+      "annuleren": "Annuleren",
+      "toepassen": "Toepassen",
+      "ok": "OK"
+    },
+    "algemeen": {
+      "taal": "Taal",
+      "thema": "Thema",
+      "thema_donker": "Donker",
+      "thema_tooltip": "Donker thema is voorlopig het ondersteunde thema.",
+      "tooltips": "Tooltips inschakelen"
+    },
+    "esr": {
+      "cap_eenheid": "Capaciteitseenheid",
+      "tolerantie": "Tolerantie",
+      "werkspanning": "Werkspanning",
+      "geen_default": "Geen standaard",
+      "type": "Condensatortype",
+      "fabrikant": "Fabrikant",
+      "meetmethode": "Meetmethode",
+      "instrument": "Instrument",
+      "frequentie": "Meetfrequentie",
+      "testspanning": "Testspanning",
+      "temperatuur": "Temperatuur",
+      "esr_eenheid": "ESR-eenheid",
+      "bevestig_wissen": "Bevestiging vragen bij Wissen"
+    },
+    "meetmethode": {
+      "EX_SITU": "Uit circuit",
+      "ONE_LEG": "Eén poot los",
+      "IN_CIRCUIT": "In circuit"
+    },
+    "rapportage": {
+      "uitleg": "Deze voorkeuren bereiden latere rapportage voor; er wordt in deze fase nog geen rapport gegenereerd.",
+      "grafiek": "Grafiek standaard opnemen",
+      "details": "Technische details opnemen",
+      "referentie": "Referentiebron opnemen",
+      "datum": "Datum/tijd opnemen",
+      "werkplaats": "Werkplaats / bedrijf"
+    },
+    "herstellen": {
+      "titel": "Standaardwaarden herstellen",
+      "tekst": "Standaardwaarden van alleen de actieve tab herstellen?"
+    }
   }
 }

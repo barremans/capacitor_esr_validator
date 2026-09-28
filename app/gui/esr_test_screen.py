@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/esr_test_screen.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.5.1
+Versie:     1.5.4
 Datum:      2026-09-26
 Auteur:     Ontwikkelaar
 
@@ -33,6 +33,15 @@ Wijzigingen:
                        dezelfde grenzen met expliciete broncontext.
   v1.5.1 (2026-09-26)  Resultaatsamenvatting over echte regels verdeeld;
                        gemeten C en ESR toegevoegd voor snellere interpretatie.
+  v1.5.2 (2026-09-27)  Compacte GUI-opruiming: labelkolommen flexibeler gemaakt,
+                       dubbele GroupBox-styling verwijderd en ESR-paginatitel
+                       minder dominant gemaakt. Beoordelingslogica ongewijzigd.
+  v1.5.3 (2026-09-27)  Breedteverdeling van de drie hoofdgroepen verfijnd zodat
+                       lange Meetcontext-labels, waaronder Omgevingstemperatuur,
+                       volledig leesbaar blijven. Geen logica gewijzigd.
+  v1.5.4 (2026-09-27)  Omgevingstemperatuur-label compact gemaakt met volledige
+                       tekst als tooltip, zodat de drie-kolommenlayout stabiel
+                       blijft. Geen beoordelingslogica gewijzigd.
 
 Versiebeheer:
   - MAJOR: incompatibele architectuur/API-wijziging.
@@ -73,7 +82,6 @@ from app.config.settings import (
 from app.data.references import zoek_referentie
 from app.gui.styles import (
     ASSESS_BUTTON_STYLE,
-    GROUP_BOX_STYLE,
     RESULT_STATUS_STYLE,
     STATUS_COLORS,
 )
@@ -145,9 +153,9 @@ class EsrTestScreen(QWidget):
 
         columns = QHBoxLayout()
         columns.setSpacing(10)
-        columns.addWidget(self._build_component_group(), 1)
-        columns.addWidget(self._build_context_group(), 1)
-        columns.addWidget(self._build_measurement_group(), 1)
+        columns.addWidget(self._build_component_group(), 10)
+        columns.addWidget(self._build_context_group(), 11)
+        columns.addWidget(self._build_measurement_group(), 10)
         root.addLayout(columns)
 
         root.addLayout(self._build_action_row())
@@ -162,7 +170,7 @@ class EsrTestScreen(QWidget):
         row.addWidget(back_btn)
 
         title = QLabel(self._t("scherm.esr_test"))
-        title.setStyleSheet("font-size: 18px; font-weight: bold;")
+        title.setStyleSheet("font-size: 16px; font-weight: bold;")
         row.addWidget(title)
         row.addStretch(1)
         return row
@@ -205,10 +213,11 @@ class EsrTestScreen(QWidget):
 
     def _build_component_group(self) -> QGroupBox:
         group = QGroupBox(self._t("scherm.condensator"))
-        group.setStyleSheet(GROUP_BOX_STYLE)
         grid = QGridLayout(group)
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(8)
+        grid.setColumnMinimumWidth(0, 145)
+        grid.setColumnStretch(1, 1)
 
         grid.addWidget(QLabel(self._t("veld.nominale_capaciteit")), 0, 0)
         self.nom_cap_input = QLineEdit()
@@ -268,10 +277,11 @@ class EsrTestScreen(QWidget):
 
     def _build_context_group(self) -> QGroupBox:
         group = QGroupBox(self._t("scherm.meetcontext"))
-        group.setStyleSheet(GROUP_BOX_STYLE)
         grid = QGridLayout(group)
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(8)
+        grid.setColumnMinimumWidth(0, 158)
+        grid.setColumnStretch(1, 1)
 
         grid.addWidget(QLabel(self._t("veld.meetmethode")), 0, 0)
         self.method_combo = QComboBox()
@@ -305,7 +315,9 @@ class EsrTestScreen(QWidget):
         self.test_voltage_combo.setFixedWidth(COMBO_WIDTH)
         grid.addWidget(self.test_voltage_combo, 3, 1, 1, 2)
 
-        grid.addWidget(QLabel(self._t("veld.omgevingstemperatuur")), 4, 0)
+        temp_label = QLabel(self._t("veld.omgevingstemperatuur_kort"))
+        temp_label.setToolTip(self._t("tooltip.omgevingstemperatuur"))
+        grid.addWidget(temp_label, 4, 0)
         self.temp_input = QLineEdit()
         self.temp_input.setPlaceholderText("20")
         self._set_numeric_width(self.temp_input)
@@ -324,10 +336,11 @@ class EsrTestScreen(QWidget):
 
     def _build_measurement_group(self) -> QGroupBox:
         group = QGroupBox(self._t("scherm.meetwaarden"))
-        group.setStyleSheet(GROUP_BOX_STYLE)
         grid = QGridLayout(group)
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(8)
+        grid.setColumnMinimumWidth(0, 150)
+        grid.setColumnStretch(1, 1)
 
         grid.addWidget(QLabel(self._t("veld.gemeten_capaciteit")), 0, 0)
         self.meas_cap_input = QLineEdit()
@@ -385,7 +398,6 @@ class EsrTestScreen(QWidget):
 
     def _build_result_group(self) -> QGroupBox:
         self.result_group = QGroupBox(self._t("scherm.resultaat"))
-        self.result_group.setStyleSheet(GROUP_BOX_STYLE)
         self.result_group.setVisible(False)
 
         layout = QGridLayout(self.result_group)
@@ -686,10 +698,6 @@ class EsrTestScreen(QWidget):
 
         layout = QVBoxLayout(dialog)
         browser = QTextBrowser()
-        browser.setStyleSheet(
-            "QTextBrowser { background-color: #1E1E1E; color: #F0F0F0; "
-            "border: 1px solid #555555; padding: 8px; }"
-        )
         browser.document().setDefaultStyleSheet(
             "body { color: #F0F0F0; background-color: #1E1E1E; "
             "font-family: 'Segoe UI'; } "

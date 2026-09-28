@@ -2,14 +2,16 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     2.1.1
-Datum:      2026-08-13
+Versie:     2.2.1
+Datum:      2026-09-27
 Auteur:     Bart Bossuyt
 
-Doel:       Tool-hub startscherm. Compact venster met knoppen voor elke tool.
-            ESR-test opent als apart venster.
+Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
+            ESR-test draait als interne pagina binnen hetzelfde hoofdvenster.
 
 Wijzigingen:
+  v2.2.1 (2026-09-27)  Settings-dialoog gekoppeld; Apply/OK bewaren alle
+                       settings en taalwissel behoudt overige voorkeuren.
   v1.0.0 (2026-08-11)  Initiele versie — QMainWindow met centrale widget.
   v2.0.0 (2026-08-13)  Herontworpen naar ToolHubWindow. Knoppen-hub voor
                        meerdere tools. ESR-test opent als apart venster.
@@ -21,8 +23,19 @@ Wijzigingen:
   v2.1.1 (2026-09-26)  Sluitknop (X) gedraagt zich contextueel: vanuit een
                        toolpagina terug naar Tool Hub; vanuit Tool Hub sluit
                        de applicatie wel volledig.
+  v2.1.2 (2026-09-27)  Leesbaarheid van Tool Hub en markdown-dialogen verbeterd:
+                       expliciete donkere achtergronden, contrastrijke tekst en
+                       dialoogknoppen. Ontbrekend-bestandmelding eveneens leesbaar.
+  v2.1.3 (2026-09-27)  Dubbele algemene dark-theme styling verwijderd; hoofdvenster
+                       en markdown-dialogen gebruiken opnieuw het centrale thema
+                       uit app/gui/styles.py. Tool-specifieke accenten behouden.
+  v2.2.0 (2026-09-27)  Navigatie uitgebreid naar Hoofdmenu -> Diagnose -> ESR.
+                       ESR-Terug/X keert terug naar Diagnose; Diagnose-Terug/X
+                       keert terug naar Hoofdmenu. Documentatie is voorbereid.
 ================================================================================
 """
+
+from dataclasses import replace
 
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -35,6 +48,7 @@ from PySide6.QtCore import Qt, QSize
 
 from app.helpers.i18n import vertaal
 from app.config.settings import laad_instellingen, sla_instellingen_op, AppInstellingen
+from app.gui.dialogs.settings_dialog import SettingsDialog
 
 
 class ToolHubWindow(QMainWindow):
@@ -62,15 +76,19 @@ class ToolHubWindow(QMainWindow):
         self.hub_page = self._build_hub_page()
         self.stack.addWidget(self.hub_page)
 
+        self.diagnose_page = self._build_diagnose_page()
+        self.stack.addWidget(self.diagnose_page)
+
         from app.gui.esr_test_screen import EsrTestScreen
         self.esr_page = EsrTestScreen(taal=self.taal)
-        self.esr_page.back_requested.connect(self._show_hub)
+        self.esr_page.back_requested.connect(self._show_diagnose)
         self.stack.addWidget(self.esr_page)
 
         self.stack.setCurrentWidget(self.hub_page)
         self._build_menu()
 
     def _build_hub_page(self):
+        """Bouwt het hoofdmenu van de Tool Hub."""
         central = QWidget()
         layout = QVBoxLayout(central)
         layout.setContentsMargins(24, 24, 24, 24)
@@ -78,16 +96,60 @@ class ToolHubWindow(QMainWindow):
 
         title = QLabel(self._t("app.titel"))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet(
-            "font-size: 20px; font-weight: bold; color: #F0F0F0;"
-        )
+        title.setStyleSheet("font-size: 20px; font-weight: bold;")
         layout.addWidget(title)
 
-        subtitle = QLabel("Tool Hub")
+        subtitle = QLabel(self._t("scherm.hoofdmenu"))
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         subtitle.setStyleSheet("font-size: 12px; color: #AAAAAA;")
         layout.addWidget(subtitle)
         layout.addSpacing(20)
+
+        menu_grid = QGridLayout()
+        menu_grid.setSpacing(16)
+
+        self.diagnose_btn = QPushButton(self._t("tool.diagnose"))
+        self.diagnose_btn.setFixedSize(180, 120)
+        self.diagnose_btn.setToolTip(self._t("tool.diagnose_omschrijving"))
+        self.diagnose_btn.clicked.connect(self._show_diagnose)
+        menu_grid.addWidget(
+            self.diagnose_btn, 0, 0, Qt.AlignmentFlag.AlignCenter
+        )
+
+        self.documentation_btn = QPushButton(self._t("tool.documentatie"))
+        self.documentation_btn.setFixedSize(180, 120)
+        self.documentation_btn.setToolTip(
+            self._t("tool.documentatie_omschrijving")
+        )
+        self.documentation_btn.clicked.connect(self._show_documentation)
+        menu_grid.addWidget(
+            self.documentation_btn, 0, 1, Qt.AlignmentFlag.AlignCenter
+        )
+
+        menu_grid.setColumnStretch(2, 1)
+        layout.addLayout(menu_grid)
+        layout.addStretch()
+        return central
+
+    def _build_diagnose_page(self):
+        """Bouwt de categoriepagina Diagnose."""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+
+        top_row = QHBoxLayout()
+        back_btn = QPushButton(self._t("knop.terug"))
+        back_btn.clicked.connect(self._show_hub)
+        top_row.addWidget(back_btn)
+        top_row.addStretch()
+        layout.addLayout(top_row)
+
+        title = QLabel(self._t("scherm.diagnose"))
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setStyleSheet("font-size: 20px; font-weight: bold;")
+        layout.addWidget(title)
+        layout.addSpacing(12)
 
         tools_grid = QGridLayout()
         tools_grid.setSpacing(16)
@@ -114,11 +176,11 @@ class ToolHubWindow(QMainWindow):
 
         icon_path = "assets/icons/esr.png"
         if QPixmap(icon_path).isNull():
-            self.esr_btn.setText("ESR")
+            self.esr_btn.setText(self._t("tool.esr"))
         else:
             self.esr_btn.setIcon(QIcon(icon_path))
             self.esr_btn.setIconSize(QSize(64, 64))
-            self.esr_btn.setText("ESR")
+            self.esr_btn.setText(self._t("tool.esr"))
 
         tools_grid.addWidget(
             self.esr_btn, 0, 0, Qt.AlignmentFlag.AlignCenter
@@ -144,11 +206,24 @@ class ToolHubWindow(QMainWindow):
         tools_grid.setColumnStretch(2, 1)
         layout.addLayout(tools_grid)
         layout.addStretch()
-        return central
+        return page
 
     def _show_hub(self):
         self.stack.setCurrentWidget(self.hub_page)
         self.setWindowTitle(self._t("app.titel"))
+
+    def _show_diagnose(self):
+        self.stack.setCurrentWidget(self.diagnose_page)
+        self.setWindowTitle(
+            self._t("app.titel") + " — " + self._t("scherm.diagnose")
+        )
+
+    def _show_documentation(self):
+        QMessageBox.information(
+            self,
+            self._t("tool.documentatie"),
+            self._t("dialog.documentatie_placeholder"),
+        )
 
     def _build_menu(self):
         menubar = self.menuBar()
@@ -160,12 +235,16 @@ class ToolHubWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
-        # Tools
-        tools_menu = menubar.addMenu(self._t("menu.test"))
+        # Diagnose
+        diagnose_menu = menubar.addMenu(self._t("menu.diagnose"))
+        diagnose_action = QAction(self._t("menu.open_diagnose"), self)
+        diagnose_action.triggered.connect(self._show_diagnose)
+        diagnose_menu.addAction(diagnose_action)
+
         esr_action = QAction(self._t("menu.esr_test"), self)
         esr_action.setShortcut(QKeySequence("Ctrl+E"))
         esr_action.triggered.connect(self._open_esr_test)
-        tools_menu.addAction(esr_action)
+        diagnose_menu.addAction(esr_action)
 
         # Instellingen
         settings_menu = menubar.addMenu(self._t("menu.instellingen"))
@@ -210,7 +289,7 @@ class ToolHubWindow(QMainWindow):
 
     def _set_language(self, taal_code):
         self.taal = taal_code
-        self.instellingen = AppInstellingen(taal=taal_code)
+        self.instellingen = replace(self.instellingen, taal=taal_code)
         sla_instellingen_op(self.instellingen)
         self._update_lang_checks()
         self._apply_language()
@@ -219,7 +298,16 @@ class ToolHubWindow(QMainWindow):
         self.setWindowTitle(self._t("app.titel"))
         self.menuBar().clear()
         self._build_menu()
+        if hasattr(self, "diagnose_btn"):
+            self.diagnose_btn.setText(self._t("tool.diagnose"))
+            self.diagnose_btn.setToolTip(self._t("tool.diagnose_omschrijving"))
+        if hasattr(self, "documentation_btn"):
+            self.documentation_btn.setText(self._t("tool.documentatie"))
+            self.documentation_btn.setToolTip(
+                self._t("tool.documentatie_omschrijving")
+            )
         if hasattr(self, "esr_btn"):
+            self.esr_btn.setText(self._t("tool.esr"))
             self.esr_btn.setToolTip(self._t("tool.esr_omschrijving"))
 
     def _open_esr_test(self):
@@ -231,19 +319,37 @@ class ToolHubWindow(QMainWindow):
     def closeEvent(self, event):
         """Sluit contextueel.
 
-        Als een toolpagina actief is, werkt de venster-X als 'Terug' naar de
-        Tool Hub. Alleen wanneer de Tool Hub zelf zichtbaar is, wordt de
-        applicatie echt afgesloten.
+        Vanuit ESR werkt de venster-X als 'Terug' naar Diagnose. Vanuit
+        Diagnose gaat de X terug naar het Hoofdmenu. Alleen op het Hoofdmenu
+        sluit de venster-X de applicatie volledig.
         """
-        if hasattr(self, "stack") and self.stack.currentWidget() is not self.hub_page:
-            self._show_hub()
-            event.ignore()
-            return
+        if hasattr(self, "stack"):
+            current = self.stack.currentWidget()
+            if current is self.esr_page:
+                self._show_diagnose()
+                event.ignore()
+                return
+            if current is self.diagnose_page:
+                self._show_hub()
+                event.ignore()
+                return
 
         event.accept()
 
     def _show_settings(self):
-        QMessageBox.information(self, self._t("menu.instellingen"), "Instellingen-dialoog (TODO)")
+        dialog = SettingsDialog(self.instellingen, taal=self.taal, parent=self)
+        dialog.settings_applied.connect(self._apply_settings)
+        dialog.exec()
+
+    def _apply_settings(self, instellingen):
+        vorige_taal = self.taal
+        self.instellingen = instellingen
+        self.taal = instellingen.taal
+        sla_instellingen_op(self.instellingen)
+
+        if self.taal != vorige_taal:
+            self._update_lang_checks()
+            self._apply_language()
 
     def _show_help(self):
         self._show_markdown_dialog(self._t("dialog.help_titel"), "docs/help.md")
@@ -255,7 +361,6 @@ class ToolHubWindow(QMainWindow):
         dialog = QDialog(self)
         dialog.setWindowTitle(title)
         dialog.resize(700, 500)
-
         layout = QVBoxLayout(dialog)
         browser = QTextBrowser()
         browser.setOpenExternalLinks(True)
@@ -274,9 +379,16 @@ class ToolHubWindow(QMainWindow):
             html = re.sub(r'`(.+?)`', r'<code>\1</code>', html)
             html = re.sub(r'\|(.+?)\|', r'<tr><td>\1</td></tr>', html)
             html = html.replace('\n', '<br>')
-            browser.setHtml(f'<body style="font-family: Segoe UI; color: #F0F0F0; background: #2D2D30;">{html}</body>')
+            browser.setHtml(
+                f'<body style="font-family: Segoe UI; color: #F0F0F0; '
+                f'background-color: #2D2D30;">{html}</body>'
+            )
         except FileNotFoundError:
-            browser.setHtml(f"<p>Bestand niet gevonden: {filepath}</p>")
+            browser.setHtml(
+                f'<body style="font-family: Segoe UI; color: #F0F0F0; '
+                f'background-color: #2D2D30;"><p>Bestand niet gevonden: '
+                f'{filepath}</p></body>'
+            )
 
         layout.addWidget(browser)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
