@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     2.2.1
+Versie:     2.2.2
 Datum:      2026-09-27
 Auteur:     Bart Bossuyt
 

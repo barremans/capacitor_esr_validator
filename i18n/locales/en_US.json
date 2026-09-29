@@ -1,5 +1,5 @@
 {
-  "_comment": "English translation. v1.6.0: Settings dialog added.",
+  "_comment": "English translation. v1.6.1: confirmation when clearing added.",
   "app": {
     "titel": "Capacitor and ESR Validator"
   },
@@ -188,7 +188,9 @@
     "over_titel": "About",
     "over_tekst": "<h2>Capacitor and ESR Validator</h2><p>Version 1.1.0</p><p>A tool for the indicative assessment of capacitor measurements.</p><p>Not a formal safety approval.</p>",
     "resultaat_details": "Result details",
-    "documentatie_placeholder": "The documentation section will be developed further in a later phase."
+    "documentatie_placeholder": "The documentation section will be developed further in a later phase.",
+    "wissen_titel": "Clear input",
+    "wissen_tekst": "Are you sure you want to clear the current measurement input?"
   },
   "tool": {
     "esr": "ESR Validator",

@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/esr_test_screen.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.5.4
-Datum:      2026-09-26
+Versie:     1.6.4
+Datum:      2026-09-29
 Auteur:     Ontwikkelaar
 
 Doel:       Compact ESR-diagnosescherm voor nominale gegevens, meetcontext,
@@ -42,6 +42,18 @@ Wijzigingen:
   v1.5.4 (2026-09-27)  Omgevingstemperatuur-label compact gemaakt met volledige
                        tekst als tooltip, zodat de drie-kolommenlayout stabiel
                        blijft. Geen beoordelingslogica gewijzigd.
+  v1.6.0 (2026-09-28)  Opgeslagen ESR/Condensator-defaults gekoppeld aan het
+                       invoerscherm. Wissen herstelt configuratiedefaults maar
+                       wist meetresultaten. Beoordelingslogica ongewijzigd.
+  v1.6.1 (2026-09-28)  Instelling bevestig_wissen gekoppeld: optionele
+                       bevestigingsvraag vóór Wissen. Bestaande wis- en
+                       beoordelingslogica verder ongewijzigd.
+  v1.6.2 (2026-09-28)  OL/out-of-range laat een lege ESR-invoer toe;
+                       intern wordt alleen voor de serviceketen 0,0 gebruikt.
+                       Normale metingen blijven een numerieke ESR vereisen.
+  v1.6.3 (2026-09-29)  OL/out-of-range laat ook een lege gemeten
+                       capaciteit toe; intern wordt alleen voor de serviceketen
+                       0,0 gebruikt. Normale metingen blijven numeriek verplicht.
 
 Versiebeheer:
   - MAJOR: incompatibele architectuur/API-wijziging.
@@ -129,6 +141,7 @@ class EsrTestScreen(QWidget):
         self.taal = taal
         self._laatste_resultaat_html = ""
         self._build_ui()
+        self._apply_saved_defaults()
         self.setMinimumSize(1040, 620)
         self.resize(1120, 690)
 
@@ -456,6 +469,48 @@ class EsrTestScreen(QWidget):
             if idx >= 0:
                 self.test_voltage_combo.setCurrentIndex(idx)
 
+    def _apply_saved_defaults(self) -> None:
+        """Past opgeslagen ESR/Condensator-defaults veilig toe op de invoervelden."""
+        defaults = laad_instellingen().esr_condensator
+
+        if self.nom_cap_unit.findText(defaults.capaciteitseenheid) >= 0:
+            self.nom_cap_unit.setCurrentText(defaults.capaciteitseenheid)
+        if self.meas_cap_unit.findText(defaults.capaciteitseenheid) >= 0:
+            self.meas_cap_unit.setCurrentText(defaults.capaciteitseenheid)
+
+        self.tolerance_input.setText(f"{defaults.tolerantie_percent:g}")
+        self.nom_voltage_input.setText(
+            "" if defaults.werkspanning_v is None else f"{defaults.werkspanning_v:g}"
+        )
+
+        type_index = self.type_combo.findText(defaults.condensatortype)
+        if type_index >= 0:
+            self.type_combo.setCurrentIndex(type_index)
+
+        self.mfg_input.setText(defaults.fabrikant)
+
+        method_index = self.method_combo.findData(defaults.meetmethode)
+        if method_index >= 0:
+            self.method_combo.setCurrentIndex(method_index)
+
+        instrument_index = self.instrument_combo.findData(defaults.instrument_code)
+        if instrument_index >= 0:
+            self.instrument_combo.setCurrentIndex(instrument_index)
+        self._update_instrument_profile()
+
+        freq_index = self.freq_combo.findData(defaults.meetfrequentie_hz)
+        if freq_index >= 0:
+            self.freq_combo.setCurrentIndex(freq_index)
+
+        voltage_index = self.test_voltage_combo.findData(defaults.testspanning_vrms)
+        if voltage_index >= 0:
+            self.test_voltage_combo.setCurrentIndex(voltage_index)
+
+        self.temp_input.setText(f"{defaults.temperatuur_c:g}")
+
+        if self.meas_esr_unit.findText(defaults.esr_eenheid) >= 0:
+            self.meas_esr_unit.setCurrentText(defaults.esr_eenheid)
+
     def _parse_optional(self, text: str):
         text = text.strip()
         if not text:
@@ -481,8 +536,22 @@ class EsrTestScreen(QWidget):
             tolerance = self._parse_optional(self.tolerance_input.text())
             nom_voltage = self._parse_optional(self.nom_voltage_input.text())
 
-            meas_cap = parse_decimaal(self.meas_cap_input.text())
-            meas_esr = parse_decimaal(self.meas_esr_input.text())
+            if self.out_of_range_check.isChecked() and not self.meas_cap_input.text().strip():
+                # Bij OL/out-of-range is er geen betrouwbare numerieke capaciteit.
+                # De service vereist technisch nog een float, maar negeert die
+                # voor de eindstatus zodra meetwaarde_buiten_bereik=True is.
+                meas_cap = 0.0
+            else:
+                meas_cap = parse_decimaal(self.meas_cap_input.text())
+
+            if self.out_of_range_check.isChecked() and not self.meas_esr_input.text().strip():
+                # Bij OL/out-of-range is er geen betrouwbare numerieke ESR.
+                # De service vereist technisch nog een float, maar negeert die
+                # voor de eindstatus zodra meetwaarde_buiten_bereik=True is.
+                meas_esr = 0.0
+            else:
+                meas_esr = parse_decimaal(self.meas_esr_input.text())
+
             d_value = self._parse_optional(self.d_input.text())
             temp = self._parse_optional(self.temp_input.text())
 
@@ -698,6 +767,10 @@ class EsrTestScreen(QWidget):
 
         layout = QVBoxLayout(dialog)
         browser = QTextBrowser()
+        browser.setStyleSheet(
+            "QTextBrowser { background-color: #1E1E1E; color: #F0F0F0; "
+            "border: 1px solid #555555; }"
+        )
         browser.document().setDefaultStyleSheet(
             "body { color: #F0F0F0; background-color: #1E1E1E; "
             "font-family: 'Segoe UI'; } "
@@ -715,29 +788,33 @@ class EsrTestScreen(QWidget):
         dialog.exec()
 
     def _on_clear(self) -> None:
+        defaults = laad_instellingen().esr_condensator
+        if defaults.bevestig_wissen:
+            antwoord = QMessageBox.question(
+                self,
+                self._t("dialog.wissen_titel"),
+                self._t("dialog.wissen_tekst"),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if antwoord != QMessageBox.StandardButton.Yes:
+                return
+
+        # Meetresultaten en toestand wissen; configuratiedefaults daarna herstellen.
         for widget in (
-            self.nom_cap_input,
-            self.tolerance_input,
-            self.nom_voltage_input,
-            self.mfg_input,
-            self.series_input,
             self.meas_cap_input,
             self.meas_esr_input,
             self.d_input,
-            self.temp_input,
         ):
             widget.clear()
 
-        self.nom_cap_unit.setCurrentText("µF")
-        self.meas_cap_unit.setCurrentText("µF")
-        self.type_combo.setCurrentIndex(0)
-        self.tolerance_input.setText("20")
         self.safety_check.setChecked(False)
         self.out_of_range_check.setChecked(False)
         self.open_connection_check.setChecked(False)
-        self.method_combo.setCurrentIndex(0)
         self.result_group.setVisible(False)
         self._laatste_resultaat_html = ""
+
+        self._apply_saved_defaults()
 
     def _show_safety_help(self) -> None:
         waarschuwingen = [
@@ -746,6 +823,13 @@ class EsrTestScreen(QWidget):
         ]
 
         msg = QMessageBox(self)
+        msg.setStyleSheet(
+            "QMessageBox { background-color: #2D2D30; } "
+            "QLabel { color: #F0F0F0; background-color: transparent; } "
+            "QPushButton { color: #F0F0F0; background-color: #3C3C3C; "
+            "border: 1px solid #666666; border-radius: 4px; padding: 6px 16px; } "
+            "QPushButton:hover { background-color: #4C4C4C; border-color: #4AA3FF; }"
+        )
         msg.setWindowTitle(self._t("dialog.veiligheid_titel"))
         msg.setTextFormat(Qt.TextFormat.RichText)
         msg.setText(

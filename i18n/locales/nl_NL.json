@@ -1,5 +1,5 @@
 {
-  "_comment": "Brontaal Nederlands. v1.6.0: Settings-dialoog toegevoegd.",
+  "_comment": "Brontaal Nederlands. v1.6.1: bevestiging bij Wissen toegevoegd.",
   "app": {
     "titel": "Condensator- en ESR-validator"
   },
@@ -188,7 +188,9 @@
     "over_titel": "Over",
     "over_tekst": "<h2>Condensator- en ESR-validator</h2><p>Versie 1.1.0</p><p>Een tool voor het indicatief beoordelen van condensatormetingen.</p><p>Geen formele veiligheidsvrijgave.</p>",
     "resultaat_details": "Resultaatdetails",
-    "documentatie_placeholder": "De documentatiesectie wordt in een latere fase verder uitgewerkt."
+    "documentatie_placeholder": "De documentatiesectie wordt in een latere fase verder uitgewerkt.",
+    "wissen_titel": "Invoer wissen",
+    "wissen_tekst": "Weet je zeker dat je de huidige meetinvoer wilt wissen?"
   },
   "tool": {
     "esr": "ESR-validator",

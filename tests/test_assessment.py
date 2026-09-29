@@ -2,7 +2,7 @@
 ================================================================================
 Module:     tests/test_assessment.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.1.1
+Versie:     1.3.0
 Datum:      2026-09-26
 Auteur:     Ontwikkelaar
 
@@ -18,6 +18,11 @@ Wijzigingen:
                        IN_CIRCUIT en out-of-range.
   v1.1.1 (2026-09-26)  Verwachting voor meerdere verlagende factoren
                        aangepast: IN_CIRCUIT telt nu expliciet mee.
+  v1.2.0 (2026-09-28)  Regressietests uitgebreid voor OL/out-of-range,
+                       open/short en de prioriteit van out-of-range.
+  v1.3.0 (2026-09-29)  Grens- en referentievalidatie toegevoegd:
+                       exacte tolerantielimieten, type-mismatch en
+                       ontbrekende referentiefrequentie.
 ================================================================================
 """
 
@@ -56,6 +61,24 @@ class TestCapaciteit(unittest.TestCase):
     def test_buiten_tolerantie(self):
         r = beoordeel_capaciteit(100, "µF", 130, "µF", 20)
         self.assertEqual(r.status, CapaciteitsStatus.BUITEN_TOLERANTIE)
+
+
+    def test_exact_op_positieve_tolerantielimiet(self):
+        """+20% bij ±20% is nog OP_GRENS, niet buiten tolerantie."""
+        r = beoordeel_capaciteit(100, "µF", 120, "µF", 20)
+        self.assertEqual(r.status, CapaciteitsStatus.OP_GRENS)
+
+    def test_exact_op_negatieve_tolerantielimiet(self):
+        """-20% bij ±20% is nog OP_GRENS, niet buiten tolerantie."""
+        r = beoordeel_capaciteit(100, "µF", 80, "µF", 20)
+        self.assertEqual(r.status, CapaciteitsStatus.OP_GRENS)
+
+    def test_net_buiten_tolerantielimiet(self):
+        """Een waarde net buiten ±20% moet BUITEN_TOLERANTIE zijn."""
+        hoog = beoordeel_capaciteit(100, "µF", 120.01, "µF", 20)
+        laag = beoordeel_capaciteit(100, "µF", 79.99, "µF", 20)
+        self.assertEqual(hoog.status, CapaciteitsStatus.BUITEN_TOLERANTIE)
+        self.assertEqual(laag.status, CapaciteitsStatus.BUITEN_TOLERANTIE)
 
     def test_eenheid_conversie_mf_naar_uf(self):
         """Testgeval 1: 470 µF ingevoerd als 0,47 mF."""
@@ -236,6 +259,106 @@ class TestBetrouwbaarheid(unittest.TestCase):
         self.assertGreaterEqual(len(r.verlagende_factoren), 7)
 
 
+
+class TestReferentieValidatie(unittest.TestCase):
+    """Regressies voor type-match en referentiecondities."""
+
+    def test_referentietype_mismatch_geeft_lage_betrouwbaarheid_en_waarschuwing(self):
+        ref = ReferentieContext(
+            esr_waarde=100,
+            eenheid="mΩ",
+            bron="Testreferentie",
+            referentieniveau=1,
+            frequentie_hz=1000,
+            typisch_of_maximaal="maximaal",
+            condensatortype="Aluminium elektrolytisch",
+        )
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=100,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=100,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=80,
+            eenheid_gemeten_esr="mΩ",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Anders",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=ref,
+            fabrikant_bekend=True,
+            serie_bekend=True,
+        )
+        self.assertEqual(resultaat.betrouwbaarheid.niveau, Betrouwbaarheid.LAAG)
+        self.assertTrue(
+            any("referentietype" in waarschuwing.lower() or "type" in waarschuwing.lower()
+                for waarschuwing in resultaat.waarschuwingen)
+        )
+
+    def test_verkeerde_condensatortechnologie_wordt_niet_stilzwijgend_hoog_betrouwbaar(self):
+        ref = ReferentieContext(
+            esr_waarde=100,
+            eenheid="mΩ",
+            bron="Algemene aluminiumtabel",
+            referentieniveau=1,
+            frequentie_hz=1000,
+            typisch_of_maximaal="maximaal",
+            condensatortype="Aluminium elektrolytisch",
+        )
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=100,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=100,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=80,
+            eenheid_gemeten_esr="mΩ",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Anders",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=ref,
+            fabrikant_bekend=True,
+            serie_bekend=True,
+        )
+        self.assertNotEqual(resultaat.betrouwbaarheid.niveau, Betrouwbaarheid.HOOG)
+
+    def test_referentie_zonder_frequentie_crasht_niet_en_blijft_conservatief(self):
+        ref = ReferentieContext(
+            esr_waarde=100,
+            eenheid="mΩ",
+            bron="Referentie zonder frequentie",
+            referentieniveau=1,
+            frequentie_hz=None,
+            typisch_of_maximaal="maximaal",
+            condensatortype="Aluminium elektrolytisch",
+        )
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=100,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=100,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=80,
+            eenheid_gemeten_esr="mΩ",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=ref,
+            fabrikant_bekend=True,
+            serie_bekend=True,
+        )
+        self.assertIsNotNone(resultaat)
+        self.assertNotEqual(resultaat.betrouwbaarheid.niveau, Betrouwbaarheid.HOOG)
+
+
 class TestEindstatus(unittest.TestCase):
     """Testgevallen voor eindstatuscombinaties."""
 
@@ -367,6 +490,146 @@ class TestVolledigeMeting(unittest.TestCase):
             meetwaarde_buiten_bereik=True,
         )
         self.assertEqual(resultaat.eindstatus, Eindstatus.NIET_TE_BEOORDELEN)
+
+
+    def test_out_of_range_bevat_reden_waarschuwing_en_vervolgstap(self):
+        ref = ReferentieContext(
+            esr_waarde=120,
+            eenheid="mΩ",
+            bron="Test",
+            referentieniveau=1,
+            frequentie_hz=1000,
+            typisch_of_maximaal="maximaal",
+            condensatortype="Aluminium elektrolytisch",
+        )
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=470,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=470,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=0.1,
+            eenheid_gemeten_esr="Ω",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=ref,
+            fabrikant_bekend=True,
+            serie_bekend=True,
+            meetwaarde_buiten_bereik=True,
+        )
+
+        from app.helpers.i18n import vertaal
+
+        self.assertEqual(resultaat.eindstatus, Eindstatus.NIET_TE_BEOORDELEN)
+        self.assertEqual(
+            resultaat.redenen,
+            (vertaal("eindstatus_reden.buiten_bereik"),),
+        )
+        self.assertIn(
+            vertaal("veiligheid.buiten_bereik"),
+            resultaat.waarschuwingen,
+        )
+        self.assertEqual(
+            resultaat.aanbevolen_vervolgstap,
+            vertaal("eindstatus_vervolgstap.controleer_meetbereik"),
+        )
+
+    def test_open_short_met_capaciteit_buiten_tolerantie_geeft_waarschijnlijk_defect(self):
+        ref = ReferentieContext(
+            esr_waarde=120,
+            eenheid="mΩ",
+            bron="Test",
+            referentieniveau=1,
+            frequentie_hz=1000,
+            typisch_of_maximaal="maximaal",
+            condensatortype="Aluminium elektrolytisch",
+        )
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=470,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=100,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=0.1,
+            eenheid_gemeten_esr="Ω",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=ref,
+            fabrikant_bekend=True,
+            serie_bekend=True,
+            vermoedelijke_open_verbinding_of_kortsluiting=True,
+        )
+
+        from app.helpers.i18n import vertaal
+
+        self.assertEqual(resultaat.eindstatus, Eindstatus.WAARSCHIJNLIJK_DEFECT)
+        self.assertIn(
+            vertaal("eindstatus_reden.capaciteit_buiten_tolerantie_defect"),
+            resultaat.redenen,
+        )
+        self.assertIn(
+            vertaal("eindstatus_reden.open_verbinding_vermoed"),
+            resultaat.redenen,
+        )
+        self.assertEqual(
+            resultaat.aanbevolen_vervolgstap,
+            vertaal("eindstatus_vervolgstap.vervang_component"),
+        )
+
+    def test_out_of_range_heeft_voorrang_op_open_short_defectsignaal(self):
+        ref = ReferentieContext(
+            esr_waarde=120,
+            eenheid="mΩ",
+            bron="Test",
+            referentieniveau=1,
+            frequentie_hz=1000,
+            typisch_of_maximaal="maximaal",
+            condensatortype="Aluminium elektrolytisch",
+        )
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=470,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=100,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=1.0,
+            eenheid_gemeten_esr="Ω",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=ref,
+            fabrikant_bekend=True,
+            serie_bekend=True,
+            vermoedelijke_open_verbinding_of_kortsluiting=True,
+            meetwaarde_buiten_bereik=True,
+        )
+
+        from app.helpers.i18n import vertaal
+
+        self.assertEqual(resultaat.eindstatus, Eindstatus.NIET_TE_BEOORDELEN)
+        self.assertEqual(
+            resultaat.redenen,
+            (vertaal("eindstatus_reden.buiten_bereik"),),
+        )
+        self.assertEqual(
+            resultaat.aanbevolen_vervolgstap,
+            vertaal("eindstatus_vervolgstap.controleer_meetbereik"),
+        )
+        self.assertIn(
+            vertaal("veiligheid.buiten_bereik"),
+            resultaat.waarschuwingen,
+        )
 
 
 if __name__ == "__main__":

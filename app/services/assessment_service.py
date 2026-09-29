@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/services/assessment_service.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.2.0
-Datum:      2026-09-26
+Versie:     1.3.0
+Datum:      2026-09-29
 Auteur:     Ontwikkelaar
 
 Doel:       Kernlogica van de indicatieve beoordeling: capaciteitsvalidatie,
@@ -22,6 +22,9 @@ Wijzigingen:
   v1.2.0 (2026-09-26)  Instrumentcode en testspanning toegevoegd aan de
                        meetcontext van het resultaat; nog zonder effect op
                        de ESR-grensfactoren.
+  v1.3.0 (2026-09-29)  Referentie zonder frequentie veilig afgehandeld:
+                       ESR wordt niet numeriek beoordeeld en betrouwbaarheid
+                       blijft conservatief laag; geen verborgen conversie.
 
 Referentie: docs/validation_rules.md (volledig), in het bijzonder:
             §2 referentiehiërarchie, §3 capaciteitsvalidatie,
@@ -320,6 +323,21 @@ def beoordeel_esr(
     gemeten_ohm = converteer_esr(gemeten_esr, eenheid_gemeten_esr, "Ω")
     referentie_ohm = converteer_esr(referentie.esr_waarde, referentie.eenheid, "Ω")
 
+    # Een ESR-referentie zonder meetfrequentie is volgens het datamodel
+    # onvolledig en mag niet als numerieke vergelijkingsgrens worden gebruikt.
+    # Er wordt bewust geen frequentie aangenomen of omgerekend.
+    if referentie.frequentie_hz is None:
+        return EsrResultaat(
+            status=EsrStatus.NIET_TE_BEOORDELEN,
+            factor=None,
+            gemeten_esr_ohm=gemeten_ohm,
+            referentie_esr_ohm=referentie_ohm,
+            referentiebron=referentie.bron,
+            referentieniveau=referentie.referentieniveau,
+            frequentie_wijkt_af=False,
+            toelichting=vertaal("toelichting.esr.referentie_ongeldig", taal=taal),
+        )
+
     if referentie_ohm <= 0:
         return EsrResultaat(
             status=EsrStatus.NIET_TE_BEOORDELEN,
@@ -506,7 +524,11 @@ def bepaal_betrouwbaarheid(
 
     verlagende_factoren: list[str] = []
 
-    if referentiefrequentie_hz is not None and referentiefrequentie_hz != meetfrequentie_hz:
+    if referentiefrequentie_hz is None:
+        # Zonder bekende referentiefrequentie is een ESR-vergelijking niet
+        # voldoende onderbouwd; betrouwbaarheid blijft daarom maximaal LAAG.
+        start_niveau = Betrouwbaarheid.LAAG
+    elif referentiefrequentie_hz != meetfrequentie_hz:
         verlagende_factoren.append(
             vertaal("betrouwbaarheid_factor.referentiefrequentie_wijkt_af", taal=taal)
         )
