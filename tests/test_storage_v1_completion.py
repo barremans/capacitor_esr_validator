@@ -2,11 +2,12 @@
 ================================================================================
 Module:     tests/test_storage_v1_completion.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
+Versie:     1.1.0
 Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
-Doel:       Afrondende regressietests voor de Storage v1-definitie.
+Doel:       Afrondende regressietests voor de oorspronkelijke Storage v1-definitie
+            die ook onder latere schema-versies geldig moeten blijven.
 
             Bewijst volledige snapshot-roundtrips, behoud van ruwe meetcontext,
             historische append-mostly integriteit, RESTRICT-relaties en behoud
@@ -14,6 +15,8 @@ Doel:       Afrondende regressietests voor de Storage v1-definitie.
 
 Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste afrondende Storage v1-regressietests.
+  v1.1.0 (2026-10-01)  Schema-meta test volgt CURRENT_SCHEMA_VERSION in plaats
+                       van schema-versie 1 hard te coderen.
 ================================================================================
 """
 
@@ -23,6 +26,7 @@ import sqlite3
 import pytest
 
 from app.storage.database import open_database
+from app.storage.schema import CURRENT_SCHEMA_VERSION
 from app.storage.service import StorageService
 
 
@@ -296,7 +300,7 @@ def test_schema_meta_remains_single_row_after_repeated_initialize(
         connection.close()
 
     assert len(rows) == 1
-    assert rows[0][0] == 1
+    assert rows[0][0] == CURRENT_SCHEMA_VERSION
     assert rows[0][1] == NOW
     assert rows[0][2] == NOW
 

@@ -2,7 +2,7 @@
 ================================================================================
 Module:     tests/test_i18n_history_translations.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
+Versie:     1.2.0
 Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
@@ -12,6 +12,8 @@ Doel:       Controleert dat de nieuwe historiekteksten in beide locale-bestanden
 Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste NL/EN historiek-i18n regressietest.
   v1.1.0 (2026-10-01)  Nieuwe detailteksten in NL en EN afgedekt.
+  v1.2.0 (2026-10-01)  Multitool Meetwaarden-kolom en generieke detailfallback
+                        in beide talen afgedekt.
 ================================================================================
 """
 
@@ -37,23 +39,25 @@ def test_history_translations_exist_in_dutch_and_english() -> None:
         assert data["historiek"]["leeg"]
         assert data["historiek"]["aantal"]
         assert data["historiek"]["fout"]
-        assert set(data["historiek"]["kolom"]) == {
+        required_columns = {
             "datum_tijd",
+            "tool",
             "component",
             "meetmethode",
             "instrument",
-            "capaciteit",
-            "esr",
+            "meetwaarden",
             "status",
             "betrouwbaarheid",
         }
+        assert required_columns <= set(data["historiek"]["kolom"])
+        assert data["historiek"]["detail_geen_renderer"]
 
 
 def test_history_detail_translations_exist_in_dutch_and_english() -> None:
     required_detail_keys = {
         "fabrikant", "serie", "part_number", "technologie",
         "nominale_capaciteit", "nominale_spanning", "tolerantie",
-        "sample_state", "datum_tijd", "meetmethode", "instrument",
+        "sample_state", "tool", "datum_tijd", "meetmethode", "instrument",
         "frequentie", "testspanning", "temperatuur", "spanningsloos",
         "ontladen", "sessie_start", "sessie_einde", "capaciteit",
         "esr", "d", "out_of_range", "open_suspected",

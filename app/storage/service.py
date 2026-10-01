@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/storage/service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
+Versie:     1.1.0
 Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
@@ -18,6 +18,8 @@ Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste StorageService met CRUD-create/read, transactionele
                         volledige meetketen, structurele validatie en historiek-
                         filters volgens het goedgekeurde v1-contract.
+  v1.1.0 (2026-10-01)  tool_key toegevoegd aan measurements en historiekfilter.
+                        Bestaande callers blijven ESR_CAPACITOR als default krijgen.
 ================================================================================
 """
 
@@ -38,6 +40,7 @@ from .exceptions import (
     StorageValidationError,
     StoredDataFormatError,
 )
+from .schema import DEFAULT_TOOL_KEY
 from .models import (
     AssessmentSnapshot,
     ComponentModel,
@@ -51,6 +54,7 @@ from .models import (
 
 
 _ALLOWED_HISTORY_FILTERS = {
+    "tool_key",
     "manufacturer",
     "series",
     "part_number",
@@ -209,6 +213,7 @@ class StorageService:
         measurement_session_id: int,
         measured_at_ms: int,
         measurement_method: MeasurementMethod | str,
+        tool_key: str = DEFAULT_TOOL_KEY,
         instrument_key: str | None = None,
         instrument_name: str | None = None,
         instrument_profile_version: str | None = None,
@@ -240,6 +245,7 @@ class StorageService:
             measurement_session_id=measurement_session_id,
             measured_at_ms=measured_at_ms,
             measurement_method=measurement_method,
+            tool_key=tool_key,
             instrument_key=instrument_key,
             instrument_name=instrument_name,
             instrument_profile_version=instrument_profile_version,
@@ -534,6 +540,7 @@ class StorageService:
         parameters: list[Any] = []
 
         direct_filters = {
+            "tool_key": "m.tool_key",
             "manufacturer": "cm.manufacturer",
             "series": "cm.series",
             "part_number": "cm.part_number",
@@ -767,7 +774,7 @@ class StorageService:
 
     def _measurement_mapping(self, data: Mapping[str, Any]) -> dict[str, Any]:
         allowed = {
-            "measurement_session_id", "measured_at_ms", "measurement_method",
+            "measurement_session_id", "measured_at_ms", "measurement_method", "tool_key",
             "instrument_key", "instrument_name", "instrument_profile_version",
             "frequency_hz", "test_voltage_vrms", "temperature_c",
             "power_off_confirmed", "discharged_confirmed",
@@ -785,6 +792,7 @@ class StorageService:
                 "measurement.measured_at_ms en measurement_method zijn verplicht."
             )
         values["measurement_session_id"] = 1  # tijdelijk; wordt in transactie overschreven
+        values.setdefault("tool_key", DEFAULT_TOOL_KEY)
         values["created_at_ms"] = self._now_ms()
         return self._validated_measurement_values(**values)
 
@@ -1073,6 +1081,15 @@ class StorageService:
                 "Ongeldige measurement_method in database."
             ) from exc
 
+    @staticmethod
+    def _tool_key(value: Any) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise StorageValidationError("tool_key moet een niet-lege tekstwaarde zijn.")
+        key = value.strip().upper()
+        if any(ch not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" for ch in key):
+            raise StorageValidationError("tool_key mag alleen A-Z, 0-9 en underscore bevatten.")
+        return key
+
     @classmethod
     def _validated_measurement_values(cls, **values: Any) -> dict[str, Any]:
         values = dict(values)
@@ -1085,6 +1102,7 @@ class StorageService:
         values["measurement_method"] = cls._measurement_method(
             values["measurement_method"]
         ).value
+        values["tool_key"] = cls._tool_key(values.get("tool_key", DEFAULT_TOOL_KEY))
         values["frequency_hz"] = cls._finite_positive(
             "frequency_hz", values.get("frequency_hz")
         )

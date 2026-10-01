@@ -2,7 +2,7 @@
 ================================================================================
 Module:     tests/test_storage_schema.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
+Versie:     1.1.0
 Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
@@ -36,9 +36,12 @@ from app.storage.models import (
 )
 from app.storage.schema import (
     CURRENT_SCHEMA_VERSION,
+    SCHEMA_V1_VERSION,
     SCHEMA_V1_INDEXES,
     SCHEMA_V1_TABLES,
+    SCHEMA_CURRENT_INDEXES,
     create_schema_v1,
+    create_schema_current,
 )
 
 
@@ -61,8 +64,8 @@ def _column_names(
     return tuple(row[1] for row in rows)
 
 
-def test_current_schema_version_is_one() -> None:
-    assert CURRENT_SCHEMA_VERSION == 1
+def test_current_schema_version_is_two() -> None:
+    assert CURRENT_SCHEMA_VERSION == 2
 
 
 def test_schema_v1_creates_exact_main_tables() -> None:
@@ -90,7 +93,7 @@ def test_schema_v1_creates_exact_main_tables() -> None:
 
 def test_schema_columns_match_storage_models() -> None:
     connection = _open_memory_database()
-    create_schema_v1(
+    create_schema_current(
         connection,
         created_at_ms=TEST_NOW_MS,
     )
@@ -151,7 +154,7 @@ def test_schema_meta_has_one_current_version_row_with_epoch_ms() -> None:
 
     assert rows == [
         (
-            CURRENT_SCHEMA_VERSION,
+            SCHEMA_V1_VERSION,
             TEST_NOW_MS,
             TEST_NOW_MS,
         )
@@ -179,7 +182,7 @@ def test_create_schema_v1_is_idempotent_and_preserves_schema_meta() -> None:
 
     assert rows == [
         (
-            CURRENT_SCHEMA_VERSION,
+            SCHEMA_V1_VERSION,
             TEST_NOW_MS,
             TEST_NOW_MS,
         )
@@ -204,7 +207,7 @@ def test_schema_meta_physically_rejects_second_row() -> None:
             VALUES (?, ?, ?)
             """,
             (
-                CURRENT_SCHEMA_VERSION,
+                SCHEMA_V1_VERSION,
                 TEST_NOW_MS + 1,
                 TEST_NOW_MS + 1,
             ),
@@ -364,3 +367,14 @@ def test_foreign_keys_use_restrict_for_historical_relations() -> None:
 
         assert {row[2] for row in rows} == expected_targets
         assert {row[6].upper() for row in rows} == {"RESTRICT"}
+
+
+def test_current_schema_adds_tool_key_and_index() -> None:
+    connection = _open_memory_database()
+    create_schema_current(connection, created_at_ms=TEST_NOW_MS)
+    columns = set(_column_names(connection, "measurements"))
+    indexes = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'")}
+    assert "tool_key" in columns
+    assert "ix_measurements_tool_key" in indexes
+    assert indexes == set(SCHEMA_CURRENT_INDEXES)
+    assert connection.execute("SELECT schema_version FROM schema_meta").fetchone()[0] == 2

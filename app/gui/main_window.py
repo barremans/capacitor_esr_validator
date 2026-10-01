@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.3.0
+Versie:     2.4.0
 Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
@@ -35,6 +35,8 @@ Wijzigingen:
   v2.3.0 (2026-10-01)  Read-only Historiek als interne pagina toegevoegd.
                        Hoofdmenu opent historiek; Terug/X keert terug naar
                        Hoofdmenu. Historiek ververst bij openen.
+  v2.4.0 (2026-10-01)  Historiek "Herhaal meting" gekoppeld aan ESR-pagina.
+                       Alleen component- en meetcontext wordt vooraf ingevuld.
 ================================================================================
 """
 
@@ -90,6 +92,7 @@ class ToolHubWindow(QMainWindow):
         from app.gui.history_screen import HistoryScreen
         self.history_page = HistoryScreen(taal=self.taal)
         self.history_page.back_requested.connect(self._show_hub)
+        self.history_page.repeat_requested.connect(self._repeat_measurement)
         self.stack.addWidget(self.history_page)
 
         self.stack.setCurrentWidget(self.hub_page)
@@ -339,6 +342,11 @@ class ToolHubWindow(QMainWindow):
         if hasattr(self, "esr_btn"):
             self.esr_btn.setText(self._t("tool.esr"))
             self.esr_btn.setToolTip(self._t("tool.esr_omschrijving"))
+
+    def _repeat_measurement(self, preset):
+        """Open ESR als nieuwe meetrun met veilige historische contextpreset."""
+        self.esr_page.apply_repeat_preset(preset)
+        self._open_esr_test()
 
     def _open_esr_test(self):
         self.stack.setCurrentWidget(self.esr_page)

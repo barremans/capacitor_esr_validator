@@ -1,5 +1,5 @@
 {
-  "_comment": "Brontaal Nederlands. v1.8.0: read-only historiekdetail toegevoegd.",
+  "_comment": "Brontaal Nederlands. v1.8.0: Historiek herhaal-meting toegevoegd.",
   "app": {
     "titel": "Condensator- en ESR-validator"
   },
@@ -68,7 +68,8 @@
     "details": "Details",
     "terug": "← Terug",
     "meting_opslaan": "Meting opslaan",
-    "verversen": "Verversen"
+    "verversen": "Verversen",
+    "herhaal_meting": "Herhaal meting"
   },
   "veiligheid": {
     "waarschuwing_1": "Meet nooit aan een onder spanning staande schakeling.",
@@ -313,14 +314,16 @@
       "capaciteit": "Capaciteit",
       "esr": "ESR",
       "status": "Status",
-      "betrouwbaarheid": "Betrouwbaarheid"
+      "betrouwbaarheid": "Betrouwbaarheid",
+      "tool": "Tool / testtype",
+      "meetwaarden": "Meetwaarden"
     },
     "detail_titel": "Meting {measurement_id} — details",
     "detail_kop": "Opgeslagen meetdetails",
     "detail_fout": "Meetdetails konden niet worden geladen: {bericht}",
     "detail_niet_gevonden": "De geselecteerde meting bestaat niet meer.",
     "geen_assessment": "Geen assessment-snapshot opgeslagen voor deze meting.",
-    "detail_opmerking_opgeslagen_waarden": "Getoond worden de waarden zoals ze in storage v1 zijn opgeslagen. Oorspronkelijke invoereenheden van gemeten C/ESR worden in schema v1 niet afzonderlijk bewaard en worden daarom niet gereconstrueerd.",
+    "detail_opmerking_opgeslagen_waarden": "Getoond worden de waarden zoals ze zijn opgeslagen. Oorspronkelijke invoereenheden van gemeten C/ESR worden niet afzonderlijk bewaard en worden daarom niet gereconstrueerd.",
     "sectie": {
       "component": "Component",
       "meetcontext": "Meetcontext",
@@ -374,11 +377,35 @@
       "reference_temperature": "Referentietemperatuur",
       "value_kind": "Waarde-soort",
       "source_name": "Bron",
-      "source_document": "Brondocument"
-    }
+      "source_document": "Brondocument",
+      "tool": "Tool / testtype"
+    },
+    "herhalen_fout": "Meting kon niet worden voorbereid voor herhaling: {bericht}",
+    "filter": {
+      "titel": "Filters",
+      "fabrikant": "Fabrikant",
+      "serie": "Serie",
+      "meetmethode": "Meetmethode",
+      "instrument": "Instrumentcode",
+      "frequentie": "Frequentie",
+      "status": "Eindstatus",
+      "betrouwbaarheid": "Betrouwbaarheid",
+      "alle": "Alle",
+      "toepassen": "Filters toepassen",
+      "wissen": "Filters wissen",
+      "exact_placeholder": "exacte waarde",
+      "tool": "Tool / testtype"
+    },
+    "detail_geen_renderer": "Voor dit tooltype is nog geen gespecialiseerde detailweergave beschikbaar. De centrale historiek bewaart het record wel als afzonderlijk tooltype."
   },
   "algemeen": {
     "ja": "Ja",
     "nee": "Nee"
+  },
+  "herhalen": {
+    "banner": "Herhaling van meting {measurement_id}: component- en meetcontext zijn overgenomen. Voer nieuwe meetwaarden in, bevestig de veiligheid opnieuw en beoordeel opnieuw."
+  },
+  "tool_type": {
+    "ESR_CAPACITOR": "ESR / condensator"
   }
 }

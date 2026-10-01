@@ -1,5 +1,5 @@
 {
-  "_comment": "English translation. v1.8.0: read-only history detail added.",
+  "_comment": "English translation. v1.8.0: History repeat measurement added.",
   "app": {
     "titel": "Capacitor and ESR Validator"
   },
@@ -68,7 +68,8 @@
     "details": "Details",
     "terug": "← Back",
     "meting_opslaan": "Save measurement",
-    "verversen": "Refresh"
+    "verversen": "Refresh",
+    "herhaal_meting": "Repeat measurement"
   },
   "veiligheid": {
     "waarschuwing_1": "Never measure on a circuit that is still under voltage.",
@@ -313,14 +314,16 @@
       "capaciteit": "Capacitance",
       "esr": "ESR",
       "status": "Status",
-      "betrouwbaarheid": "Reliability"
+      "betrouwbaarheid": "Reliability",
+      "tool": "Tool / test type",
+      "meetwaarden": "Measurements"
     },
     "detail_titel": "Measurement {measurement_id} — details",
     "detail_kop": "Stored measurement details",
     "detail_fout": "Measurement details could not be loaded: {bericht}",
     "detail_niet_gevonden": "The selected measurement no longer exists.",
     "geen_assessment": "No assessment snapshot is stored for this measurement.",
-    "detail_opmerking_opgeslagen_waarden": "Values are shown exactly as stored by storage v1. The original input units for measured C/ESR are not stored separately in schema v1 and are therefore not reconstructed.",
+    "detail_opmerking_opgeslagen_waarden": "Values are shown exactly as stored. The original input units for measured C/ESR are not stored separately and are therefore not reconstructed.",
     "sectie": {
       "component": "Component",
       "meetcontext": "Measurement context",
@@ -374,11 +377,35 @@
       "reference_temperature": "Reference temperature",
       "value_kind": "Value kind",
       "source_name": "Source",
-      "source_document": "Source document"
-    }
+      "source_document": "Source document",
+      "tool": "Tool / test type"
+    },
+    "herhalen_fout": "Measurement could not be prepared for repeating: {bericht}",
+    "filter": {
+      "titel": "Filters",
+      "fabrikant": "Manufacturer",
+      "serie": "Series",
+      "meetmethode": "Measurement method",
+      "instrument": "Instrument key",
+      "frequentie": "Frequency",
+      "status": "Final status",
+      "betrouwbaarheid": "Reliability",
+      "alle": "All",
+      "toepassen": "Apply filters",
+      "wissen": "Clear filters",
+      "exact_placeholder": "exact value",
+      "tool": "Tool / test type"
+    },
+    "detail_geen_renderer": "No specialised detail view is available for this tool type yet. The central history still keeps the record as a separate tool type."
   },
   "algemeen": {
     "ja": "Yes",
     "nee": "No"
+  },
+  "herhalen": {
+    "banner": "Repeating measurement {measurement_id}: component and measurement context were copied. Enter new measurement values, confirm safety again, and assess again."
+  },
+  "tool_type": {
+    "ESR_CAPACITOR": "ESR / capacitor"
   }
 }

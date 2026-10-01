@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/storage/database.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
+Versie:     1.1.0
 Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
@@ -17,6 +17,8 @@ Doel:       Veilige SQLite-connection- en initialisatielaag voor de lokale
 Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste database-initialisatielaag met verplichte PRAGMA's,
                         schema-versiecontrole en koppeling aan migraties.
+  v1.1.0 (2026-10-01)  Nieuwe databases starten rechtstreeks op schema v2;
+                        bestaande v1-databases migreren transactioneel.
 ================================================================================
 """
 
@@ -36,9 +38,9 @@ from .exceptions import (
 from .migrations import migrate_database, read_schema_version
 from .schema import (
     CURRENT_SCHEMA_VERSION,
-    SCHEMA_V1_INDEXES,
-    SCHEMA_V1_TABLES,
-    create_schema_v1,
+    SCHEMA_CURRENT_INDEXES,
+    SCHEMA_CURRENT_TABLES,
+    create_schema_current,
 )
 
 
@@ -67,7 +69,7 @@ def open_database(database_path: Path | str) -> sqlite3.Connection:
 
 
 def validate_current_schema(connection: sqlite3.Connection) -> None:
-    """Controleer dat het huidige schema alle verplichte v1-objecten bevat."""
+    """Controleer dat het huidige schema alle verplichte objecten bevat."""
     version = read_schema_version(connection)
     if version != CURRENT_SCHEMA_VERSION:
         raise InvalidDatabaseSchemaError(
@@ -98,8 +100,8 @@ def validate_current_schema(connection: sqlite3.Connection) -> None:
         )
     }
 
-    missing_tables = set(SCHEMA_V1_TABLES) - tables
-    missing_indexes = set(SCHEMA_V1_INDEXES) - indexes
+    missing_tables = set(SCHEMA_CURRENT_TABLES) - tables
+    missing_indexes = set(SCHEMA_CURRENT_INDEXES) - indexes
     if missing_tables or missing_indexes:
         missing_parts = []
         if missing_tables:
@@ -143,7 +145,7 @@ def initialize_database(
         if not existed_before_open:
             try:
                 connection.execute("BEGIN IMMEDIATE")
-                create_schema_v1(
+                create_schema_current(
                     connection,
                     created_at_ms=now_ms,
                 )

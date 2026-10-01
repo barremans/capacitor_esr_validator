@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/services/measurement_persistence_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.1
+Versie:     1.1.0
 Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
@@ -20,6 +20,8 @@ Wijzigingen:
   v1.0.1 (2026-10-01)  Capaciteitsnormalisatie naar farad gecorrigeerd: gebruikt
                         rechtstreeks CAPACITEIT_FACTOR_NAAR_FARAD omdat de
                         bestaande unit-helper F niet als doeleenheid accepteert.
+  v1.1.0 (2026-10-01)  ESR-opslag labelt iedere meetrun expliciet met
+                        tool_key=ESR_CAPACITOR voor centrale multitool-historiek.
 ================================================================================
 """
 
@@ -163,6 +165,7 @@ class MeasurementPersistenceService:
         measurement = {
             "measured_at_ms": now_ms,
             "measurement_method": data.measurement_method,
+            "tool_key": "ESR_CAPACITOR",
             "instrument_key": data.instrument_key,
             "instrument_name": data.instrument_name,
             "instrument_profile_version": None,

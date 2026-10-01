@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/storage/models.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
+Versie:     1.1.0
 Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
@@ -17,6 +17,8 @@ Wijzigingen:
                         component_models, component_samples,
                         measurement_sessions, measurements,
                         assessment_snapshots en reference_snapshots.
+  v1.1.0 (2026-10-01)  Measurement uitgebreid met tool_key voor centrale
+                        multitool-historiek vanaf schema v2.
 ================================================================================
 """
 
@@ -148,6 +150,7 @@ class Measurement:
     supersedes_measurement_id: int | None
     invalid_reason: str | None
     created_at_ms: int
+    tool_key: str
 
 
 @dataclass(frozen=True, slots=True)

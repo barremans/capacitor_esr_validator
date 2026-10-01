@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/esr_test_screen.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.7.0
+Versie:     1.8.0
 Datum:      2026-10-01
 Auteur:     Ontwikkelaar
 
@@ -59,6 +59,9 @@ Wijzigingen:
   v1.7.0 (2026-10-01)  Na beoordeling kan de exact beoordeelde meetrun lokaal
                        worden opgeslagen via MeasurementPersistenceService.
                        OL/out-of-range met lege C/ESR blijft in storage NULL.
+  v1.8.0 (2026-10-01)  Veilige "Herhaal meting"-preset toegevoegd: component-
+                       en meetcontext worden hersteld, maar meetwaarden, safety,
+                       resultaat en assessment blijven leeg/nieuw.
   v1.6.5 (2026-09-29)  Compact resultaat maakt frequentiemismatch expliciet bij
                        de ESR-factor; vergelijking blijft zichtbaar maar wordt
                        duidelijk als indicatief gemarkeerd.
@@ -112,6 +115,7 @@ from app.services.assessment_service import (
     beoordeel_meting,
     status_label,
 )
+from app.services.repeat_measurement_service import RepeatMeasurementPreset
 from app.services.measurement_persistence_service import (
     EsrMeasurementSaveData,
     MeasurementPersistenceService,
@@ -186,6 +190,15 @@ class EsrTestScreen(QWidget):
         root.setSpacing(10)
 
         root.addLayout(self._build_navigation_row())
+        self.repeat_banner = QLabel()
+        self.repeat_banner.setWordWrap(True)
+        self.repeat_banner.setVisible(False)
+        self.repeat_banner.setStyleSheet(
+            "background-color: #263238; color: #E0F2F1; "
+            "border: 1px solid #546E7A; border-radius: 4px; padding: 6px 10px;"
+        )
+        root.addWidget(self.repeat_banner)
+
         root.addLayout(self._build_safety_row())
 
         columns = QHBoxLayout()
@@ -539,6 +552,76 @@ class EsrTestScreen(QWidget):
 
         if self.meas_esr_unit.findText(defaults.esr_eenheid) >= 0:
             self.meas_esr_unit.setCurrentText(defaults.esr_eenheid)
+
+    def apply_repeat_preset(self, preset: RepeatMeasurementPreset) -> None:
+        """Vul alleen historische component- en meetcontext voor een nieuwe run."""
+        self._apply_saved_defaults()
+
+        if (
+            preset.nominal_capacitance_unit
+            and self.nom_cap_unit.findText(preset.nominal_capacitance_unit) >= 0
+        ):
+            self.nom_cap_unit.setCurrentText(preset.nominal_capacitance_unit)
+        self.nom_cap_input.setText(
+            "" if preset.nominal_capacitance_value is None
+            else f"{preset.nominal_capacitance_value:g}"
+        )
+        self.tolerance_input.setText(
+            "" if preset.tolerance_percent is None else f"{preset.tolerance_percent:g}"
+        )
+        self.nom_voltage_input.setText(
+            "" if preset.rated_voltage_v is None else f"{preset.rated_voltage_v:g}"
+        )
+
+        if preset.technology:
+            type_index = self.type_combo.findText(preset.technology)
+            if type_index >= 0:
+                self.type_combo.setCurrentIndex(type_index)
+        self.mfg_input.setText(preset.manufacturer or "")
+        self.series_input.setText(preset.series or "")
+
+        if preset.measurement_method:
+            method_index = self.method_combo.findData(preset.measurement_method)
+            if method_index >= 0:
+                self.method_combo.setCurrentIndex(method_index)
+
+        if preset.instrument_key:
+            instrument_index = self.instrument_combo.findData(preset.instrument_key)
+            if instrument_index >= 0:
+                self.instrument_combo.setCurrentIndex(instrument_index)
+                self._update_instrument_profile()
+
+        if preset.frequency_hz is not None:
+            freq_index = self.freq_combo.findData(preset.frequency_hz)
+            if freq_index >= 0:
+                self.freq_combo.setCurrentIndex(freq_index)
+        if preset.test_voltage_vrms is not None:
+            voltage_index = self.test_voltage_combo.findData(preset.test_voltage_vrms)
+            if voltage_index >= 0:
+                self.test_voltage_combo.setCurrentIndex(voltage_index)
+        self.temp_input.setText(
+            "" if preset.temperature_c is None else f"{preset.temperature_c:g}"
+        )
+
+        # Nieuwe run: historische meetuitkomst en safety nooit overnemen.
+        self.meas_cap_input.clear()
+        self.meas_esr_input.clear()
+        self.d_input.clear()
+        self.safety_check.setChecked(False)
+        self.out_of_range_check.setChecked(False)
+        self.open_connection_check.setChecked(False)
+        self.result_group.setVisible(False)
+        self._laatste_resultaat_html = ""
+        self._laatste_opslag_payload = None
+        self.save_btn.setEnabled(False)
+
+        self.repeat_banner.setText(
+            self._t(
+                "herhalen.banner",
+                measurement_id=preset.source_measurement_id,
+            )
+        )
+        self.repeat_banner.setVisible(True)
 
     def _parse_optional(self, text: str):
         text = text.strip()
@@ -923,6 +1006,7 @@ class EsrTestScreen(QWidget):
         self._laatste_resultaat_html = ""
         self._laatste_opslag_payload = None
         self.save_btn.setEnabled(False)
+        self.repeat_banner.setVisible(False)
 
         self._apply_saved_defaults()
 

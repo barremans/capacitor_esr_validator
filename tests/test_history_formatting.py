@@ -2,18 +2,22 @@
 ================================================================================
 Module:     tests/test_history_formatting.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
+Versie:     1.2.0
 Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
-Doel:       Regressietests voor compacte historiekweergave van C, ESR en
-            componentidentiteit.
+Doel:       Regressietests voor centrale historiekformattering, inclusief
+            tool-specifieke meetwaardesamenvatting en uniforme meetmethode.
 
 Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste formatteringstests.
   v1.1.0 (2026-10-01)  Detailhelpers voor JSON, booleans en getallen getest.
+  v1.2.0 (2026-10-01)  Multitool meetwaardesamenvatting en uniforme
+                        meetmethode-vertaalsleutels getest.
 ================================================================================
 """
+
+from types import SimpleNamespace
 
 from app.helpers.history_formatting import (
     component_label,
@@ -22,6 +26,8 @@ from app.helpers.history_formatting import (
     decode_json_list,
     format_bool,
     format_optional_number,
+    format_measurement_values,
+    measurement_method_translation_key,
 )
 
 
@@ -55,3 +61,18 @@ def test_detail_formatting_helpers() -> None:
     assert decode_json_list('["een","twee"]') == ("een", "twee")
     assert decode_json_list(None) == ()
     assert decode_json_list('{broken') == ('{broken',)
+
+
+def test_esr_capacitor_values_are_combined_in_one_multitool_column() -> None:
+    measurement = SimpleNamespace(capacitance_f=465e-6, esr_ohm=0.2)
+    assert format_measurement_values("ESR_CAPACITOR", measurement) == "465 µF · 200 mΩ"
+
+    out_of_range = SimpleNamespace(capacitance_f=None, esr_ohm=None)
+    assert format_measurement_values("ESR_CAPACITOR", out_of_range) == "—"
+    assert format_measurement_values("RESISTOR", measurement) == "—"
+
+
+def test_measurement_method_labels_use_one_public_translation_set() -> None:
+    assert measurement_method_translation_key("EX_SITU") == "meetmethode.ex_situ"
+    assert measurement_method_translation_key("ONE_LEG") == "meetmethode.one_leg"
+    assert measurement_method_translation_key("IN_CIRCUIT") == "meetmethode.in_circuit"
