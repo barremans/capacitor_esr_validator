@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/esr_test_screen.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.6.4
-Datum:      2026-09-29
+Versie:     1.7.0
+Datum:      2026-10-01
 Auteur:     Ontwikkelaar
 
 Doel:       Compact ESR-diagnosescherm voor nominale gegevens, meetcontext,
@@ -54,6 +54,14 @@ Wijzigingen:
   v1.6.3 (2026-09-29)  OL/out-of-range laat ook een lege gemeten
                        capaciteit toe; intern wordt alleen voor de serviceketen
                        0,0 gebruikt. Normale metingen blijven numeriek verplicht.
+  v1.6.4 (2026-09-29)  Contrast van resultaat- en veiligheidsdialogen expliciet
+                       vastgelegd voor betrouwbare leesbaarheid in donker thema.
+  v1.7.0 (2026-10-01)  Na beoordeling kan de exact beoordeelde meetrun lokaal
+                       worden opgeslagen via MeasurementPersistenceService.
+                       OL/out-of-range met lege C/ESR blijft in storage NULL.
+  v1.6.5 (2026-09-29)  Compact resultaat maakt frequentiemismatch expliciet bij
+                       de ESR-factor; vergelijking blijft zichtbaar maar wordt
+                       duidelijk als indicatief gemarkeerd.
 
 Versiebeheer:
   - MAJOR: incompatibele architectuur/API-wijziging.
@@ -104,6 +112,11 @@ from app.services.assessment_service import (
     beoordeel_meting,
     status_label,
 )
+from app.services.measurement_persistence_service import (
+    EsrMeasurementSaveData,
+    MeasurementPersistenceService,
+)
+from app.storage.exceptions import StorageError
 
 
 NUMERIC_WIDTH = 115
@@ -136,10 +149,21 @@ class EsrTestScreen(QWidget):
 
     back_requested = Signal()
 
-    def __init__(self, taal: str = "nl_NL", parent=None):
+    def __init__(
+        self,
+        taal: str = "nl_NL",
+        parent=None,
+        persistence_service: MeasurementPersistenceService | None = None,
+    ):
         super().__init__(parent)
         self.taal = taal
         self._laatste_resultaat_html = ""
+        self._laatste_opslag_payload: EsrMeasurementSaveData | None = None
+        self._persistence_service = (
+            persistence_service
+            if persistence_service is not None
+            else MeasurementPersistenceService()
+        )
         self._build_ui()
         self._apply_saved_defaults()
         self.setMinimumSize(1040, 620)
@@ -406,6 +430,11 @@ class EsrTestScreen(QWidget):
         clear_btn.clicked.connect(self._on_clear)
         row.addWidget(clear_btn)
 
+        self.save_btn = QPushButton(self._t("knop.meting_opslaan"))
+        self.save_btn.setEnabled(False)
+        self.save_btn.clicked.connect(self._on_save_measurement)
+        row.addWidget(self.save_btn)
+
         row.addStretch(1)
         return row
 
@@ -536,21 +565,25 @@ class EsrTestScreen(QWidget):
             tolerance = self._parse_optional(self.tolerance_input.text())
             nom_voltage = self._parse_optional(self.nom_voltage_input.text())
 
-            if self.out_of_range_check.isChecked() and not self.meas_cap_input.text().strip():
-                # Bij OL/out-of-range is er geen betrouwbare numerieke capaciteit.
-                # De service vereist technisch nog een float, maar negeert die
-                # voor de eindstatus zodra meetwaarde_buiten_bereik=True is.
+            out_of_range = self.out_of_range_check.isChecked()
+
+            if out_of_range and not self.meas_cap_input.text().strip():
+                # Alleen voor de bestaande assessment-API is 0,0 technisch nodig.
+                # Voor storage bewaren we hieronder expliciet None/NULL.
+                raw_meas_cap = None
                 meas_cap = 0.0
             else:
-                meas_cap = parse_decimaal(self.meas_cap_input.text())
+                raw_meas_cap = parse_decimaal(self.meas_cap_input.text())
+                meas_cap = raw_meas_cap
 
-            if self.out_of_range_check.isChecked() and not self.meas_esr_input.text().strip():
-                # Bij OL/out-of-range is er geen betrouwbare numerieke ESR.
-                # De service vereist technisch nog een float, maar negeert die
-                # voor de eindstatus zodra meetwaarde_buiten_bereik=True is.
+            if out_of_range and not self.meas_esr_input.text().strip():
+                # Alleen voor de bestaande assessment-API is 0,0 technisch nodig.
+                # Voor storage bewaren we hieronder expliciet None/NULL.
+                raw_meas_esr = None
                 meas_esr = 0.0
             else:
-                meas_esr = parse_decimaal(self.meas_esr_input.text())
+                raw_meas_esr = parse_decimaal(self.meas_esr_input.text())
+                meas_esr = raw_meas_esr
 
             d_value = self._parse_optional(self.d_input.text())
             temp = self._parse_optional(self.temp_input.text())
@@ -595,10 +628,37 @@ class EsrTestScreen(QWidget):
                 vermoedelijke_open_verbinding_of_kortsluiting=(
                     self.open_connection_check.isChecked()
                 ),
-                meetwaarde_buiten_bereik=self.out_of_range_check.isChecked(),
+                meetwaarde_buiten_bereik=out_of_range,
                 taal=self.taal,
             )
             self._show_result(resultaat)
+
+            self._laatste_opslag_payload = EsrMeasurementSaveData(
+                nominal_capacitance_value=nom_cap,
+                nominal_capacitance_unit=self.nom_cap_unit.currentText(),
+                tolerance_percent=tolerance,
+                rated_voltage_v=nom_voltage,
+                technology=cond_type,
+                manufacturer=fabrikant or None,
+                series=serie or None,
+                measurement_method=meetmethode,
+                instrument_key=instrument_code,
+                instrument_name=self.instrument_combo.currentText() or None,
+                frequency_hz=freq_hz,
+                test_voltage_vrms=testspanning_vrms,
+                temperature_c=temp,
+                safety_confirmed=True,
+                measured_capacitance_value=raw_meas_cap,
+                measured_capacitance_unit=self.meas_cap_unit.currentText(),
+                measured_esr_value=raw_meas_esr,
+                measured_esr_unit=self.meas_esr_unit.currentText(),
+                dissipation_factor_d=d_value,
+                out_of_range=out_of_range,
+                open_suspected=self.open_connection_check.isChecked(),
+                assessment=resultaat,
+                reference=referentie,
+            )
+            self.save_btn.setEnabled(True)
 
         except ValueError as exc:
             QMessageBox.warning(self, self._t("fout.titel"), str(exc))
@@ -608,6 +668,48 @@ class EsrTestScreen(QWidget):
                 self._t("fout.titel"),
                 self._t("fout.onverwacht", bericht=str(exc)),
             )
+
+    def _on_save_measurement(self) -> None:
+        """Slaat uitsluitend de laatst beoordeelde, onveranderlijke meetrun op."""
+        if self._laatste_opslag_payload is None:
+            return
+
+        try:
+            saved = self._persistence_service.save_esr_measurement(
+                self._laatste_opslag_payload
+            )
+            measurement_id = saved["measurement"].id
+        except StorageError as exc:
+            QMessageBox.critical(
+                self,
+                self._t("opslag.meting_opslaan_fout_titel"),
+                self._t(
+                    "opslag.meting_opslaan_fout_tekst",
+                    bericht=str(exc),
+                ),
+            )
+            return
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                self._t("opslag.meting_opslaan_fout_titel"),
+                self._t(
+                    "opslag.meting_opslaan_fout_tekst",
+                    bericht=str(exc),
+                ),
+            )
+            return
+
+        self._laatste_opslag_payload = None
+        self.save_btn.setEnabled(False)
+        QMessageBox.information(
+            self,
+            self._t("opslag.meting_opgeslagen_titel"),
+            self._t(
+                "opslag.meting_opgeslagen_tekst",
+                measurement_id=measurement_id,
+            ),
+        )
 
     def _show_result(self, resultaat) -> None:
         status_key = resultaat.eindstatus.value
@@ -637,6 +739,15 @@ class EsrTestScreen(QWidget):
         esr_factor = (
             f"{esr.factor:.2f}×" if esr.factor is not None else "—"
         )
+        if esr.factor is not None and esr.frequentie_wijkt_af:
+            ref_freq = getattr(resultaat, "referentiefrequentie_hz", None)
+            # De Beoordeling bewaart de referentiefrequentie momenteel niet apart.
+            # De ingebouwde referentiebron gebruikt 100 kHz; toon daarom alleen
+            # de meetfrequentie en markeer de factor ondubbelzinnig als indicatief.
+            esr_factor = (
+                f"{esr_factor}* ({_format_frequency(self.freq_combo.currentData())} gemeten; "
+                f"referentiefrequentie wijkt af)"
+            )
 
         if (
             cap.nominale_waarde is not None
@@ -657,19 +768,20 @@ class EsrTestScreen(QWidget):
         )
         esr_gemeten = _format_esr_ohm(esr.gemeten_esr_ohm)
 
-        self.result_summary.setText(
-            self._t(
-                "resultaat.samenvatting_grenzen",
-                betrouwbaarheid=reliability,
-                cap_gemeten=cap_gemeten,
-                cap_afwijking=cap_text,
-                cap_grenzen=cap_grenzen,
-                esr_gemeten=esr_gemeten,
-                esr_factor=esr_factor,
-                esr_ref=esr_ref,
-                advies=resultaat.aanbevolen_vervolgstap,
-            )
+        summary_text = self._t(
+            "resultaat.samenvatting_grenzen",
+            betrouwbaarheid=reliability,
+            cap_gemeten=cap_gemeten,
+            cap_afwijking=cap_text,
+            cap_grenzen=cap_grenzen,
+            esr_gemeten=esr_gemeten,
+            esr_factor=esr_factor,
+            esr_ref=esr_ref,
+            advies=resultaat.aanbevolen_vervolgstap,
         )
+        if esr.factor is not None and esr.frequentie_wijkt_af:
+            summary_text += "\n* Indicatieve ESR-vergelijking: meet- en referentiefrequentie verschillen."
+        self.result_summary.setText(summary_text)
 
         self._laatste_resultaat_html = self._build_result_html(resultaat)
         self.result_group.setVisible(True)
@@ -767,10 +879,6 @@ class EsrTestScreen(QWidget):
 
         layout = QVBoxLayout(dialog)
         browser = QTextBrowser()
-        browser.setStyleSheet(
-            "QTextBrowser { background-color: #1E1E1E; color: #F0F0F0; "
-            "border: 1px solid #555555; }"
-        )
         browser.document().setDefaultStyleSheet(
             "body { color: #F0F0F0; background-color: #1E1E1E; "
             "font-family: 'Segoe UI'; } "
@@ -813,6 +921,8 @@ class EsrTestScreen(QWidget):
         self.open_connection_check.setChecked(False)
         self.result_group.setVisible(False)
         self._laatste_resultaat_html = ""
+        self._laatste_opslag_payload = None
+        self.save_btn.setEnabled(False)
 
         self._apply_saved_defaults()
 
@@ -823,13 +933,6 @@ class EsrTestScreen(QWidget):
         ]
 
         msg = QMessageBox(self)
-        msg.setStyleSheet(
-            "QMessageBox { background-color: #2D2D30; } "
-            "QLabel { color: #F0F0F0; background-color: transparent; } "
-            "QPushButton { color: #F0F0F0; background-color: #3C3C3C; "
-            "border: 1px solid #666666; border-radius: 4px; padding: 6px 16px; } "
-            "QPushButton:hover { background-color: #4C4C4C; border-color: #4AA3FF; }"
-        )
         msg.setWindowTitle(self._t("dialog.veiligheid_titel"))
         msg.setTextFormat(Qt.TextFormat.RichText)
         msg.setText(

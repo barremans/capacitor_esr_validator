@@ -1,5 +1,5 @@
 {
-  "_comment": "Brontaal Nederlands. v1.6.1: bevestiging bij Wissen toegevoegd.",
+  "_comment": "Brontaal Nederlands. v1.8.0: read-only historiekdetail toegevoegd.",
   "app": {
     "titel": "Condensator- en ESR-validator"
   },
@@ -29,7 +29,8 @@
     "meetwaarden": "Meetwaarden",
     "condensator": "Condensator",
     "hoofdmenu": "Hoofdmenu",
-    "diagnose": "Diagnose"
+    "diagnose": "Diagnose",
+    "historiek": "Historiek"
   },
   "veld": {
     "nominale_capaciteit": "Nominale capaciteit",
@@ -65,7 +66,9 @@
     "help": "?",
     "veiligheidsinstructies": "Veiligheidsinstructies",
     "details": "Details",
-    "terug": "← Terug"
+    "terug": "← Terug",
+    "meting_opslaan": "Meting opslaan",
+    "verversen": "Verversen"
   },
   "veiligheid": {
     "waarschuwing_1": "Meet nooit aan een onder spanning staande schakeling.",
@@ -199,7 +202,9 @@
     "diagnose": "Diagnose",
     "diagnose_omschrijving": "Open de beschikbare diagnostische tools",
     "documentatie": "Documentatie",
-    "documentatie_omschrijving": "Open technische documentatie en referenties"
+    "documentatie_omschrijving": "Open technische documentatie en referenties",
+    "historiek": "Historiek",
+    "historiek_omschrijving": "Bekijk opgeslagen meetresultaten"
   },
   "meetmethode": {
     "ex_situ": "Volledig uitgebouwd",
@@ -289,5 +294,91 @@
       "titel": "Standaardwaarden herstellen",
       "tekst": "Standaardwaarden van alleen de actieve tab herstellen?"
     }
+  },
+  "opslag": {
+    "meting_opgeslagen_titel": "Meting opgeslagen",
+    "meting_opgeslagen_tekst": "Meting {measurement_id} is opgeslagen in de lokale historiek.",
+    "meting_opslaan_fout_titel": "Opslaan mislukt",
+    "meting_opslaan_fout_tekst": "De meting kon niet worden opgeslagen: {bericht}"
+  },
+  "historiek": {
+    "leeg": "Nog geen opgeslagen metingen.",
+    "aantal": "{aantal} meting(en) getoond.",
+    "fout": "Historiek kon niet worden geladen: {bericht}",
+    "kolom": {
+      "datum_tijd": "Datum / tijd",
+      "component": "Component",
+      "meetmethode": "Meetmethode",
+      "instrument": "Instrument",
+      "capaciteit": "Capaciteit",
+      "esr": "ESR",
+      "status": "Status",
+      "betrouwbaarheid": "Betrouwbaarheid"
+    },
+    "detail_titel": "Meting {measurement_id} — details",
+    "detail_kop": "Opgeslagen meetdetails",
+    "detail_fout": "Meetdetails konden niet worden geladen: {bericht}",
+    "detail_niet_gevonden": "De geselecteerde meting bestaat niet meer.",
+    "geen_assessment": "Geen assessment-snapshot opgeslagen voor deze meting.",
+    "detail_opmerking_opgeslagen_waarden": "Getoond worden de waarden zoals ze in storage v1 zijn opgeslagen. Oorspronkelijke invoereenheden van gemeten C/ESR worden in schema v1 niet afzonderlijk bewaard en worden daarom niet gereconstrueerd.",
+    "sectie": {
+      "component": "Component",
+      "meetcontext": "Meetcontext",
+      "meetwaarden": "Opgeslagen meetwaarden",
+      "assessment": "Assessment-snapshot {nummer}",
+      "referenties": "Referenties",
+      "referentie": "Referentie-snapshot {nummer}"
+    },
+    "detail": {
+      "fabrikant": "Fabrikant",
+      "serie": "Serie",
+      "part_number": "Partnummer",
+      "technologie": "Technologie",
+      "nominale_capaciteit": "Nominale capaciteit",
+      "nominale_spanning": "Nominale spanning",
+      "tolerantie": "Tolerantie onder / boven",
+      "sample_state": "Sampletoestand",
+      "datum_tijd": "Gemeten op",
+      "meetmethode": "Meetmethode",
+      "instrument": "Instrument",
+      "frequentie": "Meetfrequentie",
+      "testspanning": "Testspanning",
+      "temperatuur": "Omgevingstemperatuur",
+      "spanningsloos": "Spanningsloos bevestigd",
+      "ontladen": "Ontladen bevestigd",
+      "sessie_start": "Sessie gestart",
+      "sessie_einde": "Sessie beëindigd",
+      "capaciteit": "Capaciteit",
+      "esr": "ESR",
+      "d": "D / dissipatiefactor",
+      "out_of_range": "OL / buiten bereik",
+      "open_suspected": "Open verbinding vermoed",
+      "short_suspected": "Kortsluiting vermoed",
+      "assessed_at": "Beoordeeld op",
+      "engine_version": "Assessment-engine",
+      "capacitance_status": "Capaciteitsstatus",
+      "capacitance_deviation": "Capaciteitsafwijking",
+      "esr_status": "ESR-status",
+      "esr_factor": "ESR-factor",
+      "consistency_status": "Consistentiestatus",
+      "reliability": "Betrouwbaarheid",
+      "final_status": "Eindstatus",
+      "redenen": "Redenen",
+      "waarschuwingen": "Waarschuwingen",
+      "advies": "Advies",
+      "reference_role": "Referentierol",
+      "reference_level": "Referentieniveau",
+      "reference_type": "Referentietype",
+      "reference_value": "Referentiewaarde",
+      "reference_frequency": "Referentiefrequentie",
+      "reference_temperature": "Referentietemperatuur",
+      "value_kind": "Waarde-soort",
+      "source_name": "Bron",
+      "source_document": "Brondocument"
+    }
+  },
+  "algemeen": {
+    "ja": "Ja",
+    "nee": "Nee"
   }
 }

@@ -1,5 +1,5 @@
 {
-  "_comment": "English translation. v1.6.1: confirmation when clearing added.",
+  "_comment": "English translation. v1.8.0: read-only history detail added.",
   "app": {
     "titel": "Capacitor and ESR Validator"
   },
@@ -29,7 +29,8 @@
     "meetwaarden": "Measurement values",
     "condensator": "Capacitor",
     "hoofdmenu": "Main menu",
-    "diagnose": "Diagnostics"
+    "diagnose": "Diagnostics",
+    "historiek": "History"
   },
   "veld": {
     "nominale_capaciteit": "Nominal capacitance",
@@ -65,7 +66,9 @@
     "help": "?",
     "veiligheidsinstructies": "Safety instructions",
     "details": "Details",
-    "terug": "← Back"
+    "terug": "← Back",
+    "meting_opslaan": "Save measurement",
+    "verversen": "Refresh"
   },
   "veiligheid": {
     "waarschuwing_1": "Never measure on a circuit that is still under voltage.",
@@ -199,7 +202,9 @@
     "diagnose": "Diagnostics",
     "diagnose_omschrijving": "Open the available diagnostic tools",
     "documentatie": "Documentation",
-    "documentatie_omschrijving": "Open technical documentation and references"
+    "documentatie_omschrijving": "Open technical documentation and references",
+    "historiek": "History",
+    "historiek_omschrijving": "View saved measurement results"
   },
   "meetmethode": {
     "ex_situ": "Fully removed",
@@ -289,5 +294,91 @@
       "titel": "Restore defaults",
       "tekst": "Restore defaults for the active tab only?"
     }
+  },
+  "opslag": {
+    "meting_opgeslagen_titel": "Measurement saved",
+    "meting_opgeslagen_tekst": "Measurement {measurement_id} was saved to local history.",
+    "meting_opslaan_fout_titel": "Save failed",
+    "meting_opslaan_fout_tekst": "The measurement could not be saved: {bericht}"
+  },
+  "historiek": {
+    "leeg": "No saved measurements yet.",
+    "aantal": "Showing {aantal} measurement(s).",
+    "fout": "History could not be loaded: {bericht}",
+    "kolom": {
+      "datum_tijd": "Date / time",
+      "component": "Component",
+      "meetmethode": "Measurement method",
+      "instrument": "Instrument",
+      "capaciteit": "Capacitance",
+      "esr": "ESR",
+      "status": "Status",
+      "betrouwbaarheid": "Reliability"
+    },
+    "detail_titel": "Measurement {measurement_id} — details",
+    "detail_kop": "Stored measurement details",
+    "detail_fout": "Measurement details could not be loaded: {bericht}",
+    "detail_niet_gevonden": "The selected measurement no longer exists.",
+    "geen_assessment": "No assessment snapshot is stored for this measurement.",
+    "detail_opmerking_opgeslagen_waarden": "Values are shown exactly as stored by storage v1. The original input units for measured C/ESR are not stored separately in schema v1 and are therefore not reconstructed.",
+    "sectie": {
+      "component": "Component",
+      "meetcontext": "Measurement context",
+      "meetwaarden": "Stored measurement values",
+      "assessment": "Assessment snapshot {nummer}",
+      "referenties": "References",
+      "referentie": "Reference snapshot {nummer}"
+    },
+    "detail": {
+      "fabrikant": "Manufacturer",
+      "serie": "Series",
+      "part_number": "Part number",
+      "technologie": "Technology",
+      "nominale_capaciteit": "Nominal capacitance",
+      "nominale_spanning": "Rated voltage",
+      "tolerantie": "Tolerance lower / upper",
+      "sample_state": "Sample state",
+      "datum_tijd": "Measured at",
+      "meetmethode": "Measurement method",
+      "instrument": "Instrument",
+      "frequentie": "Measurement frequency",
+      "testspanning": "Test voltage",
+      "temperatuur": "Ambient temperature",
+      "spanningsloos": "Power-off confirmed",
+      "ontladen": "Discharge confirmed",
+      "sessie_start": "Session started",
+      "sessie_einde": "Session ended",
+      "capaciteit": "Capacitance",
+      "esr": "ESR",
+      "d": "D / dissipation factor",
+      "out_of_range": "OL / out of range",
+      "open_suspected": "Open connection suspected",
+      "short_suspected": "Short circuit suspected",
+      "assessed_at": "Assessed at",
+      "engine_version": "Assessment engine",
+      "capacitance_status": "Capacitance status",
+      "capacitance_deviation": "Capacitance deviation",
+      "esr_status": "ESR status",
+      "esr_factor": "ESR factor",
+      "consistency_status": "Consistency status",
+      "reliability": "Reliability",
+      "final_status": "Final status",
+      "redenen": "Reasons",
+      "waarschuwingen": "Warnings",
+      "advies": "Advice",
+      "reference_role": "Reference role",
+      "reference_level": "Reference level",
+      "reference_type": "Reference type",
+      "reference_value": "Reference value",
+      "reference_frequency": "Reference frequency",
+      "reference_temperature": "Reference temperature",
+      "value_kind": "Value kind",
+      "source_name": "Source",
+      "source_document": "Source document"
+    }
+  },
+  "algemeen": {
+    "ja": "Yes",
+    "nee": "No"
   }
 }

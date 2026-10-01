@@ -1,9 +1,9 @@
 """
 ================================================================================
 Module:     app/gui/main_window.py
-Project:    Condensator- en ESR-validator (Windows)
-Versie:     2.2.2
-Datum:      2026-09-27
+Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+Versie:     2.3.0
+Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
 Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
@@ -32,6 +32,9 @@ Wijzigingen:
   v2.2.0 (2026-09-27)  Navigatie uitgebreid naar Hoofdmenu -> Diagnose -> ESR.
                        ESR-Terug/X keert terug naar Diagnose; Diagnose-Terug/X
                        keert terug naar Hoofdmenu. Documentatie is voorbereid.
+  v2.3.0 (2026-10-01)  Read-only Historiek als interne pagina toegevoegd.
+                       Hoofdmenu opent historiek; Terug/X keert terug naar
+                       Hoofdmenu. Historiek ververst bij openen.
 ================================================================================
 """
 
@@ -84,6 +87,11 @@ class ToolHubWindow(QMainWindow):
         self.esr_page.back_requested.connect(self._show_diagnose)
         self.stack.addWidget(self.esr_page)
 
+        from app.gui.history_screen import HistoryScreen
+        self.history_page = HistoryScreen(taal=self.taal)
+        self.history_page.back_requested.connect(self._show_hub)
+        self.stack.addWidget(self.history_page)
+
         self.stack.setCurrentWidget(self.hub_page)
         self._build_menu()
 
@@ -116,6 +124,14 @@ class ToolHubWindow(QMainWindow):
             self.diagnose_btn, 0, 0, Qt.AlignmentFlag.AlignCenter
         )
 
+        self.history_btn = QPushButton(self._t("tool.historiek"))
+        self.history_btn.setFixedSize(180, 120)
+        self.history_btn.setToolTip(self._t("tool.historiek_omschrijving"))
+        self.history_btn.clicked.connect(self._show_history)
+        menu_grid.addWidget(
+            self.history_btn, 0, 1, Qt.AlignmentFlag.AlignCenter
+        )
+
         self.documentation_btn = QPushButton(self._t("tool.documentatie"))
         self.documentation_btn.setFixedSize(180, 120)
         self.documentation_btn.setToolTip(
@@ -123,10 +139,10 @@ class ToolHubWindow(QMainWindow):
         )
         self.documentation_btn.clicked.connect(self._show_documentation)
         menu_grid.addWidget(
-            self.documentation_btn, 0, 1, Qt.AlignmentFlag.AlignCenter
+            self.documentation_btn, 0, 2, Qt.AlignmentFlag.AlignCenter
         )
 
-        menu_grid.setColumnStretch(2, 1)
+        menu_grid.setColumnStretch(3, 1)
         layout.addLayout(menu_grid)
         layout.addStretch()
         return central
@@ -218,6 +234,13 @@ class ToolHubWindow(QMainWindow):
             self._t("app.titel") + " — " + self._t("scherm.diagnose")
         )
 
+    def _show_history(self):
+        self.history_page.refresh()
+        self.stack.setCurrentWidget(self.history_page)
+        self.setWindowTitle(
+            self._t("app.titel") + " — " + self._t("scherm.historiek")
+        )
+
     def _show_documentation(self):
         QMessageBox.information(
             self,
@@ -301,11 +324,18 @@ class ToolHubWindow(QMainWindow):
         if hasattr(self, "diagnose_btn"):
             self.diagnose_btn.setText(self._t("tool.diagnose"))
             self.diagnose_btn.setToolTip(self._t("tool.diagnose_omschrijving"))
+        if hasattr(self, "history_btn"):
+            self.history_btn.setText(self._t("tool.historiek"))
+            self.history_btn.setToolTip(self._t("tool.historiek_omschrijving"))
         if hasattr(self, "documentation_btn"):
             self.documentation_btn.setText(self._t("tool.documentatie"))
             self.documentation_btn.setToolTip(
                 self._t("tool.documentatie_omschrijving")
             )
+        if hasattr(self, "history_page"):
+            self.history_page.apply_language(self.taal)
+            if self.stack.currentWidget() is self.history_page:
+                self.history_page.refresh()
         if hasattr(self, "esr_btn"):
             self.esr_btn.setText(self._t("tool.esr"))
             self.esr_btn.setToolTip(self._t("tool.esr_omschrijving"))
@@ -320,8 +350,8 @@ class ToolHubWindow(QMainWindow):
         """Sluit contextueel.
 
         Vanuit ESR werkt de venster-X als 'Terug' naar Diagnose. Vanuit
-        Diagnose gaat de X terug naar het Hoofdmenu. Alleen op het Hoofdmenu
-        sluit de venster-X de applicatie volledig.
+        Diagnose of Historiek gaat de X terug naar het Hoofdmenu. Alleen op
+        het Hoofdmenu sluit de venster-X de applicatie volledig.
         """
         if hasattr(self, "stack"):
             current = self.stack.currentWidget()
@@ -330,6 +360,10 @@ class ToolHubWindow(QMainWindow):
                 event.ignore()
                 return
             if current is self.diagnose_page:
+                self._show_hub()
+                event.ignore()
+                return
+            if current is self.history_page:
                 self._show_hub()
                 event.ignore()
                 return
