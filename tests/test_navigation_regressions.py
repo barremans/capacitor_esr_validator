@@ -2,11 +2,14 @@
 ================================================================================
 Module:     tests/test_navigation_regressions.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.0.0
-Datum:      2026-09-27
+Versie:     1.1.0
+Datum:      2026-10-02
 Auteur:     Bart Bossuyt
 
-Doel:       Regressietests voor Tool Hub -> Diagnose -> ESR navigatie.
+Doel:       Regressietests voor Tool Hub-navigatie naar Diagnose, ESR en
+            Documentatie, inclusief contextueel Terug/X-gedrag.
+Wijzigingen:
+  v1.1.0 (2026-10-02)  Documentatienavigatie en contextueel X-gedrag toegevoegd.
 ================================================================================
 """
 
@@ -48,3 +51,39 @@ def test_esr_terug_gaat_naar_diagnose():
     window.esr_page.back_requested.emit()
 
     assert window.stack.currentWidget() is window.diagnose_page
+
+
+def test_hoofdmenu_naar_documentatie_en_terug():
+    _app()
+    window = ToolHubWindow()
+
+    window._show_documentation()
+    assert window.stack.currentWidget() is window.documentation_page
+
+    window.documentation_page.back_requested.emit()
+    assert window.stack.currentWidget() is window.hub_page
+
+
+class _FakeCloseEvent:
+    def __init__(self):
+        self.accepted = False
+        self.ignored = False
+
+    def accept(self):
+        self.accepted = True
+
+    def ignore(self):
+        self.ignored = True
+
+
+def test_x_vanuit_documentatie_gaat_naar_hoofdmenu_en_sluit_niet():
+    _app()
+    window = ToolHubWindow()
+    window._show_documentation()
+    event = _FakeCloseEvent()
+
+    window.closeEvent(event)
+
+    assert event.ignored is True
+    assert event.accepted is False
+    assert window.stack.currentWidget() is window.hub_page

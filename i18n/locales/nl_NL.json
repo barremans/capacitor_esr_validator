@@ -1,5 +1,5 @@
 {
-  "_comment": "Brontaal Nederlands. v1.14.0: definitieve Historiek export-UX.",
+  "_comment": "Brontaal Nederlands. v1.15.0: Documentatiebibliotheek-basis.",
   "app": {
     "titel": "Condensator- en ESR-validator"
   },
@@ -451,5 +451,34 @@
   },
   "tool_type": {
     "ESR_CAPACITOR": "ESR / condensator"
+  },
+  "documentatie": {
+    "titel": "Documentatie",
+    "zoeken": "Zoeken",
+    "zoeken_placeholder": "Zoek op titel, fabrikant, serie, partnummer of bron…",
+    "categorie": "Categorie",
+    "tool": "Tool",
+    "alle_categorieen": "Alle categorieën",
+    "alle_tools": "Alle tools",
+    "algemeen": "Algemeen",
+    "leeg": "Geen documenten gevonden.",
+    "aantal": "{aantal} document(en) gevonden.",
+    "fout": "Documentatie kon niet worden geladen: {bericht}",
+    "kolom": {
+      "titel": "Titel",
+      "categorie": "Categorie",
+      "fabrikant": "Fabrikant",
+      "serie": "Serie",
+      "versie": "Versie"
+    },
+    "categorieen": {
+      "DATASHEET": "Fabrikantdatasheet",
+      "APPLICATION_NOTE": "Application note",
+      "MEASUREMENT_TECHNIQUE": "Meettechniek",
+      "MANUAL": "Handleiding",
+      "SAFETY": "Veiligheid",
+      "REFERENCE_TABLE": "Referentietabel",
+      "INTERNAL_INSTRUCTION": "Interne instructie"
+    }
   }
 }

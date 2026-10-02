@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.4.1
-Datum:      2026-10-01
+Versie:     2.5.0
+Datum:      2026-10-02
 Auteur:     Bart Bossuyt
 
 Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
@@ -96,6 +96,11 @@ class ToolHubWindow(QMainWindow):
         self.history_page.back_requested.connect(self._show_hub)
         self.history_page.repeat_requested.connect(self._repeat_measurement)
         self.stack.addWidget(self.history_page)
+
+        from app.gui.documentation_screen import DocumentationScreen
+        self.documentation_page = DocumentationScreen(taal=self.taal)
+        self.documentation_page.back_requested.connect(self._show_hub)
+        self.stack.addWidget(self.documentation_page)
 
         self.stack.setCurrentWidget(self.hub_page)
         self._build_menu()
@@ -247,10 +252,10 @@ class ToolHubWindow(QMainWindow):
         )
 
     def _show_documentation(self):
-        QMessageBox.information(
-            self,
-            self._t("tool.documentatie"),
-            self._t("dialog.documentatie_placeholder"),
+        self.documentation_page.refresh()
+        self.stack.setCurrentWidget(self.documentation_page)
+        self.setWindowTitle(
+            self._t("app.titel") + " — " + self._t("documentatie.titel")
         )
 
     def _build_menu(self):
@@ -353,6 +358,8 @@ class ToolHubWindow(QMainWindow):
             self.history_page.apply_language(self.taal)
             if self.stack.currentWidget() is self.history_page:
                 self.history_page.refresh()
+        if hasattr(self, "documentation_page"):
+            self.documentation_page.apply_language(self.taal)
         if hasattr(self, "esr_page"):
             self.esr_page.apply_language(self.taal)
         if hasattr(self, "esr_btn"):
@@ -374,6 +381,8 @@ class ToolHubWindow(QMainWindow):
             suffix = self._t("scherm.esr_test")
         elif current is getattr(self, "history_page", None):
             suffix = self._t("scherm.historiek")
+        elif current is getattr(self, "documentation_page", None):
+            suffix = self._t("documentatie.titel")
         else:
             suffix = None
 
@@ -397,7 +406,8 @@ class ToolHubWindow(QMainWindow):
         """Sluit contextueel.
 
         Vanuit ESR werkt de venster-X als 'Terug' naar Diagnose. Vanuit
-        Diagnose of Historiek gaat de X terug naar het Hoofdmenu. Alleen op
+        Diagnose, Historiek of Documentatie gaat de X terug naar het Hoofdmenu.
+        Alleen op
         het Hoofdmenu sluit de venster-X de applicatie volledig.
         """
         if hasattr(self, "stack"):
@@ -411,6 +421,10 @@ class ToolHubWindow(QMainWindow):
                 event.ignore()
                 return
             if current is self.history_page:
+                self._show_hub()
+                event.ignore()
+                return
+            if current is self.documentation_page:
                 self._show_hub()
                 event.ignore()
                 return

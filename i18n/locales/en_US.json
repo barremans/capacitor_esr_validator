@@ -1,5 +1,5 @@
 {
-  "_comment": "English translation. v1.14.0: final History export UX.",
+  "_comment": "English translation. v1.15.0: Documentation library foundation.",
   "app": {
     "titel": "Capacitor and ESR Validator"
   },
@@ -451,5 +451,34 @@
   },
   "tool_type": {
     "ESR_CAPACITOR": "ESR / capacitor"
+  },
+  "documentatie": {
+    "titel": "Documentation",
+    "zoeken": "Search",
+    "zoeken_placeholder": "Search by title, manufacturer, series, part number or source…",
+    "categorie": "Category",
+    "tool": "Tool",
+    "alle_categorieen": "All categories",
+    "alle_tools": "All tools",
+    "algemeen": "General",
+    "leeg": "No documents found.",
+    "aantal": "{aantal} document(s) found.",
+    "fout": "Documentation could not be loaded: {bericht}",
+    "kolom": {
+      "titel": "Title",
+      "categorie": "Category",
+      "fabrikant": "Manufacturer",
+      "serie": "Series",
+      "versie": "Version"
+    },
+    "categorieen": {
+      "DATASHEET": "Manufacturer datasheet",
+      "APPLICATION_NOTE": "Application note",
+      "MEASUREMENT_TECHNIQUE": "Measurement technique",
+      "MANUAL": "Manual",
+      "SAFETY": "Safety",
+      "REFERENCE_TABLE": "Reference table",
+      "INTERNAL_INSTRUCTION": "Internal instruction"
+    }
   }
 }

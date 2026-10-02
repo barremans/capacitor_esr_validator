@@ -2,7 +2,7 @@
 ================================================================================
 Module:     tests/test_gui_language_switch.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
+Versie:     1.1.0
 Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
@@ -12,6 +12,7 @@ Doel:       Regressietests voor live taalwissel in Hoofdmenu/Diagnose, ESR en
 
 Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste regressietests voor de taalwissel-UX-fix.
+  v1.1.0 (2026-10-02)  Documentatiepagina opgenomen in live taalwisseltests.
 ================================================================================
 """
 
@@ -25,6 +26,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PySide6.QtWidgets import QApplication
 
+import app.gui.documentation_screen as documentation_module
 import app.gui.esr_test_screen as esr_module
 import app.gui.history_screen as history_module
 import app.gui.main_window as main_window_module
@@ -137,6 +139,7 @@ def test_history_language_switch_updates_filter_labels_and_keeps_values(monkeypa
 def test_main_window_language_switch_updates_current_page_title(monkeypatch):
     monkeypatch.setattr(main_window_module, "vertaal", _fake_translate)
     monkeypatch.setattr(history_module, "vertaal", _fake_translate)
+    monkeypatch.setattr(documentation_module, "vertaal", _fake_translate)
     monkeypatch.setattr(esr_module, "vertaal", _fake_translate)
     monkeypatch.setattr(esr_module, "laad_instellingen", _fake_esr_settings)
     monkeypatch.setattr(
@@ -156,4 +159,5 @@ def test_main_window_language_switch_updates_current_page_title(monkeypatch):
     assert window.diagnose_back_btn.text() == "en_US:knop.terug"
     assert window.diagnose_title_label.text() == "en_US:scherm.diagnose"
     assert window.esr_page.title_label.text() == "en_US:scherm.esr_test"
+    assert window.documentation_page.title_label.text() == "en_US:documentatie.titel"
     assert window.windowTitle() == "en_US:app.titel — en_US:scherm.diagnose"
