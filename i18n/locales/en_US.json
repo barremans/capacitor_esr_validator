@@ -1,5 +1,5 @@
 {
-  "_comment": "English translation. v1.8.0: History repeat measurement added.",
+  "_comment": "English translation. v1.14.0: final History export UX.",
   "app": {
     "titel": "Capacitor and ESR Validator"
   },
@@ -261,7 +261,13 @@
       "thema": "Theme",
       "thema_donker": "Dark",
       "thema_tooltip": "Dark theme is currently the supported theme.",
-      "tooltips": "Enable tooltips"
+      "tooltips": "Enable tooltips",
+      "exportmap": "Default export folder",
+      "importmap": "Default import folder",
+      "bladeren": "Browse…",
+      "exportmap_kiezen": "Choose the default export folder",
+      "importmap_kiezen": "Choose the default import folder",
+      "exportmap_openen": "Open export folder after successful export"
     },
     "esr": {
       "cap_eenheid": "Capacitance unit",
@@ -316,7 +322,8 @@
       "status": "Status",
       "betrouwbaarheid": "Reliability",
       "tool": "Tool / test type",
-      "meetwaarden": "Measurements"
+      "meetwaarden": "Measurements",
+      "selectie": "Select"
     },
     "detail_titel": "Measurement {measurement_id} — details",
     "detail_kop": "Stored measurement details",
@@ -394,9 +401,46 @@
       "toepassen": "Apply filters",
       "wissen": "Clear filters",
       "exact_placeholder": "exact value",
-      "tool": "Tool / test type"
+      "tool": "Tool / test type",
+      "datum_van": "From date",
+      "datum_tot": "To date",
+      "datum_placeholder": "YYYY-MM-DD",
+      "datum_formaat_fout": "Use the date format YYYY-MM-DD, for example 2026-10-01.",
+      "datum_volgorde_fout": "The start date cannot be after the end date."
     },
-    "detail_geen_renderer": "No specialised detail view is available for this tool type yet. The central history still keeps the record as a separate tool type."
+    "detail_geen_renderer": "No specialised detail view is available for this tool type yet. The central history still keeps the record as a separate tool type.",
+    "paging": {
+      "vorige": "← Previous",
+      "volgende": "Next →",
+      "pagina": "Page {pagina}"
+    },
+    "export": {
+      "knop": "Export",
+      "dialoog_titel": "Export history to CSV",
+      "standaard_bestandsnaam": "history.csv",
+      "bestandsfilter": "CSV files (*.csv)",
+      "leeg": "No measurements to export with the current filters.",
+      "geslaagd": "{aantal} measurement(s) exported to {pad}.",
+      "fout": "CSV export failed: {bericht}",
+      "detail_knop": "Export detail",
+      "scope_gefilterd": "Export: current filters",
+      "scope_geselecteerd": "Export: selection",
+      "scope_pagina": "Export: current page",
+      "geen_selectie": "Select one or more measurements in the table first.",
+      "detail_dialoog_titel": "Export detailed history to CSV",
+      "detail_standaard_bestandsnaam": "history_detail.csv",
+      "detail_geslaagd": "{aantal} detailed measurement(s) exported to {pad}.",
+      "detail_fout": "Detailed CSV export failed: {bericht}",
+      "detail_ontbreekt": "Full detail data for measurement {measurement_id} is missing.",
+      "type_overzicht": "Overview CSV",
+      "type_detail": "Detail CSV",
+      "type_beide": "Overview + detail",
+      "geselecteerd_aantal": "{aantal} selected",
+      "bestandsnaam_overzicht": "history_overview_{timestamp}.csv",
+      "bestandsnaam_detail": "history_detail_{timestamp}.csv",
+      "beide_dialoog_titel": "Choose folder for overview + detail",
+      "beide_geslaagd": "{aantal} measurement(s) exported as overview and detail to {pad}."
+    }
   },
   "algemeen": {
     "ja": "Yes",

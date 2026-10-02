@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/dialogs/settings_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.0.1
+Versie:     1.1.0
 Datum:      2026-09-27
 Auteur:     Ontwikkelaar
 
@@ -14,6 +14,10 @@ Doel:       Modale Settings-dialoog met tabs Algemeen, ESR / Condensator en
 Wijzigingen:
   v1.0.1 (2026-09-27)  Tabteksten expliciet leesbaar gemaakt in het donkere
                        thema, inclusief actieve/inactieve/hover-status.
+  v1.1.0 (2026-10-02)  Algemene bestandspaden toegevoegd voor export/import,
+                       met Bladeren-knoppen en optie om de exportmap na een
+                       succesvolle export te openen. Condensatortypes komen
+                       nu uit de centrale settings-constante.
   v1.0.0 (2026-09-27)  Eerste implementatie van de drie Settings-tabs en
                        bediening Herstellen/Annuleren/Toepassen/OK.
 ================================================================================
@@ -29,6 +33,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDoubleSpinBox,
+    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -43,6 +48,7 @@ from PySide6.QtWidgets import (
 from app.config.settings import (
     AlgemeneInstellingen,
     AppInstellingen,
+    CONDENSATORTYPES,
     EENHEDEN_CAPACITEIT,
     EENHEDEN_ESR,
     EsrCondensatorInstellingen,
@@ -149,7 +155,46 @@ class SettingsDialog(QDialog):
 
         self.tooltips_check = QCheckBox(self._t("settings.algemeen.tooltips"))
         form.addRow("", self.tooltips_check)
+
+        self.exportmap_edit = QLineEdit()
+        self.exportmap_bladeren_btn = QPushButton(self._t("settings.algemeen.bladeren"))
+        self.exportmap_bladeren_btn.clicked.connect(self._kies_exportmap)
+        exportmap_row = QHBoxLayout()
+        exportmap_row.addWidget(self.exportmap_edit, 1)
+        exportmap_row.addWidget(self.exportmap_bladeren_btn)
+        form.addRow(self._t("settings.algemeen.exportmap"), exportmap_row)
+
+        self.importmap_edit = QLineEdit()
+        self.importmap_bladeren_btn = QPushButton(self._t("settings.algemeen.bladeren"))
+        self.importmap_bladeren_btn.clicked.connect(self._kies_importmap)
+        importmap_row = QHBoxLayout()
+        importmap_row.addWidget(self.importmap_edit, 1)
+        importmap_row.addWidget(self.importmap_bladeren_btn)
+        form.addRow(self._t("settings.algemeen.importmap"), importmap_row)
+
+        self.exportmap_openen_check = QCheckBox(
+            self._t("settings.algemeen.exportmap_openen")
+        )
+        form.addRow("", self.exportmap_openen_check)
         return tab
+
+    def _kies_exportmap(self) -> None:
+        gekozen = QFileDialog.getExistingDirectory(
+            self,
+            self._t("settings.algemeen.exportmap_kiezen"),
+            self.exportmap_edit.text().strip(),
+        )
+        if gekozen:
+            self.exportmap_edit.setText(gekozen)
+
+    def _kies_importmap(self) -> None:
+        gekozen = QFileDialog.getExistingDirectory(
+            self,
+            self._t("settings.algemeen.importmap_kiezen"),
+            self.importmap_edit.text().strip(),
+        )
+        if gekozen:
+            self.importmap_edit.setText(gekozen)
 
     def _build_esr_tab(self) -> QWidget:
         tab = QWidget()
@@ -173,20 +218,7 @@ class SettingsDialog(QDialog):
         form.addRow(self._t("settings.esr.werkspanning"), self.werkspanning_spin)
 
         self.type_combo = QComboBox()
-        self.type_combo.addItems((
-            "Aluminium elektrolytisch",
-            "Aluminium elektrolytisch — Low ESR",
-            "Aluminium elektrolytisch — Bipolair/NP",
-            "Conductive polymer",
-            "Hybrid polymer",
-            "Tantaal elektrolytisch",
-            "Tantaal polymer",
-            "Film",
-            "Keramisch / MLCC",
-            "Supercondensator",
-            "Onbekend",
-            "Anders",
-        ))
+        self.type_combo.addItems(CONDENSATORTYPES)
         form.addRow(self._t("settings.esr.type"), self.type_combo)
 
         self.fabrikant_edit = QLineEdit()
@@ -252,6 +284,11 @@ class SettingsDialog(QDialog):
         self._select(self.taal_combo, instellingen.taal)
         self._select(self.thema_combo, instellingen.algemeen.thema)
         self.tooltips_check.setChecked(instellingen.algemeen.tooltips_ingeschakeld)
+        self.exportmap_edit.setText(instellingen.algemeen.standaard_exportmap)
+        self.importmap_edit.setText(instellingen.algemeen.standaard_importmap)
+        self.exportmap_openen_check.setChecked(
+            instellingen.algemeen.exportmap_openen_na_export
+        )
 
         esr = instellingen.esr_condensator
         self._select(self.cap_eenheid_combo, esr.capaciteitseenheid)
@@ -282,6 +319,9 @@ class SettingsDialog(QDialog):
         algemeen = AlgemeneInstellingen(
             thema=self.thema_combo.currentData() or "dark",
             tooltips_ingeschakeld=self.tooltips_check.isChecked(),
+            standaard_exportmap=self.exportmap_edit.text().strip(),
+            standaard_importmap=self.importmap_edit.text().strip(),
+            exportmap_openen_na_export=self.exportmap_openen_check.isChecked(),
         )
         esr = EsrCondensatorInstellingen(
             capaciteitseenheid=self.cap_eenheid_combo.currentText(),

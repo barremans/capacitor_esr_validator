@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/esr_test_screen.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.8.0
+Versie:     1.8.1
 Datum:      2026-10-01
 Auteur:     Ontwikkelaar
 
@@ -62,6 +62,9 @@ Wijzigingen:
   v1.8.0 (2026-10-01)  Veilige "Herhaal meting"-preset toegevoegd: component-
                        en meetcontext worden hersteld, maar meetwaarden, safety,
                        resultaat en assessment blijven leeg/nieuw.
+  v1.8.1 (2026-10-01)  Live taalwissel toegevoegd voor statische ESR-GUI-teksten.
+                       Invoer, selectie, safety, assessment en resultaat blijven
+                       behouden; bestaand resultaat wordt alleen opnieuw gerenderd.
   v1.6.5 (2026-09-29)  Compact resultaat maakt frequentiemismatch expliciet bij
                        de ESR-factor; vergelijking blijft zichtbaar maar wordt
                        duidelijk als indicatief gemarkeerd.
@@ -162,7 +165,9 @@ class EsrTestScreen(QWidget):
         super().__init__(parent)
         self.taal = taal
         self._laatste_resultaat_html = ""
+        self._laatste_resultaat = None
         self._laatste_opslag_payload: EsrMeasurementSaveData | None = None
+        self._repeat_source_measurement_id: int | None = None
         self._persistence_service = (
             persistence_service
             if persistence_service is not None
@@ -175,6 +180,87 @@ class EsrTestScreen(QWidget):
 
     def _t(self, sleutel: str, **kwargs) -> str:
         return vertaal(sleutel, taal=self.taal, **kwargs)
+
+    @staticmethod
+    def _set_grid_label_text(group: QGroupBox, row: int, column: int, text: str) -> None:
+        """Werk één bestaand QLabel in een QGridLayout veilig bij."""
+        layout = group.layout()
+        if not isinstance(layout, QGridLayout):
+            return
+        item = layout.itemAtPosition(row, column)
+        widget = item.widget() if item is not None else None
+        if isinstance(widget, QLabel):
+            widget.setText(text)
+
+    def apply_language(self, taal: str) -> None:
+        """Vertalingen vernieuwen zonder meet- of assessmenttoestand te wissen."""
+        self.taal = taal
+
+        self.back_btn.setText(self._t("knop.terug"))
+        self.title_label.setText(self._t("scherm.esr_test"))
+        self.safety_check.setText(self._t("veld.veiligheid_bevestigd"))
+        self.safety_check.setToolTip(self._t("tooltip.veiligheid_bevestigen"))
+        self.safety_help_btn.setText(self._t("knop.veiligheidsinstructies"))
+
+        self.component_group.setTitle(self._t("scherm.condensator"))
+        self._set_grid_label_text(self.component_group, 0, 0, self._t("veld.nominale_capaciteit"))
+        self._set_grid_label_text(self.component_group, 1, 0, self._t("veld.tolerantie"))
+        self._set_grid_label_text(self.component_group, 2, 0, self._t("veld.nominale_spanning"))
+        self._set_grid_label_text(self.component_group, 3, 0, self._t("veld.condensatortype"))
+        self._set_grid_label_text(self.component_group, 4, 0, self._t("veld.fabrikant"))
+        self._set_grid_label_text(self.component_group, 5, 0, self._t("veld.serie"))
+        self.tolerance_input.setToolTip(self._t("tooltip.tolerantie_standaard"))
+
+        self.context_group.setTitle(self._t("scherm.meetcontext"))
+        self._set_grid_label_text(self.context_group, 0, 0, self._t("veld.meetmethode"))
+        self._set_grid_label_text(self.context_group, 1, 0, self._t("veld.meetinstrument"))
+        self._set_grid_label_text(self.context_group, 2, 0, self._t("veld.meetfrequentie"))
+        self._set_grid_label_text(self.context_group, 3, 0, self._t("veld.testspanning"))
+        self._set_grid_label_text(self.context_group, 4, 0, self._t("veld.omgevingstemperatuur_kort"))
+        temp_item = self.context_group.layout().itemAtPosition(4, 0)
+        temp_widget = temp_item.widget() if temp_item is not None else None
+        if isinstance(temp_widget, QLabel):
+            temp_widget.setToolTip(self._t("tooltip.omgevingstemperatuur"))
+
+        current_method = self.method_combo.currentData()
+        self.method_combo.blockSignals(True)
+        try:
+            self.method_combo.clear()
+            self.method_combo.addItem(self._t("meetmethode.ex_situ"), Meetmethode.EX_SITU.value)
+            self.method_combo.addItem(self._t("meetmethode.one_leg"), Meetmethode.ONE_LEG.value)
+            self.method_combo.addItem(self._t("meetmethode.in_circuit"), Meetmethode.IN_CIRCUIT.value)
+            method_index = self.method_combo.findData(current_method)
+            self.method_combo.setCurrentIndex(method_index if method_index >= 0 else 0)
+        finally:
+            self.method_combo.blockSignals(False)
+        self._update_method_info()
+
+        self.measurement_group.setTitle(self._t("scherm.meetwaarden"))
+        self._set_grid_label_text(self.measurement_group, 0, 0, self._t("veld.gemeten_capaciteit"))
+        self._set_grid_label_text(self.measurement_group, 1, 0, self._t("veld.gemeten_esr"))
+        self._set_grid_label_text(self.measurement_group, 2, 0, self._t("veld.d_waarde"))
+        self.d_input.setPlaceholderText(self._t("placeholder.d_waarde"))
+        self.out_of_range_check.setText(self._t("veld.buiten_bereik"))
+        self.out_of_range_check.setToolTip(self._t("tooltip.buiten_bereik"))
+        self.open_connection_check.setText(self._t("veld.open_verbinding"))
+
+        self.assess_btn.setText(self._t("knop.beoordeel"))
+        self.clear_btn.setText(self._t("knop.wissen"))
+        self.save_btn.setText(self._t("knop.meting_opslaan"))
+        self.result_group.setTitle(self._t("scherm.resultaat"))
+        self.result_details_btn.setText(self._t("knop.details"))
+
+        if self._repeat_source_measurement_id is not None and self.repeat_banner.isVisible():
+            self.repeat_banner.setText(
+                self._t(
+                    "herhalen.banner",
+                    measurement_id=self._repeat_source_measurement_id,
+                )
+            )
+
+        # Geen herbeoordeling: render exact hetzelfde Beoordeling-object opnieuw.
+        if self._laatste_resultaat is not None and self.result_group.isVisible():
+            self._show_result(self._laatste_resultaat)
 
     @staticmethod
     def _set_numeric_width(widget: QWidget) -> None:
@@ -214,14 +300,14 @@ class EsrTestScreen(QWidget):
 
     def _build_navigation_row(self) -> QHBoxLayout:
         row = QHBoxLayout()
-        back_btn = QPushButton(self._t("knop.terug"))
-        back_btn.setFixedWidth(100)
-        back_btn.clicked.connect(self.back_requested.emit)
-        row.addWidget(back_btn)
+        self.back_btn = QPushButton(self._t("knop.terug"))
+        self.back_btn.setFixedWidth(100)
+        self.back_btn.clicked.connect(self.back_requested.emit)
+        row.addWidget(self.back_btn)
 
-        title = QLabel(self._t("scherm.esr_test"))
-        title.setStyleSheet("font-size: 16px; font-weight: bold;")
-        row.addWidget(title)
+        self.title_label = QLabel(self._t("scherm.esr_test"))
+        self.title_label.setStyleSheet("font-size: 16px; font-weight: bold;")
+        row.addWidget(self.title_label)
         row.addStretch(1)
         return row
 
@@ -254,16 +340,16 @@ class EsrTestScreen(QWidget):
         )
         row.addWidget(self.safety_check, 1)
 
-        help_btn = QPushButton(self._t("knop.veiligheidsinstructies"))
-        help_btn.setMinimumHeight(34)
-        help_btn.clicked.connect(self._show_safety_help)
-        row.addWidget(help_btn)
+        self.safety_help_btn = QPushButton(self._t("knop.veiligheidsinstructies"))
+        self.safety_help_btn.setMinimumHeight(34)
+        self.safety_help_btn.clicked.connect(self._show_safety_help)
+        row.addWidget(self.safety_help_btn)
 
         return row
 
     def _build_component_group(self) -> QGroupBox:
-        group = QGroupBox(self._t("scherm.condensator"))
-        grid = QGridLayout(group)
+        self.component_group = QGroupBox(self._t("scherm.condensator"))
+        grid = QGridLayout(self.component_group)
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(8)
         grid.setColumnMinimumWidth(0, 145)
@@ -315,7 +401,7 @@ class EsrTestScreen(QWidget):
         grid.addWidget(self.series_input, 5, 1, 1, 2)
 
         grid.setColumnStretch(3, 1)
-        return group
+        return self.component_group
 
     def _update_default_tolerance(self, condensatortype: str) -> None:
         """Vult alleen een voorstel in; de gebruiker kan dit altijd overschrijven."""
@@ -326,8 +412,8 @@ class EsrTestScreen(QWidget):
             self.tolerance_input.clear()
 
     def _build_context_group(self) -> QGroupBox:
-        group = QGroupBox(self._t("scherm.meetcontext"))
-        grid = QGridLayout(group)
+        self.context_group = QGroupBox(self._t("scherm.meetcontext"))
+        grid = QGridLayout(self.context_group)
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(8)
         grid.setColumnMinimumWidth(0, 158)
@@ -382,11 +468,11 @@ class EsrTestScreen(QWidget):
 
         self._update_instrument_profile()
         grid.setRowStretch(6, 1)
-        return group
+        return self.context_group
 
     def _build_measurement_group(self) -> QGroupBox:
-        group = QGroupBox(self._t("scherm.meetwaarden"))
-        grid = QGridLayout(group)
+        self.measurement_group = QGroupBox(self._t("scherm.meetwaarden"))
+        grid = QGridLayout(self.measurement_group)
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(8)
         grid.setColumnMinimumWidth(0, 150)
@@ -429,7 +515,7 @@ class EsrTestScreen(QWidget):
         grid.addWidget(self.open_connection_check, 4, 0, 1, 3)
 
         grid.setRowStretch(5, 1)
-        return group
+        return self.measurement_group
 
     def _build_action_row(self) -> QHBoxLayout:
         row = QHBoxLayout()
@@ -439,9 +525,9 @@ class EsrTestScreen(QWidget):
         self.assess_btn.clicked.connect(self._on_assess)
         row.addWidget(self.assess_btn)
 
-        clear_btn = QPushButton(self._t("knop.wissen"))
-        clear_btn.clicked.connect(self._on_clear)
-        row.addWidget(clear_btn)
+        self.clear_btn = QPushButton(self._t("knop.wissen"))
+        self.clear_btn.clicked.connect(self._on_clear)
+        row.addWidget(self.clear_btn)
 
         self.save_btn = QPushButton(self._t("knop.meting_opslaan"))
         self.save_btn.setEnabled(False)
@@ -473,9 +559,14 @@ class EsrTestScreen(QWidget):
         )
         layout.addWidget(self.result_summary, 0, 1)
 
-        details_btn = QPushButton(self._t("knop.details"))
-        details_btn.clicked.connect(self._show_result_details)
-        layout.addWidget(details_btn, 1, 1, alignment=Qt.AlignmentFlag.AlignRight)
+        self.result_details_btn = QPushButton(self._t("knop.details"))
+        self.result_details_btn.clicked.connect(self._show_result_details)
+        layout.addWidget(
+            self.result_details_btn,
+            1,
+            1,
+            alignment=Qt.AlignmentFlag.AlignRight,
+        )
 
         layout.setColumnStretch(1, 1)
         return self.result_group
@@ -612,9 +703,11 @@ class EsrTestScreen(QWidget):
         self.open_connection_check.setChecked(False)
         self.result_group.setVisible(False)
         self._laatste_resultaat_html = ""
+        self._laatste_resultaat = None
         self._laatste_opslag_payload = None
         self.save_btn.setEnabled(False)
 
+        self._repeat_source_measurement_id = preset.source_measurement_id
         self.repeat_banner.setText(
             self._t(
                 "herhalen.banner",
@@ -795,6 +888,7 @@ class EsrTestScreen(QWidget):
         )
 
     def _show_result(self, resultaat) -> None:
+        self._laatste_resultaat = resultaat
         status_key = resultaat.eindstatus.value
         color = STATUS_COLORS.get(status_key, "#9E9E9E")
         status_text = status_label(
@@ -1004,8 +1098,10 @@ class EsrTestScreen(QWidget):
         self.open_connection_check.setChecked(False)
         self.result_group.setVisible(False)
         self._laatste_resultaat_html = ""
+        self._laatste_resultaat = None
         self._laatste_opslag_payload = None
         self.save_btn.setEnabled(False)
+        self._repeat_source_measurement_id = None
         self.repeat_banner.setVisible(False)
 
         self._apply_saved_defaults()

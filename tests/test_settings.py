@@ -2,12 +2,15 @@
 ================================================================================
 Module:     tests/test_settings.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.0.0
+Versie:     1.1.0
 Datum:      2026-09-27
 Auteur:     Ontwikkelaar
 
 Doel:       Regressietests voor laden, opslaan en achterwaartse compatibiliteit
             van de centrale Settings-datalaag.
+
+Wijzigingen:
+  v1.1.0 (2026-10-02)  Export/importmappen en open-na-export voorkeur getest.
 ================================================================================
 """
 
@@ -28,6 +31,9 @@ def test_nieuwe_defaults_zijn_veilig_en_bestaand_gedrag_blijft_behouden():
 
     assert instellingen.taal == "nl_NL"
     assert instellingen.algemeen.thema == "dark"
+    assert instellingen.algemeen.standaard_exportmap == ""
+    assert instellingen.algemeen.standaard_importmap == ""
+    assert instellingen.algemeen.exportmap_openen_na_export is False
     assert instellingen.esr_condensator.capaciteitseenheid == "µF"
     assert instellingen.esr_condensator.tolerantie_percent == 20.0
     assert instellingen.esr_condensator.werkspanning_v is None
@@ -74,6 +80,12 @@ def test_opslaan_en_opnieuw_laden_bewaart_alle_settingsgroepen(tmp_path, monkeyp
     aangepast = replace(
         basis,
         taal="en_US",
+        algemeen=replace(
+            basis.algemeen,
+            standaard_exportmap=r"C:\Exports",
+            standaard_importmap=r"C:\Imports",
+            exportmap_openen_na_export=True,
+        ),
         esr_condensator=replace(
             basis.esr_condensator,
             meetfrequentie_hz=10_000,

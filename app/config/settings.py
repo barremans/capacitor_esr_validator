@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/config/settings.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.2.0
+Versie:     1.3.0
 Datum:      2026-09-27
 Auteur:     Ontwikkelaar
 
@@ -19,6 +19,9 @@ Wijzigingen:
                        ESR / Condensator en Rapportage. Bestaande settings.json
                        blijft achterwaarts compatibel. Beoordelingsdrempels
                        inhoudelijk ongewijzigd.
+  v1.3.0 (2026-10-02)  Algemene bestandsvoorkeuren toegevoegd: standaard
+                       exportmap, importmap en optioneel exportmap openen na
+                       succesvolle export. Condensatortypes gecentraliseerd.
 
 Referentie: docs/validation_rules.md §11, docs/data_model.md §9 en
             functional_design_multitool_questionnaire.md §14.
@@ -43,7 +46,20 @@ EENHEDEN_CAPACITEIT = ("pF", "nF", "µF", "mF")
 EENHEDEN_ESR = ("mΩ", "Ω")
 MEETFREQUENTIES_HZ = (100, 1_000, 10_000)
 TESTSPANNINGEN_VRMS = (0.3, 0.6)
-CONDENSATORTYPES = ("Aluminium elektrolytisch", "Anders")
+CONDENSATORTYPES = (
+    "Aluminium elektrolytisch",
+    "Aluminium elektrolytisch — Low ESR",
+    "Aluminium elektrolytisch — Bipolair/NP",
+    "Conductive polymer",
+    "Hybrid polymer",
+    "Tantaal elektrolytisch",
+    "Tantaal polymer",
+    "Film",
+    "Keramisch / MLCC",
+    "Supercondensator",
+    "Onbekend",
+    "Anders",
+)
 AC_OF_DC = ("AC", "DC", "onbekend")
 POLARITEITEN = ("gepolariseerd", "niet-gepolariseerd", "onbekend")
 TYPISCH_OF_MAXIMAAL = ("typisch", "maximaal")
@@ -96,6 +112,9 @@ class AlgemeneInstellingen:
 
     thema: str = "dark"
     tooltips_ingeschakeld: bool = True
+    standaard_exportmap: str = ""
+    standaard_importmap: str = ""
+    exportmap_openen_na_export: bool = False
 
 
 @dataclass(frozen=True)

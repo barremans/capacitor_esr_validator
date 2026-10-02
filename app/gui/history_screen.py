@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/history_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.5.0
+Versie:     1.11.0
 Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
@@ -31,19 +31,51 @@ Wijzigingen:
   v1.5.0 (2026-10-01)  Tabel tool-neutraal gemaakt met één kolom Meetwaarden.
                         Meetmethode-labels zijn gecentraliseerd en detailopbouw
                         dispatcht expliciet per tool_key met generieke fallback.
+  v1.5.1 (2026-10-01)  Live taalwissel vervolledigd voor alle filterlabels zonder
+                        actieve filters, selectie of historiekdata te wijzigen.
+  v1.5.2 (2026-10-01)  Fout-refresh maakt selectie-afhankelijke acties expliciet
+                        opnieuw veilig/inactief na het leegmaken van de tabel.
+  v1.6.0 (2026-10-01)  Optionele Van/Tot-datumfilter toegevoegd. Lokale dagen
+                        worden inclusief naar bestaande storagefilters vertaald;
+                        database en schema blijven ongewijzigd.
+  v1.6.1 (2026-10-01)  Initialisatievolgorde datumvelden gecorrigeerd: placeholders
+                        worden pas gezet nadat de QLineEdit-widgets bestaan.
+  v1.6.2 (2026-10-01)  Filtervalidatiefouten worden rechtstreeks en vertaald aan de
+                        gebruiker getoond zonder de history-service aan te roepen.
+  v1.7.0 (2026-10-01)  Historiekpaging toegevoegd via bestaand limit/offset-contract.
+                        Pagina's bevatten maximaal 100 rijen; één extra record wordt
+                        alleen opgehaald om veilig te bepalen of Volgende actief is.
+                        Filter toepassen/wissen reset naar pagina 1.
+  v1.8.0 (2026-10-01)  Read-only CSV-export toegevoegd voor de volledige huidige
+                        filterselectie, onafhankelijk van de zichtbare pagina.
+                        Geen database/schemawijziging en geen reassessment.
+  v1.9.0 (2026-10-02)  Export v2: compact inklapbaar filterpaneel, exportscope
+                        (filters/selectie/pagina), aparte overzicht- en detail-CSV.
+                        Detail-export gebruikt vaste machinekolommen en volledige
+                        opgeslagen meet-/assessment-/referentiedata zonder reassessment.
+  v1.10.0 (2026-10-02) Exportdialoog gebruikt de ingestelde standaard exportmap.
+                        Optioneel wordt de doelmap na succesvolle export geopend.
+  v1.11.0 (2026-10-02) Laatste export-UX: expliciete checkboxselectie per rij,
+                        zichtbaar geselecteerd-aantal, exporttype-DDL met
+                        Overzicht/Detail/Beide, één Exporteren-knop en leesbare
+                        timestamp in standaard bestandsnamen.
 ================================================================================
 """
 
 from __future__ import annotations
 
+from datetime import datetime
 from html import escape
+from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QUrl, Qt, Signal
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QComboBox,
     QFormLayout,
     QGroupBox,
@@ -58,8 +90,18 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.config.settings import laad_instellingen
 from app.helpers.i18n import vertaal
-from app.helpers.history_filters import build_history_filters
+from app.helpers.history_csv_export import write_history_csv
+from app.helpers.history_detail_export import (
+    DETAIL_EXPORT_HEADERS,
+    detail_row_values,
+)
+from app.helpers.history_filters import (
+    build_history_filters,
+    parse_local_date_start_ms,
+    parse_local_date_end_ms,
+)
 from app.services.history_service import MeasurementHistoryService
 from app.services.repeat_measurement_service import build_repeat_measurement_preset
 
@@ -93,6 +135,10 @@ class HistoryScreen(QWidget):
         super().__init__(parent)
         self.taal = taal
         self._history_service = history_service or MeasurementHistoryService()
+        self._page_size = 100
+        self._page_index = 0
+        self._has_next_page = False
+        self._current_rows: list[dict[str, Any]] = []
         self._build_ui()
 
     def _t(self, sleutel: str, **kwargs) -> str:
@@ -114,51 +160,99 @@ class HistoryScreen(QWidget):
         top.addWidget(self.title_label)
         top.addStretch(1)
 
+        self.export_scope = QComboBox()
+        self._fill_export_scope()
+        self.export_scope.setMinimumWidth(190)
+        top.addWidget(self.export_scope)
+
+        self.selection_count_label = QLabel("")
+        top.addWidget(self.selection_count_label)
+
+        self.export_type_combo = QComboBox()
+        self._fill_export_type()
+        self.export_type_combo.setMinimumWidth(165)
+        top.addWidget(self.export_type_combo)
+
+        self.export_btn = QPushButton(self._t("historiek.export.knop"))
+        self.export_btn.clicked.connect(self._export_selected_type)
+        top.addWidget(self.export_btn)
+
+        # Compatibiliteitsalias voor bestaande tests/aanroepers.
+        self.export_csv_btn = self.export_btn
+
         self.refresh_btn = QPushButton(self._t("knop.verversen"))
         self.refresh_btn.clicked.connect(self.refresh)
         top.addWidget(self.refresh_btn)
         root.addLayout(top)
 
         self.filter_group = QGroupBox(self._t("historiek.filter.titel"))
+        self.filter_group.setCheckable(True)
+        self.filter_group.setChecked(False)
         filter_layout = QVBoxLayout(self.filter_group)
 
-        filter_form = QFormLayout()
-        filter_form.setHorizontalSpacing(10)
-        filter_form.setVerticalSpacing(6)
+        self.filter_body = QWidget()
+        filter_body_layout = QVBoxLayout(self.filter_body)
+        filter_body_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.filter_form = QFormLayout()
+        self.filter_form.setHorizontalSpacing(10)
+        self.filter_form.setVerticalSpacing(6)
 
         self.filter_tool = QComboBox()
         self._fill_tool_filter()
-        filter_form.addRow(self._t("historiek.filter.tool"), self.filter_tool)
+        self.filter_tool_label = QLabel(self._t("historiek.filter.tool"))
+        self.filter_form.addRow(self.filter_tool_label, self.filter_tool)
 
         self.filter_manufacturer = QLineEdit()
         self.filter_manufacturer.setPlaceholderText(self._t("historiek.filter.exact_placeholder"))
-        filter_form.addRow(self._t("historiek.filter.fabrikant"), self.filter_manufacturer)
+        self.filter_manufacturer_label = QLabel(self._t("historiek.filter.fabrikant"))
+        self.filter_form.addRow(self.filter_manufacturer_label, self.filter_manufacturer)
 
         self.filter_series = QLineEdit()
         self.filter_series.setPlaceholderText(self._t("historiek.filter.exact_placeholder"))
-        filter_form.addRow(self._t("historiek.filter.serie"), self.filter_series)
+        self.filter_series_label = QLabel(self._t("historiek.filter.serie"))
+        self.filter_form.addRow(self.filter_series_label, self.filter_series)
+
+        self.filter_date_from = QLineEdit()
+        self.filter_date_from.setPlaceholderText(
+            self._t("historiek.filter.datum_placeholder")
+        )
+        self.filter_date_from_label = QLabel(self._t("historiek.filter.datum_van"))
+        self.filter_form.addRow(self.filter_date_from_label, self.filter_date_from)
+
+        self.filter_date_to = QLineEdit()
+        self.filter_date_to.setPlaceholderText(
+            self._t("historiek.filter.datum_placeholder")
+        )
+        self.filter_date_to_label = QLabel(self._t("historiek.filter.datum_tot"))
+        self.filter_form.addRow(self.filter_date_to_label, self.filter_date_to)
 
         self.filter_method = QComboBox()
         self._fill_method_filter()
-        filter_form.addRow(self._t("historiek.filter.meetmethode"), self.filter_method)
+        self.filter_method_label = QLabel(self._t("historiek.filter.meetmethode"))
+        self.filter_form.addRow(self.filter_method_label, self.filter_method)
 
         self.filter_instrument = QLineEdit()
         self.filter_instrument.setPlaceholderText(self._t("historiek.filter.exact_placeholder"))
-        filter_form.addRow(self._t("historiek.filter.instrument"), self.filter_instrument)
+        self.filter_instrument_label = QLabel(self._t("historiek.filter.instrument"))
+        self.filter_form.addRow(self.filter_instrument_label, self.filter_instrument)
 
         self.filter_frequency = QComboBox()
         self._fill_frequency_filter()
-        filter_form.addRow(self._t("historiek.filter.frequentie"), self.filter_frequency)
+        self.filter_frequency_label = QLabel(self._t("historiek.filter.frequentie"))
+        self.filter_form.addRow(self.filter_frequency_label, self.filter_frequency)
 
         self.filter_status = QComboBox()
         self._fill_status_filter()
-        filter_form.addRow(self._t("historiek.filter.status"), self.filter_status)
+        self.filter_status_label = QLabel(self._t("historiek.filter.status"))
+        self.filter_form.addRow(self.filter_status_label, self.filter_status)
 
         self.filter_reliability = QComboBox()
         self._fill_reliability_filter()
-        filter_form.addRow(self._t("historiek.filter.betrouwbaarheid"), self.filter_reliability)
+        self.filter_reliability_label = QLabel(self._t("historiek.filter.betrouwbaarheid"))
+        self.filter_form.addRow(self.filter_reliability_label, self.filter_reliability)
 
-        filter_layout.addLayout(filter_form)
+        filter_body_layout.addLayout(self.filter_form)
 
         filter_buttons = QHBoxLayout()
         filter_buttons.addStretch(1)
@@ -166,9 +260,12 @@ class HistoryScreen(QWidget):
         self.clear_filters_btn.clicked.connect(self._clear_filters)
         filter_buttons.addWidget(self.clear_filters_btn)
         self.apply_filters_btn = QPushButton(self._t("historiek.filter.toepassen"))
-        self.apply_filters_btn.clicked.connect(self.refresh)
+        self.apply_filters_btn.clicked.connect(self._apply_filters)
         filter_buttons.addWidget(self.apply_filters_btn)
-        filter_layout.addLayout(filter_buttons)
+        filter_body_layout.addLayout(filter_buttons)
+        filter_layout.addWidget(self.filter_body)
+        self.filter_body.setVisible(False)
+        self.filter_group.toggled.connect(self.filter_body.setVisible)
         root.addWidget(self.filter_group)
 
         self.state_label = QLabel("")
@@ -176,19 +273,33 @@ class HistoryScreen(QWidget):
         self.state_label.setStyleSheet("color: #C8C8C8;")
         root.addWidget(self.state_label)
 
-        self.table = QTableWidget(0, 8)
+        self.table = QTableWidget(0, 9)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
         self.table.setSortingEnabled(False)
         self.table.itemSelectionChanged.connect(self._update_detail_button)
+        self.table.itemChanged.connect(self._on_table_item_changed)
         self.table.itemDoubleClicked.connect(lambda _item: self._show_selected_detail())
         root.addWidget(self.table, 1)
 
         bottom = QHBoxLayout()
+
+        self.previous_page_btn = QPushButton(self._t("historiek.paging.vorige"))
+        self.previous_page_btn.clicked.connect(self._previous_page)
+        bottom.addWidget(self.previous_page_btn)
+
+        self.page_label = QLabel("")
+        bottom.addWidget(self.page_label)
+
+        self.next_page_btn = QPushButton(self._t("historiek.paging.volgende"))
+        self.next_page_btn.clicked.connect(self._next_page)
+        bottom.addWidget(self.next_page_btn)
+
         bottom.addStretch(1)
+
         self.repeat_btn = QPushButton(self._t("knop.herhaal_meting"))
         self.repeat_btn.setEnabled(False)
         self.repeat_btn.clicked.connect(self._repeat_selected_measurement)
@@ -201,9 +312,12 @@ class HistoryScreen(QWidget):
         root.addLayout(bottom)
 
         self._apply_headers()
+        self._update_selection_count()
+        self._update_paging_controls()
 
-    def _apply_headers(self) -> None:
-        headers = [
+    def _column_headers(self) -> list[str]:
+        """Mensleesbare overzicht-CSV-kolommen; bevat geen GUI-selectiekolom."""
+        return [
             self._t("historiek.kolom.datum_tijd"),
             self._t("historiek.kolom.tool"),
             self._t("historiek.kolom.component"),
@@ -213,12 +327,58 @@ class HistoryScreen(QWidget):
             self._t("historiek.kolom.status"),
             self._t("historiek.kolom.betrouwbaarheid"),
         ]
-        self.table.setHorizontalHeaderLabels(headers)
+
+    def _table_headers(self) -> list[str]:
+        return [self._t("historiek.kolom.selectie"), *self._column_headers()]
+
+    def _apply_headers(self) -> None:
+        self.table.setHorizontalHeaderLabels(self._table_headers())
         header = self.table.horizontalHeader()
         for column in range(self.table.columnCount()):
             header.setStretchLastSection(False)
             self.table.resizeColumnToContents(column)
+        self.table.setColumnWidth(0, max(48, self.table.columnWidth(0)))
         header.setStretchLastSection(True)
+
+    def _fill_export_scope(self) -> None:
+        current = self.export_scope.currentData() if self.export_scope.count() else "FILTERED"
+        self.export_scope.clear()
+        self.export_scope.addItem(
+            self._t("historiek.export.scope_gefilterd"),
+            "FILTERED",
+        )
+        self.export_scope.addItem(
+            self._t("historiek.export.scope_geselecteerd"),
+            "SELECTED",
+        )
+        self.export_scope.addItem(
+            self._t("historiek.export.scope_pagina"),
+            "PAGE",
+        )
+        index = self.export_scope.findData(current)
+        self.export_scope.setCurrentIndex(index if index >= 0 else 0)
+
+    def _fill_export_type(self) -> None:
+        current = (
+            self.export_type_combo.currentData()
+            if hasattr(self, "export_type_combo") and self.export_type_combo.count()
+            else "OVERVIEW"
+        )
+        self.export_type_combo.clear()
+        self.export_type_combo.addItem(
+            self._t("historiek.export.type_overzicht"),
+            "OVERVIEW",
+        )
+        self.export_type_combo.addItem(
+            self._t("historiek.export.type_detail"),
+            "DETAIL",
+        )
+        self.export_type_combo.addItem(
+            self._t("historiek.export.type_beide"),
+            "BOTH",
+        )
+        index = self.export_type_combo.findData(current)
+        self.export_type_combo.setCurrentIndex(index if index >= 0 else 0)
 
     def _fill_tool_filter(self) -> None:
         current = self.filter_tool.currentData() if self.filter_tool.count() else None
@@ -283,6 +443,25 @@ class HistoryScreen(QWidget):
         self.filter_reliability.setCurrentIndex(index if index >= 0 else 0)
 
     def _active_filters(self) -> dict[str, Any]:
+        try:
+            measured_from_ms = parse_local_date_start_ms(
+                self.filter_date_from.text()
+            )
+            measured_to_ms = parse_local_date_end_ms(
+                self.filter_date_to.text()
+            )
+        except ValueError as exc:
+            raise ValueError(
+                self._t("historiek.filter.datum_formaat_fout")
+            ) from exc
+
+        if (
+            measured_from_ms is not None
+            and measured_to_ms is not None
+            and measured_from_ms > measured_to_ms
+        ):
+            raise ValueError(self._t("historiek.filter.datum_volgorde_fout"))
+
         return build_history_filters(
             tool_key=self.filter_tool.currentData(),
             manufacturer=self.filter_manufacturer.text(),
@@ -292,17 +471,22 @@ class HistoryScreen(QWidget):
             frequency_hz=self.filter_frequency.currentData(),
             final_status=self.filter_status.currentData(),
             reliability_level=self.filter_reliability.currentData(),
+            measured_from_ms=measured_from_ms,
+            measured_to_ms=measured_to_ms,
         )
 
     def _clear_filters(self) -> None:
         self.filter_tool.setCurrentIndex(0)
         self.filter_manufacturer.clear()
         self.filter_series.clear()
+        self.filter_date_from.clear()
+        self.filter_date_to.clear()
         self.filter_method.setCurrentIndex(0)
         self.filter_instrument.clear()
         self.filter_frequency.setCurrentIndex(0)
         self.filter_status.setCurrentIndex(0)
         self.filter_reliability.setCurrentIndex(0)
+        self._page_index = 0
         self.refresh()
 
     def apply_language(self, taal: str) -> None:
@@ -310,73 +494,512 @@ class HistoryScreen(QWidget):
         self.back_btn.setText(self._t("knop.terug"))
         self.title_label.setText(self._t("scherm.historiek"))
         self.refresh_btn.setText(self._t("knop.verversen"))
+        self.export_btn.setText(self._t("historiek.export.knop"))
         self.detail_btn.setText(self._t("knop.details"))
         self.repeat_btn.setText(self._t("knop.herhaal_meting"))
+        self.previous_page_btn.setText(self._t("historiek.paging.vorige"))
+        self.next_page_btn.setText(self._t("historiek.paging.volgende"))
         self.filter_group.setTitle(self._t("historiek.filter.titel"))
+        self.filter_tool_label.setText(self._t("historiek.filter.tool"))
+        self.filter_manufacturer_label.setText(self._t("historiek.filter.fabrikant"))
+        self.filter_series_label.setText(self._t("historiek.filter.serie"))
+        self.filter_date_from_label.setText(self._t("historiek.filter.datum_van"))
+        self.filter_date_to_label.setText(self._t("historiek.filter.datum_tot"))
+        self.filter_method_label.setText(self._t("historiek.filter.meetmethode"))
+        self.filter_instrument_label.setText(self._t("historiek.filter.instrument"))
+        self.filter_frequency_label.setText(self._t("historiek.filter.frequentie"))
+        self.filter_status_label.setText(self._t("historiek.filter.status"))
+        self.filter_reliability_label.setText(self._t("historiek.filter.betrouwbaarheid"))
         self.filter_manufacturer.setPlaceholderText(self._t("historiek.filter.exact_placeholder"))
         self.filter_series.setPlaceholderText(self._t("historiek.filter.exact_placeholder"))
+        self.filter_date_from.setPlaceholderText(self._t("historiek.filter.datum_placeholder"))
+        self.filter_date_to.setPlaceholderText(self._t("historiek.filter.datum_placeholder"))
         self.filter_instrument.setPlaceholderText(self._t("historiek.filter.exact_placeholder"))
         self.clear_filters_btn.setText(self._t("historiek.filter.wissen"))
         self.apply_filters_btn.setText(self._t("historiek.filter.toepassen"))
+        self._fill_export_scope()
+        self._fill_export_type()
         self._fill_tool_filter()
         self._fill_method_filter()
         self._fill_frequency_filter()
         self._fill_status_filter()
         self._fill_reliability_filter()
         self._apply_headers()
+        self._update_paging_controls()
 
     def refresh(self) -> None:
         try:
-            rows = self._history_service.list_measurements(
-                self._active_filters(), limit=100, offset=0
+            filters = self._active_filters()
+        except ValueError as exc:
+            self._update_detail_button()
+            self.state_label.setText(str(exc))
+            return
+
+        offset = self._page_index * self._page_size
+        try:
+            rows_with_lookahead = self._history_service.list_measurements(
+                filters,
+                limit=self._page_size + 1,
+                offset=offset,
             )
         except Exception as exc:
             self.table.setRowCount(0)
+            self._current_rows = []
+            self._has_next_page = False
+            self._update_detail_button()
+            self._update_paging_controls()
             self.state_label.setText(self._t("historiek.fout", bericht=str(exc)))
             return
 
+        self._has_next_page = len(rows_with_lookahead) > self._page_size
+        rows = rows_with_lookahead[: self._page_size]
+        self._current_rows = list(rows)
+
         self._populate(rows)
         self._update_detail_button()
+        self._update_paging_controls()
         if rows:
             self.state_label.setText(self._t("historiek.aantal", aantal=len(rows)))
         else:
             self.state_label.setText(self._t("historiek.leeg"))
 
-    def _populate(self, rows: list[dict[str, Any]]) -> None:
-        self.table.setRowCount(len(rows))
-        for row_index, row in enumerate(rows):
-            measurement = row["measurement"]
-            values = [
-                format_local_datetime(measurement.measured_at_ms),
-                self._tool_label(measurement.tool_key),
-                component_label(row),
-                self._t(measurement_method_translation_key(measurement.measurement_method)),
-                measurement.instrument_name or measurement.instrument_key or "—",
-                format_measurement_values(measurement.tool_key, measurement),
-                (
-                    self._t(f"status.eindstatus.{row['final_status']}")
-                    if row.get("final_status")
-                    else "—"
-                ),
-                (
-                    self._t(f"status.betrouwbaarheid.{row['reliability_level']}")
-                    if row.get("reliability_level")
-                    else "—"
-                ),
+    def _apply_filters(self) -> None:
+        self._page_index = 0
+        self.refresh()
+
+    def _previous_page(self) -> None:
+        if self._page_index <= 0:
+            return
+        self._page_index -= 1
+        self.refresh()
+
+    def _next_page(self) -> None:
+        if not self._has_next_page:
+            return
+        self._page_index += 1
+        self.refresh()
+
+    def _update_paging_controls(self) -> None:
+        self.previous_page_btn.setEnabled(self._page_index > 0)
+        self.next_page_btn.setEnabled(self._has_next_page)
+        self.page_label.setText(
+            self._t("historiek.paging.pagina", pagina=self._page_index + 1)
+        )
+
+    def _load_all_filtered_rows_for_export(
+        self,
+        filters: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        chunk_size = 500
+        offset = 0
+
+        while True:
+            chunk = self._history_service.list_measurements(
+                filters,
+                limit=chunk_size,
+                offset=offset,
+            )
+            rows.extend(chunk)
+            if len(chunk) < chunk_size:
+                break
+            offset += len(chunk)
+
+        return rows
+
+    def _selected_measurement_ids(self) -> list[int]:
+        """Exportselectie komt uitsluitend uit de expliciete checkboxkolom."""
+        ids: list[int] = []
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 0)
+            if item is None or item.checkState() != Qt.CheckState.Checked:
+                continue
+            value = item.data(Qt.ItemDataRole.UserRole)
+            if value is not None:
+                ids.append(int(value))
+        return ids
+
+    def _on_table_item_changed(self, item: QTableWidgetItem) -> None:
+        if item.column() == 0:
+            self._update_selection_count()
+
+    def _update_selection_count(self) -> None:
+        aantal = len(self._selected_measurement_ids()) if hasattr(self, "table") else 0
+        self.selection_count_label.setText(
+            self._t("historiek.export.geselecteerd_aantal", aantal=aantal)
+        )
+
+    def _rows_for_export(
+        self,
+        filters: dict[str, Any],
+    ) -> list[dict[str, Any]] | None:
+        scope = self.export_scope.currentData()
+
+        if scope == "PAGE":
+            return list(self._current_rows)
+
+        if scope == "SELECTED":
+            selected_ids = set(self._selected_measurement_ids())
+            if not selected_ids:
+                self.state_label.setText(
+                    self._t("historiek.export.geen_selectie")
+                )
+                return None
+            return [
+                row
+                for row in self._current_rows
+                if row["measurement"].id in selected_ids
             ]
-            for column, value in enumerate(values):
-                item = QTableWidgetItem(str(value))
-                if column == 0:
-                    item.setData(Qt.ItemDataRole.UserRole, measurement.id)
-                    item.setData(Qt.ItemDataRole.UserRole + 1, measurement.tool_key)
-                if column == 5:
-                    item.setTextAlignment(
-                        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+
+        return self._load_all_filtered_rows_for_export(filters)
+
+    def _configured_export_directory(self) -> Path | None:
+        instellingen = laad_instellingen()
+        configured = instellingen.algemeen.standaard_exportmap.strip()
+        if not configured:
+            return None
+        directory = Path(configured).expanduser()
+        return directory if directory.is_dir() else None
+
+    def _export_timestamp(self) -> str:
+        return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    def _default_export_filename(
+        self,
+        export_type: str,
+        *,
+        timestamp: str | None = None,
+    ) -> str:
+        stamp = timestamp or self._export_timestamp()
+        if export_type == "DETAIL":
+            return self._t(
+                "historiek.export.bestandsnaam_detail",
+                timestamp=stamp,
+            )
+        return self._t(
+            "historiek.export.bestandsnaam_overzicht",
+            timestamp=stamp,
+        )
+
+    def _export_start_path(self, default_filename: str) -> str:
+        directory = self._configured_export_directory()
+        if directory is not None:
+            return str(directory / default_filename)
+        return default_filename
+
+    def _open_export_directory_if_enabled(self, file_path: str) -> None:
+        instellingen = laad_instellingen()
+        if not instellingen.algemeen.exportmap_openen_na_export:
+            return
+        directory = str(Path(file_path).resolve().parent)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(directory))
+
+    def _choose_export_csv_path(self) -> str | None:
+        default_filename = self._default_export_filename("OVERVIEW")
+        file_path, _selected_filter = QFileDialog.getSaveFileName(
+            self,
+            self._t("historiek.export.dialoog_titel"),
+            self._export_start_path(default_filename),
+            self._t("historiek.export.bestandsfilter"),
+        )
+        if not file_path:
+            return None
+        if not file_path.lower().endswith(".csv"):
+            file_path += ".csv"
+        return file_path
+
+    def _choose_export_detail_csv_path(self) -> str | None:
+        default_filename = self._default_export_filename("DETAIL")
+        file_path, _selected_filter = QFileDialog.getSaveFileName(
+            self,
+            self._t("historiek.export.detail_dialoog_titel"),
+            self._export_start_path(default_filename),
+            self._t("historiek.export.bestandsfilter"),
+        )
+        if not file_path:
+            return None
+        if not file_path.lower().endswith(".csv"):
+            file_path += ".csv"
+        return file_path
+
+    def _choose_export_both_directory(self) -> str | None:
+        start_directory = self._configured_export_directory()
+        chosen = QFileDialog.getExistingDirectory(
+            self,
+            self._t("historiek.export.beide_dialoog_titel"),
+            str(start_directory) if start_directory is not None else "",
+        )
+        return chosen or None
+
+    def _export_selected_type(self) -> None:
+        export_type = self.export_type_combo.currentData()
+        if export_type == "DETAIL":
+            self._export_detail_csv()
+        elif export_type == "BOTH":
+            self._export_both_csv()
+        else:
+            self._export_csv()
+
+    def _export_csv(self) -> None:
+        """Mensleesbare overzicht-export; bestaande kolommen blijven behouden."""
+        try:
+            filters = self._active_filters()
+        except ValueError as exc:
+            self.state_label.setText(str(exc))
+            return
+
+        try:
+            rows = self._rows_for_export(filters)
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("historiek.export.fout", bericht=str(exc))
+            )
+            return
+
+        if rows is None:
+            return
+        if not rows:
+            self.state_label.setText(self._t("historiek.export.leeg"))
+            return
+
+        file_path = self._choose_export_csv_path()
+        if file_path is None:
+            return
+
+        try:
+            write_history_csv(
+                file_path,
+                self._column_headers(),
+                (self._row_values(row) for row in rows),
+            )
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("historiek.export.fout", bericht=str(exc))
+            )
+            return
+
+        self.state_label.setText(
+            self._t(
+                "historiek.export.geslaagd",
+                aantal=len(rows),
+                pad=file_path,
+            )
+        )
+        self._open_export_directory_if_enabled(file_path)
+
+    def _export_detail_csv(self) -> None:
+        """Machineleesbare detail-export vanuit opgeslagen snapshots."""
+        try:
+            filters = self._active_filters()
+        except ValueError as exc:
+            self.state_label.setText(str(exc))
+            return
+
+        try:
+            rows = self._rows_for_export(filters)
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("historiek.export.detail_fout", bericht=str(exc))
+            )
+            return
+
+        if rows is None:
+            return
+        if not rows:
+            self.state_label.setText(self._t("historiek.export.leeg"))
+            return
+
+        details: list[dict[str, Any]] = []
+        try:
+            for row in rows:
+                measurement_id = row["measurement"].id
+                detail = self._history_service.get_measurement_detail(measurement_id)
+                if detail is None:
+                    raise ValueError(
+                        self._t(
+                            "historiek.export.detail_ontbreekt",
+                            measurement_id=measurement_id,
+                        )
                     )
-                self.table.setItem(row_index, column, item)
+                details.append(detail)
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("historiek.export.detail_fout", bericht=str(exc))
+            )
+            return
+
+        file_path = self._choose_export_detail_csv_path()
+        if file_path is None:
+            return
+
+        try:
+            write_history_csv(
+                file_path,
+                DETAIL_EXPORT_HEADERS,
+                (detail_row_values(detail) for detail in details),
+            )
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("historiek.export.detail_fout", bericht=str(exc))
+            )
+            return
+
+        self.state_label.setText(
+            self._t(
+                "historiek.export.detail_geslaagd",
+                aantal=len(details),
+                pad=file_path,
+            )
+        )
+        self._open_export_directory_if_enabled(file_path)
+
+    def _export_both_csv(self) -> None:
+        """Schrijf overzicht en detail met dezelfde scope en dezelfde timestamp."""
+        try:
+            filters = self._active_filters()
+        except ValueError as exc:
+            self.state_label.setText(str(exc))
+            return
+
+        try:
+            rows = self._rows_for_export(filters)
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("historiek.export.fout", bericht=str(exc))
+            )
+            return
+
+        if rows is None:
+            return
+        if not rows:
+            self.state_label.setText(self._t("historiek.export.leeg"))
+            return
+
+        details: list[dict[str, Any]] = []
+        try:
+            for row in rows:
+                measurement_id = row["measurement"].id
+                detail = self._history_service.get_measurement_detail(measurement_id)
+                if detail is None:
+                    raise ValueError(
+                        self._t(
+                            "historiek.export.detail_ontbreekt",
+                            measurement_id=measurement_id,
+                        )
+                    )
+                details.append(detail)
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("historiek.export.detail_fout", bericht=str(exc))
+            )
+            return
+
+        directory = self._choose_export_both_directory()
+        if directory is None:
+            return
+
+        timestamp = self._export_timestamp()
+        overview_path = str(
+            Path(directory)
+            / self._default_export_filename("OVERVIEW", timestamp=timestamp)
+        )
+        detail_path = str(
+            Path(directory)
+            / self._default_export_filename("DETAIL", timestamp=timestamp)
+        )
+
+        try:
+            write_history_csv(
+                overview_path,
+                self._column_headers(),
+                (self._row_values(row) for row in rows),
+            )
+            write_history_csv(
+                detail_path,
+                DETAIL_EXPORT_HEADERS,
+                (detail_row_values(detail) for detail in details),
+            )
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("historiek.export.fout", bericht=str(exc))
+            )
+            return
+
+        self.state_label.setText(
+            self._t(
+                "historiek.export.beide_geslaagd",
+                aantal=len(rows),
+                pad=directory,
+            )
+        )
+        self._open_export_directory_if_enabled(overview_path)
+
+    def _row_values(self, row: dict[str, Any]) -> list[str]:
+        measurement = row["measurement"]
+        return [
+            format_local_datetime(measurement.measured_at_ms),
+            self._tool_label(measurement.tool_key),
+            component_label(row),
+            self._t(measurement_method_translation_key(measurement.measurement_method)),
+            measurement.instrument_name or measurement.instrument_key or "—",
+            format_measurement_values(measurement.tool_key, measurement),
+            (
+                self._t(f"status.eindstatus.{row['final_status']}")
+                if row.get("final_status")
+                else "—"
+            ),
+            (
+                self._t(f"status.betrouwbaarheid.{row['reliability_level']}")
+                if row.get("reliability_level")
+                else "—"
+            ),
+        ]
+
+    def _populate(self, rows: list[dict[str, Any]]) -> None:
+        self.table.blockSignals(True)
+        try:
+            self.table.setRowCount(len(rows))
+            for row_index, row in enumerate(rows):
+                measurement = row["measurement"]
+
+                select_item = QTableWidgetItem("")
+                select_item.setFlags(
+                    Qt.ItemFlag.ItemIsEnabled
+                    | Qt.ItemFlag.ItemIsSelectable
+                    | Qt.ItemFlag.ItemIsUserCheckable
+                )
+                select_item.setCheckState(Qt.CheckState.Unchecked)
+                select_item.setData(Qt.ItemDataRole.UserRole, measurement.id)
+                select_item.setData(
+                    Qt.ItemDataRole.UserRole + 1,
+                    measurement.tool_key,
+                )
+                select_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.table.setItem(row_index, 0, select_item)
+
+                values = self._row_values(row)
+                for value_index, value in enumerate(values):
+                    column = value_index + 1
+                    item = QTableWidgetItem(str(value))
+                    if value_index == 0:
+                        item.setData(Qt.ItemDataRole.UserRole, measurement.id)
+                        item.setData(
+                            Qt.ItemDataRole.UserRole + 1,
+                            measurement.tool_key,
+                        )
+                    if value_index == 5:
+                        item.setTextAlignment(
+                            Qt.AlignmentFlag.AlignLeft
+                            | Qt.AlignmentFlag.AlignVCenter
+                        )
+                    self.table.setItem(row_index, column, item)
+        finally:
+            self.table.blockSignals(False)
 
         self.table.resizeColumnsToContents()
+        self.table.setColumnWidth(0, max(48, self.table.columnWidth(0)))
         self.table.horizontalHeader().setStretchLastSection(True)
+        self._update_selection_count()
 
     def _update_detail_button(self) -> None:
         has_selection = self._selected_measurement_id() is not None
@@ -389,7 +1012,7 @@ class HistoryScreen(QWidget):
         row = self.table.currentRow()
         if row < 0:
             return None
-        item = self.table.item(row, 0)
+        item = self.table.item(row, 1)
         if item is None:
             return None
         value = item.data(Qt.ItemDataRole.UserRole)
@@ -399,7 +1022,7 @@ class HistoryScreen(QWidget):
         row = self.table.currentRow()
         if row < 0:
             return None
-        item = self.table.item(row, 0)
+        item = self.table.item(row, 1)
         if item is None:
             return None
         value = item.data(Qt.ItemDataRole.UserRole + 1)

@@ -2,11 +2,14 @@
 ================================================================================
 Module:     tests/test_settings_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.0.0
+Versie:     1.1.0
 Datum:      2026-09-27
 Auteur:     Ontwikkelaar
 
 Doel:       GUI-regressietests voor de Settings-dialoog.
+
+Wijzigingen:
+  v1.1.0 (2026-10-02)  Algemene bestandsvoorkeuren en Browse-gedrag getest.
 ================================================================================
 """
 
@@ -54,3 +57,43 @@ def test_english_tab_labels():
     assert dialog.tabs.tabText(0) == "General"
     assert dialog.tabs.tabText(1) == "ESR / Capacitor"
     assert dialog.tabs.tabText(2) == "Reporting"
+
+
+def test_bestandsvoorkeuren_worden_in_nieuw_settingsobject_opgenomen():
+    _app()
+    basis = AppInstellingen()
+    dialog = SettingsDialog(basis, taal="nl_NL")
+
+    dialog.exportmap_edit.setText(r"C:\Exports")
+    dialog.importmap_edit.setText(r"C:\Imports")
+    dialog.exportmap_openen_check.setChecked(True)
+    dialog._toepassen()
+
+    algemeen = dialog.toegepaste_instellingen.algemeen
+    assert algemeen.standaard_exportmap == r"C:\Exports"
+    assert algemeen.standaard_importmap == r"C:\Imports"
+    assert algemeen.exportmap_openen_na_export is True
+
+
+def test_bladeren_voor_exportmap_vult_veld(monkeypatch):
+    _app()
+    dialog = SettingsDialog(AppInstellingen(), taal="nl_NL")
+
+    monkeypatch.setattr(
+        "app.gui.dialogs.settings_dialog.QFileDialog.getExistingDirectory",
+        lambda *args, **kwargs: r"C:\GekozenExport",
+    )
+
+    dialog._kies_exportmap()
+
+    assert dialog.exportmap_edit.text() == r"C:\GekozenExport"
+
+
+def test_condensatortypes_komen_uit_centrale_settingsconstante():
+    _app()
+    from app.config.settings import CONDENSATORTYPES
+
+    dialog = SettingsDialog(AppInstellingen(), taal="nl_NL")
+    waarden = [dialog.type_combo.itemText(i) for i in range(dialog.type_combo.count())]
+
+    assert tuple(waarden) == CONDENSATORTYPES

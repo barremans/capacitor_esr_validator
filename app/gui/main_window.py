@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.4.0
+Versie:     2.4.1
 Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
@@ -37,6 +37,8 @@ Wijzigingen:
                        Hoofdmenu. Historiek ververst bij openen.
   v2.4.0 (2026-10-01)  Historiek "Herhaal meting" gekoppeld aan ESR-pagina.
                        Alleen component- en meetcontext wordt vooraf ingevuld.
+  v2.4.1 (2026-10-01)  Live taalwissel vervolledigd voor Hoofdmenu, Diagnose,
+                       ESR-pagina en de contextuele venstertitel.
 ================================================================================
 """
 
@@ -105,15 +107,15 @@ class ToolHubWindow(QMainWindow):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        title = QLabel(self._t("app.titel"))
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("font-size: 20px; font-weight: bold;")
-        layout.addWidget(title)
+        self.hub_title_label = QLabel(self._t("app.titel"))
+        self.hub_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.hub_title_label.setStyleSheet("font-size: 20px; font-weight: bold;")
+        layout.addWidget(self.hub_title_label)
 
-        subtitle = QLabel(self._t("scherm.hoofdmenu"))
-        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        subtitle.setStyleSheet("font-size: 12px; color: #AAAAAA;")
-        layout.addWidget(subtitle)
+        self.hub_subtitle_label = QLabel(self._t("scherm.hoofdmenu"))
+        self.hub_subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.hub_subtitle_label.setStyleSheet("font-size: 12px; color: #AAAAAA;")
+        layout.addWidget(self.hub_subtitle_label)
         layout.addSpacing(20)
 
         menu_grid = QGridLayout()
@@ -158,16 +160,16 @@ class ToolHubWindow(QMainWindow):
         layout.setSpacing(16)
 
         top_row = QHBoxLayout()
-        back_btn = QPushButton(self._t("knop.terug"))
-        back_btn.clicked.connect(self._show_hub)
-        top_row.addWidget(back_btn)
+        self.diagnose_back_btn = QPushButton(self._t("knop.terug"))
+        self.diagnose_back_btn.clicked.connect(self._show_hub)
+        top_row.addWidget(self.diagnose_back_btn)
         top_row.addStretch()
         layout.addLayout(top_row)
 
-        title = QLabel(self._t("scherm.diagnose"))
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("font-size: 20px; font-weight: bold;")
-        layout.addWidget(title)
+        self.diagnose_title_label = QLabel(self._t("scherm.diagnose"))
+        self.diagnose_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.diagnose_title_label.setStyleSheet("font-size: 20px; font-weight: bold;")
+        layout.addWidget(self.diagnose_title_label)
         layout.addSpacing(12)
 
         tools_grid = QGridLayout()
@@ -205,9 +207,9 @@ class ToolHubWindow(QMainWindow):
             self.esr_btn, 0, 0, Qt.AlignmentFlag.AlignCenter
         )
 
-        placeholder = QPushButton("...")
-        placeholder.setFixedSize(140, 140)
-        placeholder.setStyleSheet("""
+        self.future_tool_placeholder = QPushButton("...")
+        self.future_tool_placeholder.setFixedSize(140, 140)
+        self.future_tool_placeholder.setStyleSheet("""
             QPushButton {
                 background-color: #2C2C2C;
                 border: 2px dashed #555;
@@ -216,10 +218,10 @@ class ToolHubWindow(QMainWindow):
                 font-size: 24px;
             }
         """)
-        placeholder.setEnabled(False)
-        placeholder.setToolTip(self._t("tool.toekomstig"))
+        self.future_tool_placeholder.setEnabled(False)
+        self.future_tool_placeholder.setToolTip(self._t("tool.toekomstig"))
         tools_grid.addWidget(
-            placeholder, 0, 1, Qt.AlignmentFlag.AlignCenter
+            self.future_tool_placeholder, 0, 1, Qt.AlignmentFlag.AlignCenter
         )
 
         tools_grid.setColumnStretch(2, 1)
@@ -321,9 +323,18 @@ class ToolHubWindow(QMainWindow):
         self._apply_language()
 
     def _apply_language(self):
-        self.setWindowTitle(self._t("app.titel"))
         self.menuBar().clear()
         self._build_menu()
+
+        if hasattr(self, "hub_title_label"):
+            self.hub_title_label.setText(self._t("app.titel"))
+        if hasattr(self, "hub_subtitle_label"):
+            self.hub_subtitle_label.setText(self._t("scherm.hoofdmenu"))
+        if hasattr(self, "diagnose_back_btn"):
+            self.diagnose_back_btn.setText(self._t("knop.terug"))
+        if hasattr(self, "diagnose_title_label"):
+            self.diagnose_title_label.setText(self._t("scherm.diagnose"))
+
         if hasattr(self, "diagnose_btn"):
             self.diagnose_btn.setText(self._t("tool.diagnose"))
             self.diagnose_btn.setToolTip(self._t("tool.diagnose_omschrijving"))
@@ -335,13 +346,41 @@ class ToolHubWindow(QMainWindow):
             self.documentation_btn.setToolTip(
                 self._t("tool.documentatie_omschrijving")
             )
+        if hasattr(self, "future_tool_placeholder"):
+            self.future_tool_placeholder.setToolTip(self._t("tool.toekomstig"))
+
         if hasattr(self, "history_page"):
             self.history_page.apply_language(self.taal)
             if self.stack.currentWidget() is self.history_page:
                 self.history_page.refresh()
+        if hasattr(self, "esr_page"):
+            self.esr_page.apply_language(self.taal)
         if hasattr(self, "esr_btn"):
             self.esr_btn.setText(self._t("tool.esr"))
             self.esr_btn.setToolTip(self._t("tool.esr_omschrijving"))
+
+        self._update_window_title_for_current_page()
+
+    def _update_window_title_for_current_page(self):
+        """Werk de venstertitel bij zonder de huidige pagina te wijzigen."""
+        if not hasattr(self, "stack"):
+            self.setWindowTitle(self._t("app.titel"))
+            return
+
+        current = self.stack.currentWidget()
+        if current is getattr(self, "diagnose_page", None):
+            suffix = self._t("scherm.diagnose")
+        elif current is getattr(self, "esr_page", None):
+            suffix = self._t("scherm.esr_test")
+        elif current is getattr(self, "history_page", None):
+            suffix = self._t("scherm.historiek")
+        else:
+            suffix = None
+
+        self.setWindowTitle(
+            self._t("app.titel") if suffix is None
+            else self._t("app.titel") + " — " + suffix
+        )
 
     def _repeat_measurement(self, preset):
         """Open ESR als nieuwe meetrun met veilige historische contextpreset."""

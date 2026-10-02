@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/services/history_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
+Versie:     1.1.1
 Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
@@ -19,6 +19,8 @@ Wijzigingen:
                         historiekweergave.
   v1.1.0 (2026-10-01)  Read-only detailopvraag toegevoegd via
                         StorageService.get_measurement_detail().
+  v1.1.1 (2026-10-01)  Ontbrekende measurement-id wordt aan de applicatielaag
+                        als None teruggegeven in plaats van als fout door te lekken.
 ================================================================================
 """
 
@@ -28,6 +30,7 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from app.storage import PathService, StorageService
+from app.storage.exceptions import RelatedRecordNotFoundError
 
 
 class MeasurementHistoryService:
@@ -59,6 +62,7 @@ class MeasurementHistoryService:
         storage = self._storage_service_factory(database_path)
         storage.initialize()
         return storage.list_measurements(filters, limit=limit, offset=offset)
+
     def get_measurement_detail(self, measurement_id: int) -> dict[str, Any] | None:
         """Lees één volledige opgeslagen meetketen zonder writes uit te voeren."""
         paths = self._path_service_factory()
@@ -69,5 +73,8 @@ class MeasurementHistoryService:
 
         storage = self._storage_service_factory(database_path)
         storage.initialize()
-        return storage.get_measurement_detail(measurement_id)
+        try:
+            return storage.get_measurement_detail(measurement_id)
+        except RelatedRecordNotFoundError:
+            return None
 
