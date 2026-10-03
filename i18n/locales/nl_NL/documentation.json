@@ -41,7 +41,8 @@
       "esr_dissipation_factor": "D / tanδ interpreteren",
       "esr_ced_plausibility": "C–ESR–D plausibiliteitscontrole",
       "esr_in_circuit_limitations": "Beperkingen van in-circuit condensatormetingen"
-    }
+    },
+    "sluiten": "Sluiten"
   },
   "_comment": "Brontaal Nederlands — module documentation."
 }

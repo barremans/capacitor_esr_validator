@@ -41,7 +41,8 @@
       "esr_dissipation_factor": "Interpret D / tanδ",
       "esr_ced_plausibility": "C–ESR–D plausibility check",
       "esr_in_circuit_limitations": "Limitations of in-circuit capacitor measurements"
-    }
+    },
+    "sluiten": "Close"
   },
   "_comment": "English translation — module documentation."
 }

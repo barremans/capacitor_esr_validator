@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.3.0
+Versie:     1.4.0
 Datum:      2026-10-03
 Auteur:     Bart Bossuyt
 
@@ -20,6 +20,9 @@ Wijzigingen:
                         title_key; officiële brontitels blijven als fallback.
   v1.3.0 (2026-10-03)  Interne Markdown-inhoud wordt geopend in de actieve
                         app-taal met service-fallback naar nl_NL.
+  v1.4.0 (2026-10-03)  Viewer-UX verbeterd: bredere documenttabel, rijkere
+                        Markdown-weergave, vertaalde sluitknop, scrollstart
+                        bovenaan en selectiebehoud na refresh/taalwissel.
 ================================================================================
 """
 
@@ -30,7 +33,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
     QDialog,
-    QDialogButtonBox,
+    QHeaderView,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -121,7 +124,15 @@ class DocumentationScreen(QWidget):
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
-        self.table.horizontalHeader().setStretchLastSection(True)
+
+        header = self.table.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+
         self.table.itemSelectionChanged.connect(self._update_open_button)
         self.table.itemDoubleClicked.connect(
             lambda _item: self._open_selected_document()
@@ -224,6 +235,7 @@ class DocumentationScreen(QWidget):
 
     def refresh(self) -> None:
         """Herlaad de zichtbare read-only tabel volgens de huidige filters."""
+        selected_document_id = self._selected_document_id()
         category = self.category_combo.currentData()
         tool_filter = self.tool_combo.currentData()
 
@@ -250,7 +262,11 @@ class DocumentationScreen(QWidget):
             )
             return
 
-        self._populate_table(documents)
+        self._populate_table(
+            documents,
+            selected_document_id=selected_document_id,
+        )
+
         if documents:
             self.status_label.setText(
                 self._t("documentatie.aantal", aantal=len(documents))
@@ -258,8 +274,14 @@ class DocumentationScreen(QWidget):
         else:
             self.status_label.setText(self._t("documentatie.leeg"))
 
-    def _populate_table(self, documents: list[DocumentMetadata]) -> None:
+    def _populate_table(
+        self,
+        documents: list[DocumentMetadata],
+        *,
+        selected_document_id: str | None = None,
+    ) -> None:
         self.table.setRowCount(len(documents))
+        row_to_restore: int | None = None
 
         for row, document in enumerate(documents):
             values = (
@@ -274,7 +296,12 @@ class DocumentationScreen(QWidget):
                 item.setData(Qt.ItemDataRole.UserRole, document.document_id)
                 self.table.setItem(row, column, item)
 
-        self.table.resizeColumnsToContents()
+            if document.document_id == selected_document_id:
+                row_to_restore = row
+
+        if row_to_restore is not None:
+            self.table.selectRow(row_to_restore)
+
         self._update_open_button()
 
     def _selected_document_id(self) -> str | None:
@@ -307,22 +334,47 @@ class DocumentationScreen(QWidget):
 
         dialog = QDialog(self)
         dialog.setWindowTitle(self._document_title(document))
-        dialog.resize(820, 620)
+        dialog.resize(960, 720)
+        dialog.setMinimumSize(720, 520)
 
         layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setSpacing(12)
+
         browser = QTextBrowser()
         browser.setOpenExternalLinks(True)
+        browser.setStyleSheet(
+            "QTextBrowser { background-color: #1E1E1E; color: #F0F0F0; "
+            "border: 1px solid #4A4A4A; padding: 10px; }"
+        )
         browser.document().setDefaultStyleSheet(
             "body { color: #F0F0F0; background-color: #1E1E1E; "
-            "font-family: 'Segoe UI'; } "
-            "h1, h2, h3, h4, b, strong { color: #FFFFFF; } "
-            "p, li { color: #F0F0F0; } "
-            "code { color: #DCDCAA; }"
+            "font-family: 'Segoe UI'; font-size: 10.5pt; line-height: 1.35; } "
+            "h1 { color: #FFFFFF; font-size: 20pt; margin-top: 8px; margin-bottom: 14px; } "
+            "h2 { color: #FFFFFF; font-size: 15pt; margin-top: 18px; margin-bottom: 8px; } "
+            "h3, h4 { color: #FFFFFF; margin-top: 14px; margin-bottom: 6px; } "
+            "p { color: #F0F0F0; margin-top: 5px; margin-bottom: 8px; } "
+            "li { color: #F0F0F0; margin-bottom: 4px; } "
+            "a { color: #8AB4F8; text-decoration: underline; } "
+            "code { color: #DCDCAA; background-color: #2A2A2A; padding: 2px 4px; } "
+            "pre { color: #F0F0F0; background-color: #2A2A2A; "
+            "border: 1px solid #4A4A4A; padding: 8px; } "
+            "blockquote { color: #D0D0D0; border-left: 3px solid #6A6A6A; "
+            "margin-left: 8px; padding-left: 10px; } "
+            "table { border-collapse: collapse; margin-top: 8px; margin-bottom: 10px; } "
+            "th { color: #FFFFFF; background-color: #333333; font-weight: bold; "
+            "border: 1px solid #666666; padding: 5px; } "
+            "td { color: #F0F0F0; border: 1px solid #555555; padding: 5px; }"
         )
         browser.setMarkdown(content)
-        layout.addWidget(browser)
+        browser.verticalScrollBar().setValue(0)
+        layout.addWidget(browser, 1)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
+        button_row = QHBoxLayout()
+        button_row.addStretch()
+        close_btn = QPushButton(self._t("documentatie.sluiten"))
+        close_btn.clicked.connect(dialog.reject)
+        button_row.addWidget(close_btn)
+        layout.addLayout(button_row)
+
         dialog.exec()

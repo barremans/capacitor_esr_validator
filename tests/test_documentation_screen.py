@@ -2,7 +2,7 @@
 ================================================================================
 Module:     tests/test_documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.3.0
+Versie:     1.4.0
 Datum:      2026-10-03
 Auteur:     Bart Bossuyt
 
@@ -14,6 +14,7 @@ Wijzigingen:
   v1.2.0 (2026-10-03)  Vertaalbare documenttitels en live taalwissel getest.
   v1.3.0 (2026-10-03)  Openen van interne Markdown geeft de actieve taal door
                         aan de documentatieservice.
+  v1.4.0 (2026-10-03)  Viewer-UX, selectiebehoud en vertaalde sluitknop getest.
 ================================================================================
 """
 
@@ -21,7 +22,7 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QPushButton
 
 import app.gui.documentation_screen as documentation_module
 from app.documentation.models import (
@@ -82,6 +83,8 @@ def _fake_translate(key: str, taal: str = "nl_NL", **kwargs) -> str:
     titles = {
         ("nl_NL", "documentatie.document_titels.fm_series"): "FM-serie",
         ("en_US", "documentatie.document_titels.fm_series"): "FM Series",
+        ("nl_NL", "documentatie.sluiten"): "Sluiten",
+        ("en_US", "documentatie.sluiten"): "Close",
     }
     value = titles.get((taal, key), f"{taal}:{key}")
     if kwargs:
@@ -114,7 +117,21 @@ def test_filters_refresh_read_only_table():
     assert screen.table.rowCount() == 1
 
 
-def test_language_switch_preserves_search_and_filter_values(monkeypatch):
+def test_refresh_preserves_selected_document_when_still_visible():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    screen.table.selectRow(0)
+
+    screen.refresh()
+
+    assert screen._selected_document_id() == "doc-1"
+    assert screen.open_btn.isEnabled() is True
+
+
+def test_language_switch_preserves_search_filter_and_selection(monkeypatch):
     _app()
     monkeypatch.setattr(documentation_module, "vertaal", _fake_translate)
 
@@ -127,6 +144,7 @@ def test_language_switch_preserves_search_and_filter_values(monkeypatch):
     tool_index = screen.tool_combo.findData("ESR_CAPACITOR")
     screen.category_combo.setCurrentIndex(category_index)
     screen.tool_combo.setCurrentIndex(tool_index)
+    screen.table.selectRow(0)
 
     screen.apply_language("en_US")
 
@@ -135,7 +153,7 @@ def test_language_switch_preserves_search_and_filter_values(monkeypatch):
     assert screen.search_edit.text() == "Panasonic"
     assert screen.category_combo.currentData() == "DATASHEET"
     assert screen.tool_combo.currentData() == "ESR_CAPACITOR"
-
+    assert screen._selected_document_id() == "doc-1"
 
 
 def test_open_button_follows_row_selection():
@@ -160,9 +178,13 @@ def test_open_selected_document_uses_read_only_dialog(monkeypatch):
     screen.table.selectRow(0)
 
     executed = {"count": 0}
+    dialog_state = {}
 
     def _fake_exec(self):
         executed["count"] += 1
+        dialog_state["buttons"] = [
+            button.text() for button in self.findChildren(QPushButton)
+        ]
         return 0
 
     from PySide6.QtWidgets import QDialog
@@ -172,7 +194,7 @@ def test_open_selected_document_uses_read_only_dialog(monkeypatch):
 
     assert executed["count"] == 1
     assert service.last_read_language == "nl_NL"
-
+    assert "Sluiten" in dialog_state["buttons"]
 
 
 def test_document_title_changes_live_with_language(monkeypatch):
