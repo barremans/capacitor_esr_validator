@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-02
+Versie:     1.3.0
+Datum:      2026-10-03
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only scherm voor de centrale documentatiebibliotheek.
@@ -14,6 +14,12 @@ Doel:       Read-only scherm voor de centrale documentatiebibliotheek.
 
 Wijzigingen:
   v1.0.0 (2026-10-02)  Eerste read-only documentatiebibliotheekscherm.
+  v1.1.0 (2026-10-02)  Interne Markdown-handleidingen kunnen read-only worden
+                        geopend via knop of dubbelklik.
+  v1.2.0 (2026-10-03)  Interne documenttitels volgen live de gekozen taal via
+                        title_key; officiële brontitels blijven als fallback.
+  v1.3.0 (2026-10-03)  Interne Markdown-inhoud wordt geopend in de actieve
+                        app-taal met service-fallback naar nl_NL.
 ================================================================================
 """
 
@@ -23,12 +29,15 @@ from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
+    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
@@ -113,11 +122,23 @@ class DocumentationScreen(QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.itemSelectionChanged.connect(self._update_open_button)
+        self.table.itemDoubleClicked.connect(
+            lambda _item: self._open_selected_document()
+        )
         layout.addWidget(self.table, 1)
 
+        bottom_row = QHBoxLayout()
         self.status_label = QLabel()
         self.status_label.setWordWrap(True)
-        layout.addWidget(self.status_label)
+        bottom_row.addWidget(self.status_label, 1)
+
+        self.open_btn = QPushButton()
+        self.open_btn.setEnabled(False)
+        self.open_btn.clicked.connect(self._open_selected_document)
+        bottom_row.addWidget(self.open_btn)
+
+        layout.addLayout(bottom_row)
 
     def apply_language(self, taal: str) -> None:
         """Werk alle zichtbare statische teksten bij zonder filters te wissen."""
@@ -131,6 +152,7 @@ class DocumentationScreen(QWidget):
         self.search_edit.setPlaceholderText(self._t("documentatie.zoeken_placeholder"))
         self.category_label.setText(self._t("documentatie.categorie"))
         self.tool_label.setText(self._t("documentatie.tool"))
+        self.open_btn.setText(self._t("documentatie.openen"))
 
         self._rebuild_category_combo(selected_category)
         self._rebuild_tool_combo(selected_tool)
@@ -191,6 +213,15 @@ class DocumentationScreen(QWidget):
     def _category_label(self, category: DocumentCategory) -> str:
         return self._t(f"documentatie.categorieen.{category.value}")
 
+    def _document_title(self, document: DocumentMetadata) -> str:
+        """Vertaal interne titels; behoud officiële brontitel als fallback."""
+        if not document.title_key:
+            return document.title
+        translated = self._t(document.title_key)
+        if translated == document.title_key:
+            return document.title
+        return translated
+
     def refresh(self) -> None:
         """Herlaad de zichtbare read-only tabel volgens de huidige filters."""
         category = self.category_combo.currentData()
@@ -232,7 +263,7 @@ class DocumentationScreen(QWidget):
 
         for row, document in enumerate(documents):
             values = (
-                document.title,
+                self._document_title(document),
                 self._category_label(document.category),
                 document.manufacturer or "",
                 document.series or "",
@@ -244,3 +275,54 @@ class DocumentationScreen(QWidget):
                 self.table.setItem(row, column, item)
 
         self.table.resizeColumnsToContents()
+        self._update_open_button()
+
+    def _selected_document_id(self) -> str | None:
+        selected_items = self.table.selectedItems()
+        if not selected_items:
+            return None
+        document_id = selected_items[0].data(Qt.ItemDataRole.UserRole)
+        return document_id if isinstance(document_id, str) and document_id else None
+
+    def _update_open_button(self) -> None:
+        self.open_btn.setEnabled(self._selected_document_id() is not None)
+
+    def _open_selected_document(self) -> None:
+        """Open de geselecteerde interne tekstbron read-only."""
+        document_id = self._selected_document_id()
+        if document_id is None:
+            return
+
+        try:
+            document = self.documentation_service.get_document(document_id)
+            content = self.documentation_service.read_document_text(
+                document_id,
+                language=self.taal,
+            )
+        except DocumentationError as exc:
+            self.status_label.setText(
+                self._t("documentatie.document_fout", bericht=str(exc))
+            )
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self._document_title(document))
+        dialog.resize(820, 620)
+
+        layout = QVBoxLayout(dialog)
+        browser = QTextBrowser()
+        browser.setOpenExternalLinks(True)
+        browser.document().setDefaultStyleSheet(
+            "body { color: #F0F0F0; background-color: #1E1E1E; "
+            "font-family: 'Segoe UI'; } "
+            "h1, h2, h3, h4, b, strong { color: #FFFFFF; } "
+            "p, li { color: #F0F0F0; } "
+            "code { color: #DCDCAA; }"
+        )
+        browser.setMarkdown(content)
+        layout.addWidget(browser)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        dialog.exec()

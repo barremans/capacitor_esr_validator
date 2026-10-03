@@ -1,0 +1,42 @@
+{
+  "app": {
+    "titel": "Electronics Diagnostic Tool Hub",
+    "hoofdmenu": "Main menu"
+  },
+  "menu": {
+    "bestand": "File",
+    "diagnose": "Diagnostics",
+    "instellingen": "Settings",
+    "help": "Help",
+    "open_diagnose": "Open diagnostics",
+    "esr_test": "ESR test",
+    "talen": "Languages",
+    "changelog": "Changelog",
+    "over": "About",
+    "afsluiten": "Exit"
+  },
+  "tool": {
+    "diagnose": "Diagnostics",
+    "historiek": "History",
+    "documentatie": "Documentation"
+  },
+  "knop": {
+    "terug": "Back",
+    "meting_opslaan": "Save measurement",
+    "veiligheidsinstructies": "Safety instructions",
+    "beoordeel": "Assess",
+    "wissen": "Clear",
+    "verversen": "Refresh",
+    "herhaal_meting": "Repeat measurement",
+    "details": "Details"
+  },
+  "dialog": {
+    "over_title": "About",
+    "over_tekst": "Electronics Diagnostic Tool Hub\\nCapacitor and ESR validator",
+    "changelog_title": "Changelog",
+    "help_title": "Help"
+  },
+  "tool_type": {
+    "ESR_CAPACITOR": "ESR / Capacitor"
+  }
+}

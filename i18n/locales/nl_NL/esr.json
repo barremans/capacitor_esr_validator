@@ -1,25 +1,4 @@
 {
-  "_comment": "Brontaal Nederlands. v1.16.0: Meetmethoden & handleidingen deel A.",
-  "app": {
-    "titel": "Condensator- en ESR-validator"
-  },
-  "taal": {
-    "nl_NL": "Nederlands",
-    "en_US": "English"
-  },
-  "menu": {
-    "bestand": "Bestand",
-    "afsluiten": "Afsluiten",
-    "test": "Test",
-    "esr_test": "ESR-test",
-    "help": "Help",
-    "over": "Over",
-    "instellingen": "Instellingen",
-    "talen": "Talen",
-    "changelog": "Changelog",
-    "diagnose": "Diagnose",
-    "open_diagnose": "Diagnose openen"
-  },
   "scherm": {
     "esr_test": "ESR-test",
     "resultaat": "Resultaat",
@@ -57,19 +36,6 @@
   },
   "placeholder": {
     "d_waarde": "0.05 (optioneel)"
-  },
-  "knop": {
-    "beoordeel": "Beoordeel",
-    "wissen": "Wissen",
-    "sluiten": "Sluiten",
-    "kopieer": "Kopieer resultaat",
-    "help": "?",
-    "veiligheidsinstructies": "Veiligheidsinstructies",
-    "details": "Details",
-    "terug": "← Terug",
-    "meting_opslaan": "Meting opslaan",
-    "verversen": "Verversen",
-    "herhaal_meting": "Herhaal meting"
   },
   "veiligheid": {
     "waarschuwing_1": "Meet nooit aan een onder spanning staande schakeling.",
@@ -187,25 +153,9 @@
   },
   "dialog": {
     "veiligheid_titel": "Veiligheidsinstructies",
-    "help_titel": "Help",
-    "changelog_titel": "Changelog",
-    "over_titel": "Over",
-    "over_tekst": "<h2>Condensator- en ESR-validator</h2><p>Versie 1.1.0</p><p>Een tool voor het indicatief beoordelen van condensatormetingen.</p><p>Geen formele veiligheidsvrijgave.</p>",
     "resultaat_details": "Resultaatdetails",
-    "documentatie_placeholder": "De documentatiesectie wordt in een latere fase verder uitgewerkt.",
     "wissen_titel": "Invoer wissen",
     "wissen_tekst": "Weet je zeker dat je de huidige meetinvoer wilt wissen?"
-  },
-  "tool": {
-    "esr": "ESR-validator",
-    "esr_omschrijving": "Condensator- en ESR-metingen invoeren en beoordelen",
-    "toekomstig": "Toekomstige tool",
-    "diagnose": "Diagnose",
-    "diagnose_omschrijving": "Open de beschikbare diagnostische tools",
-    "documentatie": "Documentatie",
-    "documentatie_omschrijving": "Open technische documentatie en referenties",
-    "historiek": "Historiek",
-    "historiek_omschrijving": "Bekijk opgeslagen meetresultaten"
   },
   "meetmethode": {
     "ex_situ": "Volledig uitgebouwd",
@@ -243,244 +193,14 @@
     "referentiebron": "Referentiebron",
     "referentieniveau": "Referentieniveau"
   },
-  "settings": {
-    "titel": "Instellingen",
-    "tab": {
-      "algemeen": "Algemeen",
-      "esr": "ESR / Condensator",
-      "rapportage": "Rapportage"
-    },
-    "knop": {
-      "herstellen": "Standaardwaarden herstellen",
-      "annuleren": "Annuleren",
-      "toepassen": "Toepassen",
-      "ok": "OK"
-    },
-    "algemeen": {
-      "taal": "Taal",
-      "thema": "Thema",
-      "thema_donker": "Donker",
-      "thema_tooltip": "Donker thema is voorlopig het ondersteunde thema.",
-      "tooltips": "Tooltips inschakelen",
-      "exportmap": "Standaard exportmap",
-      "importmap": "Standaard importmap",
-      "bladeren": "Bladeren…",
-      "exportmap_kiezen": "Kies de standaard exportmap",
-      "importmap_kiezen": "Kies de standaard importmap",
-      "exportmap_openen": "Exportmap openen na succesvolle export"
-    },
-    "esr": {
-      "cap_eenheid": "Capaciteitseenheid",
-      "tolerantie": "Tolerantie",
-      "werkspanning": "Werkspanning",
-      "geen_default": "Geen standaard",
-      "type": "Condensatortype",
-      "fabrikant": "Fabrikant",
-      "meetmethode": "Meetmethode",
-      "instrument": "Instrument",
-      "frequentie": "Meetfrequentie",
-      "testspanning": "Testspanning",
-      "temperatuur": "Temperatuur",
-      "esr_eenheid": "ESR-eenheid",
-      "bevestig_wissen": "Bevestiging vragen bij Wissen"
-    },
-    "meetmethode": {
-      "EX_SITU": "Uit circuit",
-      "ONE_LEG": "Eén poot los",
-      "IN_CIRCUIT": "In circuit"
-    },
-    "rapportage": {
-      "uitleg": "Deze voorkeuren bereiden latere rapportage voor; er wordt in deze fase nog geen rapport gegenereerd.",
-      "grafiek": "Grafiek standaard opnemen",
-      "details": "Technische details opnemen",
-      "referentie": "Referentiebron opnemen",
-      "datum": "Datum/tijd opnemen",
-      "werkplaats": "Werkplaats / bedrijf"
-    },
-    "herstellen": {
-      "titel": "Standaardwaarden herstellen",
-      "tekst": "Standaardwaarden van alleen de actieve tab herstellen?"
-    }
-  },
   "opslag": {
     "meting_opgeslagen_titel": "Meting opgeslagen",
     "meting_opgeslagen_tekst": "Meting {measurement_id} is opgeslagen in de lokale historiek.",
     "meting_opslaan_fout_titel": "Opslaan mislukt",
     "meting_opslaan_fout_tekst": "De meting kon niet worden opgeslagen: {bericht}"
   },
-  "historiek": {
-    "leeg": "Nog geen opgeslagen metingen.",
-    "aantal": "{aantal} meting(en) getoond.",
-    "fout": "Historiek kon niet worden geladen: {bericht}",
-    "kolom": {
-      "datum_tijd": "Datum / tijd",
-      "component": "Component",
-      "meetmethode": "Meetmethode",
-      "instrument": "Instrument",
-      "capaciteit": "Capaciteit",
-      "esr": "ESR",
-      "status": "Status",
-      "betrouwbaarheid": "Betrouwbaarheid",
-      "tool": "Tool / testtype",
-      "meetwaarden": "Meetwaarden",
-      "selectie": "Kies"
-    },
-    "detail_titel": "Meting {measurement_id} — details",
-    "detail_kop": "Opgeslagen meetdetails",
-    "detail_fout": "Meetdetails konden niet worden geladen: {bericht}",
-    "detail_niet_gevonden": "De geselecteerde meting bestaat niet meer.",
-    "geen_assessment": "Geen assessment-snapshot opgeslagen voor deze meting.",
-    "detail_opmerking_opgeslagen_waarden": "Getoond worden de waarden zoals ze zijn opgeslagen. Oorspronkelijke invoereenheden van gemeten C/ESR worden niet afzonderlijk bewaard en worden daarom niet gereconstrueerd.",
-    "sectie": {
-      "component": "Component",
-      "meetcontext": "Meetcontext",
-      "meetwaarden": "Opgeslagen meetwaarden",
-      "assessment": "Assessment-snapshot {nummer}",
-      "referenties": "Referenties",
-      "referentie": "Referentie-snapshot {nummer}"
-    },
-    "detail": {
-      "fabrikant": "Fabrikant",
-      "serie": "Serie",
-      "part_number": "Partnummer",
-      "technologie": "Technologie",
-      "nominale_capaciteit": "Nominale capaciteit",
-      "nominale_spanning": "Nominale spanning",
-      "tolerantie": "Tolerantie onder / boven",
-      "sample_state": "Sampletoestand",
-      "datum_tijd": "Gemeten op",
-      "meetmethode": "Meetmethode",
-      "instrument": "Instrument",
-      "frequentie": "Meetfrequentie",
-      "testspanning": "Testspanning",
-      "temperatuur": "Omgevingstemperatuur",
-      "spanningsloos": "Spanningsloos bevestigd",
-      "ontladen": "Ontladen bevestigd",
-      "sessie_start": "Sessie gestart",
-      "sessie_einde": "Sessie beëindigd",
-      "capaciteit": "Capaciteit",
-      "esr": "ESR",
-      "d": "D / dissipatiefactor",
-      "out_of_range": "OL / buiten bereik",
-      "open_suspected": "Open verbinding vermoed",
-      "short_suspected": "Kortsluiting vermoed",
-      "assessed_at": "Beoordeeld op",
-      "engine_version": "Assessment-engine",
-      "capacitance_status": "Capaciteitsstatus",
-      "capacitance_deviation": "Capaciteitsafwijking",
-      "esr_status": "ESR-status",
-      "esr_factor": "ESR-factor",
-      "consistency_status": "Consistentiestatus",
-      "reliability": "Betrouwbaarheid",
-      "final_status": "Eindstatus",
-      "redenen": "Redenen",
-      "waarschuwingen": "Waarschuwingen",
-      "advies": "Advies",
-      "reference_role": "Referentierol",
-      "reference_level": "Referentieniveau",
-      "reference_type": "Referentietype",
-      "reference_value": "Referentiewaarde",
-      "reference_frequency": "Referentiefrequentie",
-      "reference_temperature": "Referentietemperatuur",
-      "value_kind": "Waarde-soort",
-      "source_name": "Bron",
-      "source_document": "Brondocument",
-      "tool": "Tool / testtype"
-    },
-    "herhalen_fout": "Meting kon niet worden voorbereid voor herhaling: {bericht}",
-    "filter": {
-      "titel": "Filters",
-      "fabrikant": "Fabrikant",
-      "serie": "Serie",
-      "meetmethode": "Meetmethode",
-      "instrument": "Instrumentcode",
-      "frequentie": "Frequentie",
-      "status": "Eindstatus",
-      "betrouwbaarheid": "Betrouwbaarheid",
-      "alle": "Alle",
-      "toepassen": "Filters toepassen",
-      "wissen": "Filters wissen",
-      "exact_placeholder": "exacte waarde",
-      "tool": "Tool / testtype",
-      "datum_van": "Van datum",
-      "datum_tot": "Tot datum",
-      "datum_placeholder": "JJJJ-MM-DD",
-      "datum_formaat_fout": "Gebruik voor datums het formaat JJJJ-MM-DD, bijvoorbeeld 2026-10-01.",
-      "datum_volgorde_fout": "De begindatum mag niet na de einddatum liggen."
-    },
-    "detail_geen_renderer": "Voor dit tooltype is nog geen gespecialiseerde detailweergave beschikbaar. De centrale historiek bewaart het record wel als afzonderlijk tooltype.",
-    "paging": {
-      "vorige": "← Vorige",
-      "volgende": "Volgende →",
-      "pagina": "Pagina {pagina}"
-    },
-    "export": {
-      "knop": "Exporteren",
-      "dialoog_titel": "Historiek exporteren naar CSV",
-      "standaard_bestandsnaam": "historiek.csv",
-      "bestandsfilter": "CSV-bestanden (*.csv)",
-      "leeg": "Geen metingen om te exporteren met de huidige filters.",
-      "geslaagd": "{aantal} meting(en) geëxporteerd naar {pad}.",
-      "fout": "CSV-export mislukt: {bericht}",
-      "detail_knop": "Exporteer detail",
-      "scope_gefilterd": "Export: huidige filters",
-      "scope_geselecteerd": "Export: selectie",
-      "scope_pagina": "Export: huidige pagina",
-      "geen_selectie": "Selecteer eerst één of meer metingen in de tabel.",
-      "detail_dialoog_titel": "Detailhistoriek exporteren naar CSV",
-      "detail_standaard_bestandsnaam": "historiek_detail.csv",
-      "detail_geslaagd": "{aantal} detailmeting(en) geëxporteerd naar {pad}.",
-      "detail_fout": "Detail-CSV-export mislukt: {bericht}",
-      "detail_ontbreekt": "Volledige detaildata voor meting {measurement_id} ontbreekt.",
-      "type_overzicht": "Overzicht CSV",
-      "type_detail": "Detail CSV",
-      "type_beide": "Overzicht + detail",
-      "geselecteerd_aantal": "{aantal} geselecteerd",
-      "bestandsnaam_overzicht": "historiek_overzicht_{timestamp}.csv",
-      "bestandsnaam_detail": "historiek_detail_{timestamp}.csv",
-      "beide_dialoog_titel": "Kies map voor overzicht + detail",
-      "beide_geslaagd": "{aantal} meting(en) als overzicht en detail geëxporteerd naar {pad}."
-    }
-  },
-  "algemeen": {
-    "ja": "Ja",
-    "nee": "Nee"
-  },
   "herhalen": {
     "banner": "Herhaling van meting {measurement_id}: component- en meetcontext zijn overgenomen. Voer nieuwe meetwaarden in, bevestig de veiligheid opnieuw en beoordeel opnieuw."
   },
-  "tool_type": {
-    "ESR_CAPACITOR": "ESR / condensator"
-  },
-  "documentatie": {
-    "titel": "Documentatie",
-    "zoeken": "Zoeken",
-    "zoeken_placeholder": "Zoek op titel, fabrikant, serie, partnummer of bron…",
-    "categorie": "Categorie",
-    "tool": "Tool",
-    "alle_categorieen": "Alle categorieën",
-    "alle_tools": "Alle tools",
-    "algemeen": "Algemeen",
-    "leeg": "Geen documenten gevonden.",
-    "aantal": "{aantal} document(en) gevonden.",
-    "fout": "Documentatie kon niet worden geladen: {bericht}",
-    "kolom": {
-      "titel": "Titel",
-      "categorie": "Categorie",
-      "fabrikant": "Fabrikant",
-      "serie": "Serie",
-      "versie": "Versie"
-    },
-    "categorieen": {
-      "DATASHEET": "Fabrikantdatasheet",
-      "APPLICATION_NOTE": "Application note",
-      "MEASUREMENT_TECHNIQUE": "Meettechniek",
-      "MANUAL": "Handleiding",
-      "SAFETY": "Veiligheid",
-      "REFERENCE_TABLE": "Referentietabel",
-      "INTERNAL_INSTRUCTION": "Interne instructie"
-    },
-    "openen": "Openen",
-    "document_fout": "Document kon niet worden geopend: {bericht}"
-  }
+  "_comment": "Brontaal Nederlands — module esr."
 }

@@ -1,0 +1,47 @@
+{
+  "dialog": {
+    "documentatie_placeholder": "The documentation section will be developed further in a later phase."
+  },
+  "documentatie": {
+    "titel": "Documentation",
+    "zoeken": "Search",
+    "zoeken_placeholder": "Search by title, manufacturer, series, part number or source…",
+    "categorie": "Category",
+    "tool": "Tool",
+    "alle_categorieen": "All categories",
+    "alle_tools": "All tools",
+    "algemeen": "General",
+    "leeg": "No documents found.",
+    "aantal": "{aantal} document(s) found.",
+    "fout": "Documentation could not be loaded: {bericht}",
+    "kolom": {
+      "titel": "Title",
+      "categorie": "Category",
+      "fabrikant": "Manufacturer",
+      "serie": "Series",
+      "versie": "Version"
+    },
+    "categorieen": {
+      "DATASHEET": "Manufacturer datasheet",
+      "APPLICATION_NOTE": "Application note",
+      "MEASUREMENT_TECHNIQUE": "Measurement technique",
+      "MANUAL": "Manual",
+      "SAFETY": "Safety",
+      "REFERENCE_TABLE": "Reference table",
+      "INTERNAL_INSTRUCTION": "Internal instruction"
+    },
+    "openen": "Open",
+    "document_fout": "Document could not be opened: {bericht}",
+    "document_titels": {
+      "esr_safe_discharge": "Safely discharge a capacitor before measurement",
+      "esr_esr_meter": "Measure ESR with an ESR meter",
+      "esr_lcr_meter": "Measure ESR and capacitance with an LCR meter",
+      "esr_measurement_methods": "Measurement methods: EX_SITU, ONE_LEG and IN_CIRCUIT",
+      "esr_frequency_test_voltage": "Choose measurement frequency and test level",
+      "esr_dissipation_factor": "Interpret D / tanδ",
+      "esr_ced_plausibility": "C–ESR–D plausibility check",
+      "esr_in_circuit_limitations": "Limitations of in-circuit capacitor measurements"
+    }
+  },
+  "_comment": "English translation — module documentation."
+}

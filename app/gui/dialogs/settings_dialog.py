@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/dialogs/settings_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.1.0
+Versie:     1.2.0
 Datum:      2026-09-27
 Auteur:     Ontwikkelaar
 
@@ -18,6 +18,8 @@ Wijzigingen:
                        met Bladeren-knoppen en optie om de exportmap na een
                        succesvolle export te openen. Condensatortypes komen
                        nu uit de centrale settings-constante.
+  v1.2.0 (2026-10-03)  Taalkeuze wordt dynamisch opgebouwd uit language.json-
+                       metadata; geen vaste NL/EN-lijst meer in de dialoog.
   v1.0.0 (2026-09-27)  Eerste implementatie van de drie Settings-tabs en
                        bediening Herstellen/Annuleren/Toepassen/OK.
 ================================================================================
@@ -57,7 +59,7 @@ from app.config.settings import (
     RapportageInstellingen,
     TESTSPANNINGEN_VRMS,
 )
-from app.helpers.i18n import vertaal
+from app.helpers.i18n import STANDAARD_TAAL, beschikbare_taalinfos, vertaal
 
 
 class SettingsDialog(QDialog):
@@ -65,7 +67,7 @@ class SettingsDialog(QDialog):
 
     settings_applied = Signal(object)
 
-    def __init__(self, instellingen: AppInstellingen, taal: str = "nl_NL", parent=None):
+    def __init__(self, instellingen: AppInstellingen, taal: str = STANDAARD_TAAL, parent=None):
         super().__init__(parent)
         self.taal = taal
         self._basis = instellingen
@@ -143,8 +145,8 @@ class SettingsDialog(QDialog):
         form = QFormLayout(tab)
 
         self.taal_combo = QComboBox()
-        self.taal_combo.addItem("Nederlands", "nl_NL")
-        self.taal_combo.addItem("English", "en_US")
+        for info in beschikbare_taalinfos():
+            self.taal_combo.addItem(info.native_name, info.code)
         form.addRow(self._t("settings.algemeen.taal"), self.taal_combo)
 
         self.thema_combo = QComboBox()
@@ -375,7 +377,7 @@ class SettingsDialog(QDialog):
         if index == 0:
             standaard = replace(
                 self._widgets_naar_instellingen(),
-                taal="nl_NL",
+                taal=STANDAARD_TAAL,
                 algemeen=AlgemeneInstellingen(),
             )
         elif index == 1:

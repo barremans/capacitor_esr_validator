@@ -2,14 +2,18 @@
 ================================================================================
 Module:     tests/test_documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-02
+Versie:     1.3.0
+Datum:      2026-10-03
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor de read-only Documentatiebibliotheek.
 
 Wijzigingen:
   v1.0.0 (2026-10-02)  Eerste schermtests voor lege toestand, filters en taalwissel.
+  v1.1.0 (2026-10-02)  Openknop/selectie en read-only documentdialoog getest.
+  v1.2.0 (2026-10-03)  Vertaalbare documenttitels en live taalwissel getest.
+  v1.3.0 (2026-10-03)  Openen van interne Markdown geeft de actieve taal door
+                        aan de documentatieservice.
 ================================================================================
 """
 
@@ -33,10 +37,21 @@ def _app():
 
 
 class _FakeDocumentationService:
+    def __init__(self):
+        self.last_read_language = None
+
+    def get_document(self, document_id):
+        return self.list_documents()[0]
+
+    def read_document_text(self, document_id, *, language=None):
+        self.last_read_language = language
+        return "# FM Series\nRead-only guide."
+
     def list_documents(self, *, search_text=None, category=None, tool_key=None):
         document = DocumentMetadata(
             document_id="doc-1",
             title="FM Series",
+            title_key="documentatie.document_titels.fm_series",
             category=DocumentCategory.DATASHEET,
             source_type=DocumentSourceType.FILE,
             source_path="docs/fm.pdf",
@@ -64,7 +79,11 @@ class _EmptyDocumentationService:
 
 
 def _fake_translate(key: str, taal: str = "nl_NL", **kwargs) -> str:
-    value = f"{taal}:{key}"
+    titles = {
+        ("nl_NL", "documentatie.document_titels.fm_series"): "FM-serie",
+        ("en_US", "documentatie.document_titels.fm_series"): "FM Series",
+    }
+    value = titles.get((taal, key), f"{taal}:{key}")
     if kwargs:
         value += ":" + ",".join(f"{k}={v}" for k, v in sorted(kwargs.items()))
     return value
@@ -116,3 +135,73 @@ def test_language_switch_preserves_search_and_filter_values(monkeypatch):
     assert screen.search_edit.text() == "Panasonic"
     assert screen.category_combo.currentData() == "DATASHEET"
     assert screen.tool_combo.currentData() == "ESR_CAPACITOR"
+
+
+
+def test_open_button_follows_row_selection():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+
+    assert screen.open_btn.isEnabled() is False
+    screen.table.selectRow(0)
+    assert screen.open_btn.isEnabled() is True
+
+
+def test_open_selected_document_uses_read_only_dialog(monkeypatch):
+    _app()
+    service = _FakeDocumentationService()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=service,
+    )
+    screen.table.selectRow(0)
+
+    executed = {"count": 0}
+
+    def _fake_exec(self):
+        executed["count"] += 1
+        return 0
+
+    from PySide6.QtWidgets import QDialog
+    monkeypatch.setattr(QDialog, "exec", _fake_exec)
+
+    screen._open_selected_document()
+
+    assert executed["count"] == 1
+    assert service.last_read_language == "nl_NL"
+
+
+
+def test_document_title_changes_live_with_language(monkeypatch):
+    _app()
+    monkeypatch.setattr(documentation_module, "vertaal", _fake_translate)
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+
+    assert screen.table.item(0, 0).text() == "FM-serie"
+
+    screen.apply_language("en_US")
+
+    assert screen.table.item(0, 0).text() == "FM Series"
+
+
+def test_document_title_falls_back_to_official_title_when_key_missing(monkeypatch):
+    _app()
+    monkeypatch.setattr(
+        documentation_module,
+        "vertaal",
+        lambda key, taal="nl_NL", **kwargs: key,
+    )
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+
+    assert screen.table.item(0, 0).text() == "FM Series"

@@ -1,0 +1,47 @@
+{
+  "dialog": {
+    "documentatie_placeholder": "De documentatiesectie wordt in een latere fase verder uitgewerkt."
+  },
+  "documentatie": {
+    "titel": "Documentatie",
+    "zoeken": "Zoeken",
+    "zoeken_placeholder": "Zoek op titel, fabrikant, serie, partnummer of bron…",
+    "categorie": "Categorie",
+    "tool": "Tool",
+    "alle_categorieen": "Alle categorieën",
+    "alle_tools": "Alle tools",
+    "algemeen": "Algemeen",
+    "leeg": "Geen documenten gevonden.",
+    "aantal": "{aantal} document(en) gevonden.",
+    "fout": "Documentatie kon niet worden geladen: {bericht}",
+    "kolom": {
+      "titel": "Titel",
+      "categorie": "Categorie",
+      "fabrikant": "Fabrikant",
+      "serie": "Serie",
+      "versie": "Versie"
+    },
+    "categorieen": {
+      "DATASHEET": "Fabrikantdatasheet",
+      "APPLICATION_NOTE": "Application note",
+      "MEASUREMENT_TECHNIQUE": "Meettechniek",
+      "MANUAL": "Handleiding",
+      "SAFETY": "Veiligheid",
+      "REFERENCE_TABLE": "Referentietabel",
+      "INTERNAL_INSTRUCTION": "Interne instructie"
+    },
+    "openen": "Openen",
+    "document_fout": "Document kon niet worden geopend: {bericht}",
+    "document_titels": {
+      "esr_safe_discharge": "Condensator veilig ontladen vóór meting",
+      "esr_esr_meter": "ESR meten met een ESR-meter",
+      "esr_lcr_meter": "ESR en capaciteit meten met een LCR-meter",
+      "esr_measurement_methods": "Meetmethoden: EX_SITU, ONE_LEG en IN_CIRCUIT",
+      "esr_frequency_test_voltage": "Meetfrequentie en testniveau kiezen",
+      "esr_dissipation_factor": "D / tanδ interpreteren",
+      "esr_ced_plausibility": "C–ESR–D plausibiliteitscontrole",
+      "esr_in_circuit_limitations": "Beperkingen van in-circuit condensatormetingen"
+    }
+  },
+  "_comment": "Brontaal Nederlands — module documentation."
+}

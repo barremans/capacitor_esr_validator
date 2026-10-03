@@ -3,16 +3,15 @@
 _Automatisch gegenereerd – niet handmatig aanpassen._
 
 - 📁 **capacitor_esr_validator/**
-  - 📁 **.pytest_cache/**
-    - 📁 **v/**
-      - 📁 **cache/**
-        - 📄 **/.pytest_cache/v/cache/lastfailed**
-        - 📄 **/.pytest_cache/v/cache/nodeids**
-    - 📄 **/.pytest_cache/.gitignore**
-    - 📄 **/.pytest_cache/CACHEDIR.TAG**
-    - 📄 **/.pytest_cache/README.md**
   - 📁 **app/**
     - 📁 **config/**
+      - 📄 **/app/config/__init__.py**
+        ```text
+        # Beschrijving: Package-init voor de configuratiemodule.
+        # Auteur: GEEN AUTEUR
+        # Applicatie: GEEN APPLICATIE
+        # Versie: V1.0.0
+        ```
       - 📄 **/app/config/instrument_profiles.py**
         ```text
         # Bestandsnaam: app/config/instrument_profiles.py
@@ -33,22 +32,107 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         ```
     - 📁 **data/**
       - 📁 **documentation/**
+        - 📁 **content/**
+          - 📄 **/app/data/documentation/content/capacitor_safe_discharge.md**
+          - 📄 **/app/data/documentation/content/ced_plausibility.md**
+          - 📄 **/app/data/documentation/content/dissipation_factor.md**
+          - 📄 **/app/data/documentation/content/esr_meter_measurement.md**
+          - 📄 **/app/data/documentation/content/frequency_and_test_voltage.md**
+          - 📄 **/app/data/documentation/content/in_circuit_limitations.md**
+          - 📄 **/app/data/documentation/content/lcr_meter_measurement.md**
+          - 📄 **/app/data/documentation/content/measurement_methods.md**
+        - 📄 **/app/data/documentation/__init__.py**
+          ```text
+          # Bestandsnaam: app/data/documentation/__init__.py
+          # Beschrijving: Package-marker voor ingebouwde read-only documentatiecatalogusdata.
+          # Auteur: Bart Bossuyt
+          # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+          # Versie: 1.0.0
+          # Datum: 2026-10-02
+          ```
         - 📄 **/app/data/documentation/catalog.json**
       - 📁 **references/**
+        - 📄 **/app/data/references/__init__.py**
+          ```text
+          # Bestandsnaam: app/data/references/__init__.py
+          # Beschrijving: Laadt de ingebouwde referentietabellen (Peak Atlas ESR70, etc.)
+          # Auteur: Ontwikkelaar
+          # Applicatie: Condensator- en ESR-validator (Windows)
+          # Versie: 1.0.0
+          # Datum: 2026-08-11
+          ```
         - 📄 **/app/data/references/esr_references.json**
       - 📄 **/app/data/.gitkeep**
+      - 📄 **/app/data/__init__.py**
+        ```text
+        # Beschrijving: GEEN BESCHRIJVING
+        # Auteur: GEEN AUTEUR
+        # Applicatie: GEEN APPLICATIE
+        # Versie: V1.0.0
+        ```
+    - 📁 **documentation/**
+      - 📄 **/app/documentation/__init__.py**
+        ```text
+        # Bestandsnaam: app/documentation/__init__.py
+        # Beschrijving: Publieke exports voor de read-only documentatiebibliotheek.
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.0
+        # Datum: 2026-10-02
+        ```
+      - 📄 **/app/documentation/models.py**
+        ```text
+        # Bestandsnaam: app/documentation/models.py
+        # Beschrijving: Immutable modellen en vaste enumwaarden voor documentmetadata.
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.2.1
+        # Datum: 2026-10-02
+        ```
+      - 📄 **/app/documentation/service.py**
+        ```text
+        # Bestandsnaam: app/documentation/service.py
+        # Beschrijving: Read-only service voor de centrale documentatiebibliotheek.
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.3.0
+        # Datum: 2026-10-02
+        ```
     - 📁 **gui/**
       - 📁 **dialogs/**
         - 📄 **/app/gui/dialogs/.gitkeep**
+        - 📄 **/app/gui/dialogs/__init__.py**
+          ```text
+          # Beschrijving: GEEN BESCHRIJVING
+          # Auteur: GEEN AUTEUR
+          # Applicatie: GEEN APPLICATIE
+          # Versie: V1.0.0
+          ```
         - 📄 **/app/gui/dialogs/settings_dialog.py**
           ```text
           # Bestandsnaam: app/gui/dialogs/settings_dialog.py
           # Beschrijving: Modale Settings-dialoog met tabs Algemeen, ESR / Condensator en
           # Auteur: Ontwikkelaar
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-          # Versie: 1.1.0
+          # Versie: 1.2.0
           # Datum: 2026-09-27
           ```
+      - 📄 **/app/gui/__init__.py**
+        ```text
+        # Beschrijving: Package-init voor de Tkinter-schermen.
+        # Auteur: GEEN AUTEUR
+        # Applicatie: GEEN APPLICATIE
+        # Versie: V1.0.0
+        ```
+      - 📄 **/app/gui/documentation_screen.py**
+        ```text
+        # Bestandsnaam: app/gui/documentation_screen.py
+        # Beschrijving: Read-only scherm voor de centrale documentatiebibliotheek.
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.2.0
+        # Datum: 2026-10-02
+        ```
       - 📄 **/app/gui/esr_test_screen.py**
         ```text
         # Bestandsnaam: app/gui/esr_test_screen.py
@@ -73,8 +157,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Hoofdvenster van de Tool Hub met één-venster-navigatie.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 2.4.1
-        # Datum: 2026-10-01
+        # Versie: 2.6.0
+        # Datum: 2026-10-02
         ```
       - 📄 **/app/gui/styles.py**
         ```text
@@ -86,6 +170,13 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Datum: 2026-09-27
         ```
     - 📁 **helpers/**
+      - 📄 **/app/helpers/__init__.py**
+        ```text
+        # Beschrijving: Package-init voor kleine, herbruikbare hulpfuncties zonder
+        # Auteur: GEEN AUTEUR
+        # Applicatie: GEEN APPLICATIE
+        # Versie: V1.0.0
+        ```
       - 📄 **/app/helpers/history_csv_export.py**
         ```text
         # Bestandsnaam: app/helpers/history_csv_export.py
@@ -125,11 +216,11 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       - 📄 **/app/helpers/i18n.py**
         ```text
         # Bestandsnaam: app/helpers/i18n.py
-        # Beschrijving: Eenvoudige vertaalmodule. Leest JSON-vertaalbestanden uit
-        # Auteur: Ontwikkelaar
-        # Applicatie: Condensator- en ESR-validator (Windows)
-        # Versie: 1.1.0
-        # Datum: 2026-08-12
+        # Beschrijving: Modulaire vertaalmodule met dynamische taalontdekking.
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 2.0.0
+        # Datum: 2026-10-03
         ```
       - 📄 **/app/helpers/units.py**
         ```text
@@ -141,6 +232,13 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Datum: 2026-08-11
         ```
     - 📁 **services/**
+      - 📄 **/app/services/__init__.py**
+        ```text
+        # Beschrijving: Package-init voor de kernlogica (beoordeling, referentiedata,
+        # Auteur: GEEN AUTEUR
+        # Applicatie: GEEN APPLICATIE
+        # Versie: V1.0.0
+        ```
       - 📄 **/app/services/assessment_service.py**
         ```text
         # Bestandsnaam: app/services/assessment_service.py
@@ -178,6 +276,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Datum: 2026-10-01
         ```
     - 📁 **storage/**
+      - 📄 **/app/storage/__init__.py**
+        ```text
+        # Bestandsnaam: app/storage/__init__.py
+        # Beschrijving: Publieke basisexports van het storage-package.
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.1.0
+        # Datum: 2026-10-01
+        ```
       - 📄 **/app/storage/database.py**
         ```text
         # Bestandsnaam: app/storage/database.py
@@ -241,6 +348,13 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Versie: 1.1.0
         # Datum: 2026-10-01
         ```
+    - 📄 **/app/__init__.py**
+      ```text
+      # Beschrijving: Package-init voor de condensator- en ESR-validator-app.
+      # Auteur: GEEN AUTEUR
+      # Applicatie: GEEN APPLICATIE
+      # Versie: V1.0.0
+      ```
     - 📄 **/app/version.py**
       ```text
       # Beschrijving: Centrale versie-informatie van de applicatie.
@@ -264,11 +378,32 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     - 📄 **/docs/validation_rules.md**
   - 📁 **i18n/**
     - 📁 **locales/**
+      - 📁 **en_US/**
+        - 📄 **/i18n/locales/en_US/app.json**
+        - 📄 **/i18n/locales/en_US/documentation.json**
+        - 📄 **/i18n/locales/en_US/esr.json**
+        - 📄 **/i18n/locales/en_US/history.json**
+        - 📄 **/i18n/locales/en_US/language.json**
+        - 📄 **/i18n/locales/en_US/settings.json**
+      - 📁 **nl_NL/**
+        - 📄 **/i18n/locales/nl_NL/app.json**
+        - 📄 **/i18n/locales/nl_NL/documentation.json**
+        - 📄 **/i18n/locales/nl_NL/esr.json**
+        - 📄 **/i18n/locales/nl_NL/history.json**
+        - 📄 **/i18n/locales/nl_NL/language.json**
+        - 📄 **/i18n/locales/nl_NL/settings.json**
       - 📄 **/i18n/locales/en_US.json**
       - 📄 **/i18n/locales/nl_NL.json**
   - 📁 **installer/**
     - 📄 **/installer/.gitkeep**
   - 📁 **tests/**
+    - 📄 **/tests/__init__.py**
+      ```text
+      # Beschrijving: Package-init voor de automatische tests (pytest), gespiegeld aan
+      # Auteur: GEEN AUTEUR
+      # Applicatie: GEEN APPLICATIE
+      # Versie: V1.0.0
+      ```
     - 📄 **/tests/test_assessment.py**
       ```text
       # Bestandsnaam: tests/test_assessment.py
@@ -277,6 +412,33 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: Condensator- en ESR-validator (Windows)
       # Versie: 1.3.0
       # Datum: 2026-09-26
+      ```
+    - 📄 **/tests/test_documentation_models.py**
+      ```text
+      # Bestandsnaam: tests/test_documentation_models.py
+      # Beschrijving: Regressietests voor vaste documentcategorieën en immutable metadata.
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-02
+      ```
+    - 📄 **/tests/test_documentation_screen.py**
+      ```text
+      # Bestandsnaam: tests/test_documentation_screen.py
+      # Beschrijving: GUI-regressietests voor de read-only Documentatiebibliotheek.
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.2.0
+      # Datum: 2026-10-02
+      ```
+    - 📄 **/tests/test_documentation_service.py**
+      ```text
+      # Bestandsnaam: tests/test_documentation_service.py
+      # Beschrijving: Regressietests voor read-only catalogusladen, validatie, zoeken en
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.3.0
+      # Datum: 2026-10-02
       ```
     - 📄 **/tests/test_esr_screen_settings_regressions.py**
       ```text
@@ -293,7 +455,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor live taalwissel in Hoofdmenu/Diagnose, ESR en
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.0
+      # Versie: 1.1.0
       # Datum: 2026-10-01
       ```
     - 📄 **/tests/test_gui_regressions.py**
@@ -386,6 +548,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.1.0
       # Datum: 2026-10-01
       ```
+    - 📄 **/tests/test_i18n_dynamic_language_ui.py**
+      ```text
+      # Bestandsnaam: tests/test_i18n_dynamic_language_ui.py
+      # Beschrijving: Bewijst dat Settings en hoofdmenu talen dynamisch uit i18n-metadata
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-03
+      ```
     - 📄 **/tests/test_i18n_history_filter_translations.py**
       ```text
       # Bestandsnaam: tests/test_i18n_history_filter_translations.py
@@ -403,6 +574,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
       # Versie: 1.2.0
       # Datum: 2026-10-01
+      ```
+    - 📄 **/tests/test_i18n_modular.py**
+      ```text
+      # Bestandsnaam: tests/test_i18n_modular.py
+      # Beschrijving: Regressietests voor modulaire vertalingen, dynamische taalontdekking,
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-03
       ```
     - 📄 **/tests/test_i18n_repeat_measurement_translations.py**
       ```text
@@ -452,11 +632,11 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     - 📄 **/tests/test_navigation_regressions.py**
       ```text
       # Bestandsnaam: tests/test_navigation_regressions.py
-      # Beschrijving: Regressietests voor Tool Hub -> Diagnose -> ESR navigatie.
+      # Beschrijving: Regressietests voor Tool Hub-navigatie naar Diagnose, ESR en
       # Auteur: Bart Bossuyt
       # Applicatie: Condensator- en ESR-validator (Windows)
-      # Versie: 1.0.0
-      # Datum: 2026-09-27
+      # Versie: 1.1.0
+      # Datum: 2026-10-02
       ```
     - 📄 **/tests/test_repeat_measurement_service.py**
       ```text

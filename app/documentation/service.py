@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/documentation/service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-02
+Versie:     1.4.0
+Datum:      2026-10-03
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only service voor de centrale documentatiebibliotheek.
@@ -14,6 +14,13 @@ Doel:       Read-only service voor de centrale documentatiebibliotheek.
 
 Wijzigingen:
   v1.0.0 (2026-10-02)  Eerste catalogusloader, validatie en zoek/filter-API.
+  v1.1.0 (2026-10-02)  Veilige read-only bronresolutie, documentlookup en
+                        tekstinhoud lezen voor interne handleidingen toegevoegd.
+  v1.2.0 (2026-10-02)  Gestructureerde provenance per documentbron toegevoegd.
+  v1.3.0 (2026-10-03)  Optionele title_key voor vertaalbare interne titels
+                        gevalideerd en geladen; title blijft officiële fallback.
+  v1.4.0 (2026-10-03)  Meertalige interne Markdown-inhoud toegevoegd met
+                        taalvariantresolutie en fallback naar nl_NL.
 ================================================================================
 """
 
@@ -23,7 +30,12 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from .models import DocumentCategory, DocumentMetadata, DocumentSourceType
+from .models import (
+    DocumentCategory,
+    DocumentMetadata,
+    DocumentProvenanceRef,
+    DocumentSourceType,
+)
 
 
 CATALOG_SCHEMA_VERSION = 1
@@ -142,11 +154,123 @@ class DocumentationService:
             ),
         )
 
+    def get_document(self, document_id: str) -> DocumentMetadata:
+        """Zoek één document exact op stabiele document_id."""
+        normalized_id = document_id.strip() if isinstance(document_id, str) else ""
+        if not normalized_id:
+            raise DocumentationValidationError(
+                "document_id moet niet-lege tekst zijn."
+            )
+
+        for document in self.load_documents():
+            if document.document_id == normalized_id:
+                return document
+
+        raise DocumentationError(
+            f"Document niet gevonden in catalogus: {normalized_id}."
+        )
+
+    def read_document_text(
+        self,
+        document_id: str,
+        *,
+        language: str | None = None,
+    ) -> str:
+        """Lees een lokale UTF-8 tekstbron met taalvariant-fallback.
+
+        Voor interne Markdown onder ``internal/<taalcode>/`` wordt eerst de
+        gevraagde taal geprobeerd, daarna ``nl_NL``. Bestaande cataloguspaden
+        buiten die structuur blijven backward-compatible en worden ongewijzigd
+        gelezen. Externe PDF-bronnen vallen buiten deze tekstreader.
+        """
+        document = self.get_document(document_id)
+
+        if document.source_type not in {
+            DocumentSourceType.FILE,
+            DocumentSourceType.FILE_AND_URL,
+        } or not document.source_path:
+            raise DocumentationError(
+                f"Document {document.document_id} heeft geen lokale tekstbron."
+            )
+
+        source_path = Path(document.source_path)
+        if source_path.is_absolute():
+            raise DocumentationValidationError(
+                f"Document {document.document_id} gebruikt een absoluut source_path."
+            )
+
+        if source_path.suffix.lower() not in {".md", ".txt"}:
+            raise DocumentationError(
+                f"Document {document.document_id} is geen leesbare tekstbron."
+            )
+
+        catalog_root = self.catalog_path.resolve().parent
+        candidates = self._language_candidates(source_path, language=language)
+
+        last_path: Path | None = None
+        for candidate in candidates:
+            resolved_source = (catalog_root / candidate).resolve()
+            last_path = resolved_source
+
+            try:
+                resolved_source.relative_to(catalog_root)
+            except ValueError as exc:
+                raise DocumentationValidationError(
+                    f"Document {document.document_id} verwijst buiten de documentatiemap."
+                ) from exc
+
+            if not resolved_source.is_file():
+                continue
+
+            try:
+                return resolved_source.read_text(encoding="utf-8")
+            except OSError as exc:
+                raise DocumentationError(
+                    f"Documentbron kon niet worden gelezen: {resolved_source}"
+                ) from exc
+
+        raise DocumentationError(
+            f"Documentbron kon niet worden gelezen: {last_path or source_path}"
+        )
+
+    @staticmethod
+    def _language_candidates(
+        source_path: Path,
+        *,
+        language: str | None,
+    ) -> tuple[Path, ...]:
+        """Bepaal kandidaatpaden voor interne taalvarianten.
+
+        Alleen paden met vorm ``internal/<taalcode>/...`` worden vertaald.
+        Daardoor blijven bestaande en externe catalogusrecords onaangeroerd.
+        """
+        parts = source_path.parts
+        if len(parts) < 3 or parts[0] != "internal":
+            return (source_path,)
+
+        relative_tail = Path(*parts[2:])
+        requested = language.strip() if isinstance(language, str) else ""
+
+        candidates: list[Path] = []
+        if requested:
+            candidates.append(Path("internal") / requested / relative_tail)
+
+        fallback = Path("internal") / "nl_NL" / relative_tail
+        if fallback not in candidates:
+            candidates.append(fallback)
+
+        original = source_path
+        if original not in candidates:
+            candidates.append(original)
+
+        return tuple(candidates)
+
     @staticmethod
     def _search_blob(document: DocumentMetadata) -> str:
         values = (
             document.document_id,
             document.title,
+            document.title_key,
             document.category.value,
             document.source_type.value,
             document.source_path,
@@ -158,6 +282,20 @@ class DocumentationService:
             document.document_version,
             document.document_date,
             document.notes,
+            *(
+                value
+                for ref in document.provenance
+                for value in (
+                    ref.source_id,
+                    ref.source_title,
+                    ref.source_kind,
+                    ref.source_path,
+                    ref.source_url,
+                    ref.locator,
+                    ref.note,
+                    *ref.supports,
+                )
+            ),
         )
         return "\n".join(
             value.casefold()
@@ -180,6 +318,7 @@ class DocumentationService:
         allowed = {
             "document_id",
             "title",
+            "title_key",
             "category",
             "source_type",
             "source_path",
@@ -191,6 +330,7 @@ class DocumentationService:
             "document_version",
             "document_date",
             "notes",
+            "provenance",
         }
         unknown = set(data) - allowed
         if unknown:
@@ -201,6 +341,7 @@ class DocumentationService:
 
         document_id = cls._required_text(data, "document_id", index=index)
         title = cls._required_text(data, "title", index=index)
+        title_key = cls._optional_text(data.get("title_key"))
 
         try:
             category = DocumentCategory(
@@ -241,6 +382,7 @@ class DocumentationService:
         return DocumentMetadata(
             document_id=document_id,
             title=title,
+            title_key=title_key,
             category=category,
             source_type=source_type,
             source_path=source_path,
@@ -252,7 +394,99 @@ class DocumentationService:
             document_version=cls._optional_text(data.get("document_version")),
             document_date=cls._optional_text(data.get("document_date")),
             notes=cls._optional_text(data.get("notes")),
+            provenance=cls._provenance_refs(data.get("provenance"), index=index),
         )
+
+    @classmethod
+    def _provenance_refs(
+        cls,
+        value: Any,
+        *,
+        index: int,
+    ) -> tuple[DocumentProvenanceRef, ...]:
+        if value is None:
+            return ()
+        if not isinstance(value, list):
+            raise DocumentationValidationError(
+                f"provenance op documentindex {index} moet een lijst zijn."
+            )
+
+        refs: list[DocumentProvenanceRef] = []
+        seen_ids: set[str] = set()
+        allowed = {
+            "source_id",
+            "source_title",
+            "source_kind",
+            "source_path",
+            "source_url",
+            "locator",
+            "supports",
+            "note",
+        }
+
+        for ref_index, item in enumerate(value):
+            if not isinstance(item, Mapping):
+                raise DocumentationValidationError(
+                    f"provenance-item {ref_index} op documentindex {index} moet een object zijn."
+                )
+
+            unknown = set(item) - allowed
+            if unknown:
+                raise DocumentationValidationError(
+                    "Onbekende provenancevelden op documentindex "
+                    f"{index}: {', '.join(sorted(unknown))}."
+                )
+
+            source_id = cls._required_text(item, "source_id", index=index)
+            if source_id in seen_ids:
+                raise DocumentationValidationError(
+                    f"Dubbele provenance source_id '{source_id}' op documentindex {index}."
+                )
+            seen_ids.add(source_id)
+
+            source_title = cls._required_text(item, "source_title", index=index)
+            source_kind = cls._required_text(item, "source_kind", index=index).upper()
+            source_path = cls._optional_text(item.get("source_path"))
+            source_url = cls._optional_text(item.get("source_url"))
+            locator = cls._optional_text(item.get("locator"))
+            note = cls._optional_text(item.get("note"))
+
+            supports_raw = item.get("supports", [])
+            if not isinstance(supports_raw, list) or not all(
+                isinstance(tag, str) and tag.strip() for tag in supports_raw
+            ):
+                raise DocumentationValidationError(
+                    f"supports voor provenance '{source_id}' moet een lijst niet-lege teksten zijn."
+                )
+            supports = tuple(tag.strip() for tag in supports_raw)
+
+            if source_kind == "FILE" and not source_path:
+                raise DocumentationValidationError(
+                    f"Provenancebron '{source_id}' vereist source_path."
+                )
+            if source_kind == "URL" and not source_url:
+                raise DocumentationValidationError(
+                    f"Provenancebron '{source_id}' vereist source_url."
+                )
+            if source_kind == "FILE_AND_URL" and (not source_path or not source_url):
+                raise DocumentationValidationError(
+                    f"Provenancebron '{source_id}' vereist source_path en source_url."
+                )
+
+            refs.append(
+                DocumentProvenanceRef(
+                    source_id=source_id,
+                    source_title=source_title,
+                    source_kind=source_kind,
+                    source_path=source_path,
+                    source_url=source_url,
+                    locator=locator,
+                    supports=supports,
+                    note=note,
+                )
+            )
+
+        return tuple(refs)
 
     @staticmethod
     def _required_text(

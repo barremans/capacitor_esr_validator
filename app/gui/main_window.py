@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.5.0
+Versie:     2.6.0
 Datum:      2026-10-02
 Auteur:     Bart Bossuyt
 
@@ -39,6 +39,7 @@ Wijzigingen:
                        Alleen component- en meetcontext wordt vooraf ingevuld.
   v2.4.1 (2026-10-01)  Live taalwissel vervolledigd voor Hoofdmenu, Diagnose,
                        ESR-pagina en de contextuele venstertitel.
+  v2.6.0 (2026-10-03)  Dynamische taalontdekking voor het Talenmenu.
 ================================================================================
 """
 
@@ -53,7 +54,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QAction, QKeySequence, QShortcut, QIcon, QPixmap
 from PySide6.QtCore import Qt, QSize
 
-from app.helpers.i18n import vertaal
+from app.helpers.i18n import beschikbare_taalinfos, vertaal
 from app.config.settings import laad_instellingen, sla_instellingen_op, AppInstellingen
 from app.gui.dialogs.settings_dialog import SettingsDialog
 
@@ -288,14 +289,17 @@ class ToolHubWindow(QMainWindow):
 
         settings_menu.addSeparator()
 
-        # Talen submenu
+        # Talen submenu — dynamisch uit i18n/locales/<taalcode>/language.json
         lang_menu = settings_menu.addMenu(self._t("menu.talen"))
-        self.lang_nl = QAction("Nederlands", self, checkable=True)
-        self.lang_en = QAction("English", self, checkable=True)
-        self.lang_nl.triggered.connect(lambda: self._set_language("nl_NL"))
-        self.lang_en.triggered.connect(lambda: self._set_language("en_US"))
-        lang_menu.addAction(self.lang_nl)
-        lang_menu.addAction(self.lang_en)
+        self.language_actions = {}
+        for info in beschikbare_taalinfos():
+            action = QAction(info.native_name, self, checkable=True)
+            action.setData(info.code)
+            action.triggered.connect(
+                lambda checked=False, code=info.code: self._set_language(code)
+            )
+            lang_menu.addAction(action)
+            self.language_actions[info.code] = action
         self._update_lang_checks()
 
         # Help
@@ -317,8 +321,8 @@ class ToolHubWindow(QMainWindow):
         help_menu.addAction(about_action)
 
     def _update_lang_checks(self):
-        self.lang_nl.setChecked(self.taal == "nl_NL")
-        self.lang_en.setChecked(self.taal == "en_US")
+        for code, action in getattr(self, "language_actions", {}).items():
+            action.setChecked(self.taal == code)
 
     def _set_language(self, taal_code):
         self.taal = taal_code

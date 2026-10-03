@@ -1,0 +1,42 @@
+{
+  "app": {
+    "titel": "Electronics Diagnostic Tool Hub",
+    "hoofdmenu": "Hoofdmenu"
+  },
+  "menu": {
+    "bestand": "Bestand",
+    "diagnose": "Diagnose",
+    "instellingen": "Instellingen",
+    "help": "Help",
+    "open_diagnose": "Diagnose openen",
+    "esr_test": "ESR-test",
+    "talen": "Talen",
+    "changelog": "Wijzigingslog",
+    "over": "Over",
+    "afsluiten": "Afsluiten"
+  },
+  "tool": {
+    "diagnose": "Diagnose",
+    "historiek": "Historiek",
+    "documentatie": "Documentatie"
+  },
+  "knop": {
+    "terug": "Terug",
+    "meting_opslaan": "Meting opslaan",
+    "veiligheidsinstructies": "Veiligheidsinstructies",
+    "beoordeel": "Beoordelen",
+    "wissen": "Wissen",
+    "verversen": "Verversen",
+    "herhaal_meting": "Meting herhalen",
+    "details": "Details"
+  },
+  "dialog": {
+    "over_title": "Over",
+    "over_tekst": "Electronics Diagnostic Tool Hub\\nCondensator- en ESR-validator",
+    "changelog_title": "Wijzigingslog",
+    "help_title": "Help"
+  },
+  "tool_type": {
+    "ESR_CAPACITOR": "ESR / Condensator"
+  }
+}

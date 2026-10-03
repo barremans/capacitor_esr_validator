@@ -1,5 +1,278 @@
 {
   "schema_version": 1,
-  "data_version": "2026.10.02",
-  "documents": []
+  "data_version": "2026.10.03.2",
+  "documents": [
+    {
+      "document_id": "esr-safe-discharge",
+      "title": "Condensator veilig ontladen vóór meting",
+      "category": "SAFETY",
+      "source_type": "FILE",
+      "source_path": "internal/nl_NL/capacitor_safe_discharge.md",
+      "source_url": null,
+      "tool_key": "ESR_CAPACITOR",
+      "manufacturer": null,
+      "series": null,
+      "part_number": null,
+      "document_version": "1.0",
+      "document_date": "2026-10-02",
+      "notes": "Interne veiligheidsinstructie voor condensatormetingen.",
+      "provenance": [
+        {
+          "source_id": "master_02",
+          "source_title": "MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE",
+          "source_kind": "FILE",
+          "source_path": "../../../../MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE.md",
+          "source_url": null,
+          "locator": "Hoofdstuk 1 — Veiligheid / ontladen",
+          "supports": [
+            "stored_energy",
+            "power_off",
+            "discharge_resistor",
+            "recheck_voltage",
+            "rebound_voltage"
+          ],
+          "note": "Projecttechnische basis voor veilige ontlaadprocedure."
+        }
+      ],
+      "title_key": "documentatie.document_titels.esr_safe_discharge"
+    },
+    {
+      "document_id": "esr-esr-meter",
+      "title": "ESR meten met een ESR-meter",
+      "category": "MEASUREMENT_TECHNIQUE",
+      "source_type": "FILE",
+      "source_path": "internal/nl_NL/esr_meter_measurement.md",
+      "source_url": null,
+      "tool_key": "ESR_CAPACITOR",
+      "manufacturer": null,
+      "series": null,
+      "part_number": null,
+      "document_version": "1.0",
+      "document_date": "2026-10-02",
+      "notes": "Praktische ESR-screening met aandacht voor frequentie, resolutie en parallelpaden.",
+      "provenance": [
+        {
+          "source_id": "master_02",
+          "source_title": "MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE",
+          "source_kind": "FILE",
+          "source_path": "../../../../MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE.md",
+          "source_url": null,
+          "locator": "Hoofdstukken 5, 6 en 58–61",
+          "supports": [
+            "esr_meter",
+            "in_circuit_screening",
+            "frequency_context",
+            "probe_resistance",
+            "resolution"
+          ],
+          "note": "Projecttechnische basis voor ESR-meting en interpretatie."
+        }
+      ],
+      "title_key": "documentatie.document_titels.esr_esr_meter"
+    },
+    {
+      "document_id": "esr-lcr-meter",
+      "title": "ESR en capaciteit meten met een LCR-meter",
+      "category": "MEASUREMENT_TECHNIQUE",
+      "source_type": "FILE",
+      "source_path": "internal/nl_NL/lcr_meter_measurement.md",
+      "source_url": null,
+      "tool_key": "ESR_CAPACITOR",
+      "manufacturer": null,
+      "series": null,
+      "part_number": null,
+      "document_version": "1.0",
+      "document_date": "2026-10-02",
+      "notes": "C, ESR en D meten met passend model en open/short-calibratie.",
+      "provenance": [
+        {
+          "source_id": "master_02",
+          "source_title": "MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE",
+          "source_kind": "FILE",
+          "source_path": "../../../../MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE.md",
+          "source_url": null,
+          "locator": "Hoofdstukken 5, 36, 58 en 63–65",
+          "supports": [
+            "lcr_meter",
+            "open_short_calibration",
+            "series_parallel_model",
+            "frequency",
+            "test_level"
+          ],
+          "note": "Projecttechnische basis voor LCR-instellingen en beperkingen."
+        }
+      ],
+      "title_key": "documentatie.document_titels.esr_lcr_meter"
+    },
+    {
+      "document_id": "esr-measurement-methods",
+      "title": "Meetmethoden: EX_SITU, ONE_LEG en IN_CIRCUIT",
+      "category": "MEASUREMENT_TECHNIQUE",
+      "source_type": "FILE",
+      "source_path": "internal/nl_NL/measurement_methods.md",
+      "source_url": null,
+      "tool_key": "ESR_CAPACITOR",
+      "manufacturer": null,
+      "series": null,
+      "part_number": null,
+      "document_version": "1.0",
+      "document_date": "2026-10-02",
+      "notes": "Keuze en beperkingen van de drie fysieke meetopstellingen.",
+      "provenance": [
+        {
+          "source_id": "master_02",
+          "source_title": "MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE",
+          "source_kind": "FILE",
+          "source_path": "../../../../MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE.md",
+          "source_url": null,
+          "locator": "Hoofdstukken 6 en 7",
+          "supports": [
+            "EX_SITU",
+            "ONE_LEG",
+            "IN_CIRCUIT",
+            "parallel_paths",
+            "reliability"
+          ],
+          "note": "Projecttechnische basis voor de drie fysieke meetopstellingen."
+        }
+      ],
+      "title_key": "documentatie.document_titels.esr_measurement_methods"
+    },
+    {
+      "document_id": "esr-frequency-test-voltage",
+      "title": "Meetfrequentie en testniveau kiezen",
+      "category": "MEASUREMENT_TECHNIQUE",
+      "source_type": "FILE",
+      "source_path": "internal/nl_NL/frequency_and_test_voltage.md",
+      "source_url": null,
+      "tool_key": "ESR_CAPACITOR",
+      "manufacturer": null,
+      "series": null,
+      "part_number": null,
+      "document_version": "1.0",
+      "document_date": "2026-10-02",
+      "notes": "Vergelijk alleen onder passende frequentie- en testvoorwaarden.",
+      "provenance": [
+        {
+          "source_id": "master_02",
+          "source_title": "MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE",
+          "source_kind": "FILE",
+          "source_path": "../../../../MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE.md",
+          "source_url": null,
+          "locator": "Hoofdstukken 3, 9, 58, 61 en 63",
+          "supports": [
+            "frequency",
+            "test_voltage",
+            "test_level",
+            "no_hidden_conversion",
+            "datasheet_conditions"
+          ],
+          "note": "Projecttechnische basis voor meetvoorwaarden en geen verborgen correcties."
+        }
+      ],
+      "title_key": "documentatie.document_titels.esr_frequency_test_voltage"
+    },
+    {
+      "document_id": "esr-dissipation-factor",
+      "title": "D / tanδ interpreteren",
+      "category": "MEASUREMENT_TECHNIQUE",
+      "source_type": "FILE",
+      "source_path": "internal/nl_NL/dissipation_factor.md",
+      "source_url": null,
+      "tool_key": "ESR_CAPACITOR",
+      "manufacturer": null,
+      "series": null,
+      "part_number": null,
+      "document_version": "1.0",
+      "document_date": "2026-10-02",
+      "notes": "Verliesfactor, meetmodel en relatie tussen D, ESR, frequentie en capaciteit.",
+      "provenance": [
+        {
+          "source_id": "master_02",
+          "source_title": "MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE",
+          "source_kind": "FILE",
+          "source_path": "../../../../MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE.md",
+          "source_url": null,
+          "locator": "Hoofdstukken 3.7 en 36",
+          "supports": [
+            "D",
+            "tan_delta",
+            "series_model",
+            "ESR_relation",
+            "frequency"
+          ],
+          "note": "Projecttechnische basis voor D/tanδ en relatie tot ESR."
+        }
+      ],
+      "title_key": "documentatie.document_titels.esr_dissipation_factor"
+    },
+    {
+      "document_id": "esr-ced-plausibility",
+      "title": "C–ESR–D plausibiliteitscontrole",
+      "category": "MEASUREMENT_TECHNIQUE",
+      "source_type": "FILE",
+      "source_path": "internal/nl_NL/ced_plausibility.md",
+      "source_url": null,
+      "tool_key": "ESR_CAPACITOR",
+      "manufacturer": null,
+      "series": null,
+      "part_number": null,
+      "document_version": "1.0",
+      "document_date": "2026-10-02",
+      "notes": "Controle op onderlinge plausibiliteit; geen automatische correctie.",
+      "provenance": [
+        {
+          "source_id": "master_02",
+          "source_title": "MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE",
+          "source_kind": "FILE",
+          "source_path": "../../../../MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE.md",
+          "source_url": null,
+          "locator": "Hoofdstuk 3.7 en projectregel C–ESR–D-consistentie",
+          "supports": [
+            "C_ESR_D_consistency",
+            "unit_error",
+            "frequency_error",
+            "model_error",
+            "no_auto_correction"
+          ],
+          "note": "Projecttechnische basis voor plausibiliteitscontrole."
+        }
+      ],
+      "title_key": "documentatie.document_titels.esr_ced_plausibility"
+    },
+    {
+      "document_id": "esr-in-circuit-limitations",
+      "title": "Beperkingen van in-circuit condensatormetingen",
+      "category": "MEASUREMENT_TECHNIQUE",
+      "source_type": "FILE",
+      "source_path": "internal/nl_NL/in_circuit_limitations.md",
+      "source_url": null,
+      "tool_key": "ESR_CAPACITOR",
+      "manufacturer": null,
+      "series": null,
+      "part_number": null,
+      "document_version": "1.0",
+      "document_date": "2026-10-02",
+      "notes": "Parallelpaden, masking en bevestigen met één poot los of uit circuit.",
+      "provenance": [
+        {
+          "source_id": "master_02",
+          "source_title": "MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE",
+          "source_kind": "FILE",
+          "source_path": "../../../../MASTER_02_CONDENSATOR_ESR_TECHNISCHE_REFERENTIE.md",
+          "source_url": null,
+          "locator": "Hoofdstuk 6 en hoofdstuk 66",
+          "supports": [
+            "parallel_paths",
+            "masking",
+            "capacitor_banks",
+            "confirm_one_leg",
+            "confirm_ex_situ"
+          ],
+          "note": "Projecttechnische basis voor beperkingen van in-circuit-metingen."
+        }
+      ],
+      "title_key": "documentatie.document_titels.esr_in_circuit_limitations"
+    }
+  ]
 }
