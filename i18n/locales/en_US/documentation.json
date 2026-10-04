@@ -42,7 +42,22 @@
       "esr_ced_plausibility": "C–ESR–D plausibility check",
       "esr_in_circuit_limitations": "Limitations of in-circuit capacitor measurements"
     },
-    "sluiten": "Close"
+    "sluiten": "Close",
+    "info": {
+      "documentinformatie": "Document information",
+      "broninformatie": "Source information",
+      "categorie": "Category",
+      "fabrikant": "Manufacturer",
+      "serie": "Series",
+      "partnummer": "Part number",
+      "versie": "Version",
+      "datum": "Date",
+      "notities": "Notes",
+      "bron_url": "Source URL",
+      "locator": "Source location",
+      "ondersteunt": "Supports",
+      "bron_notitie": "Source note"
+    }
   },
   "_comment": "English translation — module documentation."
 }

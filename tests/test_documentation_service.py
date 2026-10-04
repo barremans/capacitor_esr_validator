@@ -2,7 +2,7 @@
 ================================================================================
 Module:     tests/test_documentation_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.4.0
+Versie:     1.6.1
 Datum:      2026-10-03
 Auteur:     Bart Bossuyt
 
@@ -16,6 +16,10 @@ Wijzigingen:
   v1.3.0 (2026-10-03)  title_key wordt optioneel geladen zonder officiële titel te vervangen.
   v1.4.0 (2026-10-03)  Meertalige interne Markdown-resolutie en fallback naar
                         nl_NL getest, inclusief backward compatibility.
+  v1.5.0 (2026-10-03)  tool_key/tool_keys normalisatie, filtering en validatie getest.
+  v1.6.0 (2026-10-03)  Multi-contextvelden, filters, zoeken en validatie getest.
+  v1.6.1 (2026-10-03)  Zoektest gebruikt unieke metadatawaarden zodat bestaande
+                        documenttitels geen vals-positieve match veroorzaken.
 ================================================================================
 """
 
@@ -383,3 +387,213 @@ def test_legacy_text_source_path_remains_backward_compatible(tmp_path):
     assert DocumentationService(path).read_document_text(
         "guide", language="en_US"
     ) == "# Legacy\n"
+
+
+def test_legacy_tool_key_is_exposed_as_normalized_tool_keys(tmp_path):
+    path = tmp_path / "catalog.json"
+    _write_catalog(path, _documents())
+
+    document = DocumentationService(path).get_document("panasonic-fm")
+
+    assert document.tool_key == "ESR_CAPACITOR"
+    assert document.tool_keys == ("ESR_CAPACITOR",)
+
+
+def test_tool_keys_only_is_backward_compatible_with_tool_key_alias(tmp_path):
+    path = tmp_path / "catalog.json"
+    documents = _documents()
+    documents[0].pop("tool_key")
+    documents[0]["tool_keys"] = ["esr_capacitor", "resistor"]
+    _write_catalog(path, documents)
+
+    document = DocumentationService(path).get_document("panasonic-fm")
+
+    assert document.tool_key == "ESR_CAPACITOR"
+    assert document.tool_keys == ("ESR_CAPACITOR", "RESISTOR")
+
+
+def test_tool_key_and_tool_keys_are_merged_without_duplicates(tmp_path):
+    path = tmp_path / "catalog.json"
+    documents = _documents()
+    documents[0]["tool_keys"] = ["esr_capacitor", "RESISTOR", "resistor"]
+    _write_catalog(path, documents)
+
+    document = DocumentationService(path).get_document("panasonic-fm")
+
+    assert document.tool_key == "ESR_CAPACITOR"
+    assert document.tool_keys == ("ESR_CAPACITOR", "RESISTOR")
+
+
+def test_tool_filter_matches_any_tool_key(tmp_path):
+    path = tmp_path / "catalog.json"
+    documents = _documents()
+    documents[0]["tool_keys"] = ["RESISTOR"]
+    _write_catalog(path, documents)
+
+    service = DocumentationService(path)
+
+    assert [d.document_id for d in service.list_documents(tool_key="ESR_CAPACITOR")] == [
+        "panasonic-fm"
+    ]
+    assert [d.document_id for d in service.list_documents(tool_key="resistor")] == [
+        "panasonic-fm"
+    ]
+
+
+@pytest.mark.parametrize(
+    "bad_value",
+    [
+        "ESR_CAPACITOR",
+        [None],
+        [""],
+        ["BAD-KEY"],
+    ],
+)
+def test_invalid_tool_keys_is_rejected(tmp_path, bad_value):
+    path = tmp_path / "catalog.json"
+    documents = _documents()
+    documents[0]["tool_keys"] = bad_value
+    _write_catalog(path, documents)
+
+    with pytest.raises(DocumentationValidationError, match="tool_keys|tool_key"):
+        DocumentationService(path).load_documents()
+
+
+def test_search_includes_all_tool_keys(tmp_path):
+    path = tmp_path / "catalog.json"
+    documents = _documents()
+    documents[0]["tool_keys"] = ["RESISTOR"]
+    _write_catalog(path, documents)
+
+    service = DocumentationService(path)
+
+    assert [d.document_id for d in service.list_documents(search_text="resistor")] == [
+        "panasonic-fm"
+    ]
+
+
+def test_multicontext_fields_are_normalized_and_deduplicated(tmp_path):
+    path = tmp_path / "catalog.json"
+    documents = _documents()
+    documents[0]["component_types"] = ["capacitor", "CAPACITOR"]
+    documents[0]["test_keys"] = ["esr", "capacitance"]
+    documents[0]["measurement_methods"] = ["ex_situ", "one_leg"]
+    documents[0]["instrument_keys"] = ["esr70", "LCR_ST1"]
+    documents[0]["topics"] = ["Frequency", "in-circuit", "frequency"]
+    _write_catalog(path, documents)
+
+    document = DocumentationService(path).get_document("panasonic-fm")
+
+    assert document.component_types == ("CAPACITOR",)
+    assert document.test_keys == ("ESR", "CAPACITANCE")
+    assert document.measurement_methods == ("EX_SITU", "ONE_LEG")
+    assert document.instrument_keys == ("ESR70", "LCR_ST1")
+    assert document.topics == ("frequency", "in-circuit")
+
+
+def test_multicontext_filters_match_independently_and_together(tmp_path):
+    path = tmp_path / "catalog.json"
+    documents = _documents()
+    documents[0]["component_types"] = ["CAPACITOR"]
+    documents[0]["test_keys"] = ["ESR"]
+    documents[0]["measurement_methods"] = ["IN_CIRCUIT"]
+    documents[0]["instrument_keys"] = ["ESR70"]
+    documents[0]["topics"] = ["parallel-paths"]
+    _write_catalog(path, documents)
+
+    service = DocumentationService(path)
+
+    assert [d.document_id for d in service.list_documents(component_type="capacitor")] == [
+        "panasonic-fm"
+    ]
+    assert [d.document_id for d in service.list_documents(test_key="esr")] == [
+        "panasonic-fm"
+    ]
+    assert [d.document_id for d in service.list_documents(measurement_method="in_circuit")] == [
+        "panasonic-fm"
+    ]
+    assert [d.document_id for d in service.list_documents(instrument_key="esr70")] == [
+        "panasonic-fm"
+    ]
+    assert [d.document_id for d in service.list_documents(topic="PARALLEL-PATHS")] == [
+        "panasonic-fm"
+    ]
+
+    combined = service.list_documents(
+        tool_key="esr_capacitor",
+        component_type="capacitor",
+        test_key="esr",
+        measurement_method="in_circuit",
+        instrument_key="esr70",
+        topic="parallel-paths",
+    )
+    assert [d.document_id for d in combined] == ["panasonic-fm"]
+
+
+def test_multicontext_filter_excludes_non_matching_document(tmp_path):
+    path = tmp_path / "catalog.json"
+    documents = _documents()
+    documents[0]["component_types"] = ["CAPACITOR"]
+    _write_catalog(path, documents)
+
+    assert DocumentationService(path).list_documents(component_type="RESISTOR") == []
+
+
+def test_search_includes_multicontext_metadata(tmp_path):
+    path = tmp_path / "catalog.json"
+    documents = _documents()
+    documents[0]["component_types"] = ["ALUMINUM_CAPACITOR"]
+    documents[0]["test_keys"] = ["ESR_DIAGNOSTIC"]
+    documents[0]["measurement_methods"] = ["ONE_LEG"]
+    documents[0]["instrument_keys"] = ["LCR_ST1"]
+    documents[0]["topics"] = ["frequency-context"]
+    _write_catalog(path, documents)
+
+    service = DocumentationService(path)
+
+    for needle in (
+        "aluminum_capacitor",
+        "esr_diagnostic",
+        "one_leg",
+        "lcr_st1",
+        "frequency-context",
+    ):
+        assert [d.document_id for d in service.list_documents(search_text=needle)] == [
+            "panasonic-fm"
+        ]
+
+
+@pytest.mark.parametrize(
+    ("field_name", "bad_value"),
+    [
+        ("component_types", "CAPACITOR"),
+        ("component_types", ["BAD TYPE"]),
+        ("test_keys", [None]),
+        ("measurement_methods", [""]),
+        ("instrument_keys", ["LCR-ST1"]),
+        ("topics", "frequency"),
+        ("topics", ["bad topic"]),
+        ("topics", [None]),
+    ],
+)
+def test_invalid_multicontext_fields_are_rejected(tmp_path, field_name, bad_value):
+    path = tmp_path / "catalog.json"
+    documents = _documents()
+    documents[0][field_name] = bad_value
+    _write_catalog(path, documents)
+
+    with pytest.raises(DocumentationValidationError):
+        DocumentationService(path).load_documents()
+
+
+def test_legacy_catalog_without_multicontext_fields_remains_valid(tmp_path):
+    path = tmp_path / "catalog.json"
+    _write_catalog(path, _documents())
+
+    document = DocumentationService(path).get_document("panasonic-fm")
+
+    assert document.component_types == ()
+    assert document.test_keys == ()
+    assert document.measurement_methods == ()
+    assert document.instrument_keys == ()
+    assert document.topics == ()

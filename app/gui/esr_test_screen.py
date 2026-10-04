@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/esr_test_screen.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.8.1
+Versie:     1.10.0
 Datum:      2026-10-01
 Auteur:     Ontwikkelaar
 
@@ -91,6 +91,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
+    QMenu,
     QPushButton,
     QTextBrowser,
     QVBoxLayout,
@@ -155,6 +156,7 @@ class EsrTestScreen(QWidget):
     """Compacte ESR-diagnose-interface als pagina in het hoofdvenster."""
 
     back_requested = Signal()
+    documentation_requested = Signal(str)
 
     def __init__(
         self,
@@ -201,6 +203,8 @@ class EsrTestScreen(QWidget):
         self.safety_check.setText(self._t("veld.veiligheid_bevestigd"))
         self.safety_check.setToolTip(self._t("tooltip.veiligheid_bevestigen"))
         self.safety_help_btn.setText(self._t("knop.veiligheidsinstructies"))
+        self.measurement_help_btn.setText(self._t("knop.meetinstructies"))
+        self._rebuild_measurement_help_menu()
 
         self.component_group.setTitle(self._t("scherm.condensator"))
         self._set_grid_label_text(self.component_group, 0, 0, self._t("veld.nominale_capaciteit"))
@@ -342,10 +346,98 @@ class EsrTestScreen(QWidget):
 
         self.safety_help_btn = QPushButton(self._t("knop.veiligheidsinstructies"))
         self.safety_help_btn.setMinimumHeight(34)
-        self.safety_help_btn.clicked.connect(self._show_safety_help)
+        self.safety_help_btn.clicked.connect(
+            lambda: self.documentation_requested.emit("esr-safe-discharge")
+        )
         row.addWidget(self.safety_help_btn)
 
+        self.measurement_help_btn = QPushButton(self._t("knop.meetinstructies"))
+        self.measurement_help_btn.setMinimumHeight(34)
+        self.measurement_help_menu = QMenu(self.measurement_help_btn)
+        self.measurement_help_btn.setMenu(self.measurement_help_menu)
+        self._rebuild_measurement_help_menu()
+        row.addWidget(self.measurement_help_btn)
+
         return row
+
+    def _recommended_documentation(self) -> tuple[str, str]:
+        """Bepaal de meest relevante instructie voor de huidige meetcontext.
+
+        Prioriteit:
+        1. IN_CIRCUIT -> beperkingen van in-circuit meten;
+        2. LCR-instrument -> LCR-meetinstructie;
+        3. ESR-instrument -> ESR-meterinstructie;
+        4. fallback -> algemene meetmethoden.
+
+        Dit beïnvloedt uitsluitend navigatie naar documentatie en nooit assessment.
+        """
+        method = self.method_combo.currentData() if hasattr(self, "method_combo") else None
+        instrument_code = (
+            str(self.instrument_combo.currentData() or "")
+            if hasattr(self, "instrument_combo")
+            else ""
+        )
+        instrument_name = (
+            self.instrument_combo.currentText()
+            if hasattr(self, "instrument_combo")
+            else ""
+        )
+        instrument_hint = f"{instrument_code} {instrument_name}".upper()
+
+        if method == Meetmethode.IN_CIRCUIT.value:
+            return (
+                "esr-in-circuit-limitations",
+                "documentatie.document_titels.esr_in_circuit_limitations",
+            )
+        if "LCR" in instrument_hint:
+            return (
+                "esr-lcr-meter",
+                "documentatie.document_titels.esr_lcr_meter",
+            )
+        if "ESR" in instrument_hint:
+            return (
+                "esr-esr-meter",
+                "documentatie.document_titels.esr_esr_meter",
+            )
+        return (
+            "esr-measurement-methods",
+            "documentatie.document_titels.esr_measurement_methods",
+        )
+
+    def _rebuild_measurement_help_menu(self) -> None:
+        """Bouw meetinstructies met één contextuele aanbeveling bovenaan."""
+        if not hasattr(self, "measurement_help_menu"):
+            return
+
+        items = (
+            ("esr-esr-meter", "documentatie.document_titels.esr_esr_meter"),
+            ("esr-lcr-meter", "documentatie.document_titels.esr_lcr_meter"),
+            ("esr-measurement-methods", "documentatie.document_titels.esr_measurement_methods"),
+            ("esr-frequency-test-voltage", "documentatie.document_titels.esr_frequency_test_voltage"),
+            ("esr-dissipation-factor", "documentatie.document_titels.esr_dissipation_factor"),
+            ("esr-ced-plausibility", "documentatie.document_titels.esr_ced_plausibility"),
+            ("esr-in-circuit-limitations", "documentatie.document_titels.esr_in_circuit_limitations"),
+        )
+
+        self.measurement_help_menu.clear()
+
+        recommended_id, recommended_title_key = self._recommended_documentation()
+        recommended_title = self._t(recommended_title_key)
+        recommended_action = self.measurement_help_menu.addAction(
+            self._t("knop.aanbevolen_instructie", titel=recommended_title)
+        )
+        recommended_action.triggered.connect(
+            lambda _checked=False, doc_id=recommended_id:
+                self.documentation_requested.emit(doc_id)
+        )
+        self.measurement_help_menu.addSeparator()
+
+        for document_id, title_key in items:
+            action = self.measurement_help_menu.addAction(self._t(title_key))
+            action.triggered.connect(
+                lambda _checked=False, doc_id=document_id:
+                    self.documentation_requested.emit(doc_id)
+            )
 
     def _build_component_group(self) -> QGroupBox:
         self.component_group = QGroupBox(self._t("scherm.condensator"))
@@ -579,6 +671,7 @@ class EsrTestScreen(QWidget):
             Meetmethode.IN_CIRCUIT.value: "meetmethode.uitleg_in_circuit",
         }.get(method, "meetmethode.uitleg_ex_situ")
         self.method_info.setText(self._t(key))
+        self._rebuild_measurement_help_menu()
 
     def _update_instrument_profile(self) -> None:
         code = self.instrument_combo.currentData()
@@ -601,6 +694,7 @@ class EsrTestScreen(QWidget):
             )
             if idx >= 0:
                 self.test_voltage_combo.setCurrentIndex(idx)
+        self._rebuild_measurement_help_menu()
 
     def _apply_saved_defaults(self) -> None:
         """Past opgeslagen ESR/Condensator-defaults veilig toe op de invoervelden."""
@@ -1105,19 +1199,3 @@ class EsrTestScreen(QWidget):
         self.repeat_banner.setVisible(False)
 
         self._apply_saved_defaults()
-
-    def _show_safety_help(self) -> None:
-        waarschuwingen = [
-            f"• {self._t(f'veiligheid.waarschuwing_{i}')}"
-            for i in range(1, 10)
-        ]
-
-        msg = QMessageBox(self)
-        msg.setWindowTitle(self._t("dialog.veiligheid_titel"))
-        msg.setTextFormat(Qt.TextFormat.RichText)
-        msg.setText(
-            f"<h3>{self._t('scherm.veiligheid')}</h3>"
-            f"<p>{'<br><br>'.join(waarschuwingen)}</p>"
-        )
-        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
-        msg.exec()

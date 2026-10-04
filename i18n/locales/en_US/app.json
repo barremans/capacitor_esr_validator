@@ -28,7 +28,9 @@
     "wissen": "Clear",
     "verversen": "Refresh",
     "herhaal_meting": "Repeat measurement",
-    "details": "Details"
+    "details": "Details",
+    "meetinstructies": "Measurement instructions",
+    "aanbevolen_instructie": "Recommended: {titel}"
   },
   "dialog": {
     "over_title": "About",

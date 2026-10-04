@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/documentation/service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.4.0
+Versie:     1.6.0
 Datum:      2026-10-03
 Auteur:     Bart Bossuyt
 
@@ -21,6 +21,10 @@ Wijzigingen:
                         gevalideerd en geladen; title blijft officiële fallback.
   v1.4.0 (2026-10-03)  Meertalige interne Markdown-inhoud toegevoegd met
                         taalvariantresolutie en fallback naar nl_NL.
+  v1.5.0 (2026-10-03)  Backward-compatible multi-tool metadata toegevoegd:
+                        tool_key en tool_keys worden centraal genormaliseerd.
+  v1.6.0 (2026-10-03)  Multi-contextmetadata uitgebreid met component_types,
+                        test_keys, measurement_methods, instrument_keys en topics.
 ================================================================================
 """
 
@@ -123,12 +127,34 @@ class DocumentationService:
         search_text: str | None = None,
         category: DocumentCategory | str | None = None,
         tool_key: str | None = None,
+        component_type: str | None = None,
+        test_key: str | None = None,
+        measurement_method: str | None = None,
+        instrument_key: str | None = None,
+        topic: str | None = None,
     ) -> list[DocumentMetadata]:
         """Geef documenten terug met optionele vrije-tekst- en metadatafilters."""
         documents = self.load_documents()
 
         selected_category = self._category_optional(category)
         selected_tool_key = self._normalize_tool_key_optional(tool_key)
+        selected_component_type = self._normalize_context_key_optional(
+            component_type,
+            field_name="component_type",
+        )
+        selected_test_key = self._normalize_context_key_optional(
+            test_key,
+            field_name="test_key",
+        )
+        selected_measurement_method = self._normalize_context_key_optional(
+            measurement_method,
+            field_name="measurement_method",
+        )
+        selected_instrument_key = self._normalize_context_key_optional(
+            instrument_key,
+            field_name="instrument_key",
+        )
+        selected_topic = self._normalize_topic_optional(topic)
         needle = (search_text or "").strip().casefold()
 
         result: list[DocumentMetadata] = []
@@ -137,9 +163,32 @@ class DocumentationService:
                 continue
 
             if selected_tool_key is not None:
-                document_tool = self._normalize_tool_key_optional(document.tool_key)
-                if document_tool != selected_tool_key:
+                if selected_tool_key not in document.tool_keys:
                     continue
+
+            if (
+                selected_component_type is not None
+                and selected_component_type not in document.component_types
+            ):
+                continue
+
+            if selected_test_key is not None and selected_test_key not in document.test_keys:
+                continue
+
+            if (
+                selected_measurement_method is not None
+                and selected_measurement_method not in document.measurement_methods
+            ):
+                continue
+
+            if (
+                selected_instrument_key is not None
+                and selected_instrument_key not in document.instrument_keys
+            ):
+                continue
+
+            if selected_topic is not None and selected_topic not in document.topics:
+                continue
 
             if needle and needle not in self._search_blob(document):
                 continue
@@ -276,6 +325,12 @@ class DocumentationService:
             document.source_path,
             document.source_url,
             document.tool_key,
+            *document.tool_keys,
+            *document.component_types,
+            *document.test_keys,
+            *document.measurement_methods,
+            *document.instrument_keys,
+            *document.topics,
             document.manufacturer,
             document.series,
             document.part_number,
@@ -324,6 +379,12 @@ class DocumentationService:
             "source_path",
             "source_url",
             "tool_key",
+            "tool_keys",
+            "component_types",
+            "test_keys",
+            "measurement_methods",
+            "instrument_keys",
+            "topics",
             "manufacturer",
             "series",
             "part_number",
@@ -379,6 +440,32 @@ class DocumentationService:
                 f"Document {document_id} vereist source_path en source_url."
             )
 
+        legacy_tool_key = cls._normalize_tool_key_optional(data.get("tool_key"))
+        tool_keys = cls._normalize_tool_keys(
+            data.get("tool_keys"),
+            legacy_tool_key=legacy_tool_key,
+        )
+        # Backward-compatible alias: bestaande GUI/code kan tool_key blijven lezen.
+        effective_tool_key = legacy_tool_key or (tool_keys[0] if tool_keys else None)
+
+        component_types = cls._normalize_context_keys(
+            data.get("component_types"),
+            field_name="component_types",
+        )
+        test_keys = cls._normalize_context_keys(
+            data.get("test_keys"),
+            field_name="test_keys",
+        )
+        measurement_methods = cls._normalize_context_keys(
+            data.get("measurement_methods"),
+            field_name="measurement_methods",
+        )
+        instrument_keys = cls._normalize_context_keys(
+            data.get("instrument_keys"),
+            field_name="instrument_keys",
+        )
+        topics = cls._normalize_topics(data.get("topics"))
+
         return DocumentMetadata(
             document_id=document_id,
             title=title,
@@ -387,7 +474,7 @@ class DocumentationService:
             source_type=source_type,
             source_path=source_path,
             source_url=source_url,
-            tool_key=cls._normalize_tool_key_optional(data.get("tool_key")),
+            tool_key=effective_tool_key,
             manufacturer=cls._optional_text(data.get("manufacturer")),
             series=cls._optional_text(data.get("series")),
             part_number=cls._optional_text(data.get("part_number")),
@@ -395,6 +482,12 @@ class DocumentationService:
             document_date=cls._optional_text(data.get("document_date")),
             notes=cls._optional_text(data.get("notes")),
             provenance=cls._provenance_refs(data.get("provenance"), index=index),
+            tool_keys=tool_keys,
+            component_types=component_types,
+            test_keys=test_keys,
+            measurement_methods=measurement_methods,
+            instrument_keys=instrument_keys,
+            topics=topics,
         )
 
     @classmethod
@@ -527,6 +620,139 @@ class DocumentationService:
         if any(ch not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" for ch in normalized):
             raise DocumentationValidationError(
                 "tool_key mag alleen A-Z, 0-9 en underscore bevatten."
+            )
+        return normalized
+
+    @classmethod
+    def _normalize_tool_keys(
+        cls,
+        value: Any,
+        *,
+        legacy_tool_key: str | None,
+    ) -> tuple[str, ...]:
+        """Normaliseer legacy tool_key en nieuw tool_keys naar één unieke tuple."""
+        if value is None:
+            raw_values: list[Any] = []
+        elif isinstance(value, list):
+            raw_values = value
+        else:
+            raise DocumentationValidationError(
+                "tool_keys moet een lijst van niet-lege teksten zijn."
+            )
+
+        normalized: list[str] = []
+        seen: set[str] = set()
+
+        if legacy_tool_key is not None:
+            normalized.append(legacy_tool_key)
+            seen.add(legacy_tool_key)
+
+        for raw in raw_values:
+            key = cls._normalize_tool_key_optional(raw)
+            if key is None:
+                raise DocumentationValidationError(
+                    "tool_keys mag geen lege of null-waarden bevatten."
+                )
+            if key not in seen:
+                normalized.append(key)
+                seen.add(key)
+
+        return tuple(normalized)
+
+    @classmethod
+    def _normalize_context_keys(
+        cls,
+        value: Any,
+        *,
+        field_name: str,
+    ) -> tuple[str, ...]:
+        """Normaliseer structurele context-ID's naar unieke uppercase tuples."""
+        if value is None:
+            return ()
+        if not isinstance(value, list):
+            raise DocumentationValidationError(
+                f"{field_name} moet een lijst van niet-lege teksten zijn."
+            )
+
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for raw in value:
+            key = cls._normalize_context_key_optional(
+                raw,
+                field_name=field_name,
+            )
+            if key is None:
+                raise DocumentationValidationError(
+                    f"{field_name} mag geen lege of null-waarden bevatten."
+                )
+            if key not in seen:
+                normalized.append(key)
+                seen.add(key)
+
+        return tuple(normalized)
+
+    @staticmethod
+    def _normalize_context_key_optional(
+        value: Any,
+        *,
+        field_name: str,
+    ) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise DocumentationValidationError(
+                f"{field_name} moet tekst of null zijn."
+            )
+        normalized = value.strip().upper()
+        if not normalized:
+            return None
+        if any(ch not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" for ch in normalized):
+            raise DocumentationValidationError(
+                f"{field_name} mag alleen A-Z, 0-9 en underscore bevatten."
+            )
+        return normalized
+
+    @classmethod
+    def _normalize_topics(cls, value: Any) -> tuple[str, ...]:
+        """Normaliseer vrije tags naar unieke lowercase identifiers."""
+        if value is None:
+            return ()
+        if not isinstance(value, list):
+            raise DocumentationValidationError(
+                "topics moet een lijst van niet-lege teksten zijn."
+            )
+
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for raw in value:
+            topic = cls._normalize_topic_optional(raw)
+            if topic is None:
+                raise DocumentationValidationError(
+                    "topics mag geen lege of null-waarden bevatten."
+                )
+            if topic not in seen:
+                normalized.append(topic)
+                seen.add(topic)
+
+        return tuple(normalized)
+
+    @staticmethod
+    def _normalize_topic_optional(value: Any) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise DocumentationValidationError(
+                "topic moet tekst of null zijn."
+            )
+        normalized = value.strip().casefold()
+        if not normalized:
+            return None
+        if any(
+            not (ch.isalnum() or ch in "_-")
+            for ch in normalized
+        ):
+            raise DocumentationValidationError(
+                "topic mag alleen letters, cijfers, underscore en koppelteken bevatten."
             )
         return normalized
 

@@ -28,7 +28,9 @@
     "wissen": "Wissen",
     "verversen": "Verversen",
     "herhaal_meting": "Meting herhalen",
-    "details": "Details"
+    "details": "Details",
+    "meetinstructies": "Meetinstructies",
+    "aanbevolen_instructie": "Aanbevolen: {titel}"
   },
   "dialog": {
     "over_title": "Over",

@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.6.0
+Versie:     2.7.0
 Datum:      2026-10-02
 Auteur:     Bart Bossuyt
 
@@ -40,6 +40,8 @@ Wijzigingen:
   v2.4.1 (2026-10-01)  Live taalwissel vervolledigd voor Hoofdmenu, Diagnose,
                        ESR-pagina en de contextuele venstertitel.
   v2.6.0 (2026-10-03)  Dynamische taalontdekking voor het Talenmenu.
+  v2.7.0 (2026-10-03)  ESR-contextdocumentatie gekoppeld aan de centrale
+                        documentviewer zonder paginanavigatie te wijzigen.
 ================================================================================
 """
 
@@ -90,6 +92,9 @@ class ToolHubWindow(QMainWindow):
         from app.gui.esr_test_screen import EsrTestScreen
         self.esr_page = EsrTestScreen(taal=self.taal)
         self.esr_page.back_requested.connect(self._show_diagnose)
+        self.esr_page.documentation_requested.connect(
+            self._open_context_documentation
+        )
         self.stack.addWidget(self.esr_page)
 
         from app.gui.history_screen import HistoryScreen
@@ -399,6 +404,10 @@ class ToolHubWindow(QMainWindow):
         """Open ESR als nieuwe meetrun met veilige historische contextpreset."""
         self.esr_page.apply_repeat_preset(preset)
         self._open_esr_test()
+
+    def _open_context_documentation(self, document_id: str) -> None:
+        """Open documentatie modaal vanuit ESR zonder de huidige pagina te verlaten."""
+        self.documentation_page.open_document_by_id(document_id)
 
     def _open_esr_test(self):
         self.stack.setCurrentWidget(self.esr_page)

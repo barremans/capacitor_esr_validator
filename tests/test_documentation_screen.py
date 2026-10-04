@@ -2,7 +2,7 @@
 ================================================================================
 Module:     tests/test_documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.4.0
+Versie:     1.7.0
 Datum:      2026-10-03
 Auteur:     Bart Bossuyt
 
@@ -15,6 +15,9 @@ Wijzigingen:
   v1.3.0 (2026-10-03)  Openen van interne Markdown geeft de actieve taal door
                         aan de documentatieservice.
   v1.4.0 (2026-10-03)  Viewer-UX, selectiebehoud en vertaalde sluitknop getest.
+  v1.5.0 (2026-10-03)  Documentinformatie, provenance en bron-URL's getest.
+  v1.6.0 (2026-10-03)  Compact provenance-overzicht zonder supports-tags getest.
+  v1.7.0 (2026-10-03)  Hoogtebegrenzing van het informatiepaneel vastgelegd.
 ================================================================================
 """
 
@@ -28,6 +31,7 @@ import app.gui.documentation_screen as documentation_module
 from app.documentation.models import (
     DocumentCategory,
     DocumentMetadata,
+    DocumentProvenanceRef,
     DocumentSourceType,
 )
 from app.gui.documentation_screen import DocumentationScreen
@@ -56,14 +60,26 @@ class _FakeDocumentationService:
             category=DocumentCategory.DATASHEET,
             source_type=DocumentSourceType.FILE,
             source_path="docs/fm.pdf",
-            source_url=None,
+            source_url="https://example.com/fm",
             tool_key="ESR_CAPACITOR",
             manufacturer="Panasonic",
             series="FM",
-            part_number=None,
+            part_number="EEU-FM1E471",
             document_version="3",
-            document_date=None,
-            notes=None,
+            document_date="2026-10-03",
+            notes="Testnotitie",
+            provenance=(
+                DocumentProvenanceRef(
+                    source_id="src-1",
+                    source_title="Official FM datasheet",
+                    source_kind="URL",
+                    source_path=None,
+                    source_url="https://example.com/source",
+                    locator="Table 4",
+                    supports=("esr", "capacitance"),
+                    note="Official source",
+                ),
+            ),
         )
         if category and category != "DATASHEET":
             return []
@@ -85,6 +101,19 @@ def _fake_translate(key: str, taal: str = "nl_NL", **kwargs) -> str:
         ("en_US", "documentatie.document_titels.fm_series"): "FM Series",
         ("nl_NL", "documentatie.sluiten"): "Sluiten",
         ("en_US", "documentatie.sluiten"): "Close",
+        ("nl_NL", "documentatie.info.documentinformatie"): "Documentinformatie",
+        ("nl_NL", "documentatie.info.broninformatie"): "Broninformatie",
+        ("nl_NL", "documentatie.info.categorie"): "Categorie",
+        ("nl_NL", "documentatie.info.fabrikant"): "Fabrikant",
+        ("nl_NL", "documentatie.info.serie"): "Serie",
+        ("nl_NL", "documentatie.info.partnummer"): "Partnummer",
+        ("nl_NL", "documentatie.info.versie"): "Versie",
+        ("nl_NL", "documentatie.info.datum"): "Datum",
+        ("nl_NL", "documentatie.info.notities"): "Notities",
+        ("nl_NL", "documentatie.info.bron_url"): "Bron-URL",
+        ("nl_NL", "documentatie.info.locator"): "Locatie in bron",
+        ("nl_NL", "documentatie.info.ondersteunt"): "Ondersteunt",
+        ("nl_NL", "documentatie.info.bron_notitie"): "Bronnotitie",
     }
     value = titles.get((taal, key), f"{taal}:{key}")
     if kwargs:
@@ -195,6 +224,35 @@ def test_open_selected_document_uses_read_only_dialog(monkeypatch):
     assert executed["count"] == 1
     assert service.last_read_language == "nl_NL"
     assert "Sluiten" in dialog_state["buttons"]
+
+
+def test_document_information_html_contains_metadata_provenance_and_urls(monkeypatch):
+    _app()
+    monkeypatch.setattr(documentation_module, "vertaal", _fake_translate)
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    document = screen.documentation_service.get_document("doc-1")
+
+    info_html = screen._document_information_html(document)
+
+    assert "Documentinformatie" in info_html
+    assert "Panasonic" in info_html
+    assert "EEU-FM1E471" in info_html
+    assert "2026-10-03" in info_html
+    assert "Testnotitie" in info_html
+    assert "Broninformatie" in info_html
+    assert "Official FM datasheet" in info_html
+    assert "Table 4" in info_html
+    assert "esr, capacitance" not in info_html
+    assert "https://example.com/fm" in info_html
+    assert "https://example.com/source" in info_html
+
+    info_browser = screen._create_document_information_browser(document)
+    assert info_browser.minimumHeight() == 140
+    assert info_browser.maximumHeight() == 200
 
 
 def test_document_title_changes_live_with_language(monkeypatch):

@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/documentation/models.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.1
+Versie:     1.4.0
 Datum:      2026-10-02
 Auteur:     Bart Bossuyt
 
@@ -20,6 +20,10 @@ Wijzigingen:
                         interne documenttitels; officiële brontitels blijven intact.
   v1.2.1 (2026-10-03)  Backward compatibility hersteld: title_key is echt
                         optioneel en heeft standaardwaarde None.
+  v1.3.0 (2026-10-03)  Multi-context basis toegevoegd: tool_keys bewaart
+                        genormaliseerde koppelingen naast legacy tool_key.
+  v1.4.0 (2026-10-03)  Overige multi-contextvelden toegevoegd voor component,
+                        test, meetmethode, instrument en topics.
 ================================================================================
 """
 
@@ -82,3 +86,9 @@ class DocumentMetadata:
     notes: str | None
     title_key: str | None = None
     provenance: tuple[DocumentProvenanceRef, ...] = ()
+    tool_keys: tuple[str, ...] = ()
+    component_types: tuple[str, ...] = ()
+    test_keys: tuple[str, ...] = ()
+    measurement_methods: tuple[str, ...] = ()
+    instrument_keys: tuple[str, ...] = ()
+    topics: tuple[str, ...] = ()

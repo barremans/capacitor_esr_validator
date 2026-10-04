@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.4.0
+Versie:     1.8.0
 Datum:      2026-10-03
 Auteur:     Bart Bossuyt
 
@@ -23,10 +23,20 @@ Wijzigingen:
   v1.4.0 (2026-10-03)  Viewer-UX verbeterd: bredere documenttabel, rijkere
                         Markdown-weergave, vertaalde sluitknop, scrollstart
                         bovenaan en selectiebehoud na refresh/taalwissel.
+  v1.5.0 (2026-10-03)  Documentinformatie en provenance zichtbaar gemaakt in
+                        de read-only viewer, inclusief klikbare bron-URL's.
+  v1.6.0 (2026-10-03)  Bovenste provenance-overzicht compacter gemaakt;
+                        supports blijven in de Markdown-bronverantwoording.
+  v1.7.0 (2026-10-03)  Hoogte van het informatiepaneel verfijnd zodat de
+                        eerste provenance-regel niet wordt afgesneden.
+  v1.8.0 (2026-10-03)  Publieke open_document_by_id()-API toegevoegd voor
+                        contextueel openen vanuit diagnosetools.
 ================================================================================
 """
 
 from __future__ import annotations
+
+import html
 
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import (
@@ -314,12 +324,123 @@ class DocumentationScreen(QWidget):
     def _update_open_button(self) -> None:
         self.open_btn.setEnabled(self._selected_document_id() is not None)
 
+    def _document_information_html(self, document: DocumentMetadata) -> str:
+        """Bouw een compact read-only HTML-overzicht van metadata en provenance."""
+
+        def esc(value: object) -> str:
+            return html.escape(str(value), quote=True)
+
+        def row(label_key: str, value: str | None) -> str:
+            if not value:
+                return ""
+            return (
+                "<tr>"
+                f"<td style='padding:2px 12px 2px 0; color:#BDBDBD; white-space:nowrap;'>"
+                f"<b>{esc(self._t(label_key))}</b></td>"
+                f"<td style='padding:2px 0; color:#F0F0F0;'>{esc(value)}</td>"
+                "</tr>"
+            )
+
+        metadata_rows = "".join((
+            row("documentatie.info.categorie", self._category_label(document.category)),
+            row("documentatie.info.fabrikant", document.manufacturer),
+            row("documentatie.info.serie", document.series),
+            row("documentatie.info.partnummer", document.part_number),
+            row("documentatie.info.versie", document.document_version),
+            row("documentatie.info.datum", document.document_date),
+            row("documentatie.info.notities", document.notes),
+        ))
+
+        source_url_html = ""
+        if document.source_url:
+            safe_url = esc(document.source_url)
+            source_url_html = (
+                "<tr>"
+                f"<td style='padding:2px 12px 2px 0; color:#BDBDBD; white-space:nowrap;'>"
+                f"<b>{esc(self._t('documentatie.info.bron_url'))}</b></td>"
+                f"<td style='padding:2px 0;'><a href='{safe_url}'>{safe_url}</a></td>"
+                "</tr>"
+            )
+
+        provenance_blocks: list[str] = []
+        for index, ref in enumerate(document.provenance, start=1):
+            details: list[str] = []
+            if ref.locator:
+                details.append(
+                    f"<b>{esc(self._t('documentatie.info.locator'))}:</b> {esc(ref.locator)}"
+                )
+            if ref.note:
+                details.append(
+                    f"<b>{esc(self._t('documentatie.info.bron_notitie'))}:</b> {esc(ref.note)}"
+                )
+            if ref.source_url:
+                safe_ref_url = esc(ref.source_url)
+                details.append(
+                    f"<b>{esc(self._t('documentatie.info.bron_url'))}:</b> "
+                    f"<a href='{safe_ref_url}'>{safe_ref_url}</a>"
+                )
+
+            provenance_blocks.append(
+                "<div style='margin:6px 0 10px 0;'>"
+                f"<div><b>{index}. {esc(ref.source_title)}</b> "
+                f"<span style='color:#9E9E9E;'>({esc(ref.source_id)})</span></div>"
+                + "".join(
+                    f"<div style='margin-left:14px; margin-top:2px;'>{detail}</div>"
+                    for detail in details
+                )
+                + "</div>"
+            )
+
+        provenance_html = ""
+        if provenance_blocks:
+            provenance_html = (
+                "<div style='margin-top:10px; padding-top:8px; border-top:1px solid #555555;'>"
+                f"<div style='font-size:12pt; font-weight:bold; color:#FFFFFF;'>"
+                f"{esc(self._t('documentatie.info.broninformatie'))}</div>"
+                + "".join(provenance_blocks)
+                + "</div>"
+            )
+
+        return (
+            "<div style='font-family:Segoe UI; font-size:9.5pt; color:#F0F0F0;'>"
+            f"<div style='font-size:12pt; font-weight:bold; color:#FFFFFF; margin-bottom:6px;'>"
+            f"{esc(self._t('documentatie.info.documentinformatie'))}</div>"
+            "<table cellspacing='0' cellpadding='0'>"
+            f"{metadata_rows}{source_url_html}"
+            "</table>"
+            f"{provenance_html}"
+            "</div>"
+        )
+
+    def _create_document_information_browser(
+        self,
+        document: DocumentMetadata,
+    ) -> QTextBrowser:
+        """Maak het metadata/provenance-paneel voor de viewer."""
+        info_browser = QTextBrowser()
+        info_browser.setOpenExternalLinks(True)
+        info_browser.setHtml(self._document_information_html(document))
+        info_browser.setMinimumHeight(140)
+        info_browser.setMaximumHeight(200)
+        info_browser.setStyleSheet(
+            "QTextBrowser { background-color:#252525; color:#F0F0F0; "
+            "border:1px solid #4A4A4A; padding:8px; }"
+        )
+        return info_browser
+
     def _open_selected_document(self) -> None:
-        """Open de geselecteerde interne tekstbron read-only."""
+        """Open het geselecteerde document via de centrale by-id viewer-API."""
         document_id = self._selected_document_id()
         if document_id is None:
             return
+        self.open_document_by_id(document_id)
 
+    def open_document_by_id(self, document_id: str) -> bool:
+        """Open één document rechtstreeks op stabiele document-ID.
+
+        Geeft True terug wanneer de viewer is geopend. Bij een documentatiefout
+        wordt de bestaande statusmelding gebruikt en False teruggegeven.
+        """
         try:
             document = self.documentation_service.get_document(document_id)
             content = self.documentation_service.read_document_text(
@@ -330,7 +451,7 @@ class DocumentationScreen(QWidget):
             self.status_label.setText(
                 self._t("documentatie.document_fout", bericht=str(exc))
             )
-            return
+            return False
 
         dialog = QDialog(self)
         dialog.setWindowTitle(self._document_title(document))
@@ -340,6 +461,9 @@ class DocumentationScreen(QWidget):
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(12)
+
+        info_browser = self._create_document_information_browser(document)
+        layout.addWidget(info_browser)
 
         browser = QTextBrowser()
         browser.setOpenExternalLinks(True)
@@ -378,3 +502,4 @@ class DocumentationScreen(QWidget):
         layout.addLayout(button_row)
 
         dialog.exec()
+        return True

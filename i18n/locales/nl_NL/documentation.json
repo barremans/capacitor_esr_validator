@@ -42,7 +42,22 @@
       "esr_ced_plausibility": "C–ESR–D plausibiliteitscontrole",
       "esr_in_circuit_limitations": "Beperkingen van in-circuit condensatormetingen"
     },
-    "sluiten": "Sluiten"
+    "sluiten": "Sluiten",
+    "info": {
+      "documentinformatie": "Documentinformatie",
+      "broninformatie": "Broninformatie",
+      "categorie": "Categorie",
+      "fabrikant": "Fabrikant",
+      "serie": "Serie",
+      "partnummer": "Partnummer",
+      "versie": "Versie",
+      "datum": "Datum",
+      "notities": "Notities",
+      "bron_url": "Bron-URL",
+      "locator": "Locatie in bron",
+      "ondersteunt": "Ondersteunt",
+      "bron_notitie": "Bronnotitie"
+    }
   },
   "_comment": "Brontaal Nederlands — module documentation."
 }
