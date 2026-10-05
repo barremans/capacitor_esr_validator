@@ -13,7 +13,8 @@
     "talen": "Languages",
     "changelog": "Changelog",
     "over": "About",
-    "afsluiten": "Exit"
+    "afsluiten": "Exit",
+    "documentatie_zoeken": "Search documentation…"
   },
   "tool": {
     "diagnose": "Diagnostics",
@@ -36,7 +37,9 @@
     "over_title": "About",
     "over_tekst": "Electronics Diagnostic Tool Hub\\nCapacitor and ESR validator",
     "changelog_title": "Changelog",
-    "help_title": "Help"
+    "help_title": "Help",
+    "afsluiten_titel": "Exit application",
+    "afsluiten_tekst": "Do you really want to exit the application?"
   },
   "tool_type": {
     "ESR_CAPACITOR": "ESR / Capacitor"

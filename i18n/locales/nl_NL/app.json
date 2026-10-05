@@ -13,7 +13,8 @@
     "talen": "Talen",
     "changelog": "Wijzigingslog",
     "over": "Over",
-    "afsluiten": "Afsluiten"
+    "afsluiten": "Afsluiten",
+    "documentatie_zoeken": "Documentatie zoeken…"
   },
   "tool": {
     "diagnose": "Diagnose",
@@ -36,7 +37,9 @@
     "over_title": "Over",
     "over_tekst": "Electronics Diagnostic Tool Hub\\nCondensator- en ESR-validator",
     "changelog_title": "Wijzigingslog",
-    "help_title": "Help"
+    "help_title": "Help",
+    "afsluiten_titel": "Applicatie afsluiten",
+    "afsluiten_tekst": "Wil je de applicatie echt afsluiten?"
   },
   "tool_type": {
     "ESR_CAPACITOR": "ESR / Condensator"

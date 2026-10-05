@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.8.0
-Datum:      2026-10-03
+Versie:     1.9.1
+Datum:      2026-10-05
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only scherm voor de centrale documentatiebibliotheek.
@@ -31,6 +31,11 @@ Wijzigingen:
                         eerste provenance-regel niet wordt afgesneden.
   v1.8.0 (2026-10-03)  Publieke open_document_by_id()-API toegevoegd voor
                         contextueel openen vanuit diagnosetools.
+  v1.9.0 (2026-10-05)  Help-knop en F1 openen de zoektaal-help-dialoog;
+                        tooltip op het zoekveld legt de operatoren kort uit.
+  v1.9.1 (2026-10-05)  Esc, Return, Ctrl+F, Ctrl+L, Ctrl+O en F1 als lokale
+                        WidgetWithChildrenShortcut. F1-conflict met het globale
+                        Help-menu opgelost via ShortcutContext.
 ================================================================================
 """
 
@@ -39,6 +44,7 @@ from __future__ import annotations
 import html
 
 from PySide6.QtCore import Signal, Qt
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -57,6 +63,7 @@ from PySide6.QtWidgets import (
 
 from app.documentation.models import DocumentCategory, DocumentMetadata
 from app.documentation.service import DocumentationError, DocumentationService
+from app.gui.dialogs.search_help_dialog import SearchHelpDialog
 from app.helpers.i18n import vertaal
 
 
@@ -80,6 +87,7 @@ class DocumentationScreen(QWidget):
         )
 
         self._build_ui()
+        self._setup_shortcuts()
         self.apply_language(self.taal)
         self.refresh()
 
@@ -111,6 +119,11 @@ class DocumentationScreen(QWidget):
         self.search_edit = QLineEdit()
         self.search_edit.textChanged.connect(self.refresh)
         filter_row.addWidget(self.search_edit, 2)
+
+        self.help_btn = QPushButton()
+        self.help_btn.setFixedWidth(32)
+        self.help_btn.clicked.connect(self._open_search_help_dialog)
+        filter_row.addWidget(self.help_btn)
 
         self.category_label = QLabel()
         filter_row.addWidget(self.category_label)
@@ -161,6 +174,68 @@ class DocumentationScreen(QWidget):
 
         layout.addLayout(bottom_row)
 
+    def _setup_shortcuts(self) -> None:
+        """Lokale sneltoetsen voor dit scherm.
+
+        Alle sneltoetsen worden met WidgetWithChildrenShortcut geïnstalleerd
+        zodat ze prioriteit krijgen binnen dit scherm en zijn kinderen. Dit
+        voorkomt ambiguïteit met WindowShortcut-acties van het hoofdvenster,
+        zoals de globale F1 voor het Help-menu.
+        """
+        context = Qt.ShortcutContext.WidgetWithChildrenShortcut
+
+        QShortcut(
+            QKeySequence(Qt.Key.Key_Escape),
+            self,
+            activated=self.back_requested.emit,
+            context=context,
+        )
+        QShortcut(
+            QKeySequence(Qt.Key.Key_Return),
+            self,
+            activated=self._open_selected_document,
+            context=context,
+        )
+        QShortcut(
+            QKeySequence("Ctrl+F"),
+            self,
+            activated=self._focus_search_edit,
+            context=context,
+        )
+        QShortcut(
+            QKeySequence("Ctrl+L"),
+            self,
+            activated=self._focus_and_select_search_edit,
+            context=context,
+        )
+        QShortcut(
+            QKeySequence("Ctrl+O"),
+            self,
+            activated=self._open_selected_document,
+            context=context,
+        )
+        QShortcut(
+            QKeySequence(Qt.Key.Key_F1),
+            self,
+            activated=self._open_search_help_dialog,
+            context=context,
+        )
+
+    def _focus_search_edit(self) -> None:
+        """Plaats de cursor in het zoekveld zonder de inhoud te selecteren."""
+        self.search_edit.setFocus(Qt.FocusReason.ShortcutFocusReason)
+        self.search_edit.deselect()
+
+    def _focus_and_select_search_edit(self) -> None:
+        """Focus op het zoekveld en selecteer de volledige inhoud."""
+        self.search_edit.setFocus(Qt.FocusReason.ShortcutFocusReason)
+        self.search_edit.selectAll()
+
+    def _open_search_help_dialog(self) -> None:
+        """Open de read-only help-dialoog voor de zoektaal."""
+        dialog = SearchHelpDialog(taal=self.taal, parent=self)
+        dialog.exec()
+
     def apply_language(self, taal: str) -> None:
         """Werk alle zichtbare statische teksten bij zonder filters te wissen."""
         selected_category = self.category_combo.currentData()
@@ -171,6 +246,9 @@ class DocumentationScreen(QWidget):
         self.title_label.setText(self._t("documentatie.titel"))
         self.search_label.setText(self._t("documentatie.zoeken"))
         self.search_edit.setPlaceholderText(self._t("documentatie.zoeken_placeholder"))
+        self.search_edit.setToolTip(self._t("documentatie.zoeken_tooltip"))
+        self.help_btn.setText(self._t("documentatie.help_knop"))
+        self.help_btn.setToolTip(self._t("documentatie.help_knop_tooltip"))
         self.category_label.setText(self._t("documentatie.categorie"))
         self.tool_label.setText(self._t("documentatie.tool"))
         self.open_btn.setText(self._t("documentatie.openen"))

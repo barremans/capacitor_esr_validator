@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/documentation/service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.6.0
-Datum:      2026-10-03
+Versie:     1.7.2
+Datum:      2026-10-05
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only service voor de centrale documentatiebibliotheek.
@@ -25,6 +25,18 @@ Wijzigingen:
                         tool_key en tool_keys worden centraal genormaliseerd.
   v1.6.0 (2026-10-03)  Multi-contextmetadata uitgebreid met component_types,
                         test_keys, measurement_methods, instrument_keys en topics.
+  v1.7.0 (2026-10-04)  Zoekveld gebruikt de nieuwe zoektaal (search_query);
+                        _search_blob versmald tot document-eigen metadata.
+                        Tool-, context- en provenance-velden worden niet meer
+                        via het vrije zoekveld gematcht; daarvoor blijven de
+                        bestaande dropdown-filters bestaan.
+  v1.7.1 (2026-10-05)  _search_blob verder versmald: document_id en
+                        source_path zijn technische identificatie en worden
+                        bewust NIET meer via het zoekveld gematcht.
+  v1.7.2 (2026-10-05)  title_key uit _search_blob verwijderd. De i18n-sleutel
+                        is net als document_id en source_path technisch en
+                        geen mensentaal; de vertaalde titel (title) blijft
+                        doorzoekbaar via de GUI-resolutie.
 ================================================================================
 """
 
@@ -39,6 +51,11 @@ from .models import (
     DocumentMetadata,
     DocumentProvenanceRef,
     DocumentSourceType,
+)
+from .search_query import (
+    SearchQuery,
+    matches_query,
+    parse_search_query,
 )
 
 
@@ -133,7 +150,13 @@ class DocumentationService:
         instrument_key: str | None = None,
         topic: str | None = None,
     ) -> list[DocumentMetadata]:
-        """Geef documenten terug met optionele vrije-tekst- en metadatafilters."""
+        """Geef documenten terug met optionele vrije-tekst- en metadatafilters.
+
+        Het vrije zoekveld gebruikt de zoektaal uit ``search_query`` en matcht
+        uitsluitend op menselijke, beschrijvende metadata. Technische
+        identificatie (document_id, source_path, title_key) en contextvelden
+        blijven bereikbaar via de bestaande filters.
+        """
         documents = self.load_documents()
 
         selected_category = self._category_optional(category)
@@ -155,7 +178,8 @@ class DocumentationService:
             field_name="instrument_key",
         )
         selected_topic = self._normalize_topic_optional(topic)
-        needle = (search_text or "").strip().casefold()
+
+        search_query: SearchQuery = parse_search_query(search_text)
 
         result: list[DocumentMetadata] = []
         for document in documents:
@@ -190,7 +214,7 @@ class DocumentationService:
             if selected_topic is not None and selected_topic not in document.topics:
                 continue
 
-            if needle and needle not in self._search_blob(document):
+            if not matches_query(self._search_blob(document), search_query):
                 continue
 
             result.append(document)
@@ -316,41 +340,45 @@ class DocumentationService:
 
     @staticmethod
     def _search_blob(document: DocumentMetadata) -> str:
+        """Bouw een tekstblob met uitsluitend menselijke, beschrijvende metadata.
+
+        Opgenomen (menselijke metadata):
+          - title
+          - category
+          - manufacturer
+          - series
+          - part_number
+          - document_version
+          - document_date
+          - notes
+          - source_url
+
+        Bewust NIET opgenomen:
+          - document_id      : technische identifier, geen mensentaal
+          - title_key        : technische i18n-sleutel, geen mensentaal
+          - source_path      : intern pad, geen mensentaal
+          - tool_keys        : filterbaar via tool_key=...
+          - component_types,
+            test_keys,
+            measurement_methods,
+            instrument_keys,
+            topics           : filterbaar via eigen filter=...
+          - provenance.*     : metadata over het document, niet het document zelf
+
+        Reden: het vrije zoekveld is bedoeld voor menselijke zoekwoorden
+        (concepten, fabrikant, serie). Technische identificatie, i18n-sleutels
+        en contextkoppelingen horen bij de filters.
+        """
         values = (
-            document.document_id,
             document.title,
-            document.title_key,
             document.category.value,
-            document.source_type.value,
-            document.source_path,
-            document.source_url,
-            document.tool_key,
-            *document.tool_keys,
-            *document.component_types,
-            *document.test_keys,
-            *document.measurement_methods,
-            *document.instrument_keys,
-            *document.topics,
             document.manufacturer,
             document.series,
             document.part_number,
             document.document_version,
             document.document_date,
             document.notes,
-            *(
-                value
-                for ref in document.provenance
-                for value in (
-                    ref.source_id,
-                    ref.source_title,
-                    ref.source_kind,
-                    ref.source_path,
-                    ref.source_url,
-                    ref.locator,
-                    ref.note,
-                    *ref.supports,
-                )
-            ),
+            document.source_url,
         )
         return "\n".join(
             value.casefold()

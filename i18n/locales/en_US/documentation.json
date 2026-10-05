@@ -6,6 +6,9 @@
     "titel": "Documentation",
     "zoeken": "Search",
     "zoeken_placeholder": "Search by title, manufacturer, series, part number or source…",
+    "zoeken_tooltip": "Search documents. - = exact word, , = and, | = or, ! = exclude, % = wildcard. Click ? or press F1 for details.",
+    "help_knop": "?",
+    "help_knop_tooltip": "Search syntax help (F1)",
     "categorie": "Category",
     "tool": "Tool",
     "alle_categorieen": "All categories",
@@ -57,6 +60,21 @@
       "locator": "Source location",
       "ondersteunt": "Supports",
       "bron_notitie": "Source note"
+    },
+    "help": {
+      "titel": "Search documents",
+      "inleiding": "The search field searches title, category, manufacturer, series, part number, version, date, notes and source URL of every document. Technical identification (document ID, i18n key and source path) is not searched — use the filter dropdowns for that.",
+      "basis_titel": "Basic search",
+      "basis_tekst": "Type one or more words. All words must be present (AND). Search is case-insensitive. Leading and trailing spaces are ignored.",
+      "operatoren_titel": "Operators",
+      "operatoren": "<table cellspacing='0' cellpadding='4'><tr><td><b>space</b></td><td>AND — all terms must match</td></tr><tr><td><b>,</b></td><td>AND — same as space</td></tr><tr><td><b>|</b></td><td>OR — at least one term matches</td></tr><tr><td><b>-</b></td><td>exact word — term must appear as a standalone word</td></tr><tr><td><b>!</b></td><td>exclude — term must not appear</td></tr><tr><td><b>%</b></td><td>wildcard — one or more characters</td></tr></table>",
+      "voorbeelden_titel": "Examples",
+      "voorbeelden": "<table cellspacing='0' cellpadding='4'><tr><td><code>esr</code></td><td>documents with 'esr' in title or metadata</td></tr><tr><td><code>esr meter</code></td><td>'esr' AND 'meter'</td></tr><tr><td><code>esr,meter</code></td><td>same as above</td></tr><tr><td><code>esr|lcr</code></td><td>'esr' OR 'lcr'</td></tr><tr><td><code>%meter</code></td><td>ends with 'meter'</td></tr><tr><td><code>!lcr</code></td><td>without 'lcr'</td></tr><tr><td><code>esr !lcr</code></td><td>'esr' but not 'lcr'</td></tr><tr><td><code>-esr</code></td><td>'esr' as a standalone word</td></tr></table>",
+      "tips_titel": "Tips",
+      "tips": "Start broad and refine. An empty search field shows everything. Combine the search field with the category and tool dropdown filters to narrow further.",
+      "filters_titel": "Difference with filters",
+      "filters_tekst": "The search field searches human-readable metadata. The filter dropdowns (category, tool) filter on structured context. Both work together.",
+      "sluiten": "Close"
     }
   },
   "_comment": "English translation — module documentation."

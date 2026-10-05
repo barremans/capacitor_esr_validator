@@ -6,6 +6,9 @@
     "titel": "Documentatie",
     "zoeken": "Zoeken",
     "zoeken_placeholder": "Zoek op titel, fabrikant, serie, partnummer of bron…",
+    "zoeken_tooltip": "Zoek in documenten. - = exacte woordmatch, , = en, | = of, ! = uitsluiten, % = wildcard. Klik op ? of druk F1 voor uitleg.",
+    "help_knop": "?",
+    "help_knop_tooltip": "Zoektaal uitleg (F1)",
     "categorie": "Categorie",
     "tool": "Tool",
     "alle_categorieen": "Alle categorieën",
@@ -57,6 +60,21 @@
       "locator": "Locatie in bron",
       "ondersteunt": "Ondersteunt",
       "bron_notitie": "Bronnotitie"
+    },
+    "help": {
+      "titel": "Documenten zoeken",
+      "inleiding": "Het zoekveld doorzoekt de titel, categorie, fabrikant, serie, partnummer, versie, datum, notities en bron-URL van elk document. Technische identificatie (document-ID, i18n-sleutel en bronpad) wordt niet doorzocht — gebruik daarvoor de filter-dropdowns.",
+      "basis_titel": "Basiszoekopdracht",
+      "basis_tekst": "Typ één of meerdere woorden. Alle woorden moeten voorkomen (EN). Zoeken is hoofdletterongevoelig. Spaties aan begin en einde worden genegeerd.",
+      "operatoren_titel": "Operatoren",
+      "operatoren": "<table cellspacing='0' cellpadding='4'><tr><td><b>spatie</b></td><td>EN — alle termen moeten matchen</td></tr><tr><td><b>,</b></td><td>EN — zelfde als spatie</td></tr><tr><td><b>|</b></td><td>OF — minstens één term matcht</td></tr><tr><td><b>-</b></td><td>exact-woord — term moet als los woord voorkomen</td></tr><tr><td><b>!</b></td><td>uitsluiten — term mag niet voorkomen</td></tr><tr><td><b>%</b></td><td>wildcard — één of meerdere tekens</td></tr></table>",
+      "voorbeelden_titel": "Voorbeelden",
+      "voorbeelden": "<table cellspacing='0' cellpadding='4'><tr><td><code>esr</code></td><td>documenten met 'esr' in titel of metadata</td></tr><tr><td><code>esr meter</code></td><td>'esr' EN 'meter'</td></tr><tr><td><code>esr,meter</code></td><td>zelfde als hierboven</td></tr><tr><td><code>esr|lcr</code></td><td>'esr' OF 'lcr'</td></tr><tr><td><code>%meter</code></td><td>eindigt op 'meter'</td></tr><tr><td><code>!lcr</code></td><td>zonder 'lcr'</td></tr><tr><td><code>esr !lcr</code></td><td>'esr' maar niet 'lcr'</td></tr><tr><td><code>-esr</code></td><td>'esr' als los woord</td></tr></table>",
+      "tips_titel": "Tips",
+      "tips": "Begin breed en verfijn daarna. Een leeg zoekveld toont alles. Combineer het zoekveld met de filter-dropdowns voor categorie en tool om verder te verfijnen.",
+      "filters_titel": "Verschil met filters",
+      "filters_tekst": "Het zoekveld zoekt in menselijke metadata. De filter-dropdowns (categorie, tool) filteren op gestructureerde context. Beide werken samen.",
+      "sluiten": "Sluiten"
     }
   },
   "_comment": "Brontaal Nederlands — module documentation."

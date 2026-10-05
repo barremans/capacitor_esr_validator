@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.7.0
-Datum:      2026-10-02
+Versie:     2.8.2
+Datum:      2026-10-05
 Auteur:     Bart Bossuyt
 
 Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
@@ -42,6 +42,30 @@ Wijzigingen:
   v2.6.0 (2026-10-03)  Dynamische taalontdekking voor het Talenmenu.
   v2.7.0 (2026-10-03)  ESR-contextdocumentatie gekoppeld aan de centrale
                         documentviewer zonder paginanavigatie te wijzigen.
+  v2.7.1 (2026-10-05)  Globale F1 (Help-menu) expliciet op WindowShortcut
+                        gezet. Binnen het Documentatie-scherm wint de lokale
+                        WidgetWithChildrenShortcut F1 voor de zoekhelp.
+  v2.7.2 (2026-10-05)  Help-menu uitgebreid met "Documentatie zoeken…"
+                        (opent SearchHelpDialog). Geen shortcut op dit item.
+  v2.7.3 (2026-10-05)  Fix: _apply_language() lekte bij elke taalwissel een
+                        volledige set QMenu-objecten. Oude menu's worden nu
+                        expliciet losgekoppeld (setParent(None)) en via
+                        deleteLater() opgeruimd. Ook dubbele _build_menu()-
+                        aanroep in __init__ verwijderd: _apply_language()
+                        bouwt het menu toch al.
+  v2.8.0 (2026-10-05)  Sneltoetsen op het Hoofdmenu (Fase 4F): Ctrl+D
+                        (Diagnose), Ctrl+H (Historiek), Ctrl+K (Documentatie),
+                        Esc (applicatie sluiten vanaf hub). Lokale QShortcuts
+                        op hub_page met WidgetWithChildrenShortcut, zodat ze
+                        niet doorwerken in ESR/Historiek/Documentatie.
+  v2.8.1 (2026-10-05)  Fase 4F.1: Esc op Diagnose-pagina gaat terug naar
+                        Hoofdmenu (identiek aan diagnose_back_btn).
+                        WidgetWithChildrenShortcut op diagnose_page.
+  v2.8.2 (2026-10-05)  Fase 4F.2: Esc op Hoofdmenu vraagt bevestiging
+                        ("Applicatie afsluiten?") voordat de applicatie sluit.
+                        De venster-X (closeEvent) blijft ongewijzigd: op de
+                        hub sluit die nog steeds direct. Nieuwe i18n-keys
+                        dialog.afsluiten_titel en dialog.afsluiten_tekst.
 ================================================================================
 """
 
@@ -59,6 +83,7 @@ from PySide6.QtCore import Qt, QSize
 from app.helpers.i18n import beschikbare_taalinfos, vertaal
 from app.config.settings import laad_instellingen, sla_instellingen_op, AppInstellingen
 from app.gui.dialogs.settings_dialog import SettingsDialog
+from app.gui.dialogs.search_help_dialog import SearchHelpDialog
 
 
 class ToolHubWindow(QMainWindow):
@@ -109,7 +134,8 @@ class ToolHubWindow(QMainWindow):
         self.stack.addWidget(self.documentation_page)
 
         self.stack.setCurrentWidget(self.hub_page)
-        self._build_menu()
+        # Menu wordt opgebouwd in _apply_language(); niet hier, om dubbele
+        # menu-creatie in __init__ te vermijden.
 
     def _build_hub_page(self):
         """Bouwt het hoofdmenu van de Tool Hub."""
@@ -161,7 +187,42 @@ class ToolHubWindow(QMainWindow):
         menu_grid.setColumnStretch(3, 1)
         layout.addLayout(menu_grid)
         layout.addStretch()
+
+        self._install_hub_shortcuts(central)
         return central
+
+    def _install_hub_shortcuts(self, hub_widget: QWidget) -> None:
+        """Lokale sneltoetsen voor het Hoofdmenu (Fase 4F)."""
+        ctx = Qt.ShortcutContext.WidgetWithChildrenShortcut
+
+        self.sc_hub_diagnose = QShortcut(QKeySequence("Ctrl+D"), hub_widget)
+        self.sc_hub_diagnose.setContext(ctx)
+        self.sc_hub_diagnose.activated.connect(self._show_diagnose)
+
+        self.sc_hub_history = QShortcut(QKeySequence("Ctrl+H"), hub_widget)
+        self.sc_hub_history.setContext(ctx)
+        self.sc_hub_history.activated.connect(self._show_history)
+
+        self.sc_hub_documentation = QShortcut(QKeySequence("Ctrl+K"), hub_widget)
+        self.sc_hub_documentation.setContext(ctx)
+        self.sc_hub_documentation.activated.connect(self._show_documentation)
+
+        # Fase 4F.2: Esc op hub vraagt bevestiging vóór afsluiten.
+        self.sc_hub_close = QShortcut(QKeySequence("Esc"), hub_widget)
+        self.sc_hub_close.setContext(ctx)
+        self.sc_hub_close.activated.connect(self._confirm_close_from_hub)
+
+    def _confirm_close_from_hub(self) -> None:
+        """Vraag bevestiging voordat Esc op het Hoofdmenu de app afsluit."""
+        antwoord = QMessageBox.question(
+            self,
+            self._t("dialog.afsluiten_titel"),
+            self._t("dialog.afsluiten_tekst"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if antwoord == QMessageBox.StandardButton.Yes:
+            self.close()
 
     def _build_diagnose_page(self):
         """Bouwt de categoriepagina Diagnose."""
@@ -238,7 +299,17 @@ class ToolHubWindow(QMainWindow):
         tools_grid.setColumnStretch(2, 1)
         layout.addLayout(tools_grid)
         layout.addStretch()
+
+        self._install_diagnose_shortcuts(page)
         return page
+
+    def _install_diagnose_shortcuts(self, diagnose_widget: QWidget) -> None:
+        """Lokale sneltoetsen voor de Diagnose-pagina (Fase 4F.1)."""
+        ctx = Qt.ShortcutContext.WidgetWithChildrenShortcut
+
+        self.sc_diagnose_back = QShortcut(QKeySequence("Esc"), diagnose_widget)
+        self.sc_diagnose_back.setContext(ctx)
+        self.sc_diagnose_back.activated.connect(self._show_hub)
 
     def _show_hub(self):
         self.stack.setCurrentWidget(self.hub_page)
@@ -312,8 +383,14 @@ class ToolHubWindow(QMainWindow):
 
         help_action = QAction(self._t("menu.help"), self)
         help_action.setShortcut(QKeySequence("F1"))
+        help_action.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
         help_action.triggered.connect(self._show_help)
         help_menu.addAction(help_action)
+
+        # Nieuw in 4E.4: Documentatie zoeken… (geen shortcut)
+        search_help_action = QAction(self._t("menu.documentatie_zoeken"), self)
+        search_help_action.triggered.connect(self._show_search_help)
+        help_menu.addAction(search_help_action)
 
         changelog_action = QAction(self._t("menu.changelog"), self)
         changelog_action.triggered.connect(self._show_changelog)
@@ -337,7 +414,16 @@ class ToolHubWindow(QMainWindow):
         self._apply_language()
 
     def _apply_language(self):
-        self.menuBar().clear()
+        # Ruim oude menu's grondig op. clear() verwijdert ze uit de menubalk,
+        # maar zonder setParent(None) blijven ze als kinderen van de menubalk
+        # bestaan en lekken ze bij elke taalwissel. Zie regressietest
+        # test_main_window_help_menu.py::test_documentatie_zoeken_item_vertaalt_mee.
+        menubar = self.menuBar()
+        menubar.clear()
+        for oude_menu in menubar.findChildren(QMenu):
+            oude_menu.setParent(None)
+            oude_menu.deleteLater()
+
         self._build_menu()
 
         if hasattr(self, "hub_title_label"):
@@ -461,6 +547,11 @@ class ToolHubWindow(QMainWindow):
 
     def _show_help(self):
         self._show_markdown_dialog(self._t("dialog.help_titel"), "docs/help.md")
+
+    def _show_search_help(self):
+        """Open de zoektaal-help-dialoog (Fase 4E.4)."""
+        dialog = SearchHelpDialog(taal=self.taal, parent=self)
+        dialog.exec()
 
     def _show_changelog(self):
         self._show_markdown_dialog(self._t("dialog.changelog_titel"), "docs/changelog.md")

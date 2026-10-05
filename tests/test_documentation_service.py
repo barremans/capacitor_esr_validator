@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_documentation_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.6.1
-Datum:      2026-10-03
+Versie:     1.7.0
+Datum:      2026-10-04
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor read-only catalogusladen, validatie, zoeken en
@@ -20,6 +20,11 @@ Wijzigingen:
   v1.6.0 (2026-10-03)  Multi-contextvelden, filters, zoeken en validatie getest.
   v1.6.1 (2026-10-03)  Zoektest gebruikt unieke metadatawaarden zodat bestaande
                         documenttitels geen vals-positieve match veroorzaken.
+  v1.7.0 (2026-10-04)  Vrije zoektekst gebruikt de nieuwe zoektaal en matcht
+                        alleen nog op document-eigen metadata. Tool-, context-
+                        en provenance-velden zijn uitsluitend via de bestaande
+                        filters bereikbaar. Twee voormalige zoek-tests zijn
+                        herschreven om dit expliciet te bewijzen.
 ================================================================================
 """
 
@@ -146,7 +151,6 @@ def test_service_exposes_no_write_or_delete_api():
     assert not hasattr(DocumentationService, "delete_document")
 
 
-
 def test_get_document_and_read_document_text(tmp_path):
     content_dir = tmp_path / "content"
     content_dir.mkdir()
@@ -234,7 +238,6 @@ def test_read_document_text_rejects_non_text_source(tmp_path):
         DocumentationService(path).read_document_text("pdf")
 
 
-
 def test_structured_provenance_is_loaded(tmp_path):
     path = tmp_path / "catalog.json"
     documents = _documents()
@@ -280,7 +283,6 @@ def test_invalid_provenance_supports_is_rejected(tmp_path):
 
     with pytest.raises(DocumentationValidationError, match="supports"):
         DocumentationService(path).load_documents()
-
 
 
 def test_title_key_is_optional_and_preserves_official_title(tmp_path):
@@ -459,7 +461,8 @@ def test_invalid_tool_keys_is_rejected(tmp_path, bad_value):
         DocumentationService(path).load_documents()
 
 
-def test_search_includes_all_tool_keys(tmp_path):
+def test_search_does_not_match_tool_keys_via_search_field(tmp_path):
+    """Zoeken op tool_keys werkt uitsluitend via de filter, niet via zoekveld."""
     path = tmp_path / "catalog.json"
     documents = _documents()
     documents[0]["tool_keys"] = ["RESISTOR"]
@@ -467,7 +470,11 @@ def test_search_includes_all_tool_keys(tmp_path):
 
     service = DocumentationService(path)
 
-    assert [d.document_id for d in service.list_documents(search_text="resistor")] == [
+    # Vrije zoektekst matcht NIET meer op tool_keys
+    assert service.list_documents(search_text="resistor") == []
+
+    # De filter werkt nog wel
+    assert [d.document_id for d in service.list_documents(tool_key="resistor")] == [
         "panasonic-fm"
     ]
 
@@ -539,7 +546,8 @@ def test_multicontext_filter_excludes_non_matching_document(tmp_path):
     assert DocumentationService(path).list_documents(component_type="RESISTOR") == []
 
 
-def test_search_includes_multicontext_metadata(tmp_path):
+def test_search_does_not_match_multicontext_via_search_field(tmp_path):
+    """Vrije zoektekst matcht niet meer op component/test/methode/instrument/topic."""
     path = tmp_path / "catalog.json"
     documents = _documents()
     documents[0]["component_types"] = ["ALUMINUM_CAPACITOR"]
@@ -558,9 +566,24 @@ def test_search_includes_multicontext_metadata(tmp_path):
         "lcr_st1",
         "frequency-context",
     ):
-        assert [d.document_id for d in service.list_documents(search_text=needle)] == [
-            "panasonic-fm"
-        ]
+        assert service.list_documents(search_text=needle) == [], needle
+
+    # Maar de filters werken wel
+    assert [d.document_id for d in service.list_documents(component_type="ALUMINUM_CAPACITOR")] == [
+        "panasonic-fm"
+    ]
+    assert [d.document_id for d in service.list_documents(test_key="ESR_DIAGNOSTIC")] == [
+        "panasonic-fm"
+    ]
+    assert [d.document_id for d in service.list_documents(measurement_method="ONE_LEG")] == [
+        "panasonic-fm"
+    ]
+    assert [d.document_id for d in service.list_documents(instrument_key="LCR_ST1")] == [
+        "panasonic-fm"
+    ]
+    assert [d.document_id for d in service.list_documents(topic="frequency-context")] == [
+        "panasonic-fm"
+    ]
 
 
 @pytest.mark.parametrize(
@@ -597,3 +620,59 @@ def test_legacy_catalog_without_multicontext_fields_remains_valid(tmp_path):
     assert document.measurement_methods == ()
     assert document.instrument_keys == ()
     assert document.topics == ()
+
+
+# ---------------------------------------------------------------------------
+# Nieuwe zoektaal-tests (v1.7.0)
+# ---------------------------------------------------------------------------
+
+
+def test_search_supports_or_operator(tmp_path):
+    path = tmp_path / "catalog.json"
+    _write_catalog(path, _documents())
+    service = DocumentationService(path)
+
+    ids = {d.document_id for d in service.list_documents(search_text="panasonic|discharge")}
+    assert ids == {"panasonic-fm", "safety-discharge"}
+
+
+def test_search_supports_exclusion(tmp_path):
+    path = tmp_path / "catalog.json"
+    _write_catalog(path, _documents())
+    service = DocumentationService(path)
+
+    ids = {d.document_id for d in service.list_documents(search_text="!panasonic")}
+    assert ids == {"safety-discharge"}
+
+
+def test_search_supports_exact_word(tmp_path):
+    path = tmp_path / "catalog.json"
+    _write_catalog(path, _documents())
+    service = DocumentationService(path)
+
+    # "FM" is een los woord in de titel van panasonic-fm.
+    ids = {d.document_id for d in service.list_documents(search_text="-FM")}
+    assert ids == {"panasonic-fm"}
+
+
+def test_search_supports_wildcard(tmp_path):
+    path = tmp_path / "catalog.json"
+    _write_catalog(path, _documents())
+    service = DocumentationService(path)
+
+    # %discharge matcht aan het einde van "Capacitor discharge"
+    ids = {d.document_id for d in service.list_documents(search_text="%discharge")}
+    assert ids == {"safety-discharge"}
+
+
+def test_search_combines_and_or_and_exclusion(tmp_path):
+    path = tmp_path / "catalog.json"
+    _write_catalog(path, _documents())
+    service = DocumentationService(path)
+
+    # (panasonic OR discharge) AND NOT datasheet
+    ids = {
+        d.document_id
+        for d in service.list_documents(search_text="panasonic|discharge !datasheet")
+    }
+    assert ids == {"safety-discharge"}

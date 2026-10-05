@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/esr_test_screen.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.10.0
-Datum:      2026-10-01
+Versie:     1.11.0
+Datum:      2026-10-05
 Auteur:     Ontwikkelaar
 
 Doel:       Compact ESR-diagnosescherm voor nominale gegevens, meetcontext,
@@ -68,6 +68,11 @@ Wijzigingen:
   v1.6.5 (2026-09-29)  Compact resultaat maakt frequentiemismatch expliciet bij
                        de ESR-factor; vergelijking blijft zichtbaar maar wordt
                        duidelijk als indicatief gemarkeerd.
+  v1.11.0 (2026-10-05) Sneltoetsen toegevoegd (Fase 4F): Esc (terug),
+                       Ctrl+Return (beoordelen), Ctrl+S (opslaan),
+                       Ctrl+W (wissen), Ctrl+I (meetinstructies).
+                       Alleen lokale QShortcuts op de pagina-root met
+                       WidgetWithChildrenShortcut; geen nieuwe i18n-keys.
 
 Versiebeheer:
   - MAJOR: incompatibele architectuur/API-wijziging.
@@ -80,6 +85,7 @@ Versiebeheer:
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -176,6 +182,7 @@ class EsrTestScreen(QWidget):
             else MeasurementPersistenceService()
         )
         self._build_ui()
+        self._install_shortcuts()
         self._apply_saved_defaults()
         self.setMinimumSize(1040, 620)
         self.resize(1120, 690)
@@ -193,6 +200,40 @@ class EsrTestScreen(QWidget):
         widget = item.widget() if item is not None else None
         if isinstance(widget, QLabel):
             widget.setText(text)
+
+    def _install_shortcuts(self) -> None:
+        """Lokale sneltoetsen voor het ESR-scherm (Fase 4F)."""
+        ctx = Qt.ShortcutContext.WidgetWithChildrenShortcut
+
+        self.sc_back = QShortcut(QKeySequence("Esc"), self)
+        self.sc_back.setContext(ctx)
+        self.sc_back.activated.connect(self.back_requested.emit)
+
+        self.sc_assess = QShortcut(QKeySequence("Ctrl+Return"), self)
+        self.sc_assess.setContext(ctx)
+        self.sc_assess.activated.connect(self._on_assess)
+
+        self.sc_save = QShortcut(QKeySequence("Ctrl+S"), self)
+        self.sc_save.setContext(ctx)
+        self.sc_save.activated.connect(self._on_save_shortcut)
+
+        self.sc_clear = QShortcut(QKeySequence("Ctrl+W"), self)
+        self.sc_clear.setContext(ctx)
+        self.sc_clear.activated.connect(self._on_clear)
+
+        self.sc_instructions = QShortcut(QKeySequence("Ctrl+I"), self)
+        self.sc_instructions.setContext(ctx)
+        self.sc_instructions.activated.connect(self._open_recommended_instruction)
+
+    def _open_recommended_instruction(self) -> None:
+        doc_id, _title_key = self._recommended_documentation()
+        self.documentation_requested.emit(doc_id)
+
+    def _on_save_shortcut(self) -> None:
+        """Sneltoets Ctrl+S respecteert de bestaande knopstatus."""
+        if not self.save_btn.isEnabled():
+            return
+        self._on_save_measurement()
 
     def apply_language(self, taal: str) -> None:
         """Vertalingen vernieuwen zonder meet- of assessmenttoestand te wissen."""

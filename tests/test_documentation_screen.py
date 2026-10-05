@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.7.0
-Datum:      2026-10-03
+Versie:     1.8.0
+Datum:      2026-10-05
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor de read-only Documentatiebibliotheek.
@@ -18,6 +18,7 @@ Wijzigingen:
   v1.5.0 (2026-10-03)  Documentinformatie, provenance en bron-URL's getest.
   v1.6.0 (2026-10-03)  Compact provenance-overzicht zonder supports-tags getest.
   v1.7.0 (2026-10-03)  Hoogtebegrenzing van het informatiepaneel vastgelegd.
+  v1.8.0 (2026-10-05)  Help-knop, tooltips en lokale sneltoetsen getest.
 ================================================================================
 """
 
@@ -25,6 +26,8 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import QApplication, QPushButton
 
 import app.gui.documentation_screen as documentation_module
@@ -285,3 +288,141 @@ def test_document_title_falls_back_to_official_title_when_key_missing(monkeypatc
     )
 
     assert screen.table.item(0, 0).text() == "FM Series"
+
+
+# ---------------------------------------------------------------------------
+# Sneltoetsen en help-knop (v1.8.0)
+# ---------------------------------------------------------------------------
+
+
+def _find_shortcuts_for_key(screen: DocumentationScreen, key_sequence: str):
+    """Zoek alle QShortcut-instanties van een scherm op gegeven toetsen."""
+    from PySide6.QtGui import QShortcut
+
+    target = QKeySequence(key_sequence)
+    matches = []
+    for child in screen.findChildren(QShortcut):
+        if child.key() == target:
+            matches.append(child)
+    return matches
+
+
+def test_escape_shortcut_is_installed_with_widget_context():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+
+    shortcuts = _find_shortcuts_for_key(screen, "Esc")
+    assert len(shortcuts) == 1
+    assert shortcuts[0].context() == Qt.ShortcutContext.WidgetWithChildrenShortcut
+
+
+def test_f1_shortcut_is_installed_with_widget_context():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+
+    shortcuts = _find_shortcuts_for_key(screen, "F1")
+    assert len(shortcuts) == 1
+    assert shortcuts[0].context() == Qt.ShortcutContext.WidgetWithChildrenShortcut
+
+
+def test_return_shortcut_is_installed_with_widget_context():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+
+    shortcuts = _find_shortcuts_for_key(screen, "Return")
+    assert len(shortcuts) == 1
+    assert shortcuts[0].context() == Qt.ShortcutContext.WidgetWithChildrenShortcut
+
+
+def test_ctrl_f_shortcut_is_installed_with_widget_context():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+
+    shortcuts = _find_shortcuts_for_key(screen, "Ctrl+F")
+    assert len(shortcuts) == 1
+    assert shortcuts[0].context() == Qt.ShortcutContext.WidgetWithChildrenShortcut
+
+
+def test_ctrl_l_shortcut_is_installed_with_widget_context():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+
+    shortcuts = _find_shortcuts_for_key(screen, "Ctrl+L")
+    assert len(shortcuts) == 1
+    assert shortcuts[0].context() == Qt.ShortcutContext.WidgetWithChildrenShortcut
+
+
+def test_ctrl_o_shortcut_is_installed_with_widget_context():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+
+    shortcuts = _find_shortcuts_for_key(screen, "Ctrl+O")
+    assert len(shortcuts) == 1
+    assert shortcuts[0].context() == Qt.ShortcutContext.WidgetWithChildrenShortcut
+
+
+def test_help_button_exists_with_question_mark():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    assert screen.help_btn.text() == "?"
+
+
+def test_search_edit_has_tooltip_from_i18n():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    assert screen.search_edit.toolTip().startswith("Zoek in documenten.")
+
+
+def test_help_button_has_tooltip_from_i18n():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    assert "Zoektaal" in screen.help_btn.toolTip()
+
+
+def test_open_search_help_dialog_uses_search_help_dialog(monkeypatch):
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+
+    called = {"count": 0}
+
+    def _fake_exec(self):
+        called["count"] += 1
+        return 0
+
+    from app.gui.dialogs.search_help_dialog import SearchHelpDialog
+    from PySide6.QtWidgets import QDialog
+    monkeypatch.setattr(QDialog, "exec", _fake_exec)
+
+    screen._open_search_help_dialog()
+
+    assert called["count"] == 1

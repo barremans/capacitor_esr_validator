@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/history_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.11.0
-Datum:      2026-10-01
+Versie:     1.12.0
+Datum:      2026-10-05
 Auteur:     Bart Bossuyt
 
 Doel:       Compacte centrale read-only weergave van opgeslagen meethistoriek.
@@ -59,6 +59,12 @@ Wijzigingen:
                         zichtbaar geselecteerd-aantal, exporttype-DDL met
                         Overzicht/Detail/Beide, één Exporteren-knop en leesbare
                         timestamp in standaard bestandsnamen.
+  v1.12.0 (2026-10-05) Sneltoetsen toegevoegd (Fase 4F): Esc (terug),
+                        Ctrl+R (verversen), Ctrl+F (focus filterpaneel),
+                        Ctrl+D (details), Ctrl+H (herhaal meting).
+                        Alleen lokale QShortcuts op de pagina-root met
+                        WidgetWithChildrenShortcut; geen wijziging aan data,
+                        filters of export.
 ================================================================================
 """
 
@@ -70,7 +76,7 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QUrl, Qt, Signal
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -140,6 +146,47 @@ class HistoryScreen(QWidget):
         self._has_next_page = False
         self._current_rows: list[dict[str, Any]] = []
         self._build_ui()
+        self._install_shortcuts()
+
+    def _install_shortcuts(self) -> None:
+        """Lokale sneltoetsen voor de historiekpagina (Fase 4F)."""
+        ctx = Qt.ShortcutContext.WidgetWithChildrenShortcut
+
+        self.sc_back = QShortcut(QKeySequence("Esc"), self)
+        self.sc_back.setContext(ctx)
+        self.sc_back.activated.connect(self.back_requested.emit)
+
+        self.sc_refresh = QShortcut(QKeySequence("Ctrl+R"), self)
+        self.sc_refresh.setContext(ctx)
+        self.sc_refresh.activated.connect(self.refresh)
+
+        self.sc_focus_filter = QShortcut(QKeySequence("Ctrl+F"), self)
+        self.sc_focus_filter.setContext(ctx)
+        self.sc_focus_filter.activated.connect(self._focus_filters)
+
+        self.sc_detail = QShortcut(QKeySequence("Ctrl+D"), self)
+        self.sc_detail.setContext(ctx)
+        self.sc_detail.activated.connect(self._on_detail_shortcut)
+
+        self.sc_repeat = QShortcut(QKeySequence("Ctrl+H"), self)
+        self.sc_repeat.setContext(ctx)
+        self.sc_repeat.activated.connect(self._on_repeat_shortcut)
+
+    def _focus_filters(self) -> None:
+        """Open filterpaneel en zet focus op het eerste filterveld."""
+        self.filter_group.setChecked(True)
+        self.filter_body.setVisible(True)
+        self.filter_tool.setFocus()
+
+    def _on_detail_shortcut(self) -> None:
+        if not self.detail_btn.isEnabled():
+            return
+        self._show_selected_detail()
+
+    def _on_repeat_shortcut(self) -> None:
+        if not self.repeat_btn.isEnabled():
+            return
+        self._repeat_selected_measurement()
 
     def _t(self, sleutel: str, **kwargs) -> str:
         return vertaal(sleutel, taal=self.taal, **kwargs)
