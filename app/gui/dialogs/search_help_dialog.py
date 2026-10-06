@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/dialogs/search_help_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-05
+Versie:     1.0.1
+Datum:      2026-10-06
 Auteur:     Bart Bossuyt
 
 Doel:       Modale read-only help-dialoog voor de documentatie-zoektaal.
@@ -17,6 +17,11 @@ Doel:       Modale read-only help-dialoog voor de documentatie-zoektaal.
 
 Wijzigingen:
   v1.0.0 (2026-10-05)  Eerste versie met i18n-gestuurde help-inhoud.
+  v1.0.1 (2026-10-06)  Fase 4I.1.a: extra sectie "Let op bij uitsluiten (!)"
+                        tussen Operatoren en Voorbeelden. Nieuwe i18n-keys
+                        documentatie.help.uitsluiten_titel en
+                        documentatie.help.uitsluiten_tekst. Geen wijziging
+                        aan bestaande keys of aan de zoeklogica.
 ================================================================================
 """
 
@@ -115,6 +120,8 @@ class SearchHelpDialog(QDialog):
             "<p>{basis_tekst}</p>"
             "<h2>{operatoren_titel}</h2>"
             "{operatoren}"
+            "<h2>{uitsluiten_titel}</h2>"
+            "<p>{uitsluiten_tekst}</p>"
             "<h2>{voorbeelden_titel}</h2>"
             "{voorbeelden}"
             "<h2>{tips_titel}</h2>"
@@ -128,6 +135,8 @@ class SearchHelpDialog(QDialog):
             basis_tekst=t("documentatie.help.basis_tekst"),
             operatoren_titel=t("documentatie.help.operatoren_titel"),
             operatoren=t("documentatie.help.operatoren"),
+            uitsluiten_titel=t("documentatie.help.uitsluiten_titel"),
+            uitsluiten_tekst=t("documentatie.help.uitsluiten_tekst"),
             voorbeelden_titel=t("documentatie.help.voorbeelden_titel"),
             voorbeelden=t("documentatie.help.voorbeelden"),
             tips_titel=t("documentatie.help.tips_titel"),

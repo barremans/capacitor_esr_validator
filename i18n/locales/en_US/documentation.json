@@ -68,6 +68,8 @@
       "basis_tekst": "Type one or more words. All words must be present (AND). Search is case-insensitive. Leading and trailing spaces are ignored.",
       "operatoren_titel": "Operators",
       "operatoren": "<table cellspacing='0' cellpadding='4'><tr><td><b>space</b></td><td>AND — all terms must match</td></tr><tr><td><b>,</b></td><td>AND — same as space</td></tr><tr><td><b>|</b></td><td>OR — at least one term matches</td></tr><tr><td><b>-</b></td><td>exact word — term must appear as a standalone word</td></tr><tr><td><b>!</b></td><td>exclude — term must not appear</td></tr><tr><td><b>%</b></td><td>wildcard — one or more characters</td></tr></table>",
+      "uitsluiten_titel": "Note on exclusion (!)",
+      "uitsluiten_tekst": "The exclamation mark (<code>!</code>) excludes any word that contains the search text. So <code>!esr</code> also excludes <code>mesr</code>. If you want to exclude only the standalone word, that is not yet possible in this version.",
       "voorbeelden_titel": "Examples",
       "voorbeelden": "<table cellspacing='0' cellpadding='4'><tr><td><code>esr</code></td><td>documents with 'esr' in title or metadata</td></tr><tr><td><code>esr meter</code></td><td>'esr' AND 'meter'</td></tr><tr><td><code>esr,meter</code></td><td>same as above</td></tr><tr><td><code>esr|lcr</code></td><td>'esr' OR 'lcr'</td></tr><tr><td><code>%meter</code></td><td>ends with 'meter'</td></tr><tr><td><code>!lcr</code></td><td>without 'lcr'</td></tr><tr><td><code>esr !lcr</code></td><td>'esr' but not 'lcr'</td></tr><tr><td><code>-esr</code></td><td>'esr' as a standalone word</td></tr></table>",
       "tips_titel": "Tips",

@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/documentation/search_query.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-04
+Versie:     1.0.1
+Datum:      2026-10-06
 Auteur:     Bart Bossuyt
 
 Doel:       Kleine, GUI-onafhankelijke zoektaal voor de documentatiebibliotheek.
@@ -23,6 +23,13 @@ Doel:       Kleine, GUI-onafhankelijke zoektaal voor de documentatiebibliotheek.
 
 Wijzigingen:
   v1.0.0 (2026-10-04)  Eerste versie met parsen en evalueren van zoekquery's.
+  v1.0.1 (2026-10-06)  Fase 4I.1.b: de combinatie van prefix '-' (exact-woord)
+                        met wildcard '%' (bv. '-%meter') wordt stil genegeerd
+                        als lege term. Reden: deze combinatie heeft geen
+                        eenduidige, voorspelbare betekenis binnen de huidige
+                        AST. De beperking geldt alleen voor '-' + '%'; het
+                        prefix '!' met wildcard ('!%meter') blijft ongewijzigd
+                        werken als substring-uitsluiting met wildcard.
 ================================================================================
 """
 
@@ -73,7 +80,8 @@ def parse_search_query(text: str | None) -> SearchQuery:
     """Parseer een zoekterm naar een immutable SearchQuery.
 
     Lege of whitespace-only invoer levert een lege query op die alles matcht.
-    Lege termen binnen een clause worden genegeerd.
+    Lege termen binnen een clause worden genegeerd. Een term die met '-' begint
+    én '%' bevat, wordt eveneens genegeerd (Fase 4I.1.b).
     """
     raw = text if isinstance(text, str) else ""
     stripped = raw.strip()
@@ -150,6 +158,14 @@ def _parse_term(raw_term: str) -> SearchTerm | None:
         text = text[1:]
 
     if not text:
+        return None
+
+    # Fase 4I.1.b: '-' (exact-woord) gecombineerd met '%' (wildcard) heeft
+    # geen eenduidige, voorspelbare betekenis. Zulke termen worden stil
+    # genegeerd, net als een lege term. Het prefix '!' blijft wél werken
+    # met een wildcard: '!%meter' is geldig (substring-uitsluiting met
+    # wildcard).
+    if exact_word and "%" in text:
         return None
 
     wildcard = "%" in text

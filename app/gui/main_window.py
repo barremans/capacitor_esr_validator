@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.8.2
-Datum:      2026-10-05
+Versie:     2.8.3
+Datum:      2026-10-06
 Auteur:     Bart Bossuyt
 
 Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
@@ -66,6 +66,11 @@ Wijzigingen:
                         De venster-X (closeEvent) blijft ongewijzigd: op de
                         hub sluit die nog steeds direct. Nieuwe i18n-keys
                         dialog.afsluiten_titel en dialog.afsluiten_tekst.
+  v2.8.3 (2026-10-06)  Fase 4H: Help splitsen per taal. _show_help() lost nu
+                        via app/helpers/help_paths.help_pad_voor_taal() het
+                        juiste bestand op (docs/help/<taal>.md) met fallback
+                        naar nl_NL en daarna docs/help.md. Geen nieuwe i18n-
+                        keys. Geen wijziging aan menu, shortcuts of dialoog.
 ================================================================================
 """
 
@@ -81,6 +86,7 @@ from PySide6.QtGui import QAction, QKeySequence, QShortcut, QIcon, QPixmap
 from PySide6.QtCore import Qt, QSize
 
 from app.helpers.i18n import beschikbare_taalinfos, vertaal
+from app.helpers.help_paths import help_pad_voor_taal
 from app.config.settings import laad_instellingen, sla_instellingen_op, AppInstellingen
 from app.gui.dialogs.settings_dialog import SettingsDialog
 from app.gui.dialogs.search_help_dialog import SearchHelpDialog
@@ -546,7 +552,14 @@ class ToolHubWindow(QMainWindow):
             self._apply_language()
 
     def _show_help(self):
-        self._show_markdown_dialog(self._t("dialog.help_titel"), "docs/help.md")
+        """Open de algemene help in de taal van de gebruiker (Fase 4H).
+
+        De padresolutie gebeurt in app/helpers/help_paths.py en valt terug
+        op nl_NL, daarna op docs/help.md. Ontbreekt alles, dan toont
+        _show_markdown_dialog() de bestaande "Bestand niet gevonden"-melding.
+        """
+        pad = help_pad_voor_taal(self.taal)
+        self._show_markdown_dialog(self._t("dialog.help_titel"), str(pad))
 
     def _show_search_help(self):
         """Open de zoektaal-help-dialoog (Fase 4E.4)."""

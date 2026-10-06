@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_search_query.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-04
+Versie:     1.0.1
+Datum:      2026-10-06
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor de GUI-onafhankelijke zoektaal.
@@ -16,9 +16,14 @@ Doel:       Regressietests voor de GUI-onafhankelijke zoektaal.
               - ',' en spatie = AND
               - '|' = OR
               - lege query = alles matcht
+              - combinatie '-' + '%' wordt genegeerd (Fase 4I.1.b)
 
 Wijzigingen:
   v1.0.0 (2026-10-04)  Eerste versie.
+  v1.0.1 (2026-10-06)  Fase 4I.1.b: vier tests toegevoegd voor het stil
+                        negeren van termen met prefix '-' én wildcard '%'.
+                        Bewijst dat '!%...' blijft werken en dat de rest
+                        van de query onaangeroerd blijft.
 ================================================================================
 """
 
@@ -178,6 +183,43 @@ def test_parse_leading_comma_ignored():
     group = query.clauses[0].or_groups[0]
     assert len(group.terms) == 1
     assert group.terms[0].text == "esr"
+
+
+# ---------------------------------------------------------------------------
+# Parsing — '-' gecombineerd met '%' wordt genegeerd (Fase 4I.1.b)
+# ---------------------------------------------------------------------------
+
+
+def test_parse_minus_with_wildcard_is_dropped():
+    """'-%meter' heeft geen eenduidige betekenis en wordt stil genegeerd."""
+    query = parse_search_query("-%meter")
+    assert query.is_empty() is True
+
+
+def test_parse_minus_with_wildcard_inside_is_dropped():
+    """'-me%ter' wordt om dezelfde reden genegeerd."""
+    query = parse_search_query("-me%ter")
+    assert query.is_empty() is True
+
+
+def test_parse_minus_with_wildcard_between_valid_terms():
+    """'esr,-%meter' behoudt 'esr', negeert '-%meter'."""
+    query = parse_search_query("esr,-%meter")
+    assert query.is_empty() is False
+    group = query.clauses[0].or_groups[0]
+    assert len(group.terms) == 1
+    assert group.terms[0].text == "esr"
+
+
+def test_parse_bang_with_wildcard_still_works():
+    """'!%meter' blijft geldig: substring-uitsluiting met wildcard."""
+    query = parse_search_query("!%meter")
+    assert query.is_empty() is False
+    term = query.clauses[0].or_groups[0].terms[0]
+    assert term.text == "%meter"
+    assert term.excluded is True
+    assert term.exact_word is False
+    assert term.wildcard is True
 
 
 # ---------------------------------------------------------------------------

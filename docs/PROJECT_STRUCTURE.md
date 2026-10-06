@@ -106,14 +106,23 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Versie: 1.4.0
         # Datum: 2026-10-02
         ```
+      - 📄 **/app/documentation/search_query.py**
+        ```text
+        # Bestandsnaam: app/documentation/search_query.py
+        # Beschrijving: Kleine, GUI-onafhankelijke zoektaal voor de documentatiebibliotheek.
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.1
+        # Datum: 2026-10-06
+        ```
       - 📄 **/app/documentation/service.py**
         ```text
         # Bestandsnaam: app/documentation/service.py
         # Beschrijving: Read-only service voor de centrale documentatiebibliotheek.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.6.0
-        # Datum: 2026-10-03
+        # Versie: 1.7.2
+        # Datum: 2026-10-05
         ```
     - 📁 **gui/**
       - 📁 **dialogs/**
@@ -124,6 +133,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Auteur: GEEN AUTEUR
           # Applicatie: GEEN APPLICATIE
           # Versie: V1.0.0
+          ```
+        - 📄 **/app/gui/dialogs/search_help_dialog.py**
+          ```text
+          # Bestandsnaam: app/gui/dialogs/search_help_dialog.py
+          # Beschrijving: Modale read-only help-dialoog voor de documentatie-zoektaal.
+          # Auteur: Bart Bossuyt
+          # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+          # Versie: 1.0.1
+          # Datum: 2026-10-06
           ```
         - 📄 **/app/gui/dialogs/settings_dialog.py**
           ```text
@@ -147,8 +165,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Read-only scherm voor de centrale documentatiebibliotheek.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.8.0
-        # Datum: 2026-10-03
+        # Versie: 1.9.1
+        # Datum: 2026-10-05
         ```
       - 📄 **/app/gui/esr_test_screen.py**
         ```text
@@ -156,8 +174,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Compact ESR-diagnosescherm voor nominale gegevens, meetcontext,
         # Auteur: Ontwikkelaar
         # Applicatie: Condensator- en ESR-validator (Windows)
-        # Versie: 1.10.0
-        # Datum: 2026-10-01
+        # Versie: 1.11.0
+        # Datum: 2026-10-05
         ```
       - 📄 **/app/gui/history_screen.py**
         ```text
@@ -165,8 +183,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Compacte centrale read-only weergave van opgeslagen meethistoriek.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.11.0
-        # Datum: 2026-10-01
+        # Versie: 1.12.0
+        # Datum: 2026-10-05
         ```
       - 📄 **/app/gui/main_window.py**
         ```text
@@ -174,8 +192,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Hoofdvenster van de Tool Hub met één-venster-navigatie.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 2.7.0
-        # Datum: 2026-10-02
+        # Versie: 2.8.3
+        # Datum: 2026-10-06
         ```
       - 📄 **/app/gui/styles.py**
         ```text
@@ -193,6 +211,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Auteur: GEEN AUTEUR
         # Applicatie: GEEN APPLICATIE
         # Versie: V1.0.0
+        ```
+      - 📄 **/app/helpers/help_paths.py**
+        ```text
+        # Bestandsnaam: app/helpers/help_paths.py
+        # Beschrijving: GUI-onafhankelijke resolutie van het juiste help-markdownbestand
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.0
+        # Datum: 2026-10-06
         ```
       - 📄 **/app/helpers/history_csv_export.py**
         ```text
@@ -384,13 +411,18 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       - 📄 **/assets/icons/.gitkeep**
       - 📄 **/assets/icons/ESR.png**
   - 📁 **docs/**
+    - 📁 **help/**
+      - 📄 **/docs/help/en_US.md**
+      - 📄 **/docs/help/nl_NL.md**
     - 📄 **/docs/changelog.md**
     - 📄 **/docs/context.md**
     - 📄 **/docs/data_model.md**
+    - 📄 **/docs/documentation_catalog_architecture.md**
     - 📄 **/docs/future_tools.md**
     - 📄 **/docs/help.md**
     - 📄 **/docs/PROJECT_STRUCTURE.md**
     - 📄 **/docs/python_header_standard.md**
+    - 📄 **/docs/search_syntax.md**
     - 📄 **/docs/testgevallen_analyse.md**
     - 📄 **/docs/validation_rules.md**
   - 📁 **i18n/**
@@ -414,6 +446,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
   - 📁 **installer/**
     - 📄 **/installer/.gitkeep**
   - 📁 **tests/**
+    - 📁 **tests/**
     - 📄 **/tests/__init__.py**
       ```text
       # Beschrijving: Package-init voor de automatische tests (pytest), gespiegeld aan
@@ -430,14 +463,23 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.3.0
       # Datum: 2026-09-26
       ```
+    - 📄 **/tests/test_documentation_catalog_product.py**
+      ```text
+      # Bestandsnaam: tests/test_documentation_catalog_product.py
+      # Beschrijving: Regressietests op de echte productiecatalogus
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.1.2
+      # Datum: 2026-10-05
+      ```
     - 📄 **/tests/test_documentation_context_open.py**
       ```text
-      # Bestandsnaam: tests/test_documentation_context_open.py
-      # Beschrijving: Regressietest voor rechtstreeks openen op document-ID.
+      # Bestandsnaam: tests/test_documentation_catalog_product.py
+      # Beschrijving: Regressietests op de echte productiecatalogus
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
       # Versie: 1.0.0
-      # Datum: 2026-10-03
+      # Datum: 2026-10-04
       ```
     - 📄 **/tests/test_documentation_models.py**
       ```text
@@ -454,8 +496,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: GUI-regressietests voor de read-only Documentatiebibliotheek.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.7.0
-      # Datum: 2026-10-03
+      # Versie: 1.8.0
+      # Datum: 2026-10-05
       ```
     - 📄 **/tests/test_documentation_service.py**
       ```text
@@ -463,8 +505,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor read-only catalogusladen, validatie, zoeken en
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.6.1
-      # Datum: 2026-10-03
+      # Versie: 1.7.0
+      # Datum: 2026-10-04
       ```
     - 📄 **/tests/test_esr_context_documentation.py**
       ```text
@@ -501,6 +543,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: Condensator- en ESR-validator (Windows)
       # Versie: 1.0.0
       # Datum: 2026-09-26
+      ```
+    - 📄 **/tests/test_help_paths.py**
+      ```text
+      # Bestandsnaam: tests/test_help_paths.py
+      # Beschrijving: Regressietests voor GUI-onafhankelijke help-padresolutie
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-06
       ```
     - 📄 **/tests/test_history_csv_export.py**
       ```text
@@ -673,6 +724,24 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.0.1
       # Datum: 2026-10-03
       ```
+    - 📄 **/tests/test_main_window_help_dialog.py**
+      ```text
+      # Bestandsnaam: tests/test_main_window_help_dialog.py
+      # Beschrijving: Regressietests voor de Help-dialoog (F1 / menu Help) die sinds
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.1
+      # Datum: 2026-10-06
+      ```
+    - 📄 **/tests/test_main_window_help_menu.py**
+      ```text
+      # Bestandsnaam: tests/test_main_window_help_menu.py
+      # Beschrijving: Regressietests voor het Help-menu-item "Documentatie zoeken…"
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.2
+      # Datum: 2026-10-05
+      ```
     - 📄 **/tests/test_measurement_methods.py**
       ```text
       # Bestandsnaam: tests/test_measurement_methods.py
@@ -709,6 +778,24 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.0.0
       # Datum: 2026-10-01
       ```
+    - 📄 **/tests/test_search_help_dialog.py**
+      ```text
+      # Bestandsnaam: tests/test_search_help_dialog.py
+      # Beschrijving: Regressietests voor de read-only help-dialoog van de zoektaal.
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.1
+      # Datum: 2026-10-06
+      ```
+    - 📄 **/tests/test_search_query.py**
+      ```text
+      # Bestandsnaam: tests/test_search_query.py
+      # Beschrijving: Regressietests voor de GUI-onafhankelijke zoektaal.
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.1
+      # Datum: 2026-10-06
+      ```
     - 📄 **/tests/test_settings.py**
       ```text
       # Bestandsnaam: tests/test_settings.py
@@ -735,6 +822,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Validator (Windows)
       # Versie: 1.0.1
       # Datum: 2026-09-27
+      ```
+    - 📄 **/tests/test_shortcuts.py**
+      ```text
+      # Bestandsnaam: tests/test_shortcuts.py
+      # Beschrijving: Regressietests voor de lokale sneltoetsen van Fase 4F in
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.2
+      # Datum: 2026-10-05
       ```
     - 📄 **/tests/test_storage_database.py**
       ```text

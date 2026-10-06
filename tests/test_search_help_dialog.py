@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_search_help_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-05
+Versie:     1.0.1
+Datum:      2026-10-06
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor de read-only help-dialoog van de zoektaal.
@@ -12,12 +12,19 @@ Doel:       Regressietests voor de read-only help-dialoog van de zoektaal.
               - de dialoog zonder fout opent
               - de i18n-keys correct geresolved worden (NL en EN)
               - alle help-secties in de HTML terechtkomen
+              - de nieuwe sectie "Let op bij uitsluiten (!)" aanwezig is
+                in NL en EN (Fase 4I.1.a)
               - de sluitknop de vertaalde tekst toont
               - taalwissel live doorwerkt
               - de dialoog read-only is
 
 Wijzigingen:
   v1.0.0 (2026-10-05)  Eerste versie.
+  v1.0.1 (2026-10-06)  Fase 4I.1.a: twee tests toegevoegd voor de nieuwe
+                        sectie "Let op bij uitsluiten (!)" in NL en EN.
+                        Bestaande test_html_contains_all_sections_* uitgebreid
+                        met de nieuwe sectietitel. Geen wijziging aan de
+                        bestaande testlogica.
 ================================================================================
 """
 
@@ -76,6 +83,7 @@ def test_html_contains_all_sections_nl():
     assert "Documenten zoeken" in html
     assert "Basiszoekopdracht" in html
     assert "Operatoren" in html
+    assert "Let op bij uitsluiten" in html
     assert "Voorbeelden" in html
     assert "Tips" in html
     assert "Verschil met filters" in html
@@ -89,6 +97,7 @@ def test_html_contains_all_sections_en():
     assert "Search documents" in html
     assert "Basic search" in html
     assert "Operators" in html
+    assert "Note on exclusion" in html
     assert "Examples" in html
     assert "Tips" in html
     assert "Difference with filters" in html
@@ -113,6 +122,56 @@ def test_html_contains_operators_table_content():
     # De operator-tabel bevat de specifieke tekens
     for teken in ("spatie", "|", "-", "!", "%"):
         assert teken in html, f"operator '{teken}' ontbreekt"
+
+
+# ---------------------------------------------------------------------------
+# Fase 4I.1.a — uitsluiten-verduidelijking
+# ---------------------------------------------------------------------------
+
+
+def test_html_contains_uitsluiten_sectie_nl():
+    """De nieuwe sectie over '!' moet in de NL-uitleg staan."""
+    _app()
+    dialog = SearchHelpDialog(taal="nl_NL")
+    html = dialog.browser.toHtml()
+
+    assert "Let op bij uitsluiten" in html
+    # De kern van de boodschap: '!' sluit elk woord uit dat de tekst bevat.
+    assert "elk woord" in html
+    # Expliciet voorbeeld met mesr om verwarring te voorkomen.
+    assert "mesr" in html
+    # Expliciete beperking: exact-woord uitsluiten kan nog niet.
+    assert "nog niet mogelijk" in html
+
+
+def test_html_contains_uitsluiten_sectie_en():
+    """De nieuwe sectie over '!' moet in de EN-uitleg staan."""
+    _app()
+    dialog = SearchHelpDialog(taal="en_US")
+    html = dialog.browser.toHtml()
+
+    assert "Note on exclusion" in html
+    assert "any word" in html
+    assert "mesr" in html
+    assert "not yet possible" in html
+
+
+def test_uitsluiten_sectie_vertaalt_mee_bij_live_switch():
+    """Taalwissel moet ook de nieuwe sectie meenemen."""
+    _app()
+    dialog = SearchHelpDialog(taal="nl_NL")
+    assert "Let op bij uitsluiten" in dialog.browser.toHtml()
+
+    dialog.apply_language("en_US")
+
+    html = dialog.browser.toHtml()
+    assert "Note on exclusion" in html
+    assert "Let op bij uitsluiten" not in html
+
+
+# ---------------------------------------------------------------------------
+# Bestaande tests — taalwissel en read-only
+# ---------------------------------------------------------------------------
 
 
 def test_language_switch_updates_content_live():
