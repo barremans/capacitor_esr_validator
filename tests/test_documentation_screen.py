@@ -2,23 +2,29 @@
 ================================================================================
 Module:     tests/test_documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.8.0
-Datum:      2026-10-05
+Versie:     1.9.2
+Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor de read-only Documentatiebibliotheek.
 
 Wijzigingen:
-  v1.0.0 (2026-10-02)  Eerste schermtests voor lege toestand, filters en taalwissel.
-  v1.1.0 (2026-10-02)  Openknop/selectie en read-only documentdialoog getest.
-  v1.2.0 (2026-10-03)  Vertaalbare documenttitels en live taalwissel getest.
-  v1.3.0 (2026-10-03)  Openen van interne Markdown geeft de actieve taal door
-                        aan de documentatieservice.
-  v1.4.0 (2026-10-03)  Viewer-UX, selectiebehoud en vertaalde sluitknop getest.
-  v1.5.0 (2026-10-03)  Documentinformatie, provenance en bron-URL's getest.
-  v1.6.0 (2026-10-03)  Compact provenance-overzicht zonder supports-tags getest.
-  v1.7.0 (2026-10-03)  Hoogtebegrenzing van het informatiepaneel vastgelegd.
-  v1.8.0 (2026-10-05)  Help-knop, tooltips en lokale sneltoetsen getest.
+  v1.0.0 (2026-10-02)  Eerste schermtests.
+  v1.1.0 (2026-10-02)  Openknop/selectie en read-only documentdialoog.
+  v1.2.0 (2026-10-03)  Vertaalbare documenttitels.
+  v1.3.0 (2026-10-03)  Openen van Markdown geeft taal door.
+  v1.4.0 (2026-10-03)  Viewer-UX, selectiebehoud, sluitknop.
+  v1.5.0 (2026-10-03)  Documentinformatie, provenance, bron-URL's.
+  v1.6.0 (2026-10-03)  Compact provenance-overzicht.
+  v1.7.0 (2026-10-03)  Hoogtebegrenzing van informatiepaneel.
+  v1.8.0 (2026-10-05)  Help-knop, tooltips en lokale sneltoetsen.
+  v1.9.0 (2026-10-07)  Fase 5D'.4: dispatch-tests voor source_kind.
+  v1.9.1 (2026-10-07)  URL-bron opent altijd de live URL in de browser.
+  v1.9.2 (2026-10-07)  Dubbele test verwijderd: test_url_document_zonder_
+                        snapshot_opent_live_url was inhoudelijk gelijk aan
+                        test_url_document_opent_altijd_live_url en
+                        monkeypatchte default_snapshots_dir die sinds
+                        v2.1.1 niet meer in de module zit.
 ================================================================================
 """
 
@@ -62,7 +68,7 @@ class _FakeDocumentationService:
             title_key="documentatie.document_titels.fm_series",
             category=DocumentCategory.DATASHEET,
             source_type=DocumentSourceType.FILE,
-            source_path="docs/fm.pdf",
+            source_path="docs/fm.md",
             source_url="https://example.com/fm",
             tool_key="ESR_CAPACITOR",
             manufacturer="Panasonic",
@@ -98,6 +104,61 @@ class _EmptyDocumentationService:
         return []
 
 
+class _PdfDocumentationService:
+    """Levert een geïmporteerd PDF-document."""
+
+    def get_document(self, document_id):
+        return DocumentMetadata(
+            document_id="doc-pdf",
+            title="Geïmporteerde PDF",
+            title_key=None,
+            category=DocumentCategory.DATASHEET,
+            source_type=DocumentSourceType.FILE,
+            source_path="sources/doc-pdf.pdf",
+            source_url=None,
+            tool_key=None,
+            manufacturer=None,
+            series=None,
+            part_number=None,
+            document_version=None,
+            document_date=None,
+            notes=None,
+        )
+
+    def list_documents(self, *, search_text=None, category=None, tool_key=None):
+        return [self.get_document("doc-pdf")]
+
+    def read_document_text(self, document_id, *, language=None):
+        raise AssertionError(
+            "PDF mag niet via read_document_text gelezen worden."
+        )
+
+
+class _UrlDocumentationService:
+    """Levert een geïmporteerde URL-bron."""
+
+    def get_document(self, document_id):
+        return DocumentMetadata(
+            document_id="doc-url",
+            title="Geïmporteerde URL",
+            title_key=None,
+            category=DocumentCategory.DATASHEET,
+            source_type=DocumentSourceType.URL,
+            source_path=None,
+            source_url="https://example.com/bron",
+            tool_key=None,
+            manufacturer=None,
+            series=None,
+            part_number=None,
+            document_version=None,
+            document_date=None,
+            notes=None,
+        )
+
+    def list_documents(self, *, search_text=None, category=None, tool_key=None):
+        return [self.get_document("doc-url")]
+
+
 def _fake_translate(key: str, taal: str = "nl_NL", **kwargs) -> str:
     titles = {
         ("nl_NL", "documentatie.document_titels.fm_series"): "FM-serie",
@@ -123,6 +184,10 @@ def _fake_translate(key: str, taal: str = "nl_NL", **kwargs) -> str:
         value += ":" + ",".join(f"{k}={v}" for k, v in sorted(kwargs.items()))
     return value
 
+
+# ============================================================================
+# Basis
+# ============================================================================
 
 def test_empty_library_is_safe():
     _app()
@@ -290,13 +355,11 @@ def test_document_title_falls_back_to_official_title_when_key_missing(monkeypatc
     assert screen.table.item(0, 0).text() == "FM Series"
 
 
-# ---------------------------------------------------------------------------
-# Sneltoetsen en help-knop (v1.8.0)
-# ---------------------------------------------------------------------------
-
+# ============================================================================
+# Sneltoetsen en help-knop
+# ============================================================================
 
 def _find_shortcuts_for_key(screen: DocumentationScreen, key_sequence: str):
-    """Zoek alle QShortcut-instanties van een scherm op gegeven toetsen."""
     from PySide6.QtGui import QShortcut
 
     target = QKeySequence(key_sequence)
@@ -419,10 +482,182 @@ def test_open_search_help_dialog_uses_search_help_dialog(monkeypatch):
         called["count"] += 1
         return 0
 
-    from app.gui.dialogs.search_help_dialog import SearchHelpDialog
     from PySide6.QtWidgets import QDialog
     monkeypatch.setattr(QDialog, "exec", _fake_exec)
 
     screen._open_search_help_dialog()
 
     assert called["count"] == 1
+
+
+# ============================================================================
+# v1.9.0 — dispatch op basis van source_kind
+# ============================================================================
+
+def test_pdf_document_wordt_extern_geopend(tmp_path, monkeypatch):
+    """PDF moet via QDesktopServices geopend worden, niet via de interne viewer."""
+    _app()
+    sources_root = tmp_path / "sources"
+    sources_root.mkdir()
+    (sources_root / "doc-pdf.pdf").write_bytes(b"%PDF-1.4 fake")
+
+    monkeypatch.setattr(
+        documentation_module, "default_sources_dir", lambda: sources_root
+    )
+
+    geopend = {"pad": None}
+
+    def _fake_open(url):
+        geopend["pad"] = url.toLocalFile() or url.toString()
+        return True
+
+    monkeypatch.setattr(
+        documentation_module.QDesktopServices, "openUrl", _fake_open
+    )
+
+    from PySide6.QtWidgets import QDialog
+    monkeypatch.setattr(
+        QDialog, "exec", lambda self: (_ for _ in ()).throw(
+            AssertionError("Interne viewer mag niet voor PDF geopend worden.")
+        )
+    )
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_PdfDocumentationService(),
+    )
+
+    result = screen.open_document_by_id("doc-pdf")
+
+    assert result is True
+    assert geopend["pad"] is not None
+    assert geopend["pad"].endswith("doc-pdf.pdf")
+
+
+def test_pdf_zonder_lokaal_bestand_geeft_statusmelding(tmp_path, monkeypatch):
+    """Als het PDF-bestand ontbreekt, tonen we een statusmelding."""
+    _app()
+    sources_root = tmp_path / "sources"
+    sources_root.mkdir()  # leeg
+
+    monkeypatch.setattr(
+        documentation_module, "default_sources_dir", lambda: sources_root
+    )
+
+    geopend = {"count": 0}
+    monkeypatch.setattr(
+        documentation_module.QDesktopServices,
+        "openUrl",
+        lambda url: geopend.__setitem__("count", geopend["count"] + 1) or True,
+    )
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_PdfDocumentationService(),
+    )
+
+    result = screen.open_document_by_id("doc-pdf")
+
+    assert result is False
+    assert geopend["count"] == 0
+    assert "kon niet" in screen.status_label.text().lower()
+
+
+def test_url_document_opent_altijd_live_url(tmp_path, monkeypatch):
+    """URL-bron: ook als er een snapshot bestaat, openen we de live URL."""
+    _app()
+    snapshots_root = tmp_path / "snapshots"
+    snapshots_root.mkdir()
+    (snapshots_root / "doc-url.html").write_text(
+        "<html>snapshot</html>", encoding="utf-8"
+    )
+
+    geopend = {"url": None}
+
+    def _fake_open(url):
+        geopend["url"] = url.toString()
+        return True
+
+    monkeypatch.setattr(
+        documentation_module.QDesktopServices, "openUrl", _fake_open
+    )
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_UrlDocumentationService(),
+    )
+
+    result = screen.open_document_by_id("doc-url")
+
+    assert result is True
+    assert geopend["url"] == "https://example.com/bron"
+
+
+def test_markdown_document_blijft_interne_viewer(monkeypatch):
+    """Markdown wordt nog steeds via de interne viewer getoond."""
+    _app()
+    service = _FakeDocumentationService()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=service,
+    )
+
+    executed = {"count": 0}
+
+    def _fake_exec(self):
+        executed["count"] += 1
+        return 0
+
+    from PySide6.QtWidgets import QDialog
+    monkeypatch.setattr(QDialog, "exec", _fake_exec)
+
+    result = screen.open_document_by_id("doc-1")
+
+    assert result is True
+    assert executed["count"] == 1
+    assert service.last_read_language == "nl_NL"
+
+
+def test_onbekend_bestandstype_geeft_statusmelding(monkeypatch):
+    """Onbekende extensie: statusmelding, geen externe open."""
+    _app()
+    document = DocumentMetadata(
+        document_id="doc-unknown",
+        title="Onbekend",
+        title_key=None,
+        category=DocumentCategory.DATASHEET,
+        source_type=DocumentSourceType.FILE,
+        source_path="sources/doc.rar",
+        source_url=None,
+        tool_key=None,
+        manufacturer=None,
+        series=None,
+        part_number=None,
+        document_version=None,
+        document_date=None,
+        notes=None,
+    )
+
+    class _Service:
+        def get_document(self, document_id):
+            return document
+
+        def list_documents(self, **kwargs):
+            return [document]
+
+    geopend = {"count": 0}
+    monkeypatch.setattr(
+        documentation_module.QDesktopServices,
+        "openUrl",
+        lambda url: geopend.__setitem__("count", geopend["count"] + 1) or True,
+    )
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_Service(),
+    )
+    result = screen.open_document_by_id("doc-unknown")
+
+    assert result is False
+    assert geopend["count"] == 0
+    assert screen.status_label.text() != ""

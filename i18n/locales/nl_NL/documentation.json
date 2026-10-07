@@ -17,6 +17,8 @@
     "leeg": "Geen documenten gevonden.",
     "aantal": "{aantal} document(en) gevonden.",
     "fout": "Documentatie kon niet worden geladen: {bericht}",
+    "onbekend_bestandstype": "Dit bestandstype kan niet worden geopend.",
+    "bestand_niet_gevonden": "Het bronbestand kon niet worden gevonden.",
     "kolom": {
       "titel": "Titel",
       "categorie": "Categorie",

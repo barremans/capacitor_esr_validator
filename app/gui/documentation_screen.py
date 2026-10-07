@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.0.0
-Datum:      2026-10-06
+Versie:     2.1.1
+Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only scherm voor de centrale documentatiebibliotheek.
@@ -20,28 +20,18 @@ Wijzigingen:
                         title_key; officiële brontitels blijven als fallback.
   v1.3.0 (2026-10-03)  Interne Markdown-inhoud wordt geopend in de actieve
                         app-taal met service-fallback naar nl_NL.
-  v1.4.0 (2026-10-03)  Viewer-UX verbeterd: bredere documenttabel, rijkere
-                        Markdown-weergave, vertaalde sluitknop, scrollstart
-                        bovenaan en selectiebehoud na refresh/taalwissel.
-  v1.5.0 (2026-10-03)  Documentinformatie en provenance zichtbaar gemaakt in
-                        de read-only viewer, inclusief klikbare bron-URL's.
-  v1.6.0 (2026-10-03)  Bovenste provenance-overzicht compacter gemaakt;
-                        supports blijven in de Markdown-bronverantwoording.
-  v1.7.0 (2026-10-03)  Hoogte van het informatiepaneel verfijnd zodat de
-                        eerste provenance-regel niet wordt afgesneden.
-  v1.8.0 (2026-10-03)  Publieke open_document_by_id()-API toegevoegd voor
-                        contextueel openen vanuit diagnosetools.
-  v1.9.0 (2026-10-05)  Help-knop en F1 openen de zoektaal-help-dialoog;
-                        tooltip op het zoekveld legt de operatoren kort uit.
-  v1.9.1 (2026-10-05)  Esc, Return, Ctrl+F, Ctrl+L, Ctrl+O en F1 als lokale
-                        WidgetWithChildrenShortcut. F1-conflict met het globale
-                        Help-menu opgelost via ShortcutContext.
-  v2.0.0 (2026-10-06)  Fase 5E: nieuw signaal import_requested en knop
-                        "Importeren" in de top-rij. Nieuwe publieke methode
-                        select_document_by_id() waarmee het hoofdvenster na
-                        een geslaagde import het nieuwe document kan
-                        selecteren. Geen wijziging aan bestaande sneltoetsen,
-                        filters of viewer.
+  v1.4.0 (2026-10-03)  Viewer-UX verbeterd.
+  v1.5.0 (2026-10-03)  Documentinformatie en provenance zichtbaar gemaakt.
+  v1.6.0 (2026-10-03)  Provenance-overzicht compacter.
+  v1.7.0 (2026-10-03)  Hoogte van informatiepaneel verfijnd.
+  v1.8.0 (2026-10-03)  Publieke open_document_by_id()-API toegevoegd.
+  v1.9.0 (2026-10-05)  Help-knop en F1 openen de zoektaal-help-dialoog.
+  v1.9.1 (2026-10-05)  Lokale WidgetWithChildrenShortcut-sneltoetsen.
+  v2.0.0 (2026-10-06)  Fase 5E: import_requested signaal, Importeer-knop.
+  v2.1.0 (2026-10-07)  Fase 5D'.4: dispatch op basis van source_kind.
+  v2.1.1 (2026-10-07)  URL-bron opent altijd de live URL in de browser,
+                        niet de lokale snapshot. De snapshot blijft bewaard
+                        voor provenance, maar is niet langer het open-doel.
 ================================================================================
 """
 
@@ -49,8 +39,10 @@ from __future__ import annotations
 
 import html
 
-from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QKeySequence, QShortcut
+from pathlib import Path
+
+from PySide6.QtCore import QUrl, Signal, Qt
+from PySide6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -69,7 +61,12 @@ from PySide6.QtWidgets import (
 
 from app.documentation.models import DocumentCategory, DocumentMetadata
 from app.documentation.service import DocumentationError, DocumentationService
+from app.documentation.pdf_extract import default_sources_dir
 from app.gui.dialogs.search_help_dialog import SearchHelpDialog
+from app.helpers.document_source_paths import (
+    resolve_local_path,
+    source_kind,
+)
 from app.helpers.i18n import vertaal
 
 
@@ -112,7 +109,6 @@ class DocumentationScreen(QWidget):
         top_row.addWidget(self.back_btn)
         top_row.addStretch()
 
-        # Nieuw in 5E: import-knop in de top-rij
         self.import_btn = QPushButton()
         self.import_btn.clicked.connect(self.import_requested.emit)
         top_row.addWidget(self.import_btn)
@@ -188,13 +184,7 @@ class DocumentationScreen(QWidget):
         layout.addLayout(bottom_row)
 
     def _setup_shortcuts(self) -> None:
-        """Lokale sneltoetsen voor dit scherm.
-
-        Alle sneltoetsen worden met WidgetWithChildrenShortcut geïnstalleerd
-        zodat ze prioriteit krijgen binnen dit scherm en zijn kinderen. Dit
-        voorkomt ambiguïteit met WindowShortcut-acties van het hoofdvenster,
-        zoals de globale F1 voor het Help-menu.
-        """
+        """Lokale sneltoetsen voor dit scherm."""
         context = Qt.ShortcutContext.WidgetWithChildrenShortcut
 
         QShortcut(
@@ -235,17 +225,14 @@ class DocumentationScreen(QWidget):
         )
 
     def _focus_search_edit(self) -> None:
-        """Plaats de cursor in het zoekveld zonder de inhoud te selecteren."""
         self.search_edit.setFocus(Qt.FocusReason.ShortcutFocusReason)
         self.search_edit.deselect()
 
     def _focus_and_select_search_edit(self) -> None:
-        """Focus op het zoekveld en selecteer de volledige inhoud."""
         self.search_edit.setFocus(Qt.FocusReason.ShortcutFocusReason)
         self.search_edit.selectAll()
 
     def _open_search_help_dialog(self) -> None:
-        """Open de read-only help-dialoog voor de zoektaal."""
         dialog = SearchHelpDialog(taal=self.taal, parent=self)
         dialog.exec()
 
@@ -328,7 +315,6 @@ class DocumentationScreen(QWidget):
         return self._t(f"documentatie.categorieen.{category.value}")
 
     def _document_title(self, document: DocumentMetadata) -> str:
-        """Vertaal interne titels; behoud officiële brontitel als fallback."""
         if not document.title_key:
             return document.title
         translated = self._t(document.title_key)
@@ -418,11 +404,7 @@ class DocumentationScreen(QWidget):
         self.open_btn.setEnabled(self._selected_document_id() is not None)
 
     def select_document_by_id(self, document_id: str) -> bool:
-        """Selecteer een document in de tabel op basis van zijn ID.
-
-        Geeft True terug als het document zichtbaar was en geselecteerd is,
-        anders False. Wordt gebruikt na een geslaagde import (Fase 5E).
-        """
+        """Selecteer een document in de tabel op basis van zijn ID."""
         for row in range(self.table.rowCount()):
             item = self.table.item(row, 0)
             if item is None:
@@ -544,14 +526,84 @@ class DocumentationScreen(QWidget):
             return
         self.open_document_by_id(document_id)
 
+    def _open_external(self, url: QUrl) -> bool:
+        """Open een URL of lokaal bestand via het besturingssysteem."""
+        try:
+            return bool(QDesktopServices.openUrl(url))
+        except Exception:
+            return False
+
+    def _open_document_external(self, document: DocumentMetadata) -> bool:
+        """Open een niet-Markdown-bron extern.
+
+        Retourneert True bij succes, False bij fout (met statusmelding).
+        """
+        kind = source_kind(document)
+
+        if kind == "url":
+            # URL-bron: altijd de live URL openen in de browser.
+            # De lokale snapshot blijft bewaard voor provenance, maar is
+            # niet langer het open-doel (5D'.4-correctie v2.1.1).
+            if not document.source_url:
+                self.status_label.setText(
+                    self._t(
+                        "documentatie.document_fout",
+                        bericht=self._t("documentatie.onbekend_bestandstype"),
+                    )
+                )
+                return False
+            return self._open_external(QUrl(document.source_url))
+
+        if kind in ("pdf", "word", "excel"):
+            lokaal_pad = resolve_local_path(
+                document,
+                sources_root=default_sources_dir(),
+            )
+            if lokaal_pad is None:
+                self.status_label.setText(
+                    self._t(
+                        "documentatie.document_fout",
+                        bericht=self._t("documentatie.bestand_niet_gevonden"),
+                    )
+                )
+                return False
+            return self._open_external(QUrl.fromLocalFile(str(lokaal_pad)))
+
+        # kind == "onbekend"
+        self.status_label.setText(
+            self._t(
+                "documentatie.document_fout",
+                bericht=self._t("documentatie.onbekend_bestandstype"),
+            )
+        )
+        return False
+
     def open_document_by_id(self, document_id: str) -> bool:
         """Open één document rechtstreeks op stabiele document-ID.
 
-        Geeft True terug wanneer de viewer is geopend. Bij een documentatiefout
-        wordt de bestaande statusmelding gebruikt en False teruggegeven.
+        Dispatcht op basis van source_kind:
+          - markdown → interne viewer (bestaand gedrag)
+          - pdf/word/excel → extern openen in de standaard-app
+          - url → live URL openen in de browser
+          - onbekend → statusmelding, geen viewer
+
+        Geeft True terug wanneer het openen gelukt is, anders False.
         """
         try:
             document = self.documentation_service.get_document(document_id)
+        except DocumentationError as exc:
+            self.status_label.setText(
+                self._t("documentatie.document_fout", bericht=str(exc))
+            )
+            return False
+
+        kind = source_kind(document)
+
+        if kind != "markdown":
+            return self._open_document_external(document)
+
+        # Markdown/tekst: interne viewer.
+        try:
             content = self.documentation_service.read_document_text(
                 document_id,
                 language=self.taal,

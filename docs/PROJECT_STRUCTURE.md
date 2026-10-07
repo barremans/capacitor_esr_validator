@@ -25,10 +25,10 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         ```text
         # Bestandsnaam: app/config/settings.py
         # Beschrijving: Centrale, aanpasbare instellingen voor de app.
-        # Auteur: Ontwikkelaar
+        # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-        # Versie: 1.3.0
-        # Datum: 2026-09-27
+        # Versie: 1.4.0
+        # Datum: 2026-10-07
         ```
     - 📁 **data/**
       - 📁 **documentation/**
@@ -97,14 +97,23 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Applicatie: GEEN APPLICATIE
         # Versie: V1.0.0
         ```
+      - 📄 **/app/documentation/duplicate_check.py**
+        ```text
+        # Bestandsnaam: app/documentation/duplicate_check.py
+        # Beschrijving: GUI-onafhankelijke helper om te bepalen of een geïmporteerde
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.3
+        # Datum: 2026-10-07
+        ```
       - 📄 **/app/documentation/import_models.py**
         ```text
         # Bestandsnaam: app/documentation/import_models.py
         # Beschrijving: Immutable modellen en vaste enumwaarden voor de import van
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.0.0
-        # Datum: 2026-10-06
+        # Versie: 1.1.0
+        # Datum: 2026-10-07
         ```
       - 📄 **/app/documentation/import_service.py**
         ```text
@@ -112,8 +121,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: GUI-onafhankelijke service voor het registreren en beheren van
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.0.0
-        # Datum: 2026-10-06
+        # Versie: 1.1.1
+        # Datum: 2026-10-07
         ```
       - 📄 **/app/documentation/models.py**
         ```text
@@ -130,8 +139,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: GUI-onafhankelijke PDF-hulpfuncties voor de import-wizard:
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.0.1
-        # Datum: 2026-10-06
+        # Versie: 1.1.0
+        # Datum: 2026-10-07
         ```
       - 📄 **/app/documentation/pdf_import.py**
         ```text
@@ -139,8 +148,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: GUI-onafhankelijke orkestratielaag die pdf_extract en
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.0.0
-        # Datum: 2026-10-06
+        # Versie: 1.1.0
+        # Datum: 2026-10-07
         ```
       - 📄 **/app/documentation/search_query.py**
         ```text
@@ -166,8 +175,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: GUI-onafhankelijke URL-hulpfuncties voor de import-wizard:
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.0.0
-        # Datum: 2026-10-06
+        # Versie: 1.1.0
+        # Datum: 2026-10-07
         ```
       - 📄 **/app/documentation/url_import.py**
         ```text
@@ -175,8 +184,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: GUI-onafhankelijke orkestratielaag die url_fetch en
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.0.0
-        # Datum: 2026-10-06
+        # Versie: 1.1.0
+        # Datum: 2026-10-07
         ```
     - 📁 **gui/**
       - 📁 **dialogs/**
@@ -188,13 +197,22 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Applicatie: GEEN APPLICATIE
           # Versie: V1.0.0
           ```
+        - 📄 **/app/gui/dialogs/duplicate_source_dialog.py**
+          ```text
+          # Bestandsnaam: app/gui/dialogs/duplicate_source_dialog.py
+          # Beschrijving: Modale popup die de gebruiker bij een bestaande bron drie
+          # Auteur: Bart Bossuyt
+          # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+          # Versie: 1.0.0
+          # Datum: 2026-10-07
+          ```
         - 📄 **/app/gui/dialogs/import_wizard_dialog.py**
           ```text
           # Bestandsnaam: app/gui/dialogs/import_wizard_dialog.py
           # Beschrijving: Modale wizard voor het importeren van een PDF of URL als
           # Auteur: Bart Bossuyt
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-          # Versie: 1.0.2
+          # Versie: 1.2.1
           # Datum: 2026-10-07
           ```
         - 📄 **/app/gui/dialogs/search_help_dialog.py**
@@ -228,8 +246,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Read-only scherm voor de centrale documentatiebibliotheek.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 2.0.0
-        # Datum: 2026-10-06
+        # Versie: 2.1.1
+        # Datum: 2026-10-07
         ```
       - 📄 **/app/gui/esr_test_screen.py**
         ```text
@@ -246,8 +264,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Compacte centrale read-only weergave van opgeslagen meethistoriek.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.12.0
-        # Datum: 2026-10-05
+        # Versie: 1.13.0
+        # Datum: 2026-10-07
         ```
       - 📄 **/app/gui/main_window.py**
         ```text
@@ -274,6 +292,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Auteur: GEEN AUTEUR
         # Applicatie: GEEN APPLICATIE
         # Versie: V1.0.0
+        ```
+      - 📄 **/app/helpers/document_source_paths.py**
+        ```text
+        # Bestandsnaam: app/helpers/document_source_paths.py
+        # Beschrijving: GUI-onafhankelijke helper om het type en het pad van een
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.0
+        # Datum: 2026-10-07
         ```
       - 📄 **/app/helpers/help_paths.py**
         ```text
@@ -528,6 +555,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.3.0
       # Datum: 2026-09-26
       ```
+    - 📄 **/tests/test_document_source_paths.py**
+      ```text
+      # Bestandsnaam: tests/test_document_source_paths.py
+      # Beschrijving: Regressietests voor document_source_paths: source_kind,
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-07
+      ```
     - 📄 **/tests/test_documentation_catalog_product.py**
       ```text
       # Bestandsnaam: tests/test_documentation_catalog_product.py
@@ -541,6 +577,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       ```text
       # Bestandsnaam: tests/test_documentation_context_open.py
       # Beschrijving: Regressietests op de echte productiecatalogus
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.1
+      # Datum: 2026-10-07
+      ```
+    - 📄 **/tests/test_documentation_duplicate_check.py**
+      ```text
+      # Bestandsnaam: tests/test_documentation_duplicate_check.py
+      # Beschrijving: Regressietests voor duplicate_check: normalize_url,
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
       # Versie: 1.0.1
@@ -561,8 +606,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor ImportService: registratie, statusmachine,
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.1
-      # Datum: 2026-10-06
+      # Versie: 1.1.1
+      # Datum: 2026-10-07
       ```
     - 📄 **/tests/test_documentation_models.py**
       ```text
@@ -588,8 +633,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor pdf_import: gelukkig pad, titel-resolutie,
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.0
-      # Datum: 2026-10-06
+      # Versie: 1.1.0
+      # Datum: 2026-10-07
       ```
     - 📄 **/tests/test_documentation_screen.py**
       ```text
@@ -597,8 +642,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: GUI-regressietests voor de read-only Documentatiebibliotheek.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.8.0
-      # Datum: 2026-10-05
+      # Versie: 1.9.2
+      # Datum: 2026-10-07
       ```
     - 📄 **/tests/test_documentation_service.py**
       ```text
@@ -633,8 +678,17 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor url_import: gelukkig pad, titel-resolutie,
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.1
-      # Datum: 2026-10-06
+      # Versie: 1.1.0
+      # Datum: 2026-10-07
+      ```
+    - 📄 **/tests/test_duplicate_source_dialog.py**
+      ```text
+      # Bestandsnaam: tests/test_duplicate_source_dialog.py
+      # Beschrijving: GUI-regressietests voor de bestaand-document-popup (fase 5D'.2a).
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-07
       ```
     - 📄 **/tests/test_esr_context_documentation.py**
       ```text
@@ -705,8 +759,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor de koppeling tussen algemene bestandsvoorkeuren
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.1
-      # Datum: 2026-10-02
+      # Versie: 1.1.0
+      # Datum: 2026-10-07
       ```
     - 📄 **/tests/test_history_export_v2.py**
       ```text
@@ -807,6 +861,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.2.0
       # Datum: 2026-10-01
       ```
+    - 📄 **/tests/test_i18n_import_duplicate.py**
+      ```text
+      # Bestandsnaam: tests/test_i18n_import_duplicate.py
+      # Beschrijving: Controleert dat alle keys onder documentatie.import.duplicate.*
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.2
+      # Datum: 2026-10-07
+      ```
     - 📄 **/tests/test_i18n_modular.py**
       ```text
       # Bestandsnaam: tests/test_i18n_modular.py
@@ -840,7 +903,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: GUI-regressietests voor de import-wizard. Netwerk, PDF-parsing
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.2
+      # Versie: 1.2.1
       # Datum: 2026-10-07
       ```
     - 📄 **/tests/test_instrument_profiles.py**
@@ -937,10 +1000,10 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       ```text
       # Bestandsnaam: tests/test_settings.py
       # Beschrijving: Regressietests voor laden, opslaan en achterwaartse compatibiliteit
-      # Auteur: Ontwikkelaar
+      # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-      # Versie: 1.1.0
-      # Datum: 2026-09-27
+      # Versie: 1.2.0
+      # Datum: 2026-10-07
       ```
     - 📄 **/tests/test_settings_dialog.py**
       ```text

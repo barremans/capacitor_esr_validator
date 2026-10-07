@@ -17,6 +17,8 @@
     "leeg": "No documents found.",
     "aantal": "{aantal} document(s) found.",
     "fout": "Documentation could not be loaded: {bericht}",
+    "onbekend_bestandstype": "This file type cannot be opened.",
+    "bestand_niet_gevonden": "The source file could not be found.",
     "kolom": {
       "titel": "Title",
       "categorie": "Category",
