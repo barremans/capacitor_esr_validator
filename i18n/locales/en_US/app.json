@@ -14,7 +14,8 @@
     "changelog": "Changelog",
     "over": "About",
     "afsluiten": "Exit",
-    "documentatie_zoeken": "Search documentation…"
+    "documentatie_zoeken": "Search documentation…",
+    "document_importeren": "Import document…"
   },
   "tool": {
     "diagnose": "Diagnostics",

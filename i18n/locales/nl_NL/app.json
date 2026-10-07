@@ -14,7 +14,8 @@
     "changelog": "Wijzigingslog",
     "over": "Over",
     "afsluiten": "Afsluiten",
-    "documentatie_zoeken": "Documentatie zoeken…"
+    "documentatie_zoeken": "Documentatie zoeken…",
+    "document_importeren": "Document importeren…"
   },
   "tool": {
     "diagnose": "Diagnose",

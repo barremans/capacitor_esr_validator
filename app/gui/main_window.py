@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.8.3
+Versie:     2.9.0
 Datum:      2026-10-06
 Auteur:     Bart Bossuyt
 
@@ -71,6 +71,12 @@ Wijzigingen:
                         juiste bestand op (docs/help/<taal>.md) met fallback
                         naar nl_NL en daarna docs/help.md. Geen nieuwe i18n-
                         keys. Geen wijziging aan menu, shortcuts of dialoog.
+  v2.9.0 (2026-10-06)  Fase 5E: menu-item "Document importeren…" (Ctrl+I) in
+                        het Bestand-menu. Opent ImportWizardDialog met de
+                        bestaande ImportService. Wizard-signaal
+                        import_completed ververst het Documentatie-scherm en
+                        selecteert het nieuwe document. Geen wijziging aan
+                        andere menu's, shortcuts of pagina's.
 ================================================================================
 """
 
@@ -137,6 +143,7 @@ class ToolHubWindow(QMainWindow):
         from app.gui.documentation_screen import DocumentationScreen
         self.documentation_page = DocumentationScreen(taal=self.taal)
         self.documentation_page.back_requested.connect(self._show_hub)
+        self.documentation_page.import_requested.connect(self._show_import_wizard)
         self.stack.addWidget(self.documentation_page)
 
         self.stack.setCurrentWidget(self.hub_page)
@@ -351,6 +358,12 @@ class ToolHubWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
+        # Nieuw in 5E: Document importeren… (Ctrl+I)
+        import_action = QAction(self._t("menu.document_importeren"), self)
+        import_action.setShortcut(QKeySequence("Ctrl+I"))
+        import_action.triggered.connect(self._show_import_wizard)
+        file_menu.addAction(import_action)
+
         # Diagnose
         diagnose_menu = menubar.addMenu(self._t("menu.diagnose"))
         diagnose_action = QAction(self._t("menu.open_diagnose"), self)
@@ -506,6 +519,20 @@ class ToolHubWindow(QMainWindow):
         self.setWindowTitle(
             self._t("app.titel") + " — " + self._t("scherm.esr_test")
         )
+
+    def _show_import_wizard(self) -> None:
+        """Open de import-wizard (Fase 5E)."""
+        from app.gui.dialogs.import_wizard_dialog import ImportWizardDialog
+
+        dialog = ImportWizardDialog(taal=self.taal, parent=self)
+        dialog.import_completed.connect(self._on_import_completed)
+        dialog.exec()
+
+    def _on_import_completed(self, source_id: str) -> None:
+        """Na succesvolle import: ververs Documentatie en selecteer de nieuwe bron."""
+        self.documentation_page.refresh()
+        # Selecteer het nieuwe document als het zichtbaar is in de tabel.
+        self.documentation_page.select_document_by_id(source_id)
 
     def closeEvent(self, event):
         """Sluit contextueel.

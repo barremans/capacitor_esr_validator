@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.9.1
-Datum:      2026-10-05
+Versie:     2.0.0
+Datum:      2026-10-06
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only scherm voor de centrale documentatiebibliotheek.
@@ -36,6 +36,12 @@ Wijzigingen:
   v1.9.1 (2026-10-05)  Esc, Return, Ctrl+F, Ctrl+L, Ctrl+O en F1 als lokale
                         WidgetWithChildrenShortcut. F1-conflict met het globale
                         Help-menu opgelost via ShortcutContext.
+  v2.0.0 (2026-10-06)  Fase 5E: nieuw signaal import_requested en knop
+                        "Importeren" in de top-rij. Nieuwe publieke methode
+                        select_document_by_id() waarmee het hoofdvenster na
+                        een geslaagde import het nieuwe document kan
+                        selecteren. Geen wijziging aan bestaande sneltoetsen,
+                        filters of viewer.
 ================================================================================
 """
 
@@ -71,6 +77,7 @@ class DocumentationScreen(QWidget):
     """Centrale read-only bibliotheek voor technische documentatie."""
 
     back_requested = Signal()
+    import_requested = Signal()
 
     def __init__(
         self,
@@ -104,6 +111,12 @@ class DocumentationScreen(QWidget):
         self.back_btn.clicked.connect(self.back_requested.emit)
         top_row.addWidget(self.back_btn)
         top_row.addStretch()
+
+        # Nieuw in 5E: import-knop in de top-rij
+        self.import_btn = QPushButton()
+        self.import_btn.clicked.connect(self.import_requested.emit)
+        top_row.addWidget(self.import_btn)
+
         layout.addLayout(top_row)
 
         self.title_label = QLabel()
@@ -243,6 +256,8 @@ class DocumentationScreen(QWidget):
 
         self.taal = taal
         self.back_btn.setText(self._t("knop.terug"))
+        self.import_btn.setText(self._t("documentatie.import.knop"))
+        self.import_btn.setToolTip(self._t("documentatie.import.knop_tooltip"))
         self.title_label.setText(self._t("documentatie.titel"))
         self.search_label.setText(self._t("documentatie.zoeken"))
         self.search_edit.setPlaceholderText(self._t("documentatie.zoeken_placeholder"))
@@ -401,6 +416,22 @@ class DocumentationScreen(QWidget):
 
     def _update_open_button(self) -> None:
         self.open_btn.setEnabled(self._selected_document_id() is not None)
+
+    def select_document_by_id(self, document_id: str) -> bool:
+        """Selecteer een document in de tabel op basis van zijn ID.
+
+        Geeft True terug als het document zichtbaar was en geselecteerd is,
+        anders False. Wordt gebruikt na een geslaagde import (Fase 5E).
+        """
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 0)
+            if item is None:
+                continue
+            if item.data(Qt.ItemDataRole.UserRole) == document_id:
+                self.table.selectRow(row)
+                self.table.scrollToItem(item)
+                return True
+        return False
 
     def _document_information_html(self, document: DocumentMetadata) -> str:
         """Bouw een compact read-only HTML-overzicht van metadata en provenance."""

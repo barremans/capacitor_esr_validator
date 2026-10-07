@@ -1,9 +1,9 @@
 """
 ================================================================================
-Module:     tests/test_documentation_catalog_product.py
+Module:     tests/test_documentation_context_open.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-04
+Versie:     1.0.1
+Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests op de echte productiecatalogus
@@ -19,6 +19,9 @@ Doel:       Regressietests op de echte productiecatalogus
 
 Wijzigingen:
   v1.0.0 (2026-10-04)  Eerste productiecatalogustests voor 4C.
+  v1.0.1 (2026-10-07)  product_service-fixture geeft user_catalog_path=""
+                        mee zodat de gebruikerscatalogus niet meespeelt in
+                        deze productiecatalogustests.
 ================================================================================
 """
 
@@ -54,8 +57,13 @@ EXPECTED_MEASUREMENT_METHODS = {
 
 @pytest.fixture(scope="module")
 def product_service() -> DocumentationService:
-    """Service op de echte productiecatalogus (default pad)."""
-    return DocumentationService()
+    """Service op de echte productiecatalogus (default pad).
+
+    user_catalog_path="" schakelt de gebruikerscatalogus bewust uit: deze
+    tests controleren de meegeleverde productcatalogus, niet de persoonlijke
+    imports van de gebruiker.
+    """
+    return DocumentationService(user_catalog_path="")
 
 
 def test_product_catalog_loads_without_errors(product_service):
@@ -65,9 +73,6 @@ def test_product_catalog_loads_without_errors(product_service):
 
 def test_product_catalog_data_version_is_4c1(product_service):
     documents = product_service.load_documents()
-    # Alle records komen uit dezelfde catalogus en delen dezelfde data_version
-    # impliciet via de service; we controleren hier expliciet de verwachte
-    # document_id-set zodat een onbedoelde toevoeging/verwijdering opvalt.
     assert {d.document_id for d in documents} == set(EXPECTED_DOCUMENT_IDS)
 
 

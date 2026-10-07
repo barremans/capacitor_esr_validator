@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/documentation/service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.7.2
-Datum:      2026-10-05
+Versie:     1.8.1
+Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only service voor de centrale documentatiebibliotheek.
@@ -11,6 +11,10 @@ Doel:       Read-only service voor de centrale documentatiebibliotheek.
             Laadt en valideert een versieerbare JSON-catalogus en ondersteunt
             zoeken en filteren. Schrijft geen bestanden, gebruikt geen SQLite
             en bevat geen assessment-, import- of AI-logica.
+
+            Sinds v1.8.0 leest de service naast de ingebouwde catalogus ook
+            de gebruikerscatalogus (imports) en voegt die samen. De
+            gebruikerscatalogus wint bij dubbele document_id.
 
 Wijzigingen:
   v1.0.0 (2026-10-02)  Eerste catalogusloader, validatie en zoek/filter-API.
@@ -27,22 +31,26 @@ Wijzigingen:
                         test_keys, measurement_methods, instrument_keys en topics.
   v1.7.0 (2026-10-04)  Zoekveld gebruikt de nieuwe zoektaal (search_query);
                         _search_blob versmald tot document-eigen metadata.
-                        Tool-, context- en provenance-velden worden niet meer
-                        via het vrije zoekveld gematcht; daarvoor blijven de
-                        bestaande dropdown-filters bestaan.
   v1.7.1 (2026-10-05)  _search_blob verder versmald: document_id en
-                        source_path zijn technische identificatie en worden
-                        bewust NIET meer via het zoekveld gematcht.
-  v1.7.2 (2026-10-05)  title_key uit _search_blob verwijderd. De i18n-sleutel
-                        is net als document_id en source_path technisch en
-                        geen mensentaal; de vertaalde titel (title) blijft
-                        doorzoekbaar via de GUI-resolutie.
+                        source_path zijn technische identificatie.
+  v1.7.2 (2026-10-05)  title_key uit _search_blob verwijderd.
+  v1.8.0 (2026-10-07)  Tweede cataloguslaag: geïmporteerde bronnen uit
+                        imported_catalog.json worden samengevoegd met de
+                        ingebouwde catalogus. Gebruikerscatalogus wint bij
+                        dubbele document_id.
+  v1.8.1 (2026-10-07)  Fix: expliciete catalog_path schakelt de
+                        gebruikerscatalogus nu uit tenzij user_catalog_path
+                        expliciet is meegegeven. Voorkomt dat bestaande tests
+                        en code onbedoeld de %LOCALAPPDATA%-catalogus
+                        meelezen. Standaardconstructor (geen argumenten)
+                        leest nog steeds beide catalogi.
 ================================================================================
 """
 
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -66,6 +74,25 @@ DEFAULT_CATALOG_PATH = (
     / "documentation"
     / "catalog.json"
 )
+IMPORTED_CATALOG_SCHEMA_VERSION = 1
+IMPORTED_CATALOG_FILENAME = "imported_catalog.json"
+
+
+def _default_user_catalog_path() -> Path:
+    """Standaardpad van de gebruikerscatalogus (imports).
+
+    Zelfde locatie als de ImportService gebruikt. Bij ontbrekende
+    LOCALAPPDATA valt de service terug op het gebruikersprofiel.
+    """
+    base = os.environ.get("LOCALAPPDATA")
+    if not base:
+        base = str(Path.home() / "AppData" / "Local")
+    return (
+        Path(base)
+        / "ElectronicsDiagnosticToolHub"
+        / "documentation"
+        / IMPORTED_CATALOG_FILENAME
+    )
 
 
 class DocumentationError(RuntimeError):
@@ -79,62 +106,65 @@ class DocumentationValidationError(DocumentationError):
 class DocumentationService:
     """Read-only toegang tot versieerbare documentmetadata."""
 
-    def __init__(self, catalog_path: Path | str | None = None) -> None:
+    def __init__(
+        self,
+        catalog_path: Path | str | None = None,
+        user_catalog_path: Path | str | None = None,
+    ) -> None:
+        # Bepaal ingebouwde catalogus
         self.catalog_path = (
-            Path(catalog_path) if catalog_path is not None else DEFAULT_CATALOG_PATH
+            Path(catalog_path)
+            if catalog_path is not None
+            else DEFAULT_CATALOG_PATH
         )
 
+        # Bepaal gebruikerscatalogus:
+        # - Expliciete user_catalog_path → gebruik die.
+        # - Lege string of False → expliciet uitschakelen.
+        # - catalog_path opgegeven maar user_catalog_path niet →
+        #   GEEN gebruikerscatalogus (tests en bestaande code verwachten
+        #   dat een expliciete catalog_path geïsoleerd werkt).
+        # - Geen enkel argument → standaardpad onder %LOCALAPPDATA%.
+        if user_catalog_path == "" or user_catalog_path is False:
+            self.user_catalog_path: Path | None = None
+        elif user_catalog_path is not None:
+            self.user_catalog_path = Path(user_catalog_path)
+        elif catalog_path is None:
+            self.user_catalog_path = _default_user_catalog_path()
+        else:
+            self.user_catalog_path = None
+
+    # ---------------------------------------------------------------- publiek
+
     def load_documents(self) -> list[DocumentMetadata]:
-        """Laad en valideer alle documenten uit de catalogus."""
-        try:
-            raw_text = self.catalog_path.read_text(encoding="utf-8")
-        except OSError as exc:
-            raise DocumentationError(
-                f"Documentcatalogus kon niet worden gelezen: {self.catalog_path}"
-            ) from exc
+        """Laad en valideer alle documenten uit beide cataloguslagen.
 
-        try:
-            payload = json.loads(raw_text)
-        except json.JSONDecodeError as exc:
-            raise DocumentationValidationError(
-                "Documentcatalogus bevat ongeldige JSON."
-            ) from exc
-
-        if not isinstance(payload, dict):
-            raise DocumentationValidationError(
-                "Documentcatalogus moet een JSON-object zijn."
-            )
-
-        schema_version = payload.get("schema_version")
-        if schema_version != CATALOG_SCHEMA_VERSION:
-            raise DocumentationValidationError(
-                "Niet-ondersteunde schema_version in documentcatalogus: "
-                f"{schema_version!r}."
-            )
-
-        data_version = payload.get("data_version")
-        if not isinstance(data_version, str) or not data_version.strip():
-            raise DocumentationValidationError(
-                "Documentcatalogus mist een geldige data_version."
-            )
-
-        raw_documents = payload.get("documents")
-        if not isinstance(raw_documents, list):
-            raise DocumentationValidationError(
-                "Documentcatalogusveld 'documents' moet een lijst zijn."
-            )
-
+        Ingebouwde catalogus eerst, dan gebruikerscatalogus. Bij dubbele
+        document_id wint de gebruikerscatalogus (imports overrulen de
+        ingebouwde catalogus).
+        """
         documents: list[DocumentMetadata] = []
         seen_ids: set[str] = set()
 
-        for index, raw_document in enumerate(raw_documents):
-            document = self._document_from_mapping(raw_document, index=index)
+        for document in self._load_builtin_documents():
             if document.document_id in seen_ids:
                 raise DocumentationValidationError(
-                    f"Dubbele document_id in catalogus: {document.document_id}."
+                    f"Dubbele document_id in ingebouwde catalogus: {document.document_id}."
                 )
             seen_ids.add(document.document_id)
             documents.append(document)
+
+        if self.user_catalog_path is not None and self.user_catalog_path.exists():
+            for document in self._load_user_documents():
+                if document.document_id in seen_ids:
+                    # Gebruikerscatalogus wint: vervang het item.
+                    documents = [
+                        document if d.document_id == document.document_id else d
+                        for d in documents
+                    ]
+                else:
+                    seen_ids.add(document.document_id)
+                    documents.append(document)
 
         return documents
 
@@ -306,6 +336,227 @@ class DocumentationService:
             f"Documentbron kon niet worden gelezen: {last_path or source_path}"
         )
 
+    # ---------------------------------------------------------------- ingebouwd
+
+    def _load_builtin_documents(self) -> list[DocumentMetadata]:
+        """Laad en valideer de ingebouwde catalogus."""
+        try:
+            raw_text = self.catalog_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise DocumentationError(
+                f"Documentcatalogus kon niet worden gelezen: {self.catalog_path}"
+            ) from exc
+
+        try:
+            payload = json.loads(raw_text)
+        except json.JSONDecodeError as exc:
+            raise DocumentationValidationError(
+                "Documentcatalogus bevat ongeldige JSON."
+            ) from exc
+
+        if not isinstance(payload, dict):
+            raise DocumentationValidationError(
+                "Documentcatalogus moet een JSON-object zijn."
+            )
+
+        schema_version = payload.get("schema_version")
+        if schema_version != CATALOG_SCHEMA_VERSION:
+            raise DocumentationValidationError(
+                "Niet-ondersteunde schema_version in documentcatalogus: "
+                f"{schema_version!r}."
+            )
+
+        data_version = payload.get("data_version")
+        if not isinstance(data_version, str) or not data_version.strip():
+            raise DocumentationValidationError(
+                "Documentcatalogus mist een geldige data_version."
+            )
+
+        raw_documents = payload.get("documents")
+        if not isinstance(raw_documents, list):
+            raise DocumentationValidationError(
+                "Documentcatalogusveld 'documents' moet een lijst zijn."
+            )
+
+        documents: list[DocumentMetadata] = []
+        for index, raw_document in enumerate(raw_documents):
+            documents.append(
+                self._document_from_mapping(raw_document, index=index)
+            )
+
+        return documents
+
+    # ---------------------------------------------------------------- gebruikers
+
+    def _load_user_documents(self) -> list[DocumentMetadata]:
+        """Laad de gebruikerscatalogus (imports) en zet ImportSource om."""
+        assert self.user_catalog_path is not None  # beschermd door caller
+        try:
+            raw_text = self.user_catalog_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise DocumentationError(
+                f"Gebruikerscatalogus kon niet worden gelezen: "
+                f"{self.user_catalog_path}"
+            ) from exc
+
+        if not raw_text.strip():
+            return []
+
+        try:
+            payload = json.loads(raw_text)
+        except json.JSONDecodeError as exc:
+            raise DocumentationValidationError(
+                f"Gebruikerscatalogus bevat ongeldige JSON: "
+                f"{self.user_catalog_path}"
+            ) from exc
+
+        if not isinstance(payload, dict):
+            raise DocumentationValidationError(
+                "Gebruikerscatalogus moet een JSON-object zijn."
+            )
+
+        schema_version = payload.get("schema_version")
+        if schema_version != IMPORTED_CATALOG_SCHEMA_VERSION:
+            raise DocumentationValidationError(
+                f"Niet-ondersteunde schema_version in gebruikerscatalogus: "
+                f"{schema_version!r}."
+            )
+
+        raw_sources = payload.get("sources", [])
+        if not isinstance(raw_sources, list):
+            raise DocumentationValidationError(
+                "Gebruikerscatalogusveld 'sources' moet een lijst zijn."
+            )
+
+        documents: list[DocumentMetadata] = []
+        for index, raw_source in enumerate(raw_sources):
+            document = self._import_source_to_document(raw_source, index=index)
+            if document is not None:
+                documents.append(document)
+
+        return documents
+
+    @staticmethod
+    def _import_source_to_document(
+        data: Any,
+        *,
+        index: int,
+    ) -> DocumentMetadata | None:
+        """Zet één ImportSource-dict om naar een leesbaar DocumentMetadata.
+
+        Alleen bronnen met status 'actief' of 'concept' worden getoond.
+        'gearchiveerd' wordt overgeslagen: die horen niet in de standaard
+        bibliotheekweergave.
+
+        De metadata-velden die het ImportSource-model nog niet kent
+        (categorie, fabrikant, serie, ...) blijven leeg. Dat is bewust:
+        de uitbreiding daarvan is een latere deelfase (5D'.2).
+        """
+        if not isinstance(data, Mapping):
+            raise DocumentationValidationError(
+                f"ImportSource op index {index} moet een object zijn."
+            )
+
+        status = str(data.get("status", "")).strip().lower()
+        if status == "gearchiveerd":
+            return None
+
+        source_id = data.get("source_id")
+        if not isinstance(source_id, str) or not source_id.strip():
+            raise DocumentationValidationError(
+                f"ImportSource op index {index} mist een geldige source_id."
+            )
+
+        source_type_raw = str(data.get("source_type", "")).strip().lower()
+        if source_type_raw == "pdf":
+            source_type = DocumentSourceType.FILE
+            source_path = f"sources/{source_id}.pdf"
+            source_url = None
+        elif source_type_raw == "url":
+            source_type = DocumentSourceType.URL
+            source_path = None
+            source_url = data.get("source_url")
+            if not isinstance(source_url, str) or not source_url.strip():
+                raise DocumentationValidationError(
+                    f"ImportSource {source_id} mist een geldige source_url."
+                )
+        else:
+            raise DocumentationValidationError(
+                f"ImportSource {source_id} heeft een onbekend source_type: "
+                f"{source_type_raw!r}."
+            )
+
+        title = data.get("title")
+        if not isinstance(title, str) or not title.strip():
+            raise DocumentationValidationError(
+                f"ImportSource {source_id} mist een geldige title."
+            )
+
+        notes = data.get("notes")
+        if notes is not None and not isinstance(notes, str):
+            raise DocumentationValidationError(
+                f"ImportSource {source_id} heeft ongeldige notes."
+            )
+
+        original_filename = data.get("original_filename")
+        provenance_note = None
+        if source_type_raw == "pdf" and isinstance(original_filename, str):
+            provenance_note = f"Originele bestandsnaam: {original_filename}"
+
+        provenance: tuple[DocumentProvenanceRef, ...] = ()
+        if source_type_raw == "url" and source_url:
+            provenance = (
+                DocumentProvenanceRef(
+                    source_id=f"import-{source_id}",
+                    source_title=title.strip(),
+                    source_kind="URL",
+                    source_path=None,
+                    source_url=source_url.strip(),
+                    locator=None,
+                    supports=(),
+                    note="Geïmporteerd via URL-wizard.",
+                ),
+            )
+        elif source_type_raw == "pdf":
+            provenance = (
+                DocumentProvenanceRef(
+                    source_id=f"import-{source_id}",
+                    source_title=title.strip(),
+                    source_kind="FILE",
+                    source_path=source_path,
+                    source_url=None,
+                    locator=None,
+                    supports=(),
+                    note=provenance_note,
+                ),
+            )
+
+        return DocumentMetadata(
+            document_id=source_id.strip(),
+            title=title.strip(),
+            title_key=None,
+            category=DocumentCategory.DATASHEET,
+            source_type=source_type,
+            source_path=source_path,
+            source_url=source_url.strip() if isinstance(source_url, str) else None,
+            tool_key=None,
+            manufacturer=None,
+            series=None,
+            part_number=None,
+            document_version=None,
+            document_date=None,
+            notes=notes.strip() if isinstance(notes, str) and notes.strip() else None,
+            provenance=provenance,
+            tool_keys=(),
+            component_types=(),
+            test_keys=(),
+            measurement_methods=(),
+            instrument_keys=(),
+            topics=(),
+        )
+
+    # ---------------------------------------------------------------- helpers
+
     @staticmethod
     def _language_candidates(
         source_path: Path,
@@ -340,35 +591,7 @@ class DocumentationService:
 
     @staticmethod
     def _search_blob(document: DocumentMetadata) -> str:
-        """Bouw een tekstblob met uitsluitend menselijke, beschrijvende metadata.
-
-        Opgenomen (menselijke metadata):
-          - title
-          - category
-          - manufacturer
-          - series
-          - part_number
-          - document_version
-          - document_date
-          - notes
-          - source_url
-
-        Bewust NIET opgenomen:
-          - document_id      : technische identifier, geen mensentaal
-          - title_key        : technische i18n-sleutel, geen mensentaal
-          - source_path      : intern pad, geen mensentaal
-          - tool_keys        : filterbaar via tool_key=...
-          - component_types,
-            test_keys,
-            measurement_methods,
-            instrument_keys,
-            topics           : filterbaar via eigen filter=...
-          - provenance.*     : metadata over het document, niet het document zelf
-
-        Reden: het vrije zoekveld is bedoeld voor menselijke zoekwoorden
-        (concepten, fabrikant, serie). Technische identificatie, i18n-sleutels
-        en contextkoppelingen horen bij de filters.
-        """
+        """Bouw een tekstblob met uitsluitend menselijke, beschrijvende metadata."""
         values = (
             document.title,
             document.category.value,
@@ -473,7 +696,6 @@ class DocumentationService:
             data.get("tool_keys"),
             legacy_tool_key=legacy_tool_key,
         )
-        # Backward-compatible alias: bestaande GUI/code kan tool_key blijven lezen.
         effective_tool_key = legacy_tool_key or (tool_keys[0] if tool_keys else None)
 
         component_types = cls._normalize_context_keys(

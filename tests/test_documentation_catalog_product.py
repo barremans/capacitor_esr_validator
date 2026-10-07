@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_documentation_catalog_product.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.2
-Datum:      2026-10-05
+Versie:     1.1.3
+Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests op de echte productiecatalogus
@@ -22,12 +22,13 @@ Wijzigingen:
   v1.0.0 (2026-10-04)  Eerste productiecatalogustests voor 4C.
   v1.1.0 (2026-10-04)  Zoektaal-tests op de echte catalogus (4D.2).
   v1.1.1 (2026-10-05)  _search_blob versmald naar menselijke metadata.
-                        document_id en source_path worden niet meer via het
-                        zoekveld gematcht. Zoekverwachtingen bijgesteld op
-                        basis van de werkelijke catalogusinhoud.
-  v1.1.2 (2026-10-05)  title_key uit zoekblob verwijderd. Test
-                        test_product_search_matches_title_key vervangen door
-                        test_product_search_does_not_match_title_key.
+  v1.1.2 (2026-10-05)  title_key uit zoekblob verwijderd.
+  v1.1.3 (2026-10-07)  product_service-fixture geeft user_catalog_path=""
+                        mee. Zonder deze parameter leest de service ook de
+                        gebruikerscatalogus onder %LOCALAPPDATA%, waardoor
+                        de tests faalden zodra de gebruiker een PDF/URL had
+                        geïmporteerd. Deze tests willen uitsluitend de
+                        meegeleverde productcatalogus controleren.
 ================================================================================
 """
 
@@ -63,8 +64,13 @@ EXPECTED_MEASUREMENT_METHODS = {
 
 @pytest.fixture(scope="module")
 def product_service() -> DocumentationService:
-    """Service op de echte productiecatalogus (default pad)."""
-    return DocumentationService()
+    """Service op de echte productiecatalogus (default pad).
+
+    user_catalog_path="" schakelt de gebruikerscatalogus bewust uit: deze
+    tests controleren de meegeleverde productcatalogus, niet de persoonlijke
+    imports van de gebruiker.
+    """
+    return DocumentationService(user_catalog_path="")
 
 
 def test_product_catalog_loads_without_errors(product_service):
@@ -220,43 +226,26 @@ def test_product_search_unknown_term_returns_empty(product_service):
 
 
 def test_product_search_does_not_match_document_id(product_service):
-    """document_id is technisch en wordt bewust niet via het zoekveld gematcht.
-
-    'ced' komt voor in document_id 'esr-ced-plausibility', maar niet in de
-    titel ('C–ESR–D plausibiliteitscontrole') of notes.
-    """
+    """document_id is technisch en wordt bewust niet via het zoekveld gematcht."""
     matches = product_service.list_documents(search_text="ced")
     assert matches == []
 
 
 def test_product_search_does_not_match_source_path(product_service):
-    """source_path is technisch en wordt bewust niet via het zoekveld gematcht.
-
-    'capacitor_safe' komt voor in source_path 'internal/nl_NL/capacitor_safe_discharge.md',
-    maar niet in de titel of notes van esr-safe-discharge.
-    """
+    """source_path is technisch en wordt bewust niet via het zoekveld gematcht."""
     matches = product_service.list_documents(search_text="capacitor_safe")
     assert matches == []
 
 
 def test_product_search_does_not_match_title_key(product_service):
     """title_key is een technische i18n-sleutel en wordt bewust niet via het
-    zoekveld gematcht.
-
-    Alle 8 interne documenten hebben een title_key die begint met
-    'documentatie.document_titels.esr_...'. Toch mag 'document_titels'
-    geen match opleveren — het is geen menselijke metadata.
-    """
+    zoekveld gematcht."""
     matches = product_service.list_documents(search_text="document_titels")
     assert matches == []
 
 
 def test_product_search_source_url_when_present(product_service):
-    """source_url is informatief en blijft doorzoekbaar.
-
-    De 8 interne documenten hebben geen source_url. Deze test is een
-    placeholder om te bewijzen dat zoeken op URL-achtige termen geen
-    onverwachte match geeft.
-    """
+    """source_url is informatief en blijft doorzoekbaar; de 8 interne
+    documenten hebben geen source_url."""
     matches = product_service.list_documents(search_text="example.com")
     assert matches == []
