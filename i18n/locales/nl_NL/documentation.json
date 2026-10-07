@@ -106,7 +106,29 @@
       "fout_titel": "Importfout",
       "fout_pdf": "PDF kon niet gelezen worden: {bericht}",
       "fout_url": "URL kon niet opgehaald worden: {bericht}",
-      "fout_import": "Import mislukt: {bericht}"
+      "fout_import": "Import mislukt: {bericht}",
+      "duplicate": {
+        "titel": "Bron bestaat al",
+        "match_type_label": "Match",
+        "match_type_bestand": "Bestandsinhoud (SHA-256)",
+        "match_type_url": "URL",
+        "bestaande_titel": "Bestaande bron",
+        "bestaande_status": "Status",
+        "bestaande_datum": "Geïmporteerd op",
+        "bestaande_url": "URL",
+        "bestaande_bestand": "Bestand",
+        "status_concept": "Concept",
+        "status_actief": "Actief",
+        "status_gearchiveerd": "Gearchiveerd",
+        "optie_behouden": "Behouden",
+        "optie_nieuwe_versie": "Nieuwe versie toevoegen",
+        "optie_overschrijven": "Overschrijven",
+        "detail_behouden": "De bestaande bron blijft ongewijzigd. Er wordt geen nieuwe registratie aangemaakt.",
+        "detail_nieuwe_versie": "De bestaande bron blijft bewaard als Gearchiveerd. De nieuwe bron start als Concept.",
+        "detail_overschrijven": "Het oude bronbestand wordt bewaard als .oud-<tijdstip>. De status gaat terug naar Concept.",
+        "doorgaan": "Doorgaan",
+        "annuleren": "Annuleren"
+      }
     }
   },
   "_comment": "Brontaal Nederlands — module documentation."

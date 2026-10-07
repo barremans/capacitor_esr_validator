@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/documentation/pdf_extract.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.1
-Datum:      2026-10-06
+Versie:     1.1.0
+Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-onafhankelijke PDF-hulpfuncties voor de import-wizard:
@@ -17,8 +17,10 @@ Wijzigingen:
                        copy_pdf_to_sources, default_sources_dir.
   v1.0.1 (2026-10-06)  copy_pdf_to_sources: mkdir-fouten (OSError,
                        FileExistsError) worden nu ook als PdfExtractError
-                       doorgegeven. Maakt de functie robuust tegen paden
-                       die geen map zijn, rechtenproblemen en schijf vol.
+                       doorgegeven.
+  v1.1.0 (2026-10-07)  rename_existing_pdf_to_old en restore_old_pdf
+                       toegevoegd voor atomair overschrijven in fase
+                       5D'.2a. Bestaande functies ongewijzigd.
 ================================================================================
 """
 
@@ -235,3 +237,76 @@ def copy_pdf_to_sources(
         raise PdfExtractError(f"kopiëren faalde: {exc}") from exc
 
     return doel_pad
+
+
+def rename_existing_pdf_to_old(
+    pad: Path,
+    *,
+    timestamp: str,
+) -> Optional[Path]:
+    """Hernoem een bestaand PDF-bronbestand naar .oud-<timestamp>.
+
+    Wordt gebruikt door 'Overschrijven' (fase 5D'.2a) om de originele
+    bron te bewaren vóór het nieuwe bestand wordt gekopieerd (kernregel 9:
+    originele bron wordt nooit stil vervangen).
+
+    Regels:
+      - Als pad niet bestaat: retourneer None (niets te bewaren).
+      - Als pad geen bestand is: PdfExtractError.
+      - Als het doel <pad>.oud-<timestamp> al bestaat: PdfExtractError
+        (weiger stil verlies van een eerdere backup).
+      - Anders: os.rename en retourneer het nieuwe pad.
+
+    De timestamp is een string (YYYYMMDDHHMMSS); de aanroeper kiest die,
+    zodat tests een vaste waarde kunnen meegeven.
+    """
+    pad = Path(pad)
+    if not pad.exists():
+        return None
+    if not pad.is_file():
+        raise PdfExtractError(f"pad is geen bestand: {pad}")
+
+    oud_pad = pad.with_name(pad.name + f".oud-{timestamp}")
+    if oud_pad.exists():
+        raise PdfExtractError(
+            f"oud-bestand bestaat al, weiger te overschrijven: {oud_pad}"
+        )
+
+    try:
+        os.rename(pad, oud_pad)
+    except OSError as exc:
+        raise PdfExtractError(
+            f"hernoemen naar oud-bestand faalde: {exc}"
+        ) from exc
+
+    return oud_pad
+
+
+def restore_old_pdf(old_pad: Path, origineel_pad: Path) -> None:
+    """Zet een .oud-<timestamp> bestand terug op zijn originele plaats.
+
+    Wordt gebruikt als rollback wanneer het kopiëren van het nieuwe
+    bestand faalt: het oude bestand moet terug naar <source_id>.pdf,
+    anders eindigen we met een ontbrekend bronbestand.
+
+    Faalt met PdfExtractError als het oude bestand niet bestaat of als
+    het originele pad al bezet is.
+    """
+    old_pad = Path(old_pad)
+    origineel_pad = Path(origineel_pad)
+
+    if not old_pad.exists():
+        raise PdfExtractError(
+            f"oud-bestand niet gevonden voor rollback: {old_pad}"
+        )
+    if origineel_pad.exists():
+        raise PdfExtractError(
+            f"rollback-doel bestaat al, weiger te overschrijven: {origineel_pad}"
+        )
+
+    try:
+        os.rename(old_pad, origineel_pad)
+    except OSError as exc:
+        raise PdfExtractError(
+            f"rollback van oud-bestand faalde: {exc}"
+        ) from exc

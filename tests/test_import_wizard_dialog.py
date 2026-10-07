@@ -2,22 +2,21 @@
 ================================================================================
 Module:     tests/test_import_wizard_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.2
+Versie:     1.1.0
 Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor de import-wizard. Netwerk, PDF-parsing
             en ImportService worden gemockt of in tmp_path geïsoleerd.
-            Geen echte HTTP-verzoeken.
+            Geen echte HTTP-verzoeken. Sinds v1.1.0 ook tests voor de
+            duplicate-popup-flow (fase 5D'.2a).
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
-  v1.0.1 (2026-10-06)  isVisible() vervangen door isHidden() voor het
-                        controleren van paneelzichtbaarheid.
-  v1.0.2 (2026-10-07)  Titel-voorstel bij PDF is nu bestandsnaam, niet
-                        PDF-metadata /Title. Tests aangepast en één test
-                        toegevoegd die expliciet bewijst dat metadata-titel
-                        niet meer de initiële titel is.
+  v1.0.1 (2026-10-06)  isVisible() vervangen door isHidden().
+  v1.0.2 (2026-10-07)  Titel-voorstel bij PDF is nu bestandsnaam.
+  v1.1.0 (2026-10-07)  Tests voor duplicate-popup: match gevonden,
+                        KEEP/OVERWRITE-keuze, annuleren.
 ================================================================================
 """
 
@@ -32,6 +31,8 @@ from PySide6.QtWidgets import QApplication
 
 import app.gui.dialogs.import_wizard_dialog as wizard_module
 from app.documentation.import_models import (
+    DuplicateAction,
+    DuplicateMatch,
     ImportResult,
     ImportSource,
     ImportSourceType,
@@ -101,21 +102,15 @@ def test_kies_pdf_vult_samenvatting(tmp_path, monkeypatch):
 
     assert dialog._pdf_pad == pdf_pad
     assert dialog._pdf_meta_titel == "Mijn PDF"
-    # Nieuwe logica (v1.0.2): titel-voorstel is de bestandsnaam, niet de
-    # PDF-metadata /Title. Metadata blijft zichtbaar in de samenvatting.
     assert dialog.title_edit.text() == "doc"
     assert dialog.import_btn.isEnabled() is True
+    # Hash wordt nu ook berekend bij PDF-keuze
+    assert dialog._pdf_hash is not None
 
 
 def test_pdf_titel_komt_uit_bestandsnaam_niet_uit_metadata(
     tmp_path, monkeypatch
 ):
-    """Bewijs dat PDF-metadata /Title niet meer de initiële titel is.
-
-    Scenario: een PDF met een rommelige /Title, zoals Word die vaak
-    achterlaat ("Microsoft Word - ...doc"). Het titelveld moet de
-    bestandsnaam tonen, niet de metadata.
-    """
     _app()
     service = ImportService(catalog_path=tmp_path / "cat.json")
     dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
@@ -135,7 +130,6 @@ def test_pdf_titel_komt_uit_bestandsnaam_niet_uit_metadata(
     dialog._pick_pdf()
 
     assert dialog.title_edit.text() == "CHONGCD11XSERIES"
-    # Metadata-titel blijft beschikbaar voor weergave in de samenvatting.
     assert dialog._pdf_meta_titel == "Microsoft Word - CD11X n3-4 105.doc"
 
 
@@ -312,3 +306,180 @@ def test_titels_komen_uit_i18n(tmp_path):
     assert dialog_en.radio_pdf.text() == "PDF file"
     assert dialog_nl.cancel_btn.text() == "Annuleren"
     assert dialog_en.cancel_btn.text() == "Cancel"
+
+
+# ============================================================================
+# NIEUW IN v1.1.0 — duplicate-popup-flow
+# ============================================================================
+
+def _maak_match(
+    *,
+    source_type: ImportSourceType = ImportSourceType.PDF,
+    match_type: str = "file_hash",
+) -> DuplicateMatch:
+    if source_type is ImportSourceType.PDF:
+        bestaande = ImportSource(
+            source_id="abc-123",
+            source_type=ImportSourceType.PDF,
+            title="Bestaand document",
+            imported_at=1_700_000_000_000,
+            imported_by="tester",
+            status=ImportStatus.CONCEPT,
+            original_filename="oud.pdf",
+            file_hash="deadbeef",
+        )
+    else:
+        bestaande = ImportSource(
+            source_id="abc-456",
+            source_type=ImportSourceType.URL,
+            title="Bestaande URL",
+            imported_at=1_700_000_000_000,
+            imported_by="tester",
+            status=ImportStatus.CONCEPT,
+            source_url="https://example.com",
+        )
+    return DuplicateMatch(bestaande=bestaande, match_type=match_type)
+
+
+def test_duplicate_check_geen_match_voor_pdf_zonder_keuze(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+    assert dialog._check_duplicate() is None
+
+
+def test_duplicate_check_vindt_bestaande_pdf(tmp_path, monkeypatch):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    pdf_pad = _maak_eenvoudige_pdf(tmp_path / "doc.pdf", titel="Mijn PDF")
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(pdf_pad), "PDF (*.pdf)")),
+    )
+    dialog._pick_pdf()
+
+    # Registreer dezelfde PDF eerst in de service.
+    from app.documentation.pdf_import import import_pdf
+    import_pdf(
+        pdf_pad,
+        import_service=service,
+        sources_dir=tmp_path / "sources",
+    )
+
+    match = dialog._check_duplicate()
+    assert match is not None
+    assert match.match_type == "file_hash"
+
+
+def test_wizard_keep_bij_match_doet_niets(tmp_path, monkeypatch):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    pdf_pad = _maak_eenvoudige_pdf(tmp_path / "doc.pdf", titel="Mijn PDF")
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(pdf_pad), "PDF (*.pdf)")),
+    )
+    dialog._pick_pdf()
+
+    from app.documentation.pdf_import import import_pdf
+    eerste = import_pdf(
+        pdf_pad,
+        import_service=service,
+        sources_dir=tmp_path / "sources",
+    )
+    aantal_voor = len(service.list_sources())
+
+    # Simuleer KEEP-keuze in de popup.
+    from app.gui.dialogs import duplicate_source_dialog as dup_module
+    monkeypatch.setattr(
+        dup_module.DuplicateSourceDialog,
+        "vraag_actie",
+        staticmethod(lambda **kw: DuplicateAction.KEEP),
+    )
+
+    dialog._perform_import()
+
+    # Niets gewijzigd
+    assert len(service.list_sources()) == aantal_voor
+    assert service.get(eerste.source.source_id).status is ImportStatus.CONCEPT
+
+
+def test_wizard_annuleren_in_popup_doet_niets(tmp_path, monkeypatch):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    pdf_pad = _maak_eenvoudige_pdf(tmp_path / "doc.pdf", titel="Mijn PDF")
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(pdf_pad), "PDF (*.pdf)")),
+    )
+    dialog._pick_pdf()
+
+    from app.documentation.pdf_import import import_pdf
+    import_pdf(
+        pdf_pad,
+        import_service=service,
+        sources_dir=tmp_path / "sources",
+    )
+    aantal_voor = len(service.list_sources())
+
+    from app.gui.dialogs import duplicate_source_dialog as dup_module
+    monkeypatch.setattr(
+        dup_module.DuplicateSourceDialog,
+        "vraag_actie",
+        staticmethod(lambda **kw: None),
+    )
+
+    dialog._perform_import()
+
+    assert len(service.list_sources()) == aantal_voor
+
+
+def test_wizard_overwrite_bij_match(tmp_path, monkeypatch):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    pdf_pad = _maak_eenvoudige_pdf(tmp_path / "doc.pdf", titel="Mijn PDF")
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(pdf_pad), "PDF (*.pdf)")),
+    )
+    dialog._pick_pdf()
+
+    from app.documentation.pdf_import import import_pdf
+    eerste = import_pdf(
+        pdf_pad,
+        import_service=service,
+        sources_dir=tmp_path / "sources",
+    )
+
+    from app.gui.dialogs import duplicate_source_dialog as dup_module
+    monkeypatch.setattr(
+        dup_module.DuplicateSourceDialog,
+        "vraag_actie",
+        staticmethod(lambda **kw: DuplicateAction.OVERWRITE),
+    )
+
+    ontvangen = {"source_id": None}
+    dialog.import_completed.connect(
+        lambda sid: ontvangen.__setitem__("source_id", sid)
+    )
+
+    dialog._perform_import()
+
+    assert ontvangen["source_id"] == eerste.source.source_id
+    assert len(service.list_sources()) == 1

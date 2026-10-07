@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/documentation/url_fetch.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-06
+Versie:     1.1.0
+Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-onafhankelijke URL-hulpfuncties voor de import-wizard:
@@ -15,6 +15,10 @@ Doel:       GUI-onafhankelijke URL-hulpfuncties voor de import-wizard:
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie: fetch_url_metadata, fetch_url_content,
                        save_url_snapshot, default_snapshots_dir.
+  v1.1.0 (2026-10-07)  rename_existing_snapshot_to_old en
+                       restore_old_snapshot toegevoegd voor atomair
+                       overschrijven in fase 5D'.2a. Bestaande functies
+                       ongewijzigd.
 ================================================================================
 """
 
@@ -251,3 +255,73 @@ def save_url_snapshot(
         raise UrlFetchError(f"snapshot kon niet geschreven worden: {exc}") from exc
 
     return doel_pad
+
+
+def rename_existing_snapshot_to_old(
+    pad: Path,
+    *,
+    timestamp: str,
+) -> Optional[Path]:
+    """Hernoem een bestaande snapshot naar .oud-<timestamp>.
+
+    Wordt gebruikt door 'Overschrijven' (fase 5D'.2a) om de originele
+    snapshot te bewaren vóór de nieuwe snapshot wordt geschreven
+    (kernregel 9: originele bron wordt nooit stil vervangen).
+
+    Regels:
+      - Als pad niet bestaat: retourneer None (niets te bewaren).
+      - Als pad geen bestand is: UrlFetchError.
+      - Als het doel <pad>.oud-<timestamp> al bestaat: UrlFetchError
+        (weiger stil verlies van een eerdere backup).
+      - Anders: os.rename en retourneer het nieuwe pad.
+    """
+    pad = Path(pad)
+    if not pad.exists():
+        return None
+    if not pad.is_file():
+        raise UrlFetchError(f"pad is geen bestand: {pad}")
+
+    oud_pad = pad.with_name(pad.name + f".oud-{timestamp}")
+    if oud_pad.exists():
+        raise UrlFetchError(
+            f"oud-bestand bestaat al, weiger te overschrijven: {oud_pad}"
+        )
+
+    try:
+        os.rename(pad, oud_pad)
+    except OSError as exc:
+        raise UrlFetchError(
+            f"hernoemen naar oud-bestand faalde: {exc}"
+        ) from exc
+
+    return oud_pad
+
+
+def restore_old_snapshot(old_pad: Path, origineel_pad: Path) -> None:
+    """Zet een .oud-<timestamp> snapshot terug op zijn originele plaats.
+
+    Wordt gebruikt als rollback wanneer het schrijven van de nieuwe
+    snapshot faalt: de oude snapshot moet terug naar <source_id>.html,
+    anders eindigen we met een ontbrekende snapshot.
+
+    Faalt met UrlFetchError als het oude bestand niet bestaat of als
+    het originele pad al bezet is.
+    """
+    old_pad = Path(old_pad)
+    origineel_pad = Path(origineel_pad)
+
+    if not old_pad.exists():
+        raise UrlFetchError(
+            f"oud-bestand niet gevonden voor rollback: {old_pad}"
+        )
+    if origineel_pad.exists():
+        raise UrlFetchError(
+            f"rollback-doel bestaat al, weiger te overschrijven: {origineel_pad}"
+        )
+
+    try:
+        os.rename(old_pad, origineel_pad)
+    except OSError as exc:
+        raise UrlFetchError(
+            f"rollback van oud-bestand faalde: {exc}"
+        ) from exc

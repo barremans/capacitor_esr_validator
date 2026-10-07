@@ -106,7 +106,29 @@
       "fout_titel": "Import error",
       "fout_pdf": "PDF could not be read: {bericht}",
       "fout_url": "URL could not be fetched: {bericht}",
-      "fout_import": "Import failed: {bericht}"
+      "fout_import": "Import failed: {bericht}",
+      "duplicate": {
+        "titel": "Source already exists",
+        "match_type_label": "Match",
+        "match_type_bestand": "File content (SHA-256)",
+        "match_type_url": "URL",
+        "bestaande_titel": "Existing source",
+        "bestaande_status": "Status",
+        "bestaande_datum": "Imported on",
+        "bestaande_url": "URL",
+        "bestaande_bestand": "File",
+        "status_concept": "Concept",
+        "status_actief": "Active",
+        "status_gearchiveerd": "Archived",
+        "optie_behouden": "Keep",
+        "optie_nieuwe_versie": "Add new version",
+        "optie_overschrijven": "Overwrite",
+        "detail_behouden": "The existing source stays unchanged. No new registration is created.",
+        "detail_nieuwe_versie": "The existing source is kept as Archived. The new source starts as Concept.",
+        "detail_overschrijven": "The old source file is kept as .oud-<timestamp>. The status returns to Concept.",
+        "doorgaan": "Continue",
+        "annuleren": "Cancel"
+      }
     }
   },
   "_comment": "English translation — module documentation."

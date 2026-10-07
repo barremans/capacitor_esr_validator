@@ -2,22 +2,25 @@
 ================================================================================
 Module:     tests/test_documentation_import_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.1
-Datum:      2026-10-06
+Versie:     1.1.1
+Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor ImportService: registratie, statusmachine,
             JSON-persistentie, corrupte catalogus, schema_version,
-            atomair schrijven.
+            atomair schrijven, duplicate-detectie, replace_source en de
+            beste-match-prioriteit (ACTIEF > CONCEPT > GEARCHIVEERD).
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
   v1.0.1 (2026-10-06)  Qt-onafhankelijkheid niet meer via sys.modules-
-                        manipulatie (dat corrumpeerde de gedeelde
-                        QApplication-state in de volledige pytest-suite en
-                        veroorzaakte een access violation in
-                        DocumentationScreen._build_ui). Vervangen door een
-                        statische broncheck op de import-laag.
+                        manipulatie. Vervangen door statische broncheck.
+  v1.1.0 (2026-10-07)  Tests voor find_by_file_hash, find_by_source_url en
+                        replace_source (fase 5D'.2a).
+  v1.1.1 (2026-10-07)  Tests voor beste-match-prioriteit: ACTIEF >
+                        CONCEPT > GEARCHIVEERD, dan meest recente. Lost
+                        bug op waarbij Overschrijven de gearchiveerde bron
+                        koos in plaats van de actieve/concept-bron.
 ================================================================================
 """
 
@@ -222,13 +225,7 @@ def test_list_sources_ongeldige_status_faalt(service):
 # ---------------------------------------------------------------- geen Qt
 
 def test_import_service_en_models_bevatten_geen_qt_import():
-    """Bewijs dat de import-laag GUI-onafhankelijk is.
-
-    Bewust geen manipulatie van sys.modules: dat zou de gedeelde
-    QApplication-state in de volledige pytest-suite kunnen corrumperen en
-    een access violation in DocumentationScreen._build_ui() veroorzaken.
-    In plaats daarvan controleren we de broncode zelf.
-    """
+    """Bewijs dat de import-laag GUI-onafhankelijk is."""
     project_root = Path(__file__).resolve().parents[1]
     te_controleren = [
         project_root / "app" / "documentation" / "import_service.py",
@@ -241,3 +238,314 @@ def test_import_service_en_models_bevatten_geen_qt_import():
             assert token not in tekst, (
                 f"{pad.name} bevat verboden Qt-import: {token}"
             )
+
+
+# ============================================================================
+# v1.1.0 — find_by_file_hash, find_by_source_url, replace_source
+# ============================================================================
+
+# ---------------------------------------------------------------- find_by_file_hash
+
+def test_find_by_file_hash_geen_match(service):
+    service.register_pdf(
+        title="A", original_filename="a.pdf", file_hash="abc123"
+    )
+    assert service.find_by_file_hash("def456") is None
+
+
+def test_find_by_file_hash_match(service):
+    r = service.register_pdf(
+        title="A", original_filename="a.pdf", file_hash="abc123"
+    )
+    gevonden = service.find_by_file_hash("abc123")
+    assert gevonden is not None
+    assert gevonden.source_id == r.source.source_id
+
+
+def test_find_by_file_hash_case_insensitive(service):
+    service.register_pdf(
+        title="A", original_filename="a.pdf", file_hash="ABC123"
+    )
+    assert service.find_by_file_hash("abc123") is not None
+    assert service.find_by_file_hash("ABC123") is not None
+
+
+def test_find_by_file_hash_strip_whitespace(service):
+    service.register_pdf(
+        title="A", original_filename="a.pdf", file_hash="abc123"
+    )
+    assert service.find_by_file_hash("  abc123  ") is not None
+
+
+def test_find_by_file_hash_lege_hash_geeft_none(service):
+    service.register_pdf(
+        title="A", original_filename="a.pdf", file_hash="abc123"
+    )
+    assert service.find_by_file_hash("") is None
+    assert service.find_by_file_hash("   ") is None
+
+
+def test_find_by_file_hash_gearchiveerd_match(service):
+    r = service.register_pdf(
+        title="A", original_filename="a.pdf", file_hash="abc123"
+    )
+    service.archive(r.source.source_id)
+    gevonden = service.find_by_file_hash("abc123")
+    assert gevonden is not None
+    assert gevonden.status is ImportStatus.GEARCHIVEERD
+
+
+# ---------------------------------------------------------------- find_by_source_url
+
+def test_find_by_source_url_geen_match(service):
+    service.register_url(title="A", source_url="https://example.com")
+    assert service.find_by_source_url("https://other.com") is None
+
+
+def test_find_by_source_url_match(service):
+    r = service.register_url(title="A", source_url="https://example.com")
+    gevonden = service.find_by_source_url("https://example.com")
+    assert gevonden is not None
+    assert gevonden.source_id == r.source.source_id
+
+
+def test_find_by_source_url_trailing_slash_genegeerd(service):
+    service.register_url(title="A", source_url="https://example.com")
+    assert service.find_by_source_url("https://example.com/") is not None
+
+
+def test_find_by_source_url_lege_url_geeft_none(service):
+    service.register_url(title="A", source_url="https://example.com")
+    assert service.find_by_source_url("") is None
+    assert service.find_by_source_url("   ") is None
+
+
+def test_find_by_source_url_gearchiveerd_match(service):
+    r = service.register_url(title="A", source_url="https://example.com")
+    service.archive(r.source.source_id)
+    gevonden = service.find_by_source_url("https://example.com")
+    assert gevonden is not None
+    assert gevonden.status is ImportStatus.GEARCHIVEERD
+
+
+# ---------------------------------------------------------------- replace_source
+
+def test_replace_source_wijzigt_velden(service):
+    r = service.register_pdf(
+        title="Oud", original_filename="oud.pdf", file_hash="hash_oud"
+    )
+    result = service.replace_source(
+        r.source.source_id,
+        title="Nieuw",
+        file_hash="hash_nieuw",
+        original_filename="nieuw.pdf",
+        notes="nieuwe notitie",
+    )
+    assert result.changed is True
+    assert result.source.source_id == r.source.source_id
+    assert result.source.title == "Nieuw"
+    assert result.source.file_hash == "hash_nieuw"
+    assert result.source.original_filename == "nieuw.pdf"
+    assert result.source.notes == "nieuwe notitie"
+    assert result.source.imported_at == r.source.imported_at
+
+
+def test_replace_source_behoudt_source_id_en_type(service):
+    r = service.register_pdf(
+        title="Oud", original_filename="oud.pdf", file_hash="hash_oud"
+    )
+    result = service.replace_source(
+        r.source.source_id,
+        title="Nieuw",
+        file_hash="hash_nieuw",
+        original_filename="nieuw.pdf",
+        notes=None,
+    )
+    assert result.source.source_id == r.source.source_id
+    assert result.source.source_type is ImportSourceType.PDF
+    assert result.source.imported_by == r.source.imported_by
+
+
+def test_replace_source_status_overschrijven_naar_concept(service):
+    r = service.register_pdf(
+        title="Oud", original_filename="oud.pdf", file_hash="hash_oud"
+    )
+    service.set_status(r.source.source_id, ImportStatus.ACTIEF)
+    result = service.replace_source(
+        r.source.source_id,
+        title="Nieuw",
+        file_hash="hash_nieuw",
+        original_filename="nieuw.pdf",
+        notes=None,
+        status=ImportStatus.CONCEPT,
+    )
+    assert result.source.status is ImportStatus.CONCEPT
+
+
+def test_replace_source_zonder_status_behoudt_bestaande(service):
+    r = service.register_pdf(
+        title="Oud", original_filename="oud.pdf", file_hash="hash_oud"
+    )
+    service.set_status(r.source.source_id, ImportStatus.ACTIEF)
+    result = service.replace_source(
+        r.source.source_id,
+        title="Nieuw",
+        file_hash="hash_nieuw",
+        original_filename="nieuw.pdf",
+        notes=None,
+    )
+    assert result.source.status is ImportStatus.ACTIEF
+
+
+def test_replace_source_custom_imported_at(service):
+    r = service.register_pdf(
+        title="Oud", original_filename="oud.pdf", file_hash="hash_oud"
+    )
+    nieuw_ts = r.source.imported_at + 5000
+    result = service.replace_source(
+        r.source.source_id,
+        title="Nieuw",
+        file_hash="hash_nieuw",
+        original_filename="nieuw.pdf",
+        notes=None,
+        imported_at=nieuw_ts,
+    )
+    assert result.source.imported_at == nieuw_ts
+
+
+def test_replace_source_onbekende_id_faalt(service):
+    with pytest.raises(ImportValidationError):
+        service.replace_source(
+            "bestaat-niet",
+            title="X",
+            file_hash="y",
+            original_filename="z.pdf",
+            notes=None,
+        )
+
+
+def test_replace_source_persisteert_naar_disk(service, tmp_path):
+    r = service.register_pdf(
+        title="Oud", original_filename="oud.pdf", file_hash="hash_oud"
+    )
+    service.replace_source(
+        r.source.source_id,
+        title="Nieuw",
+        file_hash="hash_nieuw",
+        original_filename="nieuw.pdf",
+        notes=None,
+    )
+    service2 = ImportService(catalog_path=service.catalog_path)
+    terug = service2.get(r.source.source_id)
+    assert terug.title == "Nieuw"
+    assert terug.file_hash == "hash_nieuw"
+
+
+def test_replace_source_url_behoudt_source_url(service):
+    r = service.register_url(title="Oud", source_url="https://example.com")
+    result = service.replace_source(
+        r.source.source_id,
+        title="Nieuw",
+        file_hash=None,
+        original_filename=None,
+        notes="nieuw",
+    )
+    assert result.source.source_url == "https://example.com"
+
+
+# ============================================================================
+# v1.1.1 — beste match bij duplicate-detectie
+# ============================================================================
+
+def test_find_by_file_hash_kiest_actief_boven_gearchiveerd(service):
+    """Bij meerdere matches met dezelfde hash: Actief wint van Gearchiveerd."""
+    oud = service.register_pdf(
+        title="Oud", original_filename="oud.pdf", file_hash="abc123"
+    )
+    service.archive(oud.source.source_id)
+
+    nieuw = service.register_pdf(
+        title="Nieuw", original_filename="nieuw.pdf", file_hash="abc123"
+    )
+    service.set_status(nieuw.source.source_id, ImportStatus.ACTIEF)
+
+    gevonden = service.find_by_file_hash("abc123")
+    assert gevonden is not None
+    assert gevonden.source_id == nieuw.source.source_id
+    assert gevonden.status is ImportStatus.ACTIEF
+
+
+def test_find_by_file_hash_kiest_concept_boven_gearchiveerd(service):
+    """Concept wint van Gearchiveerd."""
+    oud = service.register_pdf(
+        title="Oud", original_filename="oud.pdf", file_hash="abc123"
+    )
+    service.archive(oud.source.source_id)
+
+    nieuw = service.register_pdf(
+        title="Nieuw", original_filename="nieuw.pdf", file_hash="abc123"
+    )
+
+    gevonden = service.find_by_file_hash("abc123")
+    assert gevonden is not None
+    assert gevonden.source_id == nieuw.source.source_id
+    assert gevonden.status is ImportStatus.CONCEPT
+
+
+def test_find_by_file_hash_kiest_actief_boven_concept(service):
+    """Actief wint van Concept."""
+    eerste = service.register_pdf(
+        title="Eerste", original_filename="eerste.pdf", file_hash="abc123"
+    )
+    service.set_status(eerste.source.source_id, ImportStatus.ACTIEF)
+
+    service.register_pdf(
+        title="Tweede", original_filename="tweede.pdf", file_hash="abc123"
+    )
+
+    gevonden = service.find_by_file_hash("abc123")
+    assert gevonden is not None
+    assert gevonden.source_id == eerste.source.source_id
+    assert gevonden.status is ImportStatus.ACTIEF
+
+
+def test_find_by_file_hash_gelijke_status_kiest_recentste(service):
+    """Bij gelijke status: hoogste imported_at (meest recente)."""
+    service.register_pdf(
+        title="Eerste", original_filename="eerste.pdf", file_hash="abc123"
+    )
+    tweede = service.register_pdf(
+        title="Tweede", original_filename="tweede.pdf", file_hash="abc123"
+    )
+
+    gevonden = service.find_by_file_hash("abc123")
+    assert gevonden is not None
+    assert gevonden.source_id == tweede.source.source_id
+
+
+def test_find_by_source_url_kiest_actief_boven_gearchiveerd(service):
+    """Bij meerdere URL-matches: Actief wint van Gearchiveerd."""
+    oud = service.register_url(title="Oud", source_url="https://example.com")
+    service.archive(oud.source.source_id)
+
+    nieuw = service.register_url(
+        title="Nieuw", source_url="https://example.com"
+    )
+    service.set_status(nieuw.source.source_id, ImportStatus.ACTIEF)
+
+    gevonden = service.find_by_source_url("https://example.com")
+    assert gevonden is not None
+    assert gevonden.source_id == nieuw.source.source_id
+    assert gevonden.status is ImportStatus.ACTIEF
+
+
+def test_find_by_source_url_gelijke_status_kiest_recentste(service):
+    """Bij gelijke status: hoogste imported_at."""
+    service.register_url(title="Eerste", source_url="https://example.com")
+    tweede = service.register_url(
+        title="Tweede", source_url="https://example.com"
+    )
+
+    gevonden = service.find_by_source_url("https://example.com")
+    assert gevonden is not None
+    assert gevonden.source_id == tweede.source.source_id

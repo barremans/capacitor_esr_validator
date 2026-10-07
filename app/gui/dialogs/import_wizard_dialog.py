@@ -2,14 +2,17 @@
 ================================================================================
 Module:     app/gui/dialogs/import_wizard_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.2
+Versie:     1.1.0
 Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       Modale wizard voor het importeren van een PDF of URL als
             documentatiebron. Roept de GUI-onafhankelijke services aan
             (import_pdf / import_url) en toont een samenvatting vóór
-            bevestiging. Geen netwerk- of PDF-logica in deze module.
+            bevestiging. Bij een bestaande bron toont de wizard een
+            popup met drie keuzes (Behouden / Nieuwe versie / Overschrijven)
+            via DuplicateSourceDialog. Geen netwerk- of PDF-logica in deze
+            module buiten de hash-berekening.
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie: radio voor type, bestandskiezer of
@@ -18,10 +21,12 @@ Wijzigingen:
                        die een circulaire import veroorzaakte.
   v1.0.2 (2026-10-07)  Titel-voorstel bij PDF is nu altijd de bestandsnaam
                        (zonder extensie). De PDF-metadata /Title is vaak
-                       rommel (bv. "Microsoft Word - ...doc") en blijft
-                       alleen zichtbaar in het samenvattingsblok, zodat de
-                       gebruiker bewust kan kiezen. URL-titel-resolutie
-                       blijft ongewijzigd (og:title -> title -> URL).
+                       rommel en blijft alleen zichtbaar in het
+                       samenvattingsblok.
+  v1.1.0 (2026-10-07)  Duplicate-detectie vóór import (fase 5D'.2a):
+                       find_duplicate + DuplicateSourceDialog. Gekozen
+                       DuplicateAction wordt doorgegeven aan import_pdf /
+                       import_url. Bij KEEP met match: geen import.
 ================================================================================
 """
 
@@ -47,9 +52,18 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.documentation.import_models import ImportValidationError
+from app.documentation.duplicate_check import find_duplicate
+from app.documentation.import_models import (
+    DuplicateAction,
+    DuplicateMatch,
+    ImportValidationError,
+)
 from app.documentation.import_service import ImportService
-from app.documentation.pdf_extract import PdfExtractError, extract_pdf_metadata
+from app.documentation.pdf_extract import (
+    PdfExtractError,
+    compute_file_hash,
+    extract_pdf_metadata,
+)
 from app.documentation.pdf_import import import_pdf
 from app.documentation.url_fetch import (
     UrlFetchError,
@@ -57,6 +71,7 @@ from app.documentation.url_fetch import (
     fetch_url_metadata,
 )
 from app.documentation.url_import import import_url
+from app.gui.dialogs.duplicate_source_dialog import DuplicateSourceDialog
 from app.helpers.i18n import vertaal
 
 
@@ -79,6 +94,7 @@ class ImportWizardDialog(QDialog):
         # Interne toestand
         self._pdf_pad: Optional[Path] = None
         self._pdf_meta_titel: Optional[str] = None
+        self._pdf_hash: Optional[str] = None
         self._url: Optional[str] = None
         self._url_meta: Optional[UrlMetadata] = None
 
@@ -248,13 +264,23 @@ class ImportWizardDialog(QDialog):
             )
             return
 
+        # Hash nu berekenen: nodig voor duplicate-detectie vóór import.
+        try:
+            self._pdf_hash = compute_file_hash(bron_pad)
+        except PdfExtractError as exc:
+            QMessageBox.warning(
+                self,
+                self._t("documentatie.import.fout_titel"),
+                self._t("documentatie.import.fout_pdf", bericht=str(exc)),
+            )
+            return
+
         self._pdf_pad = bron_pad
         self._pdf_meta_titel = meta.title
         self.pdf_path_label.setText(bron_pad.name)
 
         # Titel-voorstel: altijd de bestandsnaam (zonder extensie). De
-        # PDF-metadata-titel blijft zichtbaar in het samenvattingsblok,
-        # zodat de gebruiker bewust kan kiezen.
+        # PDF-metadata-titel blijft zichtbaar in het samenvattingsblok.
         voorgestelde_titel = bron_pad.stem
         if not self.title_edit.text().strip():
             self.title_edit.setText(voorgestelde_titel)
@@ -333,10 +359,51 @@ class ImportWizardDialog(QDialog):
             f"{self._t('documentatie.import.samenvatting_leeg')}</i>"
         )
 
+    # ---------------------------------------------------------------- duplicate
+
+    def _check_duplicate(self) -> Optional[DuplicateMatch]:
+        """Zoek een bestaande bron voor de huidige keuze.
+
+        Retourneert None als er geen match is, of als er nog geen bron
+        klaarstaat. Anders een DuplicateMatch.
+        """
+        if self.radio_pdf.isChecked():
+            if self._pdf_hash is None:
+                return None
+            return find_duplicate(
+                self.import_service, file_hash=self._pdf_hash
+            )
+        if self._url_meta is None:
+            return None
+        return find_duplicate(
+            self.import_service, source_url=self._url_meta.url
+        )
+
     # ---------------------------------------------------------------- importeren
 
     def _perform_import(self) -> None:
         titel = self.title_edit.text().strip() or None
+
+        # Duplicate-check vóór import.
+        match = self._check_duplicate()
+
+        # Bepaal de actie.
+        if match is not None:
+            actie = DuplicateSourceDialog.vraag_actie(
+                match=match,
+                taal=self.taal,
+                parent=self,
+            )
+            if actie is None:
+                # Gebruiker annuleerde de popup: niets doen.
+                return
+            if actie is DuplicateAction.KEEP:
+                # Niets wijzigen; wizard blijft open zodat de gebruiker
+                # eventueel een andere keuze kan maken.
+                return
+        else:
+            # Geen match: gewone import.
+            actie = DuplicateAction.NEW_VERSION
 
         try:
             if self.radio_pdf.isChecked():
@@ -346,6 +413,7 @@ class ImportWizardDialog(QDialog):
                     self._pdf_pad,
                     import_service=self.import_service,
                     title=titel,
+                    duplicate_action=actie,
                 )
             else:
                 if self._url is None:
@@ -354,6 +422,7 @@ class ImportWizardDialog(QDialog):
                     self._url,
                     import_service=self.import_service,
                     title=titel,
+                    duplicate_action=actie,
                 )
         except (PdfExtractError, UrlFetchError, ImportValidationError) as exc:
             QMessageBox.warning(

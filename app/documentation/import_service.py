@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/documentation/import_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-06
+Versie:     1.1.1
+Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-onafhankelijke service voor het registreren en beheren van
@@ -16,6 +16,15 @@ Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie: register_pdf, register_url,
                        set_status, archive, revoke, list_sources, get,
                        JSON-persistentie met schema_version=1.
+  v1.1.0 (2026-10-07)  Duplicate-detectie en vervanging toegevoegd:
+                       find_by_file_hash, find_by_source_url,
+                       replace_source.
+  v1.1.1 (2026-10-07)  find_by_file_hash en find_by_source_url kiezen nu
+                       de BESTE match in plaats van de eerste: status-
+                       prioriteit ACTIEF > CONCEPT > GEARCHIVEERD, dan
+                       meest recente imported_at. Lost bug op waarbij
+                       Overschrijven de gearchiveerde bron koos in plaats
+                       van de actieve/concept-bron.
 ================================================================================
 """
 
@@ -44,6 +53,14 @@ CATALOG_SCHEMA_VERSION = 1
 CATALOG_FILENAME = "imported_catalog.json"
 
 
+# Status-prioriteit voor duplicate-detectie: lager = beter.
+_STATUS_PRIORITEIT: dict[ImportStatus, int] = {
+    ImportStatus.ACTIEF: 0,
+    ImportStatus.CONCEPT: 1,
+    ImportStatus.GEARCHIVEERD: 2,
+}
+
+
 def default_catalog_path() -> Path:
     """Standaardpad van de gebruikerscatalogus.
 
@@ -55,8 +72,6 @@ def default_catalog_path() -> Path:
 
     base = os.environ.get("LOCALAPPDATA")
     if not base:
-        # Val terug op het gebruikersprofiel als LOCALAPPDATA ontbreekt
-        # (bv. in een kale testomgeving). Geen crash, wel voorspelbaar pad.
         base = str(Path.home() / "AppData" / "Local")
     return Path(base) / "ElectronicsDiagnosticToolHub" / "documentation" / CATALOG_FILENAME
 
@@ -65,8 +80,7 @@ class ImportService:
     """Beheert de gebruikerscatalogus van geïmporteerde documentatiebronnen.
 
     De service is volledig GUI-onafhankelijk en doet geen netwerk- of
-    PDF-operaties. Registratie betekent hier: metadata vastleggen. Het
-    effectief lezen of downloaden van de bron gebeurt in latere deelfasen.
+    PDF-operaties. Registratie betekent hier: metadata vastleggen.
     """
 
     def __init__(
@@ -151,6 +165,116 @@ class ImportService:
                 raise ImportValidationError("status moet ImportStatus zijn")
             items = [s for s in items if s.status is status]
         return items
+
+    def find_by_file_hash(self, file_hash: str) -> Optional[ImportSource]:
+        """Zoek de BESTE bron met deze SHA-256 (case-insensitive).
+
+        Beste = hoogste status-prioriteit (ACTIEF > CONCEPT > GEARCHIVEERD),
+        en bij gelijke status de meest recente imported_at.
+
+        Doorzoekt alle statussen. Retourneert None als er geen match is of
+        als file_hash leeg is.
+        """
+
+        if not isinstance(file_hash, str) or not file_hash.strip():
+            return None
+        gezocht = file_hash.strip().lower()
+
+        kandidaten: list[ImportSource] = [
+            s
+            for s in self._read_all()
+            if s.file_hash and s.file_hash.lower() == gezocht
+        ]
+        return self._beste_match(kandidaten)
+
+    def find_by_source_url(self, source_url: str) -> Optional[ImportSource]:
+        """Zoek de BESTE bron met deze URL.
+
+        Vergelijkt na lichte normalisatie: strip en trailing slash weg.
+        Beste = hoogste status-prioriteit, dan meest recente imported_at.
+        Doorzoekt alle statussen. Retourneert None als er geen match is.
+        """
+
+        if not isinstance(source_url, str) or not source_url.strip():
+            return None
+        gezocht = source_url.strip().rstrip("/")
+
+        kandidaten: list[ImportSource] = [
+            s
+            for s in self._read_all()
+            if s.source_url and s.source_url.strip().rstrip("/") == gezocht
+        ]
+        return self._beste_match(kandidaten)
+
+    @staticmethod
+    def _beste_match(
+        kandidaten: list[ImportSource],
+    ) -> Optional[ImportSource]:
+        """Kies de beste match: status-prioriteit, dan meest recente.
+
+        Status-prioriteit: ACTIEF > CONCEPT > GEARCHIVEERD.
+        Bij gelijke status: hoogste imported_at (meest recente).
+        """
+        if not kandidaten:
+            return None
+
+        return min(
+            kandidaten,
+            key=lambda s: (
+                _STATUS_PRIORITEIT.get(s.status, 99),
+                -s.imported_at,
+            ),
+        )
+
+    def replace_source(
+        self,
+        source_id: str,
+        *,
+        title: str,
+        file_hash: Optional[str],
+        original_filename: Optional[str],
+        notes: Optional[str],
+        imported_at: Optional[int] = None,
+        status: Optional[ImportStatus] = None,
+    ) -> ImportResult:
+        """Vervang alle wijzigbare velden van één bestaande bron.
+
+        Gebruikt door 'Overschrijven' in de wizard (fase 5D'.2a). Het
+        source_id blijft ongewijzigd, net als source_type en imported_by.
+        imported_at en status worden gezet zoals meegegeven; als ze None
+        zijn, blijven de bestaande waarden behouden.
+
+        Er wordt GEEN is_allowed_transition-check gedaan: 'Overschrijven'
+        is een expliciete gebruikersactie.
+        """
+
+        items = list(self._read_all())
+        for idx, source in enumerate(items):
+            if source.source_id != source_id:
+                continue
+
+            nieuwe_imported_at = (
+                imported_at if imported_at is not None else source.imported_at
+            )
+            nieuwe_status = status if status is not None else source.status
+
+            vervangen = ImportSource(
+                source_id=source.source_id,
+                source_type=source.source_type,
+                title=title,
+                imported_at=nieuwe_imported_at,
+                imported_by=source.imported_by,
+                status=nieuwe_status,
+                original_filename=original_filename,
+                source_url=source.source_url,
+                file_hash=file_hash,
+                notes=notes,
+            )
+            items[idx] = vervangen
+            self._write_all(items)
+            return ImportResult(source=vervangen, changed=True)
+
+        raise ImportValidationError(f"onbekende source_id: {source_id}")
 
     def set_status(
         self, source_id: str, nieuwe_status: ImportStatus
@@ -266,9 +390,6 @@ class ImportService:
 
         self._catalog_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Atomair schrijven: naar een tijdelijk bestand in dezelfde map,
-        # daarna os.replace. Voorkomt halve bestanden bij crash of
-        # onderbroken schrijfactie.
         fd, tmp_name = tempfile.mkstemp(
             prefix=".imported_catalog.",
             suffix=".tmp",
@@ -281,7 +402,6 @@ class ImportService:
                 os.fsync(handle.fileno())
             os.replace(tmp_name, self._catalog_path)
         except Exception:
-            # Opruimen als het mislukt; laat originele bestand intact.
             try:
                 os.unlink(tmp_name)
             except OSError:

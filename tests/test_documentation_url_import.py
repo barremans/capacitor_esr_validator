@@ -2,18 +2,20 @@
 ================================================================================
 Module:     tests/test_documentation_url_import.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.1
-Datum:      2026-10-06
+Versie:     1.1.0
+Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor url_import: gelukkig pad, titel-resolutie,
-            foutpaden, optie B bij snapshot-fout.
-            Netwerk en fetch worden gemockt.
+            foutpaden, optie B bij snapshot-fout, en de drie
+            duplicate-acties (KEEP / NEW_VERSION / OVERWRITE) van fase
+            5D'.2a. Netwerk en fetch worden gemockt.
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
-  v1.0.1 (2026-10-06)  SyntaxError hersteld: walrus-expressie in een
-                        keyword-argument vervangen door een gewone variabele.
+  v1.0.1 (2026-10-06)  SyntaxError hersteld.
+  v1.1.0 (2026-10-07)  Tests voor duplicate_action en atomair
+                        overschrijven met rollback.
 ================================================================================
 """
 
@@ -24,7 +26,11 @@ from pathlib import Path
 import pytest
 
 import app.documentation.url_import as url_import_module
-from app.documentation.import_models import ImportStatus
+from app.documentation.import_models import (
+    DuplicateAction,
+    ImportStatus,
+    ImportValidationError,
+)
 from app.documentation.import_service import ImportService
 from app.documentation.url_fetch import UrlFetchError, UrlMetadata
 from app.documentation.url_import import import_url
@@ -168,7 +174,6 @@ def test_import_url_metadata_fout_propageert(monkeypatch, service, snapshots_dir
             import_service=service,
             snapshots_dir=snapshots_dir,
         )
-    # Geen registratie gebeurd
     assert service.list_sources() == []
 
 
@@ -197,8 +202,6 @@ def test_import_url_content_fout_propageert(monkeypatch, service, snapshots_dir)
 
 def test_snapshot_fout_behoudt_registratie(monkeypatch, service, snapshots_dir):
     _installeer_fake_fetch(monkeypatch, _fake_meta("https://example.com"))
-
-    # Maak snapshots_dir onbruikbaar: een bestand waar een map moet komen.
     snapshots_dir.write_text("blokkerend bestand", encoding="utf-8")
 
     result = import_url(
@@ -213,7 +216,6 @@ def test_snapshot_fout_behoudt_registratie(monkeypatch, service, snapshots_dir):
     assert result.source.notes is not None
     assert "snapshot" in result.source.notes.lower()
 
-    # Bron is opvraagbaar
     opnieuw = service.get(result.source.source_id)
     assert opnieuw.notes is not None
 
@@ -253,3 +255,176 @@ def test_twee_keer_importeren_zelfde_url(monkeypatch, service, snapshots_dir):
 
     assert eerste.source.source_id != tweede.source.source_id
     assert len(service.list_sources()) == 2
+
+
+# ============================================================================
+# NIEUW IN v1.1.0 — duplicate_action (KEEP / NEW_VERSION / OVERWRITE)
+# ============================================================================
+
+def test_duplicate_action_ongeldig_type_faalt(monkeypatch, service, snapshots_dir):
+    _installeer_fake_fetch(monkeypatch, _fake_meta("https://example.com"))
+
+    with pytest.raises(ImportValidationError):
+        import_url(
+            "https://example.com",
+            import_service=service,
+            snapshots_dir=snapshots_dir,
+            duplicate_action="keep",  # type: ignore[arg-type]
+        )
+
+
+# ------------------------------------------------------------------ KEEP
+
+def test_keep_zonder_match_registreert_normaal(monkeypatch, service, snapshots_dir):
+    _installeer_fake_fetch(monkeypatch, _fake_meta("https://example.com"))
+    result = import_url(
+        "https://example.com",
+        import_service=service,
+        snapshots_dir=snapshots_dir,
+        duplicate_action=DuplicateAction.KEEP,
+    )
+    assert result.changed is True
+    assert len(service.list_sources()) == 1
+
+
+def test_keep_met_match_doet_niets(monkeypatch, service, snapshots_dir):
+    _installeer_fake_fetch(monkeypatch, _fake_meta("https://example.com"))
+
+    eerste = import_url(
+        "https://example.com",
+        import_service=service,
+        snapshots_dir=snapshots_dir,
+    )
+
+    result = import_url(
+        "https://example.com",
+        import_service=service,
+        snapshots_dir=snapshots_dir.parent / "snapshots2",
+        duplicate_action=DuplicateAction.KEEP,
+    )
+
+    assert result.changed is False
+    assert result.source.source_id == eerste.source.source_id
+    assert len(service.list_sources()) == 1
+
+
+# ------------------------------------------------------------------ NEW_VERSION
+
+def test_new_version_met_match_archiveert_oude(monkeypatch, service, snapshots_dir):
+    _installeer_fake_fetch(monkeypatch, _fake_meta("https://example.com"))
+
+    eerste = import_url(
+        "https://example.com",
+        import_service=service,
+        snapshots_dir=snapshots_dir,
+    )
+
+    tweede = import_url(
+        "https://example.com",
+        import_service=service,
+        snapshots_dir=snapshots_dir.parent / "snapshots2",
+        duplicate_action=DuplicateAction.NEW_VERSION,
+    )
+
+    assert eerste.source.source_id != tweede.source.source_id
+    opnieuw = service.get(eerste.source.source_id)
+    assert opnieuw.status is ImportStatus.GEARCHIVEERD
+    assert tweede.source.status is ImportStatus.CONCEPT
+    assert len(service.list_sources()) == 2
+
+
+# ------------------------------------------------------------------ OVERWRITE
+
+def test_overwrite_met_match_behoudt_source_id(monkeypatch, service, snapshots_dir):
+    _installeer_fake_fetch(monkeypatch, _fake_meta("https://example.com"))
+
+    eerste = import_url(
+        "https://example.com",
+        import_service=service,
+        snapshots_dir=snapshots_dir,
+    )
+
+    # Tweede fetch met dezelfde URL.
+    _installeer_fake_fetch(
+        monkeypatch,
+        _fake_meta("https://example.com", titel="Nieuwe titel"),
+        html="<html><body>nieuwe inhoud</body></html>",
+    )
+
+    result = import_url(
+        "https://example.com",
+        import_service=service,
+        snapshots_dir=snapshots_dir,
+        title="Nieuwe titel",
+        duplicate_action=DuplicateAction.OVERWRITE,
+    )
+
+    assert result.source.source_id == eerste.source.source_id
+    assert result.source.title == "Nieuwe titel"
+    assert result.source.status is ImportStatus.CONCEPT
+    assert len(service.list_sources()) == 1
+
+
+def test_overwrite_bewaart_oude_snapshot(monkeypatch, service, snapshots_dir):
+    _installeer_fake_fetch(monkeypatch, _fake_meta("https://example.com"))
+
+    eerste = import_url(
+        "https://example.com",
+        import_service=service,
+        snapshots_dir=snapshots_dir,
+    )
+
+    _installeer_fake_fetch(monkeypatch, _fake_meta("https://example.com"))
+
+    import_url(
+        "https://example.com",
+        import_service=service,
+        snapshots_dir=snapshots_dir,
+        duplicate_action=DuplicateAction.OVERWRITE,
+    )
+
+    oude = list(
+        snapshots_dir.glob(f"{eerste.source.source_id}.html.oud-*")
+    )
+    assert len(oude) == 1
+
+
+def test_overwrite_rollback_bij_snapshot_fout(monkeypatch, service, snapshots_dir):
+    _installeer_fake_fetch(monkeypatch, _fake_meta("https://example.com"))
+
+    eerste = import_url(
+        "https://example.com",
+        import_service=service,
+        snapshots_dir=snapshots_dir,
+    )
+
+    originele_pad = snapshots_dir / f"{eerste.source.source_id}.html"
+    assert originele_pad.exists()
+
+    _installeer_fake_fetch(monkeypatch, _fake_meta("https://example.com"))
+
+    def _kapotte_save(*args, **kwargs):
+        raise UrlFetchError("test-snapshot-fout")
+
+    originele_save = url_import_module.save_url_snapshot
+    url_import_module.save_url_snapshot = _kapotte_save
+    try:
+        with pytest.raises(UrlFetchError):
+            import_url(
+                "https://example.com",
+                import_service=service,
+                snapshots_dir=snapshots_dir,
+                duplicate_action=DuplicateAction.OVERWRITE,
+            )
+    finally:
+        url_import_module.save_url_snapshot = originele_save
+
+    # Oude snapshot moet terug op zijn plaats staan
+    assert originele_pad.exists()
+    oude = list(
+        snapshots_dir.glob(f"{eerste.source.source_id}.html.oud-*")
+    )
+    assert oude == []
+    # Catalogus ongewijzigd
+    ongewijzigd = service.get(eerste.source.source_id)
+    assert ongewijzigd.title == eerste.source.title

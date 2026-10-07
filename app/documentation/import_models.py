@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/documentation/import_models.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-06
+Versie:     1.1.0
+Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       Immutable modellen en vaste enumwaarden voor de import van
@@ -12,6 +12,9 @@ Doel:       Immutable modellen en vaste enumwaarden voor de import van
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie: ImportSourceType, ImportStatus,
                        ImportSource, ImportResult, ImportValidationError.
+  v1.1.0 (2026-10-07)  DuplicateAction en DuplicateMatch toegevoegd voor
+                       de bestaand-document-popup (fase 5D'.2a). Geen
+                       wijziging aan bestaande modellen.
 ================================================================================
 """
 
@@ -45,6 +48,26 @@ class ImportStatus(str, Enum):
     CONCEPT = "concept"
     ACTIEF = "actief"
     GEARCHIVEERD = "gearchiveerd"
+
+
+class DuplicateAction(str, Enum):
+    """Keuze van de gebruiker bij een exact bestaande bron.
+
+    Wordt gebruikt door de wizard-popup (fase 5D'.2a) en door de
+    orkestratielaag (pdf_import / url_import) om te bepalen wat er met
+    een duplicate gebeurt.
+
+    KEEP          Niets doen. Bestaande bron blijft ongewijzigd, geen
+                  nieuwe registratie.
+    NEW_VERSION   Nieuwe bron registreren; oude bron op GEARCHIVEERD.
+    OVERWRITE     Bestaande bron bijwerken met hetzelfde source_id;
+                  bronbestand wordt vervangen (oude versie bewaard als
+                  .oud-<timestamp>).
+    """
+
+    KEEP = "keep"
+    NEW_VERSION = "new_version"
+    OVERWRITE = "overwrite"
 
 
 # Toegelaten statusovergangen. Alle andere overgangen zijn ongeldig.
@@ -195,3 +218,27 @@ class ImportResult:
     source: ImportSource
     changed: bool = True
     message: Optional[str] = None
+
+
+@dataclass(frozen=True, slots=True)
+class DuplicateMatch:
+    """Beschrijving van een gevonden duplicate bij import.
+
+    Wordt door de wizard gebruikt om de popup te tonen en door de
+    orkestratielaag om de gekozen actie uit te voeren. Bevat de volledige
+    bestaande ImportSource, zodat de GUI titel, status en importdatum kan
+    tonen zonder extra queries.
+    """
+
+    bestaande: ImportSource
+    match_type: str  # "file_hash" of "source_url"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.bestaande, ImportSource):
+            raise ImportValidationError(
+                "bestaande moet een ImportSource zijn"
+            )
+        if self.match_type not in ("file_hash", "source_url"):
+            raise ImportValidationError(
+                "match_type moet 'file_hash' of 'source_url' zijn"
+            )
