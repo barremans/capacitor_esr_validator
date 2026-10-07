@@ -2,9 +2,9 @@
 ================================================================================
 Module:     app/config/settings.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.3.0
-Datum:      2026-09-27
-Auteur:     Ontwikkelaar
+Versie:     1.4.0
+Datum:      2026-10-07
+Auteur:     Bart Bossuyt
 
 Doel:       Centrale, aanpasbare instellingen voor de app.
             Geen beoordelingslogica hier, enkel waarden en persistente defaults.
@@ -14,14 +14,15 @@ Wijzigingen:
                        vaste keuzelijsten, eenheidsconversiefactoren.
   v1.1.0 (2026-09-26)  Expliciete meetmethoden toegevoegd: EX_SITU,
                        ONE_LEG en IN_CIRCUIT.
-                       Gebaseerd op docs/validation_rules.md §11.
   v1.2.0 (2026-09-27)  Settings-datamodel voorbereid voor Algemeen,
-                       ESR / Condensator en Rapportage. Bestaande settings.json
-                       blijft achterwaarts compatibel. Beoordelingsdrempels
-                       inhoudelijk ongewijzigd.
+                       ESR / Condensator en Rapportage.
   v1.3.0 (2026-10-02)  Algemene bestandsvoorkeuren toegevoegd: standaard
                        exportmap, importmap en optioneel exportmap openen na
                        succesvolle export. Condensatortypes gecentraliseerd.
+  v1.4.0 (2026-10-07)  laatste_importmap en laatste_exportmap toegevoegd
+                       voor 5D'.3 (Wizard UX). Backward-compatible: oude
+                       settings.json blijft geldig, ontbrekende keys worden
+                       leeg.
 
 Referentie: docs/validation_rules.md §11, docs/data_model.md §9 en
             functional_design_multitool_questionnaire.md §14.
@@ -88,12 +89,7 @@ ESR_FACTOR_NAAR_OHM = {
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class BeoordelingsInstellingen:
-    """Configureerbare grenswaarden voor de indicatieve beoordeling.
-
-    Elke waarde hier komt letterlijk overeen met een parameter uit
-    docs/validation_rules.md §11. Waarden gemarkeerd [AANNAME] in dat
-    document staan hier met dezelfde default en dezelfde toelichting.
-    """
+    """Configureerbare grenswaarden voor de indicatieve beoordeling."""
 
     esr_factor_normaal: float = 1.0
     esr_factor_aandachtspunt: float = 2.0
@@ -108,25 +104,26 @@ class BeoordelingsInstellingen:
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class AlgemeneInstellingen:
-    """Algemene voorkeuren; donker thema is voorlopig het ondersteunde thema."""
+    """Algemene voorkeuren; donker thema is voorlopig het ondersteunde thema.
+
+    ``standaard_importmap`` en ``standaard_exportmap`` zijn door de gebruiker
+    ingestelde startmappen. ``laatste_importmap`` en ``laatste_exportmap``
+    worden automatisch bijgehouden door de wizard en het exportdialoog, zodat
+    de volgende keer in dezelfde map wordt gestart (fase 5D'.3).
+    """
 
     thema: str = "dark"
     tooltips_ingeschakeld: bool = True
     standaard_exportmap: str = ""
     standaard_importmap: str = ""
+    laatste_exportmap: str = ""
+    laatste_importmap: str = ""
     exportmap_openen_na_export: bool = False
 
 
 @dataclass(frozen=True)
 class EsrCondensatorInstellingen:
-    """Gebruikersdefaults voor de ESR / Condensator-tool.
-
-    Serie en partnummer staan hier bewust niet in: daarvoor is volgens het
-    functioneel ontwerp geen gebruikersdefault voorzien.
-
-    De standaard testspanning blijft 0.3 Vrms om het bestaande LCR-ST1-profiel
-    en het huidige applicatiegedrag niet stilzwijgend te wijzigen.
-    """
+    """Gebruikersdefaults voor de ESR / Condensator-tool."""
 
     capaciteitseenheid: str = "µF"
     tolerantie_percent: float = 20.0
@@ -155,11 +152,7 @@ class RapportageInstellingen:
 
 @dataclass(frozen=True)
 class AppInstellingen:
-    """Verzamelt alle instellingen die de app nodig heeft bij opstart.
-
-    ``taal`` blijft op topniveau voor compatibiliteit met de bestaande GUI.
-    Het behoort functioneel tot de tab Algemeen.
-    """
+    """Verzamelt alle instellingen die de app nodig heeft bij opstart."""
 
     taal: str = "nl_NL"
     algemeen: AlgemeneInstellingen = field(default_factory=AlgemeneInstellingen)
@@ -182,6 +175,7 @@ def _dataclass_from_dict(cls: type[T], data: Any) -> T:
 
     Onbekende sleutels worden genegeerd zodat een settings.json uit een
     nieuwere versie de huidige versie niet volledig onbruikbaar maakt.
+    Ontbrekende sleutels vallen terug op de dataclass-default.
     """
     if not isinstance(data, dict):
         return cls()
@@ -197,7 +191,8 @@ def _dataclass_from_dict(cls: type[T], data: Any) -> T:
 def laad_instellingen() -> AppInstellingen:
     """Laadt settings.json, of veilige defaults wanneer laden niet lukt.
 
-    Oude bestanden met alleen ``language`` en ``beoordeling`` blijven geldig.
+    Oude bestanden zonder de nieuwe velden (laatste_importmap,
+    laatste_exportmap) blijven geldig; die velden worden dan leeg.
     """
     if SETTINGS_PATH.exists():
         try:

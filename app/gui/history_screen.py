@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/history_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.12.0
-Datum:      2026-10-05
+Versie:     1.13.0
+Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       Compacte centrale read-only weergave van opgeslagen meethistoriek.
@@ -16,60 +16,34 @@ Doel:       Compacte centrale read-only weergave van opgeslagen meethistoriek.
 Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste compacte historiekpagina met verversen, lege-state
                         en foutmelding; gekoppeld aan MeasurementHistoryService.
-  v1.1.0 (2026-10-01)  Read-only detaildialoog toegevoegd; detail opent via
-                        selectie + knop of dubbelklik en toont alle snapshots.
-  v1.2.0 (2026-10-01)  "Herhaal meting" toegevoegd. Alleen component- en
-                        meetcontext wordt als nieuwe invoerpreset uitgezonden;
-                        historische meetwaarden/assessment worden niet gekopieerd.
-  v1.3.0 (2026-10-01)  Compacte read-only filterbalk toegevoegd voor fabrikant,
-                        serie, meetmethode, instrument, frequentie, eindstatus en
-                        betrouwbaarheid. Filters gebruiken het bestaande storage-
-                        read-contract; geen schemawijziging.
-  v1.4.0 (2026-10-01)  Multitool-historiek: Tool/Testtype-filter en tabelkolom
-                        toegevoegd. Herhalen is alleen actief voor ondersteunde
-                        ESR_CAPACITOR-records; detail blijft voor alle tools leesbaar.
-  v1.5.0 (2026-10-01)  Tabel tool-neutraal gemaakt met één kolom Meetwaarden.
-                        Meetmethode-labels zijn gecentraliseerd en detailopbouw
-                        dispatcht expliciet per tool_key met generieke fallback.
-  v1.5.1 (2026-10-01)  Live taalwissel vervolledigd voor alle filterlabels zonder
-                        actieve filters, selectie of historiekdata te wijzigen.
-  v1.5.2 (2026-10-01)  Fout-refresh maakt selectie-afhankelijke acties expliciet
-                        opnieuw veilig/inactief na het leegmaken van de tabel.
-  v1.6.0 (2026-10-01)  Optionele Van/Tot-datumfilter toegevoegd. Lokale dagen
-                        worden inclusief naar bestaande storagefilters vertaald;
-                        database en schema blijven ongewijzigd.
-  v1.6.1 (2026-10-01)  Initialisatievolgorde datumvelden gecorrigeerd: placeholders
-                        worden pas gezet nadat de QLineEdit-widgets bestaan.
-  v1.6.2 (2026-10-01)  Filtervalidatiefouten worden rechtstreeks en vertaald aan de
-                        gebruiker getoond zonder de history-service aan te roepen.
-  v1.7.0 (2026-10-01)  Historiekpaging toegevoegd via bestaand limit/offset-contract.
-                        Pagina's bevatten maximaal 100 rijen; één extra record wordt
-                        alleen opgehaald om veilig te bepalen of Volgende actief is.
-                        Filter toepassen/wissen reset naar pagina 1.
-  v1.8.0 (2026-10-01)  Read-only CSV-export toegevoegd voor de volledige huidige
-                        filterselectie, onafhankelijk van de zichtbare pagina.
-                        Geen database/schemawijziging en geen reassessment.
-  v1.9.0 (2026-10-02)  Export v2: compact inklapbaar filterpaneel, exportscope
-                        (filters/selectie/pagina), aparte overzicht- en detail-CSV.
-                        Detail-export gebruikt vaste machinekolommen en volledige
-                        opgeslagen meet-/assessment-/referentiedata zonder reassessment.
+  v1.1.0 (2026-10-01)  Read-only detaildialoog toegevoegd.
+  v1.2.0 (2026-10-01)  "Herhaal meting" toegevoegd.
+  v1.3.0 (2026-10-01)  Compacte read-only filterbalk.
+  v1.4.0 (2026-10-01)  Multitool-historiek: Tool/Testtype-filter en tabelkolom.
+  v1.5.0 (2026-10-01)  Tabel tool-neutraal met één kolom Meetwaarden.
+  v1.5.1 (2026-10-01)  Live taalwissel vervolledigd.
+  v1.5.2 (2026-10-01)  Fout-refresh maakt selectie-afhankelijke acties inactief.
+  v1.6.0 (2026-10-01)  Optionele Van/Tot-datumfilter.
+  v1.6.1 (2026-10-01)  Initialisatievolgorde datumvelden gecorrigeerd.
+  v1.6.2 (2026-10-01)  Filtervalidatiefouten vertaald getoond.
+  v1.7.0 (2026-10-01)  Historiekpaging via limit/offset-contract.
+  v1.8.0 (2026-10-01)  Read-only CSV-export van de volledige filterselectie.
+  v1.9.0 (2026-10-02)  Export v2: compact inklapbaar filterpaneel, exportscope,
+                        aparte overzicht- en detail-CSV.
   v1.10.0 (2026-10-02) Exportdialoog gebruikt de ingestelde standaard exportmap.
-                        Optioneel wordt de doelmap na succesvolle export geopend.
-  v1.11.0 (2026-10-02) Laatste export-UX: expliciete checkboxselectie per rij,
-                        zichtbaar geselecteerd-aantal, exporttype-DDL met
-                        Overzicht/Detail/Beide, één Exporteren-knop en leesbare
-                        timestamp in standaard bestandsnamen.
-  v1.12.0 (2026-10-05) Sneltoetsen toegevoegd (Fase 4F): Esc (terug),
-                        Ctrl+R (verversen), Ctrl+F (focus filterpaneel),
-                        Ctrl+D (details), Ctrl+H (herhaal meting).
-                        Alleen lokale QShortcuts op de pagina-root met
-                        WidgetWithChildrenShortcut; geen wijziging aan data,
-                        filters of export.
+  v1.11.0 (2026-10-02) Laatste export-UX: checkboxselectie, exporttype-DDL,
+                        één Exporteren-knop, leesbare timestamp.
+  v1.12.0 (2026-10-05) Sneltoetsen toegevoegd (Fase 4F).
+  v1.13.0 (2026-10-07) Fase 5D'.3: exportdialoog start in laatste_exportmap
+                        (indien geldig), anders standaard_exportmap. Na een
+                        geslaagde export wordt laatste_exportmap bijgewerkt
+                        en opgeslagen.
 ================================================================================
 """
 
 from __future__ import annotations
 
+from dataclasses import replace as _dc_replace
 from datetime import datetime
 from html import escape
 from pathlib import Path
@@ -96,7 +70,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.config.settings import laad_instellingen
+from app.config.settings import (
+    AppInstellingen,
+    laad_instellingen,
+    sla_instellingen_op,
+)
 from app.helpers.i18n import vertaal
 from app.helpers.history_csv_export import write_history_csv
 from app.helpers.history_detail_export import (
@@ -700,13 +678,79 @@ class HistoryScreen(QWidget):
 
         return self._load_all_filtered_rows_for_export(filters)
 
+    # ------------------------------------------------------------------ export-mappen
+
+    @staticmethod
+    def _map_bestaat(pad: str) -> bool:
+        """Controleer of pad een bestaande map is."""
+        if not pad:
+            return False
+        try:
+            return Path(pad).expanduser().is_dir()
+        except (OSError, ValueError):
+            return False
+
+    def _laatste_export_directory(self) -> Path | None:
+        """Lees laatste_exportmap uit settings als die een geldige map is."""
+        try:
+            instellingen = laad_instellingen()
+        except (OSError, ValueError):
+            return None
+        laatste = instellingen.algemeen.laatste_exportmap
+        if not self._map_bestaat(laatste):
+            return None
+        return Path(laatste).expanduser()
+
     def _configured_export_directory(self) -> Path | None:
+        """Lees standaard_exportmap uit settings als die een geldige map is."""
         instellingen = laad_instellingen()
         configured = instellingen.algemeen.standaard_exportmap.strip()
         if not configured:
             return None
         directory = Path(configured).expanduser()
         return directory if directory.is_dir() else None
+
+    def _beste_export_start_directory(self) -> Path | None:
+        """Beste startmap voor exportdialogen.
+
+        Voorkeur:
+          1. laatste_exportmap als die een bestaande map is
+          2. standaard_exportmap als die een bestaande map is
+          3. None (Qt's standaard startlocatie)
+        """
+        laatste = self._laatste_export_directory()
+        if laatste is not None:
+            return laatste
+        return self._configured_export_directory()
+
+    def _onthoud_laatste_exportmap(self, doel_pad: Path) -> None:
+        """Werk laatste_exportmap bij na een geslaagde export.
+
+        doel_pad mag een bestand of een map zijn. Voor een bestand nemen
+        we de parent. Faalt stil: het onthouden van de map is een
+        gemaksfunctie, geen kernfunctionaliteit.
+        """
+        try:
+            if doel_pad.is_dir():
+                nieuwe_map = str(doel_pad)
+            else:
+                nieuwe_map = str(doel_pad.parent)
+
+            instellingen = laad_instellingen()
+            if instellingen.algemeen.laatste_exportmap == nieuwe_map:
+                return
+            bijgewerkt = _dc_replace(
+                instellingen,
+                algemeen=_dc_replace(
+                    instellingen.algemeen,
+                    laatste_exportmap=nieuwe_map,
+                ),
+            )
+            sla_instellingen_op(bijgewerkt)
+        except (OSError, ValueError):
+            pass
+
+    # ------------------------------------------------------------------ export
 
     def _export_timestamp(self) -> str:
         return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -729,7 +773,7 @@ class HistoryScreen(QWidget):
         )
 
     def _export_start_path(self, default_filename: str) -> str:
-        directory = self._configured_export_directory()
+        directory = self._beste_export_start_directory()
         if directory is not None:
             return str(directory / default_filename)
         return default_filename
@@ -770,7 +814,7 @@ class HistoryScreen(QWidget):
         return file_path
 
     def _choose_export_both_directory(self) -> str | None:
-        start_directory = self._configured_export_directory()
+        start_directory = self._beste_export_start_directory()
         chosen = QFileDialog.getExistingDirectory(
             self,
             self._t("historiek.export.beide_dialoog_titel"),
@@ -832,6 +876,7 @@ class HistoryScreen(QWidget):
                 pad=file_path,
             )
         )
+        self._onthoud_laatste_exportmap(Path(file_path))
         self._open_export_directory_if_enabled(file_path)
 
     def _export_detail_csv(self) -> None:
@@ -898,6 +943,7 @@ class HistoryScreen(QWidget):
                 pad=file_path,
             )
         )
+        self._onthoud_laatste_exportmap(Path(file_path))
         self._open_export_directory_if_enabled(file_path)
 
     def _export_both_csv(self) -> None:
@@ -979,6 +1025,7 @@ class HistoryScreen(QWidget):
                 pad=directory,
             )
         )
+        self._onthoud_laatste_exportmap(Path(directory))
         self._open_export_directory_if_enabled(overview_path)
 
     def _row_values(self, row: dict[str, Any]) -> list[str]:

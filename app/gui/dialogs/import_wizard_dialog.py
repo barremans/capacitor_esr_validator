@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/dialogs/import_wizard_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
+Versie:     1.2.1
 Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
@@ -15,18 +15,16 @@ Doel:       Modale wizard voor het importeren van een PDF of URL als
             module buiten de hash-berekening.
 
 Wijzigingen:
-  v1.0.0 (2026-10-06)  Eerste versie: radio voor type, bestandskiezer of
-                       URL-veld, samenvatting, importeren.
-  v1.0.1 (2026-10-06)  Per ongeluk binnengeslopen self-import verwijderd
-                       die een circulaire import veroorzaakte.
-  v1.0.2 (2026-10-07)  Titel-voorstel bij PDF is nu altijd de bestandsnaam
-                       (zonder extensie). De PDF-metadata /Title is vaak
-                       rommel en blijft alleen zichtbaar in het
-                       samenvattingsblok.
-  v1.1.0 (2026-10-07)  Duplicate-detectie vóór import (fase 5D'.2a):
-                       find_duplicate + DuplicateSourceDialog. Gekozen
-                       DuplicateAction wordt doorgegeven aan import_pdf /
-                       import_url. Bij KEEP met match: geen import.
+  v1.0.0 (2026-10-06)  Eerste versie.
+  v1.0.1 (2026-10-06)  Self-import verwijderd.
+  v1.0.2 (2026-10-07)  Titel-voorstel bij PDF is nu altijd bestandsnaam.
+  v1.1.0 (2026-10-07)  Duplicate-detectie vóór import (5D'.2a).
+  v1.2.0 (2026-10-07)  Fase 5D'.3: startmap + laatste_importmap.
+  v1.2.1 (2026-10-07)  Titelveld wordt alleen automatisch overschreven
+                       als de gebruiker het niet handmatig heeft bewerkt.
+                       Lost verwarring op waarbij een tweede PDF-keuze de
+                       titel van de eerste PDF liet staan. Nieuwe state
+                       _titel_automatisch, gezet via textEdited-signaal.
 ================================================================================
 """
 
@@ -52,6 +50,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.config.settings import (
+    AppInstellingen,
+    laad_instellingen,
+    sla_instellingen_op,
+)
 from app.documentation.duplicate_check import find_duplicate
 from app.documentation.import_models import (
     DuplicateAction,
@@ -73,6 +76,7 @@ from app.documentation.url_fetch import (
 from app.documentation.url_import import import_url
 from app.gui.dialogs.duplicate_source_dialog import DuplicateSourceDialog
 from app.helpers.i18n import vertaal
+from dataclasses import replace as _dc_replace
 
 
 class ImportWizardDialog(QDialog):
@@ -97,6 +101,9 @@ class ImportWizardDialog(QDialog):
         self._pdf_hash: Optional[str] = None
         self._url: Optional[str] = None
         self._url_meta: Optional[UrlMetadata] = None
+        # Titelveld-state: True zolang de titel automatisch is ingevuld en
+        # de gebruiker hem niet handmatig heeft bewerkt.
+        self._titel_automatisch: bool = True
 
         self.setModal(True)
         self.resize(560, 480)
@@ -110,6 +117,70 @@ class ImportWizardDialog(QDialog):
 
     def _t(self, sleutel: str, **kwargs) -> str:
         return vertaal(sleutel, taal=self.taal, **kwargs)
+
+    @staticmethod
+    def _map_bestaat(pad: str) -> bool:
+        """Controleer of pad een bestaande map is."""
+        if not pad:
+            return False
+        try:
+            return Path(pad).expanduser().is_dir()
+        except (OSError, ValueError):
+            return False
+
+    def _start_map_voor_pdf(self, instellingen: AppInstellingen) -> str:
+        """Bepaal de beste startmap voor de PDF-bestandskiezer.
+
+        Voorkeur:
+          1. laatste_importmap als die een bestaande map is
+          2. standaard_importmap als die een bestaande map is
+          3. "" (Qt's standaard startlocatie)
+        """
+        laatste = instellingen.algemeen.laatste_importmap
+        if self._map_bestaat(laatste):
+            return laatste
+        standaard = instellingen.algemeen.standaard_importmap
+        if self._map_bestaat(standaard):
+            return standaard
+        return ""
+
+    def _onthoud_laatste_importmap(self, gekozen_pad: Path) -> None:
+        """Werk laatste_importmap bij na een geslaagde bestandskeuze.
+
+        Wordt alleen aangeroepen als de gebruiker een bestand heeft
+        gekozen. Annuleren wijzigt niets. Faalt stil: als het opslaan
+        mislukt, mag de import zelf niet blokkeren.
+        """
+        try:
+            nieuwe_map = str(gekozen_pad.parent)
+            instellingen = laad_instellingen()
+            if instellingen.algemeen.laatste_importmap == nieuwe_map:
+                return
+            bijgewerkt = _dc_replace(
+                instellingen,
+                algemeen=_dc_replace(
+                    instellingen.algemeen,
+                    laatste_importmap=nieuwe_map,
+                ),
+            )
+            sla_instellingen_op(bijgewerkt)
+        except (OSError, ValueError):
+            pass
+
+    def _stel_titel_voor(self, voorgestelde_titel: str) -> None:
+        """Zet een automatische titel, tenzij de gebruiker handmatig typte.
+
+        Als het veld leeg is, vullen we het altijd. Als de gebruiker het
+        veld handmatig heeft bewerkt (_titel_automatisch is False), laten
+        we de waarde staan.
+        """
+        if self._titel_automatisch or not self.title_edit.text().strip():
+            self.title_edit.setText(voorgestelde_titel)
+            self._titel_automatisch = True
+
+    def _on_titel_handmatig_bewerkt(self, _tekst: str) -> None:
+        """Markeer het titelveld als handmatig bewerkt."""
+        self._titel_automatisch = False
 
     # ---------------------------------------------------------------- UI
 
@@ -169,6 +240,9 @@ class ImportWizardDialog(QDialog):
         form = QFormLayout()
         self.title_label_field = QLabel()
         self.title_edit = QLineEdit()
+        # textEdited vuurt alleen bij echte gebruikersinvoer, niet bij
+        # programmatische setText. Zo blijft _titel_automatisch correct.
+        self.title_edit.textEdited.connect(self._on_titel_handmatig_bewerkt)
         form.addRow(self.title_label_field, self.title_edit)
         layout.addLayout(form)
 
@@ -233,21 +307,23 @@ class ImportWizardDialog(QDialog):
             not is_pdf and bool(self.url_edit.text().strip())
         )
 
-        # Import-knop actief zodra een bron klaar is
         klaar = (
             (is_pdf and self._pdf_pad is not None)
             or (not is_pdf and self._url_meta is not None)
         )
         self.import_btn.setEnabled(klaar)
 
-        # Samenvatting
         self._refresh_summary()
 
     def _pick_pdf(self) -> None:
+        # Startmap bepalen op basis van settings (fase 5D'.3).
+        instellingen = laad_instellingen()
+        start_map = self._start_map_voor_pdf(instellingen)
+
         pad, _ = QFileDialog.getOpenFileName(
             self,
             self._t("documentatie.import.kies_bestand_titel"),
-            "",
+            start_map,
             "PDF (*.pdf)",
         )
         if not pad:
@@ -279,11 +355,11 @@ class ImportWizardDialog(QDialog):
         self._pdf_meta_titel = meta.title
         self.pdf_path_label.setText(bron_pad.name)
 
-        # Titel-voorstel: altijd de bestandsnaam (zonder extensie). De
-        # PDF-metadata-titel blijft zichtbaar in het samenvattingsblok.
-        voorgestelde_titel = bron_pad.stem
-        if not self.title_edit.text().strip():
-            self.title_edit.setText(voorgestelde_titel)
+        # Titel-voorstel: bestandsnaam zonder extensie. Alleen als de
+        # gebruiker het titelveld niet handmatig heeft bewerkt (5D'.3-fix).
+        self._stel_titel_voor(bron_pad.stem)
+
+        self._onthoud_laatste_importmap(bron_pad)
 
         self._update_state()
 
@@ -305,8 +381,9 @@ class ImportWizardDialog(QDialog):
         self._url = url
         self._url_meta = meta
 
-        if not self.title_edit.text().strip():
-            self.title_edit.setText(meta.og_title or meta.title or url)
+        # Titel-voorstel: og:title → title → url. Alleen als het titelveld
+        # niet handmatig is bewerkt (5D'.3-fix).
+        self._stel_titel_voor(meta.og_title or meta.title or url)
 
         self._update_state()
 
@@ -362,11 +439,7 @@ class ImportWizardDialog(QDialog):
     # ---------------------------------------------------------------- duplicate
 
     def _check_duplicate(self) -> Optional[DuplicateMatch]:
-        """Zoek een bestaande bron voor de huidige keuze.
-
-        Retourneert None als er geen match is, of als er nog geen bron
-        klaarstaat. Anders een DuplicateMatch.
-        """
+        """Zoek een bestaande bron voor de huidige keuze."""
         if self.radio_pdf.isChecked():
             if self._pdf_hash is None:
                 return None
@@ -384,10 +457,8 @@ class ImportWizardDialog(QDialog):
     def _perform_import(self) -> None:
         titel = self.title_edit.text().strip() or None
 
-        # Duplicate-check vóór import.
         match = self._check_duplicate()
 
-        # Bepaal de actie.
         if match is not None:
             actie = DuplicateSourceDialog.vraag_actie(
                 match=match,
@@ -395,14 +466,10 @@ class ImportWizardDialog(QDialog):
                 parent=self,
             )
             if actie is None:
-                # Gebruiker annuleerde de popup: niets doen.
                 return
             if actie is DuplicateAction.KEEP:
-                # Niets wijzigen; wizard blijft open zodat de gebruiker
-                # eventueel een andere keuze kan maken.
                 return
         else:
-            # Geen match: gewone import.
             actie = DuplicateAction.NEW_VERSION
 
         try:
@@ -432,6 +499,5 @@ class ImportWizardDialog(QDialog):
             )
             return
 
-        # Succes: meld het resultaat en sluit
         self.import_completed.emit(result.source.source_id)
         self.accept()
