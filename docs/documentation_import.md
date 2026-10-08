@@ -61,3 +61,44 @@ class ImportSource:
     source_url: Optional[str]         # alleen URL
     file_hash: Optional[str]          # alleen PDF, SHA-256 hex
     notes: Optional[str]              # optioneel, vrije tekst
+
+## Metadata bij importeren
+
+Sinds fase 5D'.2b bevat de import-wizard een metadata-sectie.
+
+### Velden
+
+| Veld | Verplicht | Opmerking |
+|---|---|---|
+| Categorie | Ja | Default `DATASHEET`. Dropdown met de 7 `DocumentCategory`-waarden. |
+| Fabrikant | Nee | Wordt automatisch in uppercase gezet bij typen. |
+| Serie | Nee | Idem. |
+| Partnummer | Nee | Idem. |
+| Documentversie | Nee | Idem. |
+| Documentdatum | Nee | Kalenderveld, ISO-formaat `YYYY-MM-DD`. Checkbox "Datum onbekend" voor `None`. Ctrl+D = vandaag. |
+| Notities | Nee | Vrije tekst, geen uppercase. |
+
+### Opslag
+
+Metadata wordt opgeslagen in `imported_catalog.json` onder elke
+`ImportSource`:
+
+```json
+{
+  "source_id": "…",
+  "source_type": "pdf",
+  "title": "CHONGCD11XSERIES",
+  "imported_at": 1791438042560,
+  "imported_by": "BBossuyt",
+  "status": "concept",
+  "original_filename": "CHONGCD11XSERIES.pdf",
+  "source_url": null,
+  "file_hash": "57a3da2a…",
+  "notes": null,
+  "category": "DATASHEET",
+  "manufacturer": "CHONG",
+  "series": "CDX",
+  "part_number": null,
+  "document_version": "V1.1",
+  "document_date": "2026-10-08"
+}

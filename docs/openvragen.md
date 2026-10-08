@@ -44,15 +44,14 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 
 ---
 
-## 2. Uit Fase 5 — Import-wizard (afgerond 2026-10-07)
+## 2. Uit Fase 5 — Import-wizard en metadata
 
 ### 2.1 Scope — beantwoord
 
 - **PDF-import:** lokaal bestand op schijf, gekopieerd naar
   `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\documentation\sources\`.
 - **URL-import:** ruwe HTML-snapshot, lokaal bewaard in
-  `...\documentation\snapshots\`. De URL blijft als metadata bewaard,
-  maar de inhoud is lokaal beschikbaar ook als de bron later verdwijnt.
+  `...\documentation\snapshots\`. De URL blijft als metadata bewaard.
 - **Geen scraping, geen JavaScript-uitvoering, geen OCR.**
 
 ### 2.2 Provenance — beantwoord
@@ -61,18 +60,33 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
   `imported_by`, `status`.
 - Type-specifiek verplicht: `original_filename` (PDF) of `source_url` (URL).
 - Optioneel: `file_hash` (PDF), `notes`.
-- Meerdere bronnen per document: niet in v1. Eén `ImportSource` = één
-  document.
+- Eén `ImportSource` = één document.
 
-### 2.3 Menselijke goedkeuring — beantwoord
+### 2.3 Metadata — beantwoord (5D'.2b en 5D'.2d)
+
+- **Velden in de wizard:** categorie (verplicht, default DATASHEET),
+  fabrikant, serie, partnummer, documentversie, documentdatum, notities
+  (alle optioneel).
+- **Identificatievelden in uppercase:** fabrikant, serie, partnummer,
+  documentversie. Titel en notities blijven gemengd; documentdatum is
+  een kalenderveld.
+- **Documentdatum:** ISO-formaat `YYYY-MM-DD`, met "Datum onbekend"-
+  checkbox. Ctrl+D zet op vandaag.
+- **Bewerken in de viewer:** ja, sinds 5D'.2c. Alleen voor eigen imports
+  (`is_user_import=True`). Bronbestand, status en importdatum blijven
+  ongewijzigd.
+- **Ingebouwde catalogus:** blijft read-only, voor altijd.
+
+### 2.4 Menselijke goedkeuring — beantwoord
 
 - Statusmachine: `CONCEPT → ACTIEF → GEARCHIVEERD` met terugkeer naar
   `CONCEPT` via `revoke`.
 - Nieuwe import start altijd als `CONCEPT`.
 - Een bron verwijderen is niet mogelijk; wel `archiveren` en
   `terugtrekken`.
+- De editor in de viewer wijzigt geen status.
 
-### 2.4 Assessment-koppeling — beantwoord
+### 2.5 Assessment-koppeling — beantwoord
 
 - De scheiding blijft gehandhaafd: `documentation_service` is read-only
   en raakt `assessment_service` niet aan.
@@ -80,8 +94,15 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
   gebruiker die expliciet `ACTIEF` maakt, en nadat een latere fase (12–14)
   de brug slaat.
 
-### 2.5 Nieuwe openstaande punten
+### 2.6 Nieuwe openstaande punten (na 5D'.2c)
 
+- **Status wijzigen vanuit de viewer.** Een gebruiker kan nu metadata
+  bewerken, maar nog niet de status (concept → actief → gearchiveerd)
+  aanpassen vanuit de documentatiebibliotheek. Dat is een logische
+  volgende deelfase (5D'.2e of 5D'.3).
+  - **Impact:** nieuwe knop(en) in de viewer, nieuwe service-aanroep
+    (`set_status` bestaat al), i18n-keys, tests.
+  - **Status:** open; voorstel voor 5D'.2e.
 - **Word-import (`.docx` / `.doc`).** Moet later worden toegevoegd.
   - `.docx` kan via `python-docx` (pure Python, MIT).
   - `.doc` (oud) vereist `pywin32` + Word-installatie; waarschijnlijk
@@ -89,20 +110,25 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
   - **Status:** voorbereiding voor fase 6 (Fabrikantdocument-import).
 - **Excel-import (`.xlsx`).** `openpyxl` staat al in `requirements.txt`.
   Zelfde deelfase als Word?
-- **OCR voor gescande PDF's.** `pypdf` kan geen tekst uit afbeeldings-PDF's
-  halen. Willen we ooit OCR (bv. via `pdf-oxide` of `tesseract`)?
+- **OCR voor gescande PDF's.** `pypdf` kan geen tekst uit
+  afbeeldings-PDF's halen. Willen we ooit OCR?
   - **Impact:** zware dependency, breekt "licht en lokaal".
   - **Status:** uitstellen tot er concrete noodzaak is.
 - **Async URL-fetch.** De huidige fetch is synchroon en blokkeert de GUI
-  tot 10 seconden. Bij tragere sites kan dat vervelend zijn.
+  tot 10 seconden.
   - **Status:** open; overwegen in fase 11.
 - **Catalogusmigratie bij meerdere versies.** `imported_catalog.json` heeft
   `schema_version=1`. Wat als we ooit velden toevoegen of wijzigen?
   - **Status:** nog niet nodig; migratie-mechanisme ontbreekt.
-- **Tweede cataloguslaag-synchronisatie.** `imported_catalog.json` staat
-  los van de ingebouwde `catalog.json`. Hoe omgaan met wijzigingen in de
-  ingebouwde catalogus die een gebruiker overschrijven wil?
-  - **Status:** open; voorlopig wint de gebruikerscatalogus (concept-status).
+- **Datum-parsing bij bewerken.** De editor accepteert alleen ISO-datums
+  (`YYYY-MM-DD`). Een oudere vrije-tekstwaarde (bijv. `"2024-01"`) valt
+  terug op "Datum onbekend" bij openen, wat bij opslaan `document_date`
+  op `null` zet.
+  - **Impact:** gegevenswijziging zonder expliciete waarschuwing.
+  - **Status:** bewust geaccepteerd in 5D'.2c; mogelijk verfijnen in
+    fase 11.
+- **Bulk-edit van meerdere imports.** Nog niet ondersteund.
+  - **Status:** open; geen concrete vraag.
 
 ---
 

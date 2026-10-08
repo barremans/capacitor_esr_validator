@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/dialogs/import_wizard_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.1
+Versie:     1.5.0
 Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
@@ -11,8 +11,12 @@ Doel:       Modale wizard voor het importeren van een PDF of URL als
             (import_pdf / import_url) en toont een samenvatting vóór
             bevestiging. Bij een bestaande bron toont de wizard een
             popup met drie keuzes (Behouden / Nieuwe versie / Overschrijven)
-            via DuplicateSourceDialog. Geen netwerk- of PDF-logica in deze
-            module buiten de hash-berekening.
+            via DuplicateSourceDialog. Sinds 5D'.2b bevat de wizard ook
+            een metadata-sectie (categorie verplicht, rest optioneel).
+            Sinds 5D'.2d is documentdatum een QDateEdit met kalenderpopup
+            en "Datum onbekend"-checkbox, en worden identificatievelden
+            automatisch in uppercase gezet. Sinds 5D'.2c gebruikt de
+            wizard de gedeelde helpers uit _metadata_form_helpers.
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
@@ -22,9 +26,13 @@ Wijzigingen:
   v1.2.0 (2026-10-07)  Fase 5D'.3: startmap + laatste_importmap.
   v1.2.1 (2026-10-07)  Titelveld wordt alleen automatisch overschreven
                        als de gebruiker het niet handmatig heeft bewerkt.
-                       Lost verwarring op waarbij een tweede PDF-keuze de
-                       titel van de eerste PDF liet staan. Nieuwe state
-                       _titel_automatisch, gezet via textEdited-signaal.
+  v1.3.0 (2026-10-07)  Fase 5D'.2b: metadata-sectie in de wizard.
+  v1.4.0 (2026-10-07)  Fase 5D'.2d: UX-verfijning (QDateEdit,
+                       "Datum onbekend", Ctrl+D, uppercase).
+  v1.5.0 (2026-10-07)  Fase 5D'.2c: gedeelde helpers uit
+                       _metadata_form_helpers gebruikt voor
+                       categorie-dropdown en uppercase. Geen
+                       gedragswijziging.
 ================================================================================
 """
 
@@ -33,9 +41,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QDate, Qt, Signal
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
+    QCheckBox,
+    QComboBox,
+    QDateEdit,
     QDialog,
     QFileDialog,
     QFormLayout,
@@ -62,6 +74,7 @@ from app.documentation.import_models import (
     ImportValidationError,
 )
 from app.documentation.import_service import ImportService
+from app.documentation.models import DocumentCategory
 from app.documentation.pdf_extract import (
     PdfExtractError,
     compute_file_hash,
@@ -74,6 +87,11 @@ from app.documentation.url_fetch import (
     fetch_url_metadata,
 )
 from app.documentation.url_import import import_url
+from app.gui.dialogs._metadata_form_helpers import (
+    CATEGORIE_VOLGORDE,
+    naar_uppercase,
+    vul_categorie_combo,
+)
 from app.gui.dialogs.duplicate_source_dialog import DuplicateSourceDialog
 from app.helpers.i18n import vertaal
 from dataclasses import replace as _dc_replace
@@ -106,8 +124,8 @@ class ImportWizardDialog(QDialog):
         self._titel_automatisch: bool = True
 
         self.setModal(True)
-        self.resize(560, 480)
-        self.setMinimumSize(480, 420)
+        self.resize(560, 660)
+        self.setMinimumSize(480, 600)
 
         self._build_ui()
         self._apply_language()
@@ -129,13 +147,7 @@ class ImportWizardDialog(QDialog):
             return False
 
     def _start_map_voor_pdf(self, instellingen: AppInstellingen) -> str:
-        """Bepaal de beste startmap voor de PDF-bestandskiezer.
-
-        Voorkeur:
-          1. laatste_importmap als die een bestaande map is
-          2. standaard_importmap als die een bestaande map is
-          3. "" (Qt's standaard startlocatie)
-        """
+        """Bepaal de beste startmap voor de PDF-bestandskiezer."""
         laatste = instellingen.algemeen.laatste_importmap
         if self._map_bestaat(laatste):
             return laatste
@@ -145,12 +157,7 @@ class ImportWizardDialog(QDialog):
         return ""
 
     def _onthoud_laatste_importmap(self, gekozen_pad: Path) -> None:
-        """Werk laatste_importmap bij na een geslaagde bestandskeuze.
-
-        Wordt alleen aangeroepen als de gebruiker een bestand heeft
-        gekozen. Annuleren wijzigt niets. Faalt stil: als het opslaan
-        mislukt, mag de import zelf niet blokkeren.
-        """
+        """Werk laatste_importmap bij na een geslaagde bestandskeuze."""
         try:
             nieuwe_map = str(gekozen_pad.parent)
             instellingen = laad_instellingen()
@@ -168,12 +175,7 @@ class ImportWizardDialog(QDialog):
             pass
 
     def _stel_titel_voor(self, voorgestelde_titel: str) -> None:
-        """Zet een automatische titel, tenzij de gebruiker handmatig typte.
-
-        Als het veld leeg is, vullen we het altijd. Als de gebruiker het
-        veld handmatig heeft bewerkt (_titel_automatisch is False), laten
-        we de waarde staan.
-        """
+        """Zet een automatische titel, tenzij de gebruiker handmatig typte."""
         if self._titel_automatisch or not self.title_edit.text().strip():
             self.title_edit.setText(voorgestelde_titel)
             self._titel_automatisch = True
@@ -181,6 +183,58 @@ class ImportWizardDialog(QDialog):
     def _on_titel_handmatig_bewerkt(self, _tekst: str) -> None:
         """Markeer het titelveld als handmatig bewerkt."""
         self._titel_automatisch = False
+
+    # ---------------------------------------------------------------- metadata
+
+    def _huidige_categorie(self) -> str:
+        """Lees de gekozen categorie als DocumentCategory.value."""
+        data = self.categorie_combo.currentData()
+        if data is None:
+            return DocumentCategory.DATASHEET.value
+        return str(data)
+
+    def _documentdatum_waarde(self) -> Optional[str]:
+        """Lees de documentdatum als ISO-string, of None.
+
+        Wanneer de "Datum onbekend"-checkbox aan staat, is de waarde None.
+        Anders wordt de QDateEdit-waarde geconverteerd naar yyyy-MM-dd.
+        """
+        if self.datum_onbekend_checkbox.isChecked():
+            return None
+        return self.documentdatum_edit.date().toString("yyyy-MM-dd")
+
+    def _metadata_uit_formulier(self) -> dict:
+        """Verzamel alle metadata-velden behalve notes.
+
+        Notes wordt apart meegegeven aan import_pdf/import_url, omdat die
+        functies een expliciete notes-parameter hebben.
+        """
+        return {
+            "category": self._huidige_categorie(),
+            "manufacturer": self.fabrikant_edit.text(),
+            "series": self.serie_edit.text(),
+            "part_number": self.partnummer_edit.text(),
+            "document_version": self.documentversie_edit.text(),
+            "document_date": self._documentdatum_waarde(),
+        }
+
+    def _notities_uit_formulier(self) -> Optional[str]:
+        """Lees het notitieveld; leeg wordt None."""
+        tekst = self.notities_edit.text()
+        return tekst if tekst.strip() else None
+
+    def _on_datum_onbekend_gewisseld(self, aangevinkt: bool) -> None:
+        """Schakel het datumveld in of uit op basis van de checkbox."""
+        self.documentdatum_edit.setEnabled(not aangevinkt)
+
+    def _zet_datum_op_vandaag(self) -> None:
+        """Sneltoets Ctrl+D: zet de documentdatum op vandaag.
+
+        Doet niets als de "Datum onbekend"-checkbox aan staat.
+        """
+        if self.datum_onbekend_checkbox.isChecked():
+            return
+        self.documentdatum_edit.setDate(QDate.currentDate())
 
     # ---------------------------------------------------------------- UI
 
@@ -237,20 +291,90 @@ class ImportWizardDialog(QDialog):
         layout.addWidget(self.url_panel)
 
         # Titel-veld (bewerkbaar)
-        form = QFormLayout()
+        titel_form = QFormLayout()
         self.title_label_field = QLabel()
         self.title_edit = QLineEdit()
         # textEdited vuurt alleen bij echte gebruikersinvoer, niet bij
         # programmatische setText. Zo blijft _titel_automatisch correct.
         self.title_edit.textEdited.connect(self._on_titel_handmatig_bewerkt)
-        form.addRow(self.title_label_field, self.title_edit)
-        layout.addLayout(form)
+        titel_form.addRow(self.title_label_field, self.title_edit)
+        layout.addLayout(titel_form)
+
+        # Metadata-sectie (fase 5D'.2b)
+        self.metadata_label = QLabel()
+        self.metadata_label.setStyleSheet("font-weight: bold;")
+        layout.addWidget(self.metadata_label)
+
+        metadata_form = QFormLayout()
+        self.categorie_label = QLabel()
+        self.categorie_combo = QComboBox()
+        # De labels worden door _apply_language gezet via vul_categorie_combo.
+        metadata_form.addRow(self.categorie_label, self.categorie_combo)
+
+        self.fabrikant_label = QLabel()
+        self.fabrikant_edit = QLineEdit()
+        # Uppercase bij gebruikersinvoer (5D'.2d).
+        self.fabrikant_edit.textEdited.connect(
+            lambda _t: naar_uppercase(self.fabrikant_edit)
+        )
+        metadata_form.addRow(self.fabrikant_label, self.fabrikant_edit)
+
+        self.serie_label = QLabel()
+        self.serie_edit = QLineEdit()
+        self.serie_edit.textEdited.connect(
+            lambda _t: naar_uppercase(self.serie_edit)
+        )
+        metadata_form.addRow(self.serie_label, self.serie_edit)
+
+        self.partnummer_label = QLabel()
+        self.partnummer_edit = QLineEdit()
+        self.partnummer_edit.textEdited.connect(
+            lambda _t: naar_uppercase(self.partnummer_edit)
+        )
+        metadata_form.addRow(self.partnummer_label, self.partnummer_edit)
+
+        self.documentversie_label = QLabel()
+        self.documentversie_edit = QLineEdit()
+        self.documentversie_edit.textEdited.connect(
+            lambda _t: naar_uppercase(self.documentversie_edit)
+        )
+        metadata_form.addRow(
+            self.documentversie_label, self.documentversie_edit
+        )
+
+        # Documentdatum: QDateEdit + "Datum onbekend"-checkbox (5D'.2d).
+        self.documentdatum_label = QLabel()
+        self.documentdatum_edit = QDateEdit()
+        self.documentdatum_edit.setCalendarPopup(True)
+        self.documentdatum_edit.setDisplayFormat("yyyy-MM-dd")
+        self.documentdatum_edit.setDate(QDate.currentDate())
+        self.datum_onbekend_checkbox = QCheckBox()
+        self.datum_onbekend_checkbox.toggled.connect(
+            self._on_datum_onbekend_gewisseld
+        )
+        datum_row = QHBoxLayout()
+        datum_row.setContentsMargins(0, 0, 0, 0)
+        datum_row.addWidget(self.documentdatum_edit, 1)
+        datum_row.addWidget(self.datum_onbekend_checkbox)
+        datum_widget = QWidget()
+        datum_widget.setLayout(datum_row)
+        metadata_form.addRow(self.documentdatum_label, datum_widget)
+
+        self.notities_label = QLabel()
+        self.notities_edit = QLineEdit()
+        metadata_form.addRow(self.notities_label, self.notities_edit)
+
+        layout.addLayout(metadata_form)
+
+        # Ctrl+D binnen de dialoog: zet documentdatum op vandaag.
+        self._datum_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
+        self._datum_shortcut.activated.connect(self._zet_datum_op_vandaag)
 
         # Samenvatting
         self.summary_label = QLabel()
         layout.addWidget(self.summary_label)
         self.summary_browser = QTextBrowser()
-        self.summary_browser.setMinimumHeight(120)
+        self.summary_browser.setMinimumHeight(100)
         self.summary_browser.setStyleSheet(
             "QTextBrowser { background-color:#252525; color:#F0F0F0; "
             "border:1px solid #4A4A4A; padding:8px; }"
@@ -290,6 +414,46 @@ class ImportWizardDialog(QDialog):
         self.title_label_field.setText(
             self._t("documentatie.import.veld_titel")
         )
+        self.metadata_label.setText(
+            self._t("documentatie.import.metadata_sectie")
+        )
+        self.categorie_label.setText(
+            self._t("documentatie.import.veld_categorie")
+        )
+        self.fabrikant_label.setText(
+            self._t("documentatie.import.veld_fabrikant")
+        )
+        self.serie_label.setText(self._t("documentatie.import.veld_serie"))
+        self.partnummer_label.setText(
+            self._t("documentatie.import.veld_partnummer")
+        )
+        self.documentversie_label.setText(
+            self._t("documentatie.import.veld_documentversie")
+        )
+        self.documentdatum_label.setText(
+            self._t("documentatie.import.veld_documentdatum")
+        )
+        self.datum_onbekend_checkbox.setText(
+            self._t("documentatie.import.veld_documentdatum_onbekend")
+        )
+        self.documentdatum_edit.setToolTip(
+            self._t("documentatie.import.datum_vandaag_tooltip")
+        )
+        self.notities_label.setText(
+            self._t("documentatie.import.veld_notities")
+        )
+        # Categorie-labels vullen/herzetten via de gedeelde helper.
+        # Bewaar de huidige selectie zodat een taalwissel die niet verliest.
+        huidige_selectie = self.categorie_combo.currentData()
+        vul_categorie_combo(self.categorie_combo, self._t)
+        if self.categorie_combo.count() > 0:
+            if huidige_selectie is None:
+                self.categorie_combo.setCurrentIndex(0)
+            else:
+                index = self.categorie_combo.findData(huidige_selectie)
+                self.categorie_combo.setCurrentIndex(
+                    index if index >= 0 else 0
+                )
         self.summary_label.setText(self._t("documentatie.import.samenvatting"))
         self.cancel_btn.setText(self._t("documentatie.import.annuleren"))
         self.import_btn.setText(self._t("documentatie.import.importeren"))
@@ -316,7 +480,6 @@ class ImportWizardDialog(QDialog):
         self._refresh_summary()
 
     def _pick_pdf(self) -> None:
-        # Startmap bepalen op basis van settings (fase 5D'.3).
         instellingen = laad_instellingen()
         start_map = self._start_map_voor_pdf(instellingen)
 
@@ -340,7 +503,6 @@ class ImportWizardDialog(QDialog):
             )
             return
 
-        # Hash nu berekenen: nodig voor duplicate-detectie vóór import.
         try:
             self._pdf_hash = compute_file_hash(bron_pad)
         except PdfExtractError as exc:
@@ -355,8 +517,6 @@ class ImportWizardDialog(QDialog):
         self._pdf_meta_titel = meta.title
         self.pdf_path_label.setText(bron_pad.name)
 
-        # Titel-voorstel: bestandsnaam zonder extensie. Alleen als de
-        # gebruiker het titelveld niet handmatig heeft bewerkt (5D'.3-fix).
         self._stel_titel_voor(bron_pad.stem)
 
         self._onthoud_laatste_importmap(bron_pad)
@@ -381,8 +541,6 @@ class ImportWizardDialog(QDialog):
         self._url = url
         self._url_meta = meta
 
-        # Titel-voorstel: og:title → title → url. Alleen als het titelveld
-        # niet handmatig is bewerkt (5D'.3-fix).
         self._stel_titel_voor(meta.og_title or meta.title or url)
 
         self._update_state()
@@ -456,6 +614,8 @@ class ImportWizardDialog(QDialog):
 
     def _perform_import(self) -> None:
         titel = self.title_edit.text().strip() or None
+        metadata = self._metadata_uit_formulier()
+        notities = self._notities_uit_formulier()
 
         match = self._check_duplicate()
 
@@ -480,7 +640,9 @@ class ImportWizardDialog(QDialog):
                     self._pdf_pad,
                     import_service=self.import_service,
                     title=titel,
+                    notes=notities,
                     duplicate_action=actie,
+                    **metadata,
                 )
             else:
                 if self._url is None:
@@ -489,7 +651,9 @@ class ImportWizardDialog(QDialog):
                     self._url,
                     import_service=self.import_service,
                     title=titel,
+                    notes=notities,
                     duplicate_action=actie,
+                    **metadata,
                 )
         except (PdfExtractError, UrlFetchError, ImportValidationError) as exc:
             QMessageBox.warning(

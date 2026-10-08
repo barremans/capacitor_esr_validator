@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/documentation/service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.8.1
-Datum:      2026-10-07
+Versie:     1.9.1
+Datum:      2026-10-08
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only service voor de centrale documentatiebibliotheek.
@@ -44,6 +44,27 @@ Wijzigingen:
                         en code onbedoeld de %LOCALAPPDATA%-catalogus
                         meelezen. Standaardconstructor (geen argumenten)
                         leest nog steeds beide catalogi.
+  v1.8.2 (2026-10-07)  Fase 5D'.2c: _import_source_to_document geeft nu de
+                        metadata-velden van ImportSource door aan
+                        DocumentMetadata (categorie, fabrikant, serie,
+                        partnummer, documentversie, documentdatum) en zet
+                        is_user_import=True. Onbekende of lege categorie
+                        valt terug op DATASHEET (backward-compat met oude
+                        imports van vóór 5D'.2b).
+  v1.9.0 (2026-10-08)  Fase 5D'.2e: list_documents en load_documents
+                        krijgen optionele parameter include_archived
+                        (default False). Backward-compatible: bestaande
+                        aanroepen blijven werken. _import_source_to_document
+                        geeft de status door aan DocumentMetadata zodat de
+                        viewer een Status-kolom kan tonen.
+  v1.9.1 (2026-10-08)  Fix: get_document() zoekt nu altijd in beide
+                        cataloguslagen, inclusief gearchiveerde imports.
+                        Reden: de viewer moet een gearchiveerd document
+                        kunnen openen voor Bewerken/Status wijzigen als
+                        de gebruiker "Toon gearchiveerde" aan heeft
+                        staan. include_archived blijft een filter voor
+                        list_documents (weergave), niet voor get_document
+                        (lookup).
 ================================================================================
 """
 
@@ -136,12 +157,18 @@ class DocumentationService:
 
     # ---------------------------------------------------------------- publiek
 
-    def load_documents(self) -> list[DocumentMetadata]:
+    def load_documents(
+        self, *, include_archived: bool = False
+    ) -> list[DocumentMetadata]:
         """Laad en valideer alle documenten uit beide cataloguslagen.
 
         Ingebouwde catalogus eerst, dan gebruikerscatalogus. Bij dubbele
         document_id wint de gebruikerscatalogus (imports overrulen de
         ingebouwde catalogus).
+
+        Met include_archived=True worden ook geïmporteerde bronnen met
+        status 'gearchiveerd' meegeleverd. Standaard False: die blijven
+        verborgen in de standaardweergave.
         """
         documents: list[DocumentMetadata] = []
         seen_ids: set[str] = set()
@@ -155,7 +182,9 @@ class DocumentationService:
             documents.append(document)
 
         if self.user_catalog_path is not None and self.user_catalog_path.exists():
-            for document in self._load_user_documents():
+            for document in self._load_user_documents(
+                include_archived=include_archived
+            ):
                 if document.document_id in seen_ids:
                     # Gebruikerscatalogus wint: vervang het item.
                     documents = [
@@ -179,6 +208,7 @@ class DocumentationService:
         measurement_method: str | None = None,
         instrument_key: str | None = None,
         topic: str | None = None,
+        include_archived: bool = False,
     ) -> list[DocumentMetadata]:
         """Geef documenten terug met optionele vrije-tekst- en metadatafilters.
 
@@ -186,8 +216,11 @@ class DocumentationService:
         uitsluitend op menselijke, beschrijvende metadata. Technische
         identificatie (document_id, source_path, title_key) en contextvelden
         blijven bereikbaar via de bestaande filters.
+
+        Met include_archived=True worden ook geïmporteerde bronnen met
+        status 'gearchiveerd' meegeleverd. Standaard False.
         """
-        documents = self.load_documents()
+        documents = self.load_documents(include_archived=include_archived)
 
         selected_category = self._category_optional(category)
         selected_tool_key = self._normalize_tool_key_optional(tool_key)
@@ -258,14 +291,20 @@ class DocumentationService:
         )
 
     def get_document(self, document_id: str) -> DocumentMetadata:
-        """Zoek één document exact op stabiele document_id."""
+        """Zoek één document exact op stabiele document_id.
+
+        Zoekt altijd in beide cataloguslagen, inclusief gearchiveerde
+        imports. De include_archived-filter hoort alleen bij
+        list_documents (weergave); get_document is een lookup en moet
+        een document kunnen vinden dat de gebruiker in de tabel ziet.
+        """
         normalized_id = document_id.strip() if isinstance(document_id, str) else ""
         if not normalized_id:
             raise DocumentationValidationError(
                 "document_id moet niet-lege tekst zijn."
             )
 
-        for document in self.load_documents():
+        for document in self.load_documents(include_archived=True):
             if document.document_id == normalized_id:
                 return document
 
@@ -388,7 +427,9 @@ class DocumentationService:
 
     # ---------------------------------------------------------------- gebruikers
 
-    def _load_user_documents(self) -> list[DocumentMetadata]:
+    def _load_user_documents(
+        self, *, include_archived: bool = False
+    ) -> list[DocumentMetadata]:
         """Laad de gebruikerscatalogus (imports) en zet ImportSource om."""
         assert self.user_catalog_path is not None  # beschermd door caller
         try:
@@ -430,27 +471,39 @@ class DocumentationService:
 
         documents: list[DocumentMetadata] = []
         for index, raw_source in enumerate(raw_sources):
-            document = self._import_source_to_document(raw_source, index=index)
+            document = self._import_source_to_document(
+                raw_source,
+                index=index,
+                include_archived=include_archived,
+            )
             if document is not None:
                 documents.append(document)
 
         return documents
 
-    @staticmethod
+    @classmethod
     def _import_source_to_document(
+        cls,
         data: Any,
         *,
         index: int,
+        include_archived: bool = False,
     ) -> DocumentMetadata | None:
         """Zet één ImportSource-dict om naar een leesbaar DocumentMetadata.
 
-        Alleen bronnen met status 'actief' of 'concept' worden getoond.
-        'gearchiveerd' wordt overgeslagen: die horen niet in de standaard
-        bibliotheekweergave.
+        Alleen bronnen met status 'actief' of 'concept' worden getoond,
+        tenzij include_archived=True: dan blijven ook 'gearchiveerd'-
+        bronnen zichtbaar in de lijst.
 
-        De metadata-velden die het ImportSource-model nog niet kent
-        (categorie, fabrikant, serie, ...) blijven leeg. Dat is bewust:
-        de uitbreiding daarvan is een latere deelfase (5D'.2).
+        Sinds v1.8.2 worden de metadata-velden van ImportSource
+        (categorie, fabrikant, serie, partnummer, documentversie,
+        documentdatum) doorgegeven aan DocumentMetadata. Een lege of
+        onbekende categorie valt terug op DATASHEET voor backward-compat
+        met imports van vóór 5D'.2b.
+
+        Sinds v1.9.0 wordt de bronstatus doorgegeven aan
+        DocumentMetadata.import_status, zodat de viewer een Status-kolom
+        kan tonen.
         """
         if not isinstance(data, Mapping):
             raise DocumentationValidationError(
@@ -458,7 +511,7 @@ class DocumentationService:
             )
 
         status = str(data.get("status", "")).strip().lower()
-        if status == "gearchiveerd":
+        if status == "gearchiveerd" and not include_archived:
             return None
 
         source_id = data.get("source_id")
@@ -535,16 +588,32 @@ class DocumentationService:
             document_id=source_id.strip(),
             title=title.strip(),
             title_key=None,
-            category=DocumentCategory.DATASHEET,
+            category=cls._categorie_uit_importsource(
+                data.get("category"), source_id=source_id
+            ),
             source_type=source_type,
             source_path=source_path,
             source_url=source_url.strip() if isinstance(source_url, str) else None,
             tool_key=None,
-            manufacturer=None,
-            series=None,
-            part_number=None,
-            document_version=None,
-            document_date=None,
+            manufacturer=cls._optionele_importtekst(
+                data.get("manufacturer"), source_id=source_id,
+                veld="manufacturer",
+            ),
+            series=cls._optionele_importtekst(
+                data.get("series"), source_id=source_id, veld="series"
+            ),
+            part_number=cls._optionele_importtekst(
+                data.get("part_number"), source_id=source_id,
+                veld="part_number",
+            ),
+            document_version=cls._optionele_importtekst(
+                data.get("document_version"), source_id=source_id,
+                veld="document_version",
+            ),
+            document_date=cls._optionele_importtekst(
+                data.get("document_date"), source_id=source_id,
+                veld="document_date",
+            ),
             notes=notes.strip() if isinstance(notes, str) and notes.strip() else None,
             provenance=provenance,
             tool_keys=(),
@@ -553,7 +622,49 @@ class DocumentationService:
             measurement_methods=(),
             instrument_keys=(),
             topics=(),
+            is_user_import=True,
+            import_status=status or None,
         )
+
+    @staticmethod
+    def _categorie_uit_importsource(
+        waarde: Any,
+        *,
+        source_id: str,
+    ) -> DocumentCategory:
+        """Map een ruwe categorie-waarde naar DocumentCategory.
+
+        Onbekende, lege of niet-string waarden vallen terug op DATASHEET.
+        Dat is nodig voor backward-compat: imports van vóór 5D'.2b hebben
+        geen categorie-veld en moeten toch leesbaar blijven.
+        """
+        if not isinstance(waarde, str) or not waarde.strip():
+            return DocumentCategory.DATASHEET
+        try:
+            return DocumentCategory(waarde.strip().upper())
+        except ValueError:
+            return DocumentCategory.DATASHEET
+
+    @staticmethod
+    def _optionele_importtekst(
+        waarde: Any,
+        *,
+        source_id: str,
+        veld: str,
+    ) -> str | None:
+        """Valideer een optionele tekst uit de gebruikerscatalogus.
+
+        None of lege string worden None. Een niet-string, niet-None waarde
+        is een structurele fout in de gebruikerscatalogus.
+        """
+        if waarde is None:
+            return None
+        if not isinstance(waarde, str):
+            raise DocumentationValidationError(
+                f"ImportSource {source_id} heeft ongeldige {veld}."
+            )
+        gestript = waarde.strip()
+        return gestript or None
 
     # ---------------------------------------------------------------- helpers
 

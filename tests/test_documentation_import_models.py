@@ -2,25 +2,34 @@
 ================================================================================
 Module:     tests/test_documentation_import_models.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-06
+Versie:     1.2.0
+Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor import_models: enums, frozen-gedrag,
-            verplichte velden, serialisatie, statusovergangen.
+            statusovergangen, serialisatie en de metadata-uitbreiding
+            uit fase 5D'.2b (category, manufacturer, series, part_number,
+            document_version, document_date).
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
+  v1.1.0 (2026-10-07)  DuplicateAction en DuplicateMatch.
+  v1.2.0 (2026-10-07)  Metadata-velden (5D'.2b): defaults, normalisatie
+                       van lege strings naar None, to_dict/from_dict
+                       round-trip, backward-compat met oude catalogi.
 ================================================================================
 """
 
 from __future__ import annotations
 
-import dataclasses
+from dataclasses import FrozenInstanceError
 
 import pytest
 
 from app.documentation.import_models import (
+    DuplicateAction,
+    DuplicateMatch,
+    ImportResult,
     ImportSource,
     ImportSourceType,
     ImportStatus,
@@ -29,131 +38,61 @@ from app.documentation.import_models import (
 )
 
 
-def _geldige_pdf_source(**overrides) -> ImportSource:
+# ---------------------------------------------------------------- helpers
+
+def _pdf_source(**overrides) -> ImportSource:
     basis = dict(
         source_id="src-1",
         source_type=ImportSourceType.PDF,
-        title="Datasheet Panasonic FR",
+        title="Titel",
         imported_at=1_700_000_000_000,
         imported_by="tester",
         status=ImportStatus.CONCEPT,
-        original_filename="fr_series.pdf",
-        source_url=None,
-        file_hash=None,
-        notes=None,
+        original_filename="doc.pdf",
+        file_hash="abc123",
     )
     basis.update(overrides)
     return ImportSource(**basis)
 
 
-def _geldige_url_source(**overrides) -> ImportSource:
+def _url_source(**overrides) -> ImportSource:
     basis = dict(
         source_id="src-2",
         source_type=ImportSourceType.URL,
-        title="Fabrikantpagina",
+        title="Titel",
         imported_at=1_700_000_000_000,
         imported_by="tester",
         status=ImportStatus.CONCEPT,
-        original_filename=None,
-        source_url="https://example.com/doc",
-        file_hash=None,
-        notes=None,
+        source_url="https://example.com",
     )
     basis.update(overrides)
     return ImportSource(**basis)
 
 
-# ---------------------------------------------------------------- enums
+# ============================================================================
+# Enums
+# ============================================================================
 
-def test_enum_waarden_vast():
+def test_import_source_type_waarden():
     assert ImportSourceType.PDF.value == "pdf"
     assert ImportSourceType.URL.value == "url"
+
+
+def test_import_status_waarden():
     assert ImportStatus.CONCEPT.value == "concept"
     assert ImportStatus.ACTIEF.value == "actief"
     assert ImportStatus.GEARCHIVEERD.value == "gearchiveerd"
 
 
-# ---------------------------------------------------------------- frozen
-
-def test_import_source_is_frozen():
-    src = _geldige_pdf_source()
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        src.title = "anders"  # type: ignore[misc]
+def test_duplicate_action_waarden():
+    assert DuplicateAction.KEEP.value == "keep"
+    assert DuplicateAction.NEW_VERSION.value == "new_version"
+    assert DuplicateAction.OVERWRITE.value == "overwrite"
 
 
-# ---------------------------------------------------------------- validatie
-
-def test_pdf_zonder_filename_faalt():
-    with pytest.raises(ImportValidationError):
-        _geldige_pdf_source(original_filename=None)
-
-
-def test_url_zonder_url_faalt():
-    with pytest.raises(ImportValidationError):
-        _geldige_url_source(source_url=None)
-
-
-def test_pdf_met_url_faalt():
-    with pytest.raises(ImportValidationError):
-        _geldige_pdf_source(source_url="https://example.com")
-
-
-def test_url_met_filename_faalt():
-    with pytest.raises(ImportValidationError):
-        _geldige_url_source(original_filename="x.pdf")
-
-
-def test_lege_titel_faalt():
-    with pytest.raises(ImportValidationError):
-        _geldige_pdf_source(title="   ")
-
-
-def test_negatieve_imported_at_faalt():
-    with pytest.raises(ImportValidationError):
-        _geldige_pdf_source(imported_at=0)
-
-
-def test_lege_imported_by_faalt():
-    with pytest.raises(ImportValidationError):
-        _geldige_pdf_source(imported_by="")
-
-
-# ---------------------------------------------------------------- serialisatie
-
-def test_to_dict_en_from_dict_rondrit_pdf():
-    src = _geldige_pdf_source(file_hash="abc123", notes="test")
-    hersteld = ImportSource.from_dict(src.to_dict())
-    assert hersteld == src
-
-
-def test_to_dict_en_from_dict_rondrit_url():
-    src = _geldige_url_source(notes="url-notitie")
-    hersteld = ImportSource.from_dict(src.to_dict())
-    assert hersteld == src
-
-
-def test_from_dict_met_ontbrekend_veld_faalt():
-    data = _geldige_pdf_source().to_dict()
-    del data["title"]
-    with pytest.raises(ImportValidationError):
-        ImportSource.from_dict(data)
-
-
-def test_from_dict_met_ongeldige_status_faalt():
-    data = _geldige_pdf_source().to_dict()
-    data["status"] = "bestaat-niet"
-    with pytest.raises(ImportValidationError):
-        ImportSource.from_dict(data)
-
-
-def test_from_dict_met_ongeldig_type_faalt():
-    data = _geldige_pdf_source().to_dict()
-    data["source_type"] = "onbekend"
-    with pytest.raises(ImportValidationError):
-        ImportSource.from_dict(data)
-
-
-# ---------------------------------------------------------------- overgangen
+# ============================================================================
+# Statusovergangen
+# ============================================================================
 
 @pytest.mark.parametrize(
     "huidige,nieuwe,verwacht",
@@ -166,14 +105,323 @@ def test_from_dict_met_ongeldig_type_faalt():
         (ImportStatus.GEARCHIVEERD, ImportStatus.ACTIEF, False),
         (ImportStatus.CONCEPT, ImportStatus.CONCEPT, False),
         (ImportStatus.ACTIEF, ImportStatus.ACTIEF, False),
+        (ImportStatus.GEARCHIVEERD, ImportStatus.GEARCHIVEERD, False),
     ],
 )
-def test_statusovergangen(huidige, nieuwe, verwacht):
+def test_is_allowed_transition(huidige, nieuwe, verwacht):
     assert is_allowed_transition(huidige, nieuwe) is verwacht
 
 
-def test_overgang_met_verkeerd_type_faalt():
+def test_is_allowed_transition_ongeldig_type_faalt():
     with pytest.raises(ImportValidationError):
         is_allowed_transition("concept", ImportStatus.ACTIEF)  # type: ignore[arg-type]
     with pytest.raises(ImportValidationError):
         is_allowed_transition(ImportStatus.CONCEPT, "actief")  # type: ignore[arg-type]
+
+
+# ============================================================================
+# ImportSource — basisvalidatie
+# ============================================================================
+
+def test_pdf_source_geldig():
+    s = _pdf_source()
+    assert s.source_type is ImportSourceType.PDF
+    assert s.original_filename == "doc.pdf"
+    assert s.source_url is None
+
+
+def test_url_source_geldig():
+    s = _url_source()
+    assert s.source_type is ImportSourceType.URL
+    assert s.source_url == "https://example.com"
+    assert s.original_filename is None
+
+
+def test_pdf_zonder_original_filename_faalt():
+    with pytest.raises(ImportValidationError):
+        _pdf_source(original_filename=None)
+
+
+def test_pdf_met_source_url_faalt():
+    with pytest.raises(ImportValidationError):
+        _pdf_source(source_url="https://example.com")
+
+
+def test_url_zonder_source_url_faalt():
+    with pytest.raises(ImportValidationError):
+        _url_source(source_url=None)
+
+
+def test_url_met_original_filename_faalt():
+    with pytest.raises(ImportValidationError):
+        _url_source(original_filename="doc.pdf")
+
+
+def test_source_id_leeg_faalt():
+    with pytest.raises(ImportValidationError):
+        _pdf_source(source_id="")
+
+
+def test_title_leeg_faalt():
+    with pytest.raises(ImportValidationError):
+        _pdf_source(title="")
+    with pytest.raises(ImportValidationError):
+        _pdf_source(title="   ")
+
+
+def test_imported_at_negatief_faalt():
+    with pytest.raises(ImportValidationError):
+        _pdf_source(imported_at=0)
+    with pytest.raises(ImportValidationError):
+        _pdf_source(imported_at=-1)
+
+
+def test_imported_by_leeg_faalt():
+    with pytest.raises(ImportValidationError):
+        _pdf_source(imported_by="")
+
+
+def test_source_type_verkeerd_type_faalt():
+    with pytest.raises(ImportValidationError):
+        _pdf_source(source_type="pdf")  # type: ignore[arg-type]
+
+
+def test_status_verkeerd_type_faalt():
+    with pytest.raises(ImportValidationError):
+        _pdf_source(status="concept")  # type: ignore[arg-type]
+
+
+# ============================================================================
+# ImportSource — frozen-gedrag
+# ============================================================================
+
+def test_import_source_is_frozen():
+    s = _pdf_source()
+    with pytest.raises(FrozenInstanceError):
+        s.title = "Anders"  # type: ignore[misc]
+
+
+# ============================================================================
+# ImportSource — serialisatie (basisvelden)
+# ============================================================================
+
+def test_to_dict_bevat_alle_velden():
+    s = _pdf_source(notes="noot")
+    data = s.to_dict()
+    for sleutel in (
+        "source_id",
+        "source_type",
+        "title",
+        "imported_at",
+        "imported_by",
+        "status",
+        "original_filename",
+        "source_url",
+        "file_hash",
+        "notes",
+        "category",
+        "manufacturer",
+        "series",
+        "part_number",
+        "document_version",
+        "document_date",
+    ):
+        assert sleutel in data
+    assert data["source_type"] == "pdf"
+    assert data["status"] == "concept"
+
+
+def test_round_trip_pdf_zonder_metadata():
+    s = _pdf_source()
+    hersteld = ImportSource.from_dict(s.to_dict())
+    assert hersteld == s
+
+
+def test_round_trip_url_met_metadata():
+    s = _url_source(
+        category="DATASHEET",
+        manufacturer="Panasonic",
+        series="FR",
+        part_number="FR-123",
+        document_version="1.2",
+        document_date="2024-01",
+        notes="noot",
+    )
+    hersteld = ImportSource.from_dict(s.to_dict())
+    assert hersteld == s
+
+
+# ============================================================================
+# v1.2.0 — metadata-velden (5D'.2b)
+# ============================================================================
+
+def test_metadata_defaults_zijn_none():
+    s = _pdf_source()
+    assert s.category is None
+    assert s.manufacturer is None
+    assert s.series is None
+    assert s.part_number is None
+    assert s.document_version is None
+    assert s.document_date is None
+
+
+def test_metadata_lege_string_wordt_none():
+    s = _pdf_source(
+        category="",
+        manufacturer="   ",
+        series="",
+        part_number="\t",
+        document_version="",
+        document_date="  ",
+    )
+    assert s.category is None
+    assert s.manufacturer is None
+    assert s.series is None
+    assert s.part_number is None
+    assert s.document_version is None
+    assert s.document_date is None
+
+
+def test_metadata_wordt_gestript():
+    s = _pdf_source(
+        category="  DATASHEET  ",
+        manufacturer="  Panasonic  ",
+        series="  FR  ",
+        part_number="  FR-123  ",
+        document_version="  1.2  ",
+        document_date="  2024-01  ",
+    )
+    assert s.category == "DATASHEET"
+    assert s.manufacturer == "Panasonic"
+    assert s.series == "FR"
+    assert s.part_number == "FR-123"
+    assert s.document_version == "1.2"
+    assert s.document_date == "2024-01"
+
+
+def test_notes_lege_string_wordt_none():
+    s = _pdf_source(notes="   ")
+    assert s.notes is None
+
+
+def test_metadata_verkeerd_type_faalt():
+    with pytest.raises(ImportValidationError):
+        _pdf_source(category=123)  # type: ignore[arg-type]
+    with pytest.raises(ImportValidationError):
+        _pdf_source(manufacturer=[])  # type: ignore[arg-type]
+
+
+def test_from_dict_zonder_metadata_geeft_none():
+    """Backward-compat: catalogus van vóór 5D'.2b blijft geldig."""
+    data = {
+        "source_id": "src-1",
+        "source_type": "pdf",
+        "title": "Titel",
+        "imported_at": 1_700_000_000_000,
+        "imported_by": "tester",
+        "status": "concept",
+        "original_filename": "doc.pdf",
+        "source_url": None,
+        "file_hash": "abc123",
+        "notes": None,
+    }
+    s = ImportSource.from_dict(data)
+    assert s.category is None
+    assert s.manufacturer is None
+    assert s.series is None
+    assert s.part_number is None
+    assert s.document_version is None
+    assert s.document_date is None
+
+
+def test_from_dict_met_metadata():
+    data = {
+        "source_id": "src-1",
+        "source_type": "pdf",
+        "title": "Titel",
+        "imported_at": 1_700_000_000_000,
+        "imported_by": "tester",
+        "status": "concept",
+        "original_filename": "doc.pdf",
+        "source_url": None,
+        "file_hash": "abc123",
+        "notes": None,
+        "category": "DATASHEET",
+        "manufacturer": "Panasonic",
+        "series": "FR",
+        "part_number": "FR-123",
+        "document_version": "1.2",
+        "document_date": "2024-01",
+    }
+    s = ImportSource.from_dict(data)
+    assert s.category == "DATASHEET"
+    assert s.manufacturer == "Panasonic"
+    assert s.series == "FR"
+    assert s.part_number == "FR-123"
+    assert s.document_version == "1.2"
+    assert s.document_date == "2024-01"
+
+
+def test_from_dict_lege_metadata_wordt_none():
+    data = {
+        "source_id": "src-1",
+        "source_type": "pdf",
+        "title": "Titel",
+        "imported_at": 1_700_000_000_000,
+        "imported_by": "tester",
+        "status": "concept",
+        "original_filename": "doc.pdf",
+        "source_url": None,
+        "file_hash": "abc123",
+        "notes": None,
+        "category": "",
+        "manufacturer": "  ",
+        "series": None,
+        "part_number": None,
+        "document_version": None,
+        "document_date": None,
+    }
+    s = ImportSource.from_dict(data)
+    assert s.category is None
+    assert s.manufacturer is None
+
+
+# ============================================================================
+# ImportResult
+# ============================================================================
+
+def test_import_result_defaults():
+    s = _pdf_source()
+    r = ImportResult(source=s)
+    assert r.source is s
+    assert r.changed is True
+    assert r.message is None
+
+
+def test_import_result_frozen():
+    s = _pdf_source()
+    r = ImportResult(source=s, changed=False, message="niets")
+    with pytest.raises(FrozenInstanceError):
+        r.changed = True  # type: ignore[misc]
+
+
+# ============================================================================
+# DuplicateMatch
+# ============================================================================
+
+def test_duplicate_match_geldig():
+    s = _pdf_source()
+    m = DuplicateMatch(bestaande=s, match_type="file_hash")
+    assert m.bestaande is s
+    assert m.match_type == "file_hash"
+
+
+def test_duplicate_match_ongeldig_type_faalt():
+    s = _pdf_source()
+    with pytest.raises(ImportValidationError):
+        DuplicateMatch(bestaande=s, match_type="titel")  # type: ignore[arg-type]
+
+
+def test_duplicate_match_bestaande_verkeerd_type_faalt():
+    with pytest.raises(ImportValidationError):
+        DuplicateMatch(bestaande="geen-source", match_type="file_hash")  # type: ignore[arg-type]

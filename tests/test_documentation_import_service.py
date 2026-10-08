@@ -2,7 +2,7 @@
 ================================================================================
 Module:     tests/test_documentation_import_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.1
+Versie:     1.2.0
 Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
@@ -10,6 +10,8 @@ Doel:       Regressietests voor ImportService: registratie, statusmachine,
             JSON-persistentie, corrupte catalogus, schema_version,
             atomair schrijven, duplicate-detectie, replace_source en de
             beste-match-prioriteit (ACTIEF > CONCEPT > GEARCHIVEERD).
+            Sinds v1.2.0 ook metadata-uitbreiding (5D'.2b) en de
+            sentinel-logica van replace_source.
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
@@ -18,9 +20,10 @@ Wijzigingen:
   v1.1.0 (2026-10-07)  Tests voor find_by_file_hash, find_by_source_url en
                         replace_source (fase 5D'.2a).
   v1.1.1 (2026-10-07)  Tests voor beste-match-prioriteit: ACTIEF >
-                        CONCEPT > GEARCHIVEERD, dan meest recente. Lost
-                        bug op waarbij Overschrijven de gearchiveerde bron
-                        koos in plaats van de actieve/concept-bron.
+                        CONCEPT > GEARCHIVEERD, dan meest recente.
+  v1.2.0 (2026-10-07)  Metadata-uitbreiding (5D'.2b): register_* met
+                        metadata, replace_source met sentinel,
+                        persistentie van metadata, backward-compat.
 ================================================================================
 """
 
@@ -549,3 +552,229 @@ def test_find_by_source_url_gelijke_status_kiest_recentste(service):
     gevonden = service.find_by_source_url("https://example.com")
     assert gevonden is not None
     assert gevonden.source_id == tweede.source.source_id
+
+
+# ============================================================================
+# v1.2.0 — metadata-uitbreiding (5D'.2b)
+# ============================================================================
+
+def test_register_pdf_met_metadata(service):
+    result = service.register_pdf(
+        title="FR-serie",
+        original_filename="fr.pdf",
+        category="DATASHEET",
+        manufacturer="Panasonic",
+        series="FR",
+        part_number="FR-123",
+        document_version="1.2",
+        document_date="2024-01",
+        notes="noot",
+    )
+    s = result.source
+    assert s.category == "DATASHEET"
+    assert s.manufacturer == "Panasonic"
+    assert s.series == "FR"
+    assert s.part_number == "FR-123"
+    assert s.document_version == "1.2"
+    assert s.document_date == "2024-01"
+    assert s.notes == "noot"
+
+
+def test_register_url_met_metadata(service):
+    result = service.register_url(
+        title="Fabrikant",
+        source_url="https://example.com",
+        category="MANUAL",
+        manufacturer="TDK",
+        series="C-series",
+        part_number="C-456",
+        document_version="2.0",
+        document_date="2023-06",
+    )
+    s = result.source
+    assert s.category == "MANUAL"
+    assert s.manufacturer == "TDK"
+    assert s.series == "C-series"
+    assert s.part_number == "C-456"
+    assert s.document_version == "2.0"
+    assert s.document_date == "2023-06"
+
+
+def test_register_zonder_metadata_geeft_none(service):
+    result = service.register_pdf(title="A", original_filename="a.pdf")
+    s = result.source
+    assert s.category is None
+    assert s.manufacturer is None
+    assert s.series is None
+    assert s.part_number is None
+    assert s.document_version is None
+    assert s.document_date is None
+
+
+def test_register_lege_metadata_wordt_none(service):
+    result = service.register_pdf(
+        title="A",
+        original_filename="a.pdf",
+        category="",
+        manufacturer="   ",
+        series="",
+        part_number="",
+        document_version="",
+        document_date="",
+    )
+    s = result.source
+    assert s.category is None
+    assert s.manufacturer is None
+    assert s.series is None
+    assert s.part_number is None
+    assert s.document_version is None
+    assert s.document_date is None
+
+
+def test_metadata_persisteert_naar_disk(service):
+    result = service.register_pdf(
+        title="A",
+        original_filename="a.pdf",
+        category="DATASHEET",
+        manufacturer="Panasonic",
+    )
+    service2 = ImportService(catalog_path=service.catalog_path)
+    terug = service2.get(result.source.source_id)
+    assert terug.category == "DATASHEET"
+    assert terug.manufacturer == "Panasonic"
+
+
+def test_replace_source_met_metadata(service):
+    r = service.register_pdf(title="Oud", original_filename="oud.pdf")
+    result = service.replace_source(
+        r.source.source_id,
+        title="Nieuw",
+        file_hash=None,
+        original_filename="nieuw.pdf",
+        notes=None,
+        category="MANUAL",
+        manufacturer="TDK",
+        series="C-series",
+        part_number="C-456",
+        document_version="2.0",
+        document_date="2023-06",
+    )
+    s = result.source
+    assert s.category == "MANUAL"
+    assert s.manufacturer == "TDK"
+    assert s.series == "C-series"
+    assert s.part_number == "C-456"
+    assert s.document_version == "2.0"
+    assert s.document_date == "2023-06"
+
+
+def test_replace_source_metadata_sentinel_behoudt_bestaande(service):
+    """Niet meegegeven metadata-parameter = bestaande waarde behouden."""
+    r = service.register_pdf(
+        title="Oud",
+        original_filename="oud.pdf",
+        category="DATASHEET",
+        manufacturer="Panasonic",
+        series="FR",
+    )
+    result = service.replace_source(
+        r.source.source_id,
+        title="Nieuw",
+        file_hash=None,
+        original_filename="nieuw.pdf",
+        notes=None,
+        # category, manufacturer, series niet meegegeven
+    )
+    assert result.source.category == "DATASHEET"
+    assert result.source.manufacturer == "Panasonic"
+    assert result.source.series == "FR"
+
+
+def test_replace_source_metadata_expliciet_none_maakt_leeg(service):
+    """Expliciet None meegeven = veld leegmaken."""
+    r = service.register_pdf(
+        title="Oud",
+        original_filename="oud.pdf",
+        category="DATASHEET",
+        manufacturer="Panasonic",
+    )
+    result = service.replace_source(
+        r.source.source_id,
+        title="Nieuw",
+        file_hash=None,
+        original_filename="nieuw.pdf",
+        notes=None,
+        category=None,
+        manufacturer=None,
+    )
+    assert result.source.category is None
+    assert result.source.manufacturer is None
+
+
+def test_replace_source_metadata_string_vervangt(service):
+    r = service.register_pdf(
+        title="Oud",
+        original_filename="oud.pdf",
+        category="DATASHEET",
+        manufacturer="Panasonic",
+    )
+    result = service.replace_source(
+        r.source.source_id,
+        title="Nieuw",
+        file_hash=None,
+        original_filename="nieuw.pdf",
+        notes=None,
+        category="MANUAL",
+        manufacturer="TDK",
+    )
+    assert result.source.category == "MANUAL"
+    assert result.source.manufacturer == "TDK"
+
+
+def test_replace_source_behoudt_metadata_bij_statuswijziging(service):
+    """Een statuswijziging mag metadata niet wissen."""
+    r = service.register_pdf(
+        title="A",
+        original_filename="a.pdf",
+        category="DATASHEET",
+        manufacturer="Panasonic",
+        series="FR",
+    )
+    service.set_status(r.source.source_id, ImportStatus.ACTIEF)
+    terug = service.get(r.source.source_id)
+    assert terug.status is ImportStatus.ACTIEF
+    assert terug.category == "DATASHEET"
+    assert terug.manufacturer == "Panasonic"
+    assert terug.series == "FR"
+
+
+def test_catalogus_backward_compat_zonder_metadata(tmp_path):
+    """Catalogus van vóór 5D'.2b blijft leesbaar."""
+    pad = tmp_path / "imported_catalog.json"
+    pad.write_text(
+        json.dumps(
+            {
+                "schema_version": CATALOG_SCHEMA_VERSION,
+                "sources": [
+                    {
+                        "source_id": "oud-1",
+                        "source_type": "pdf",
+                        "title": "Oud document",
+                        "imported_at": 1_700_000_000_000,
+                        "imported_by": "tester",
+                        "status": "concept",
+                        "original_filename": "oud.pdf",
+                        "source_url": None,
+                        "file_hash": "abc",
+                        "notes": None,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    service = ImportService(catalog_path=pad)
+    items = service.list_sources()
+    assert len(items) == 1
+    assert items[0].category is None
+    assert items[0].manufacturer is None

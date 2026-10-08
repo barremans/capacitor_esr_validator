@@ -2,15 +2,20 @@
 ================================================================================
 Module:     app/gui/documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.1.1
-Datum:      2026-10-07
+Versie:     2.3.0
+Datum:      2026-10-08
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only scherm voor de centrale documentatiebibliotheek.
 
             Ondersteunt zoeken en filteren zonder documentmetadata te wijzigen.
             Import, AI-extractie, referentievalidatie en assessment-koppeling
-            vallen bewust buiten deze fase.
+            vallen bewust buiten deze fase. Sinds 5D'.2c kan de gebruiker
+            via een Bewerken-knop de metadata van een eigen import aanpassen
+            (niet van ingebouwde documenten). Sinds 5D'.2e kan de gebruiker
+            via een Status wijzigen-knop de levenscyclus van een eigen
+            import aanpassen. Een extra checkbox maakt gearchiveerde
+            imports zichtbaar in de lijst.
 
 Wijzigingen:
   v1.0.0 (2026-10-02)  Eerste read-only documentatiebibliotheekscherm.
@@ -30,8 +35,16 @@ Wijzigingen:
   v2.0.0 (2026-10-06)  Fase 5E: import_requested signaal, Importeer-knop.
   v2.1.0 (2026-10-07)  Fase 5D'.4: dispatch op basis van source_kind.
   v2.1.1 (2026-10-07)  URL-bron opent altijd de live URL in de browser,
-                        niet de lokale snapshot. De snapshot blijft bewaard
-                        voor provenance, maar is niet langer het open-doel.
+                        niet de lokale snapshot.
+  v2.2.0 (2026-10-07)  Fase 5D'.2c: Bewerken-knop. Alleen actief voor
+                        documenten uit de gebruikerscatalogus
+                        (is_user_import=True). Opent EditMetadataDialog
+                        en ververst de tabel na succes.
+  v2.3.0 (2026-10-08)  Fase 5D'.2e: Status wijzigen-knop. Alleen actief
+                        voor eigen imports. Opent ChangeStatusDialog en
+                        ververst de tabel na succes. Nieuwe checkbox
+                        "Toon gearchiveerde". Nieuwe Status-kolom in de
+                        tabel.
 ================================================================================
 """
 
@@ -45,12 +58,14 @@ from PySide6.QtCore import QUrl, Signal, Qt
 from PySide6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QComboBox,
     QDialog,
     QHeaderView,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -59,9 +74,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.documentation.import_models import ImportValidationError
+from app.documentation.import_service import ImportService
 from app.documentation.models import DocumentCategory, DocumentMetadata
 from app.documentation.service import DocumentationError, DocumentationService
 from app.documentation.pdf_extract import default_sources_dir
+from app.gui.dialogs.change_status_dialog import ChangeStatusDialog
+from app.gui.dialogs.edit_metadata_dialog import EditMetadataDialog
 from app.gui.dialogs.search_help_dialog import SearchHelpDialog
 from app.helpers.document_source_paths import (
     resolve_local_path,
@@ -80,6 +99,7 @@ class DocumentationScreen(QWidget):
         self,
         taal: str = "nl_NL",
         documentation_service: DocumentationService | None = None,
+        import_service: ImportService | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -89,6 +109,12 @@ class DocumentationScreen(QWidget):
             if documentation_service is not None
             else DocumentationService()
         )
+        # ImportService wordt alleen gebruikt voor de metadata-editor en
+        # de status-editor. We maken hem lui aan bij de eerste klik, zodat
+        # tests die geen gebruikerscatalogus hebben geen onbedoelde
+        # ImportService krijgen.
+        self._import_service_override = import_service
+        self._import_service_cache: ImportService | None = import_service
 
         self._build_ui()
         self._setup_shortcuts()
@@ -97,6 +123,17 @@ class DocumentationScreen(QWidget):
 
     def _t(self, sleutel: str, **kwargs) -> str:
         return vertaal(sleutel, taal=self.taal, **kwargs)
+
+    def _import_service(self) -> ImportService:
+        """Lui aanmaken van de ImportService voor de editor(s).
+
+        In productie: de standaardservice die de gebruikerscatalogus leest.
+        In tests: de meegegeven override, zodat geen %LOCALAPPDATA% wordt
+        aangeraakt.
+        """
+        if self._import_service_cache is None:
+            self._import_service_cache = ImportService()
+        return self._import_service_cache
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -148,9 +185,14 @@ class DocumentationScreen(QWidget):
         self.tool_combo.currentIndexChanged.connect(self.refresh)
         filter_row.addWidget(self.tool_combo, 1)
 
+        self.toon_gearchiveerd_checkbox = QCheckBox()
+        self.toon_gearchiveerd_checkbox.toggled.connect(self.refresh)
+        filter_row.addWidget(self.toon_gearchiveerd_checkbox)
+
         layout.addLayout(filter_row)
 
-        self.table = QTableWidget(0, 5)
+        # 6 kolommen: Titel, Categorie, Status, Fabrikant, Serie, Versie
+        self.table = QTableWidget(0, 6)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -164,8 +206,9 @@ class DocumentationScreen(QWidget):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
 
-        self.table.itemSelectionChanged.connect(self._update_open_button)
+        self.table.itemSelectionChanged.connect(self._update_action_buttons)
         self.table.itemDoubleClicked.connect(
             lambda _item: self._open_selected_document()
         )
@@ -175,6 +218,16 @@ class DocumentationScreen(QWidget):
         self.status_label = QLabel()
         self.status_label.setWordWrap(True)
         bottom_row.addWidget(self.status_label, 1)
+
+        self.edit_btn = QPushButton()
+        self.edit_btn.setEnabled(False)
+        self.edit_btn.clicked.connect(self._edit_selected_document)
+        bottom_row.addWidget(self.edit_btn)
+
+        self.status_btn = QPushButton()
+        self.status_btn.setEnabled(False)
+        self.status_btn.clicked.connect(self._change_selected_status)
+        bottom_row.addWidget(self.status_btn)
 
         self.open_btn = QPushButton()
         self.open_btn.setEnabled(False)
@@ -254,6 +307,14 @@ class DocumentationScreen(QWidget):
         self.category_label.setText(self._t("documentatie.categorie"))
         self.tool_label.setText(self._t("documentatie.tool"))
         self.open_btn.setText(self._t("documentatie.openen"))
+        self.edit_btn.setText(self._t("documentatie.bewerken"))
+        self.status_btn.setText(self._t("documentatie.status_wijzigen"))
+        self.toon_gearchiveerd_checkbox.setText(
+            self._t("documentatie.toon_gearchiveerd")
+        )
+        self.toon_gearchiveerd_checkbox.setToolTip(
+            self._t("documentatie.toon_gearchiveerd_tooltip")
+        )
 
         self._rebuild_category_combo(selected_category)
         self._rebuild_tool_combo(selected_tool)
@@ -261,6 +322,7 @@ class DocumentationScreen(QWidget):
         headers = (
             self._t("documentatie.kolom.titel"),
             self._t("documentatie.kolom.categorie"),
+            self._t("documentatie.kolom.status"),
             self._t("documentatie.kolom.fabrikant"),
             self._t("documentatie.kolom.serie"),
             self._t("documentatie.kolom.versie"),
@@ -322,6 +384,17 @@ class DocumentationScreen(QWidget):
             return document.title
         return translated
 
+    def _status_label(self, document: DocumentMetadata) -> str:
+        """Vertaal de import_status van een document, of leeg voor ingebouwd."""
+        status = getattr(document, "import_status", None)
+        if not isinstance(status, str) or not status.strip():
+            return ""
+        sleutel = f"documentatie.status_kolom.{status.strip().lower()}"
+        vertaald = self._t(sleutel)
+        if vertaald == sleutel:
+            return ""
+        return vertaald
+
     def refresh(self) -> None:
         """Herlaad de zichtbare read-only tabel volgens de huidige filters."""
         selected_document_id = self._selected_document_id()
@@ -337,6 +410,7 @@ class DocumentationScreen(QWidget):
                 search_text=self.search_edit.text(),
                 category=category,
                 tool_key=service_tool_key,
+                include_archived=self.toon_gearchiveerd_checkbox.isChecked(),
             )
             if tool_filter == "__GENERAL__":
                 documents = [
@@ -376,6 +450,7 @@ class DocumentationScreen(QWidget):
             values = (
                 self._document_title(document),
                 self._category_label(document.category),
+                self._status_label(document),
                 document.manufacturer or "",
                 document.series or "",
                 document.document_version or "",
@@ -383,6 +458,14 @@ class DocumentationScreen(QWidget):
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 item.setData(Qt.ItemDataRole.UserRole, document.document_id)
+                # Bewaar ook of dit een gebruikersimport is, zodat de
+                # Bewerken- en Status-knop kunnen beslissen. We gebruiken
+                # een aparte rol om de UserRole (document_id) niet te
+                # overschrijven.
+                item.setData(
+                    Qt.ItemDataRole.UserRole + 1,
+                    bool(document.is_user_import),
+                )
                 self.table.setItem(row, column, item)
 
             if document.document_id == selected_document_id:
@@ -391,7 +474,7 @@ class DocumentationScreen(QWidget):
         if row_to_restore is not None:
             self.table.selectRow(row_to_restore)
 
-        self._update_open_button()
+        self._update_action_buttons()
 
     def _selected_document_id(self) -> str | None:
         selected_items = self.table.selectedItems()
@@ -400,8 +483,38 @@ class DocumentationScreen(QWidget):
         document_id = selected_items[0].data(Qt.ItemDataRole.UserRole)
         return document_id if isinstance(document_id, str) and document_id else None
 
-    def _update_open_button(self) -> None:
-        self.open_btn.setEnabled(self._selected_document_id() is not None)
+    def _selected_is_user_import(self) -> bool:
+        selected_items = self.table.selectedItems()
+        if not selected_items:
+            return False
+        vlag = selected_items[0].data(Qt.ItemDataRole.UserRole + 1)
+        return bool(vlag)
+
+    def _update_action_buttons(self) -> None:
+        """Openen is altijd actief bij selectie; Bewerken en Status alleen bij import."""
+        heeft_selectie = self._selected_document_id() is not None
+        self.open_btn.setEnabled(heeft_selectie)
+
+        mag_bewerken = heeft_selectie and self._selected_is_user_import()
+        self.edit_btn.setEnabled(mag_bewerken)
+        if mag_bewerken:
+            self.edit_btn.setToolTip(
+                self._t("documentatie.bewerken_tooltip")
+            )
+        else:
+            self.edit_btn.setToolTip(
+                self._t("documentatie.bewerken_alleen_eigen")
+            )
+
+        self.status_btn.setEnabled(mag_bewerken)
+        if mag_bewerken:
+            self.status_btn.setToolTip(
+                self._t("documentatie.status_wijzigen_tooltip")
+            )
+        else:
+            self.status_btn.setToolTip(
+                self._t("documentatie.status_wijzigen_alleen_eigen")
+            )
 
     def select_document_by_id(self, document_id: str) -> bool:
         """Selecteer een document in de tabel op basis van zijn ID."""
@@ -518,6 +631,96 @@ class DocumentationScreen(QWidget):
             "border:1px solid #4A4A4A; padding:8px; }"
         )
         return info_browser
+
+    def _edit_selected_document(self) -> None:
+        """Open de metadata-editor voor het geselecteerde import-item."""
+        document_id = self._selected_document_id()
+        if document_id is None:
+            return
+        if not self._selected_is_user_import():
+            # Zou niet moeten kunnen (knop disabled), maar defensief.
+            QMessageBox.information(
+                self,
+                self._t("documentatie.bewerken_titel"),
+                self._t("documentatie.bewerken_alleen_eigen"),
+            )
+            return
+
+        try:
+            bron = self._import_service().get(document_id)
+        except ImportValidationError as exc:
+            QMessageBox.warning(
+                self,
+                self._t("documentatie.bewerken_fout_titel"),
+                self._t(
+                    "documentatie.bewerken_fout_bericht",
+                    bericht=str(exc),
+                ),
+            )
+            return
+
+        dialog = EditMetadataDialog(
+            bron=bron,
+            taal=self.taal,
+            import_service=self._import_service(),
+            parent=self,
+        )
+        dialog.metadata_saved.connect(self._on_metadata_saved)
+        dialog.exec()
+
+    def _on_metadata_saved(self, source_id: str) -> None:
+        """Ververs de tabel na een succesvolle metadata-edit."""
+        self.refresh()
+        # Houd de selectie vast.
+        if source_id:
+            self.select_document_by_id(source_id)
+
+    def _change_selected_status(self) -> None:
+        """Open de status-editor voor het geselecteerde import-item."""
+        document_id = self._selected_document_id()
+        if document_id is None:
+            return
+        if not self._selected_is_user_import():
+            # Zou niet moeten kunnen (knop disabled), maar defensief.
+            QMessageBox.information(
+                self,
+                self._t("documentatie.status_wijzigen_titel"),
+                self._t("documentatie.status_wijzigen_alleen_eigen"),
+            )
+            return
+
+        try:
+            bron = self._import_service().get(document_id)
+        except ImportValidationError as exc:
+            QMessageBox.warning(
+                self,
+                self._t("documentatie.status_wijzigen_fout_titel"),
+                self._t(
+                    "documentatie.status_wijzigen_fout_bericht",
+                    bericht=str(exc),
+                ),
+            )
+            return
+
+        dialog = ChangeStatusDialog(
+            bron=bron,
+            taal=self.taal,
+            import_service=self._import_service(),
+            parent=self,
+        )
+        dialog.status_changed.connect(self._on_status_changed)
+        dialog.exec()
+
+    def _on_status_changed(self, source_id: str) -> None:
+        """Ververs de tabel na een succesvolle statuswijziging.
+
+        Als de nieuwe status 'gearchiveerd' is, kan het document
+        verdwijnen uit de standaardweergave. We behouden de selectie
+        alleen als het document nog zichtbaar is.
+        """
+        self.refresh()
+        if source_id:
+            self.select_document_by_id(source_id)
 
     def _open_selected_document(self) -> None:
         """Open het geselecteerde document via de centrale by-id viewer-API."""

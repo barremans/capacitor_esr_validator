@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/styles.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.2.0
-Datum:      2026-09-27
+Versie:     1.3.0
+Datum:      2026-10-08
 Auteur:     Ontwikkelaar
 
 Doel:       Centrale stijldefinities voor de Qt6 GUI.
@@ -18,6 +18,13 @@ Wijzigingen:
   v1.2.0 (2026-09-27)  Centrale dark-theme styling uitgebreid voor hoofdvenster,
                        widgets, dialogen, labels, knoppen, group boxes en
                        disabled states. Tooltips blijven bewust licht.
+  v1.3.0 (2026-10-08)  Fase 5D'.2f: expliciete styling voor
+                       QCheckBox::indicator en QRadioButton::indicator.
+                       Zonder deze regels gebruikt Qt de Fusion-default
+                       (lichtgrijze rand op donkere achtergrond), waardoor
+                       checkboxen in het donkere thema nauwelijks zichtbaar
+                       waren. Nu een duidelijke rand, blauwe checked-state
+                       en consistente hover/disabled-styling.
 ================================================================================
 """
 
@@ -187,6 +194,82 @@ def apply_dark_theme(app):
 
         QCheckBox:disabled {
             color: #8A8A8A;
+        }
+
+        QCheckBox::indicator {
+            width: 16px;
+            height: 16px;
+            border: 1px solid #8A8A8A;
+            border-radius: 3px;
+            background-color: #2A2A2A;
+        }
+
+        QCheckBox::indicator:unchecked {
+            background-color: #2A2A2A;
+            border: 1px solid #8A8A8A;
+        }
+
+        QCheckBox::indicator:unchecked:hover {
+            background-color: #333333;
+            border: 1px solid #B0B0B0;
+        }
+
+        QCheckBox::indicator:checked {
+            background-color: #0078D7;
+            border: 1px solid #4AA3FF;
+        }
+
+        QCheckBox::indicator:checked:hover {
+            background-color: #1A88E7;
+            border: 1px solid #6ABAFF;
+        }
+
+        QCheckBox::indicator:disabled {
+            background-color: #1E1E1E;
+            border: 1px solid #4A4A4A;
+        }
+
+        QRadioButton {
+            color: #F0F0F0;
+            spacing: 8px;
+            background-color: transparent;
+        }
+
+        QRadioButton:disabled {
+            color: #8A8A8A;
+        }
+
+        QRadioButton::indicator {
+            width: 16px;
+            height: 16px;
+            border: 1px solid #8A8A8A;
+            border-radius: 8px;
+            background-color: #2A2A2A;
+        }
+
+        QRadioButton::indicator:unchecked {
+            background-color: #2A2A2A;
+            border: 1px solid #8A8A8A;
+        }
+
+        QRadioButton::indicator:unchecked:hover {
+            background-color: #333333;
+            border: 1px solid #B0B0B0;
+        }
+
+        QRadioButton::indicator:checked {
+            background-color: #0078D7;
+            border: 1px solid #4AA3FF;
+        }
+
+        QRadioButton::indicator:checked:hover {
+            background-color: #1A88E7;
+            border: 1px solid #6ABAFF;
+        }
+
+        QRadioButton::indicator:disabled {
+            background-color: #1E1E1E;
+            border: 1px solid #4A4A4A;
         }
 
         QGroupBox {

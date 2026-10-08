@@ -3,6 +3,42 @@
 Overzicht van wat er nieuw of verbeterd is in de Electronics Diagnostic
 Tool Hub. Voor technische details en architectuurkeuzes verwijzen we naar
 `docs/context.md`.
+## Versie 1.4 — Metadata bij import en bewerken in de viewer (7 oktober 2026)
+
+**Metadata bij importeren van een PDF of URL**
+
+Bij het importeren van een document kun je nu meteen metadata invullen:
+categorie, fabrikant, serie, partnummer, documentversie, documentdatum
+en notities. De categorie is verplicht (default: fabrikantdatasheet);
+de andere velden zijn optioneel. Identificatievelden (fabrikant, serie,
+partnummer, documentversie) worden automatisch in hoofdletters gezet
+zodat ze consistent in de bibliotheek staan.
+
+De documentdatum is een kalenderveld met een knop "Datum onbekend" voor
+documenten zonder bekende datum. Met Ctrl+D zet je de datum op vandaag.
+
+Bestaande imports van vóór deze versie blijven geldig. Ze hebben geen
+metadata; die kun je later toevoegen door de import te bewerken.
+
+**Metadata bewerken in de documentatiebibliotheek**
+
+In de documentatiebibliotheek is er nu een knop **Bewerken…** voor je
+eigen imports. Je kunt de metadata (titel, categorie, fabrikant, serie,
+partnummer, documentversie, documentdatum, notities) achteraf aanpassen
+zonder het bronbestand opnieuw te importeren. Het bronbestand, de status
+en de importdatum blijven ongewijzigd.
+
+Documenten uit de ingebouwde bibliotheek (meegeleverd met de app) zijn
+en blijven read-only. De Bewerken-knop is dan uitgeschakeld met een
+tooltip die uitlegt waarom.
+
+**Verbeterd zoeken**
+
+Het zoekveld in de documentatiebibliotheek doorzoekt nu ook de metadata
+van geïmporteerde documenten (categorie, fabrikant, serie, partnummer,
+versie, datum, notities en bron-URL). Zoeken op fabrikant of serie werkt
+daardoor nu ook voor eigen imports.
+
 
 ## Versie 1.3 — Help per taal en duidelijkere zoekuitleg
 **Datum:** 6 oktober 2026

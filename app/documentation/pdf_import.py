@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/documentation/pdf_import.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
+Versie:     1.2.0
 Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
@@ -21,6 +21,11 @@ Wijzigingen:
                        wordt het oude bronbestand bewaard als
                        .oud-<timestamp> en is de operatie atomair met
                        rollback bij kopieerfout.
+  v1.2.0 (2026-10-07)  Metadata-uitbreiding (fase 5D'.2b): optionele
+                       parameters category, manufacturer, series,
+                       part_number, document_version, document_date.
+                       Worden doorgegeven aan register_pdf en
+                       replace_source. Backward-compatible: defaults None.
 ================================================================================
 """
 
@@ -83,6 +88,12 @@ def import_pdf(
     sources_dir: Optional[Path] = None,
     notes: Optional[str] = None,
     duplicate_action: DuplicateAction = DuplicateAction.NEW_VERSION,
+    category: Optional[str] = None,
+    manufacturer: Optional[str] = None,
+    series: Optional[str] = None,
+    part_number: Optional[str] = None,
+    document_version: Optional[str] = None,
+    document_date: Optional[str] = None,
 ) -> ImportResult:
     """Importeer één PDF als documentatiebron.
 
@@ -103,8 +114,11 @@ def import_pdf(
                       bewaard als .oud-<timestamp>, status terug naar
                       CONCEPT.
 
-    Bij KEEP zonder match of NEW_VERSION zonder match: gewone registratie
-    (identiek aan v1.0.0).
+    Metadata-parameters (sinds 5D'.2b) zijn optioneel. Ze worden
+    doorgegeven aan register_pdf of, bij OVERWRITE, aan replace_source.
+    Lege strings worden door ImportSource genormaliseerd naar None.
+
+    Bij KEEP zonder match of NEW_VERSION zonder match: gewone registratie.
 
     Bij NEW_VERSION of OVERWRITE met kopieerfout:
       - NEW_VERSION: registratie blijft bestaan in CONCEPT met foutnotitie
@@ -156,6 +170,12 @@ def import_pdf(
             pdf_titel=pdf_meta.title,
             sources_dir=sources_dir,
             notes=notes,
+            category=category,
+            manufacturer=manufacturer,
+            series=series,
+            part_number=part_number,
+            document_version=document_version,
+            document_date=document_date,
         )
 
     # Stap 7 — NEW_VERSION (of KEEP zonder match): archiveer bestaande
@@ -169,6 +189,12 @@ def import_pdf(
         original_filename=bron_pad.name,
         file_hash=file_hash,
         notes=notes,
+        category=category,
+        manufacturer=manufacturer,
+        series=series,
+        part_number=part_number,
+        document_version=document_version,
+        document_date=document_date,
     )
 
     # Stap 8 — kopiëren
@@ -208,6 +234,12 @@ def _overwrite_pdf(
     pdf_titel: Optional[str],
     sources_dir: Optional[Path],
     notes: Optional[str],
+    category: Optional[str],
+    manufacturer: Optional[str],
+    series: Optional[str],
+    part_number: Optional[str],
+    document_version: Optional[str],
+    document_date: Optional[str],
 ) -> ImportResult:
     """Overschrijf een bestaande PDF-bron atomair.
 
@@ -253,6 +285,7 @@ def _overwrite_pdf(
         raise
 
     # Catalogus bijwerken: status terug naar CONCEPT (kernregel 11).
+    # Metadata wordt expliciet meegegeven: de wizard bepaalt de waarden.
     nieuwe_titel = _bepaal_titel(bron_pad, title, pdf_titel)
     return import_service.replace_source(
         bestaande.source_id,
@@ -262,6 +295,12 @@ def _overwrite_pdf(
         notes=notes,
         imported_at=import_service._now_ms(),  # type: ignore[attr-defined]
         status=ImportStatus.CONCEPT,
+        category=category,
+        manufacturer=manufacturer,
+        series=series,
+        part_number=part_number,
+        document_version=document_version,
+        document_date=document_date,
     )
 
 

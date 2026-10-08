@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.9.2
-Datum:      2026-10-07
+Versie:     1.11.0
+Datum:      2026-10-08
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor de read-only Documentatiebibliotheek.
@@ -20,11 +20,16 @@ Wijzigingen:
   v1.8.0 (2026-10-05)  Help-knop, tooltips en lokale sneltoetsen.
   v1.9.0 (2026-10-07)  Fase 5D'.4: dispatch-tests voor source_kind.
   v1.9.1 (2026-10-07)  URL-bron opent altijd de live URL in de browser.
-  v1.9.2 (2026-10-07)  Dubbele test verwijderd: test_url_document_zonder_
-                        snapshot_opent_live_url was inhoudelijk gelijk aan
-                        test_url_document_opent_altijd_live_url en
-                        monkeypatchte default_snapshots_dir die sinds
-                        v2.1.1 niet meer in de module zit.
+  v1.9.2 (2026-10-07)  Dubbele test verwijderd.
+  v1.10.0 (2026-10-07) Fase 5D'.2c: Bewerken-knop-tests.
+  v1.10.1 (2026-10-07) Fix: test_edit_selected_document_opent_editor
+                       gebruikt nu een QObject-subclass met klasse-niveau
+                       Signal(str) en een eigen exec() die de teller
+                       ophoogt. Geen monkeypatch meer op QDialog.exec.
+  v1.11.0 (2026-10-08) Fase 5D'.2e: tests voor Status wijzigen-knop,
+                       Toon gearchiveerde-checkbox en Status-kolom.
+                       Bestaande kolomindices aangepast (fabrikant van
+                       kolom 2 → 3, enz.).
 ================================================================================
 """
 
@@ -61,7 +66,14 @@ class _FakeDocumentationService:
         self.last_read_language = language
         return "# FM Series\nRead-only guide."
 
-    def list_documents(self, *, search_text=None, category=None, tool_key=None):
+    def list_documents(
+        self,
+        *,
+        search_text=None,
+        category=None,
+        tool_key=None,
+        include_archived=False,
+    ):
         document = DocumentMetadata(
             document_id="doc-1",
             title="FM Series",
@@ -100,7 +112,14 @@ class _FakeDocumentationService:
 
 
 class _EmptyDocumentationService:
-    def list_documents(self, *, search_text=None, category=None, tool_key=None):
+    def list_documents(
+        self,
+        *,
+        search_text=None,
+        category=None,
+        tool_key=None,
+        include_archived=False,
+    ):
         return []
 
 
@@ -125,7 +144,14 @@ class _PdfDocumentationService:
             notes=None,
         )
 
-    def list_documents(self, *, search_text=None, category=None, tool_key=None):
+    def list_documents(
+        self,
+        *,
+        search_text=None,
+        category=None,
+        tool_key=None,
+        include_archived=False,
+    ):
         return [self.get_document("doc-pdf")]
 
     def read_document_text(self, document_id, *, language=None):
@@ -155,8 +181,57 @@ class _UrlDocumentationService:
             notes=None,
         )
 
-    def list_documents(self, *, search_text=None, category=None, tool_key=None):
+    def list_documents(
+        self,
+        *,
+        search_text=None,
+        category=None,
+        tool_key=None,
+        include_archived=False,
+    ):
         return [self.get_document("doc-url")]
+
+
+class _UserImportDocumentationService:
+    """Levert één importeerbare PDF-bron (is_user_import=True)."""
+
+    def __init__(self, *, import_status: str = "concept"):
+        self._import_status = import_status
+
+    def get_document(self, document_id):
+        return DocumentMetadata(
+            document_id="import-1",
+            title="Eigen import",
+            title_key=None,
+            category=DocumentCategory.DATASHEET,
+            source_type=DocumentSourceType.FILE,
+            source_path="sources/import-1.pdf",
+            source_url=None,
+            tool_key=None,
+            manufacturer="CHONG",
+            series="CDX",
+            part_number=None,
+            document_version="V1.1",
+            document_date="2026-10-08",
+            notes=None,
+            is_user_import=True,
+            import_status=self._import_status,
+        )
+
+    def list_documents(
+        self,
+        *,
+        search_text=None,
+        category=None,
+        tool_key=None,
+        include_archived=False,
+    ):
+        if (
+            self._import_status == "gearchiveerd"
+            and not include_archived
+        ):
+            return []
+        return [self.get_document("import-1")]
 
 
 def _fake_translate(key: str, taal: str = "nl_NL", **kwargs) -> str:
@@ -661,3 +736,493 @@ def test_onbekend_bestandstype_geeft_statusmelding(monkeypatch):
     assert result is False
     assert geopend["count"] == 0
     assert screen.status_label.text() != ""
+
+
+# ============================================================================
+# v1.10.0 — Bewerken-knop (fase 5D'.2c)
+# ============================================================================
+
+def test_edit_btn_bestaat_en_is_disabled_zonder_selectie():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    assert screen.edit_btn is not None
+    assert screen.edit_btn.isEnabled() is False
+
+
+def test_edit_btn_disabled_bij_ingebouwd_document():
+    """Ingenbouwd document: is_user_import=False → Bewerken disabled."""
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    screen.table.selectRow(0)
+    assert screen.open_btn.isEnabled() is True
+    assert screen.edit_btn.isEnabled() is False
+
+
+def test_edit_btn_enabled_bij_gebruikersimport():
+    """Eigen import: is_user_import=True → Bewerken enabled."""
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_UserImportDocumentationService(),
+    )
+    screen.table.selectRow(0)
+    assert screen.open_btn.isEnabled() is True
+    assert screen.edit_btn.isEnabled() is True
+
+
+def test_edit_btn_tooltip_wisselt_met_selectie():
+    """Tooltip geeft uitleg waarom bewerken wel/niet kan."""
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_UserImportDocumentationService(),
+    )
+    # Geen selectie: tooltip = "alleen eigen"
+    assert "alleen" in screen.edit_btn.toolTip().lower() or \
+        "eigen" in screen.edit_btn.toolTip().lower()
+
+    # Selectie van een import: tooltip = "bewerken"
+    screen.table.selectRow(0)
+    assert "bewerken" in screen.edit_btn.toolTip().lower()
+
+
+def test_edit_btn_tooltip_bij_ingebouwd_document():
+    """Ingenbouwd document: tooltip verwijst naar read-only."""
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    screen.table.selectRow(0)
+    tooltip = screen.edit_btn.toolTip().lower()
+    assert "eigen" in tooltip or "alleen" in tooltip
+
+
+def test_edit_selected_document_zonder_selectie_doet_niets(monkeypatch):
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_UserImportDocumentationService(),
+    )
+
+    geopend = {"count": 0}
+    from PySide6.QtWidgets import QDialog
+    monkeypatch.setattr(
+        QDialog, "exec",
+        lambda self: geopend.__setitem__("count", geopend["count"] + 1) or 0,
+    )
+
+    screen._edit_selected_document()
+    assert geopend["count"] == 0
+
+
+def test_edit_selected_document_bij_ingebouwd_toont_informatie(monkeypatch):
+    """Defensief: als de knop toch vuurt bij een ingebouwd document,
+    tonen we een informatieve melding en openen we de editor NIET."""
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    screen.table.selectRow(0)
+
+    from PySide6.QtWidgets import QMessageBox, QDialog
+    geopend = {"info": 0, "dialog": 0}
+
+    monkeypatch.setattr(
+        QMessageBox, "information",
+        staticmethod(lambda *a, **kw: geopend.__setitem__("info", geopend["info"] + 1)),
+    )
+    monkeypatch.setattr(
+        QDialog, "exec",
+        lambda self: geopend.__setitem__("dialog", geopend["dialog"] + 1) or 0,
+    )
+
+    screen._edit_selected_document()
+
+    assert geopend["info"] == 1
+    assert geopend["dialog"] == 0
+
+
+def test_edit_selected_document_opent_editor(tmp_path, monkeypatch):
+    """Bij een gebruikersimport opent de editor met de juiste bron."""
+    _app()
+    from PySide6.QtCore import QObject, Signal
+
+    from app.documentation.import_service import ImportService
+
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    r = service.register_pdf(
+        title="Eigen import",
+        original_filename="eigen.pdf",
+        file_hash="hash_x",
+        category="DATASHEET",
+        manufacturer="CHONG",
+        series="CDX",
+        document_version="V1.1",
+    )
+
+    # DocService die hetzelfde source_id levert als de ImportService.
+    doc = DocumentMetadata(
+        document_id=r.source.source_id,
+        title="Eigen import",
+        title_key=None,
+        category=DocumentCategory.DATASHEET,
+        source_type=DocumentSourceType.FILE,
+        source_path="sources/eigen.pdf",
+        source_url=None,
+        tool_key=None,
+        manufacturer="CHONG",
+        series="CDX",
+        part_number=None,
+        document_version="V1.1",
+        document_date=None,
+        notes=None,
+        is_user_import=True,
+    )
+
+    class _Service:
+        def get_document(self, document_id):
+            return doc
+
+        def list_documents(self, **kwargs):
+            return [doc]
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_Service(),
+        import_service=service,
+    )
+    screen.table.selectRow(0)
+
+    geopend = {"count": 0, "bron": None}
+
+    # Fake editor: een echt Qt-signaal op klasse-niveau, en exec die telt.
+    class _FakeEditor(QObject):
+        metadata_saved = Signal(str)
+
+        def __init__(self, *, bron, taal, import_service, parent):
+            super().__init__(parent)
+            geopend["bron"] = bron
+
+        def exec(self):
+            geopend["count"] += 1
+            return 0
+
+    import app.gui.documentation_screen as mod
+    monkeypatch.setattr(mod, "EditMetadataDialog", _FakeEditor)
+
+    screen._edit_selected_document()
+
+    assert geopend["count"] == 1
+    assert geopend["bron"] is not None
+    assert geopend["bron"].source_id == r.source.source_id
+
+
+def test_on_metadata_saved_ververst_en_behoudt_selectie(monkeypatch):
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_UserImportDocumentationService(),
+    )
+    screen.table.selectRow(0)
+    assert screen._selected_document_id() == "import-1"
+
+    refresh_count = {"n": 0}
+    originele_refresh = screen.refresh
+    def _fake_refresh():
+        refresh_count["n"] += 1
+        originele_refresh()
+    monkeypatch.setattr(screen, "refresh", _fake_refresh)
+
+    screen._on_metadata_saved("import-1")
+
+    assert refresh_count["n"] == 1
+    assert screen._selected_document_id() == "import-1"
+
+
+def test_import_service_lazy_aangemaakt(tmp_path):
+    """Zonder override en zonder klik op Bewerken blijft de service None."""
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    # Nog geen klik op Bewerken geweest
+    assert screen._import_service_cache is None
+
+    # Eigenschap zorgt voor luie aanmaak
+    service = screen._import_service()
+    assert service is not None
+    assert screen._import_service_cache is service
+
+
+def test_import_service_override_wordt_gebruikt(tmp_path):
+    """Bij een override gebruikt de screen die, niet een nieuwe."""
+    _app()
+    from app.documentation.import_service import ImportService
+
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_UserImportDocumentationService(),
+        import_service=service,
+    )
+    assert screen._import_service() is service
+
+
+# ============================================================================
+# v1.11.0 — Status wijzigen (fase 5D'.2e)
+# ============================================================================
+
+def test_status_btn_bestaat_en_is_disabled_zonder_selectie():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    assert screen.status_btn is not None
+    assert screen.status_btn.isEnabled() is False
+
+
+def test_status_btn_disabled_bij_ingebouwd_document():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    screen.table.selectRow(0)
+    assert screen.open_btn.isEnabled() is True
+    assert screen.status_btn.isEnabled() is False
+
+
+def test_status_btn_enabled_bij_gebruikersimport():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_UserImportDocumentationService(),
+    )
+    screen.table.selectRow(0)
+    assert screen.status_btn.isEnabled() is True
+
+
+def test_status_btn_tooltip_wisselt_met_selectie():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_UserImportDocumentationService(),
+    )
+    tooltip_leeg = screen.status_btn.toolTip().lower()
+    assert "eigen" in tooltip_leeg or "alleen" in tooltip_leeg
+
+    screen.table.selectRow(0)
+    tooltip_sel = screen.status_btn.toolTip().lower()
+    assert "wijzig" in tooltip_sel or "status" in tooltip_sel
+
+
+def test_change_selected_status_zonder_selectie_doet_niets(monkeypatch):
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_UserImportDocumentationService(),
+    )
+
+    geopend = {"count": 0}
+    from PySide6.QtWidgets import QDialog
+    monkeypatch.setattr(
+        QDialog, "exec",
+        lambda self: geopend.__setitem__("count", geopend["count"] + 1) or 0,
+    )
+
+    screen._change_selected_status()
+    assert geopend["count"] == 0
+
+
+def test_change_selected_status_bij_ingebouwd_toont_informatie(monkeypatch):
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    screen.table.selectRow(0)
+
+    from PySide6.QtWidgets import QMessageBox, QDialog
+    geopend = {"info": 0, "dialog": 0}
+
+    monkeypatch.setattr(
+        QMessageBox, "information",
+        staticmethod(lambda *a, **kw: geopend.__setitem__("info", geopend["info"] + 1)),
+    )
+    monkeypatch.setattr(
+        QDialog, "exec",
+        lambda self: geopend.__setitem__("dialog", geopend["dialog"] + 1) or 0,
+    )
+
+    screen._change_selected_status()
+
+    assert geopend["info"] == 1
+    assert geopend["dialog"] == 0
+
+
+def test_change_selected_status_opent_dialoog(tmp_path, monkeypatch):
+    _app()
+    from PySide6.QtCore import QObject, Signal
+
+    from app.documentation.import_service import ImportService
+
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    r = service.register_pdf(
+        title="Eigen import",
+        original_filename="eigen.pdf",
+        file_hash="hash_y",
+    )
+
+    doc = DocumentMetadata(
+        document_id=r.source.source_id,
+        title="Eigen import",
+        title_key=None,
+        category=DocumentCategory.DATASHEET,
+        source_type=DocumentSourceType.FILE,
+        source_path="sources/eigen.pdf",
+        source_url=None,
+        tool_key=None,
+        manufacturer=None,
+        series=None,
+        part_number=None,
+        document_version=None,
+        document_date=None,
+        notes=None,
+        is_user_import=True,
+        import_status="concept",
+    )
+
+    class _Service:
+        def get_document(self, document_id):
+            return doc
+
+        def list_documents(self, **kwargs):
+            return [doc]
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_Service(),
+        import_service=service,
+    )
+    screen.table.selectRow(0)
+
+    geopend = {"count": 0, "bron": None}
+
+    class _FakeDialog(QObject):
+        status_changed = Signal(str)
+
+        def __init__(self, *, bron, taal, import_service, parent):
+            super().__init__(parent)
+            geopend["bron"] = bron
+
+        def exec(self):
+            geopend["count"] += 1
+            return 0
+
+    import app.gui.documentation_screen as mod
+    monkeypatch.setattr(mod, "ChangeStatusDialog", _FakeDialog)
+
+    screen._change_selected_status()
+
+    assert geopend["count"] == 1
+    assert geopend["bron"] is not None
+    assert geopend["bron"].source_id == r.source.source_id
+
+
+def test_on_status_changed_ververst_en_behoudt_selectie(monkeypatch):
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_UserImportDocumentationService(),
+    )
+    screen.table.selectRow(0)
+    assert screen._selected_document_id() == "import-1"
+
+    refresh_count = {"n": 0}
+    originele_refresh = screen.refresh
+    def _fake_refresh():
+        refresh_count["n"] += 1
+        originele_refresh()
+    monkeypatch.setattr(screen, "refresh", _fake_refresh)
+
+    screen._on_status_changed("import-1")
+
+    assert refresh_count["n"] == 1
+    assert screen._selected_document_id() == "import-1"
+
+
+def test_toon_gearchiveerd_checkbox_bestaat_en_is_standaard_uit():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    assert screen.toon_gearchiveerd_checkbox is not None
+    assert screen.toon_gearchiveerd_checkbox.isChecked() is False
+
+
+def test_toon_gearchiveerd_toont_gearchiveerde_documenten():
+    """Met checkbox aan worden gearchiveerde imports zichtbaar."""
+    _app()
+    service = _UserImportDocumentationService(import_status="gearchiveerd")
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=service,
+    )
+    # Standaard verborgen
+    assert screen.table.rowCount() == 0
+
+    # Checkbox aan → zichtbaar
+    screen.toon_gearchiveerd_checkbox.setChecked(True)
+    assert screen.table.rowCount() == 1
+
+
+def test_status_kolom_toont_juiste_vertaling(monkeypatch):
+    _app()
+    monkeypatch.setattr(documentation_module, "vertaal", _fake_translate)
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_UserImportDocumentationService(
+            import_status="concept"
+        ),
+    )
+
+    # De Status-kolom is index 2
+    assert screen.table.item(0, 2).text() == (
+        "nl_NL:documentatie.status_kolom.concept"
+    )
+
+
+def test_kolomindices_na_toevoeging_status_kolom(monkeypatch):
+    """Regressietest: de tabel heeft 6 kolommen met de juiste koppen."""
+    _app()
+    monkeypatch.setattr(documentation_module, "vertaal", _fake_translate)
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+
+    assert screen.table.columnCount() == 6
+    headers = [
+        screen.table.horizontalHeaderItem(i).text()
+        for i in range(screen.table.columnCount())
+    ]
+    assert headers[0] == "nl_NL:documentatie.kolom.titel"
+    assert headers[1] == "nl_NL:documentatie.kolom.categorie"
+    assert headers[2] == "nl_NL:documentatie.kolom.status"
+    assert headers[3] == "nl_NL:documentatie.kolom.fabrikant"
+    assert headers[4] == "nl_NL:documentatie.kolom.serie"
+    assert headers[5] == "nl_NL:documentatie.kolom.versie"

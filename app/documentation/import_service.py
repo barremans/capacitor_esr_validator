@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/documentation/import_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.1
-Datum:      2026-10-07
+Versie:     1.3.1
+Datum:      2026-10-08
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-onafhankelijke service voor het registreren en beheren van
@@ -25,6 +25,29 @@ Wijzigingen:
                        meest recente imported_at. Lost bug op waarbij
                        Overschrijven de gearchiveerde bron koos in plaats
                        van de actieve/concept-bron.
+  v1.2.0 (2026-10-07)  Metadata-uitbreiding (fase 5D'.2b): register_pdf,
+                       register_url en replace_source accepteren optionele
+                       metadata (category, manufacturer, series,
+                       part_number, document_version, document_date).
+                       replace_source gebruikt een sentinel zodat de
+                       aanroeper kan onderscheiden tussen "niet
+                       meegegeven = behouden" en "expliciet None = leegmaken".
+  v1.3.0 (2026-10-07)  Fase 5D'.2c: publieke update_metadata() toegevoegd.
+                       Dunne wrapper rond replace_source die alleen de
+                       metadata-velden wijzigt (titel, categorie,
+                       fabrikant, serie, partnummer, documentversie,
+                       documentdatum, notities). Laat file_hash,
+                       original_filename, source_url, imported_at en
+                       status ongemoeid. Sentinel _NIET_MEEGEGEVEN zodat
+                       de editor kan onderscheiden tussen "behouden" en
+                       "leegmaken".
+  v1.3.1 (2026-10-08)  Robuustheid op Windows: _write_all doet een korte
+                       retry-lus rond os.replace via de nieuwe helper
+                       _atomic_replace, om PermissionError [WinError 5]
+                       op te vangen. Dit treedt op wanneer Windows het
+                       doelbestand nog kort vasthoudt na een eerdere read
+                       (virusscanner, indexering, cloud-sync).
+                       Backward-compatible; geen API-wijziging.
 ================================================================================
 """
 
@@ -51,6 +74,12 @@ from app.documentation.import_models import (
 
 CATALOG_SCHEMA_VERSION = 1
 CATALOG_FILENAME = "imported_catalog.json"
+
+
+# Sentinel voor update_metadata en replace_source: onderscheid tussen
+# "niet meegegeven" (behoud bestaande waarde) en "expliciet None"
+# (leegmaken).
+_NIET_MEEGEGEVEN: object = object()
 
 
 # Status-prioriteit voor duplicate-detectie: lager = beter.
@@ -104,8 +133,18 @@ class ImportService:
         original_filename: str,
         file_hash: Optional[str] = None,
         notes: Optional[str] = None,
+        category: Optional[str] = None,
+        manufacturer: Optional[str] = None,
+        series: Optional[str] = None,
+        part_number: Optional[str] = None,
+        document_version: Optional[str] = None,
+        document_date: Optional[str] = None,
     ) -> ImportResult:
-        """Registreer een nieuwe PDF-bron in CONCEPT-status."""
+        """Registreer een nieuwe PDF-bron in CONCEPT-status.
+
+        Alle metadata-velden zijn optioneel (sinds 5D'.2b). Lege strings
+        worden door ImportSource genormaliseerd naar None.
+        """
 
         source = ImportSource(
             source_id=self._new_source_id(),
@@ -118,6 +157,12 @@ class ImportService:
             source_url=None,
             file_hash=file_hash,
             notes=notes,
+            category=category,
+            manufacturer=manufacturer,
+            series=series,
+            part_number=part_number,
+            document_version=document_version,
+            document_date=document_date,
         )
         self._append(source)
         return ImportResult(source=source, changed=True)
@@ -128,8 +173,17 @@ class ImportService:
         title: str,
         source_url: str,
         notes: Optional[str] = None,
+        category: Optional[str] = None,
+        manufacturer: Optional[str] = None,
+        series: Optional[str] = None,
+        part_number: Optional[str] = None,
+        document_version: Optional[str] = None,
+        document_date: Optional[str] = None,
     ) -> ImportResult:
-        """Registreer een nieuwe URL-bron in CONCEPT-status."""
+        """Registreer een nieuwe URL-bron in CONCEPT-status.
+
+        Alle metadata-velden zijn optioneel (sinds 5D'.2b).
+        """
 
         source = ImportSource(
             source_id=self._new_source_id(),
@@ -142,6 +196,12 @@ class ImportService:
             source_url=source_url,
             file_hash=None,
             notes=notes,
+            category=category,
+            manufacturer=manufacturer,
+            series=series,
+            part_number=part_number,
+            document_version=document_version,
+            document_date=document_date,
         )
         self._append(source)
         return ImportResult(source=source, changed=True)
@@ -236,16 +296,31 @@ class ImportService:
         notes: Optional[str],
         imported_at: Optional[int] = None,
         status: Optional[ImportStatus] = None,
+        category: object = _NIET_MEEGEGEVEN,
+        manufacturer: object = _NIET_MEEGEGEVEN,
+        series: object = _NIET_MEEGEGEVEN,
+        part_number: object = _NIET_MEEGEGEVEN,
+        document_version: object = _NIET_MEEGEGEVEN,
+        document_date: object = _NIET_MEEGEGEVEN,
     ) -> ImportResult:
         """Vervang alle wijzigbare velden van één bestaande bron.
 
-        Gebruikt door 'Overschrijven' in de wizard (fase 5D'.2a). Het
-        source_id blijft ongewijzigd, net als source_type en imported_by.
-        imported_at en status worden gezet zoals meegegeven; als ze None
-        zijn, blijven de bestaande waarden behouden.
+        Gebruikt door 'Overschrijven' in de wizard (fase 5D'.2a) en door
+        de metadata-uitbreiding (fase 5D'.2b). Het source_id blijft
+        ongewijzigd, net als source_type en imported_by. imported_at en
+        status worden gezet zoals meegegeven; als ze None zijn, blijven de
+        bestaande waarden behouden.
+
+        De metadata-parameters gebruiken een sentinel:
+        - niet meegegeven  -> bestaande waarde behouden
+        - expliciet None   -> veld leegmaken
+        - string           -> veld vervangen
 
         Er wordt GEEN is_allowed_transition-check gedaan: 'Overschrijven'
         is een expliciete gebruikersactie.
+
+        Voor metadata-wijzigingen zonder bronbestand-wijziging gebruikt de
+        editor update_metadata(), niet deze methode.
         """
 
         items = list(self._read_all())
@@ -269,12 +344,127 @@ class ImportService:
                 source_url=source.source_url,
                 file_hash=file_hash,
                 notes=notes,
+                category=self._kies_metadata(
+                    category, source.category
+                ),
+                manufacturer=self._kies_metadata(
+                    manufacturer, source.manufacturer
+                ),
+                series=self._kies_metadata(series, source.series),
+                part_number=self._kies_metadata(
+                    part_number, source.part_number
+                ),
+                document_version=self._kies_metadata(
+                    document_version, source.document_version
+                ),
+                document_date=self._kies_metadata(
+                    document_date, source.document_date
+                ),
             )
             items[idx] = vervangen
             self._write_all(items)
             return ImportResult(source=vervangen, changed=True)
 
         raise ImportValidationError(f"onbekende source_id: {source_id}")
+
+    def update_metadata(
+        self,
+        source_id: str,
+        *,
+        title: object = _NIET_MEEGEGEVEN,
+        category: object = _NIET_MEEGEGEVEN,
+        manufacturer: object = _NIET_MEEGEGEVEN,
+        series: object = _NIET_MEEGEGEVEN,
+        part_number: object = _NIET_MEEGEGEVEN,
+        document_version: object = _NIET_MEEGEGEVEN,
+        document_date: object = _NIET_MEEGEGEVEN,
+        notes: object = _NIET_MEEGEGEVEN,
+    ) -> ImportResult:
+        """Werk alleen de metadata van een bestaande bron bij.
+
+        Verschilt van replace_source:
+          - raakt file_hash, original_filename en source_url NIET aan;
+            die horen bij het bronbestand, niet bij de editor.
+          - behoudt imported_at en status; het is geen nieuwe import en
+            geen statuswijziging.
+          - behoudt source_type, source_id en imported_by.
+
+        Sentinel-semantiek per parameter:
+          - niet meegegeven  -> bestaande waarde behouden
+          - expliciet None   -> veld leegmaken
+          - waarde           -> veld vervangen (ImportSource valideert)
+
+        Wordt gebruikt door de editor in de viewer (fase 5D'.2c).
+        """
+
+        items = list(self._read_all())
+        for idx, source in enumerate(items):
+            if source.source_id != source_id:
+                continue
+
+            nieuwe_titel = self._kies_titel_met_default(title, source.title)
+            bijgewerkt = ImportSource(
+                source_id=source.source_id,
+                source_type=source.source_type,
+                title=nieuwe_titel,
+                imported_at=source.imported_at,
+                imported_by=source.imported_by,
+                status=source.status,
+                original_filename=source.original_filename,
+                source_url=source.source_url,
+                file_hash=source.file_hash,
+                notes=self._kies_metadata(notes, source.notes),
+                category=self._kies_metadata(category, source.category),
+                manufacturer=self._kies_metadata(
+                    manufacturer, source.manufacturer
+                ),
+                series=self._kies_metadata(series, source.series),
+                part_number=self._kies_metadata(
+                    part_number, source.part_number
+                ),
+                document_version=self._kies_metadata(
+                    document_version, source.document_version
+                ),
+                document_date=self._kies_metadata(
+                    document_date, source.document_date
+                ),
+            )
+            items[idx] = bijgewerkt
+            self._write_all(items)
+            return ImportResult(source=bijgewerkt, changed=True)
+
+        raise ImportValidationError(f"onbekende source_id: {source_id}")
+
+    @staticmethod
+    def _kies_titel_met_default(waarde: object, bestaande: str) -> str:
+        """Titel mag niet leeg zijn; een lege of niet-meegegeven titel
+        behoudt de bestaande waarde.
+
+        ImportSource zelf verbiedt een lege titel, dus de editor moet
+        ofwel een niet-lege titel meegeven, ofwel niets. In beide gevallen
+        blijft de bestaande titel behouden als het veld leeg is.
+        """
+        if waarde is _NIET_MEEGEGEVEN:
+            return bestaande
+        if waarde is None:
+            return bestaande
+        if isinstance(waarde, str):
+            gestript = waarde.strip()
+            return gestript or bestaande
+        # Onbekend type: laat ImportSource klagen.
+        return waarde  # type: ignore[return-value]
+
+    @staticmethod
+    def _kies_metadata(waarde: object, bestaande: Optional[str]) -> Optional[str]:
+        """Kies de nieuwe metadata-waarde op basis van de sentinel.
+
+        - waarde is _NIET_MEEGEGEVEN -> bestaande waarde behouden
+        - waarde is None of een string -> die waarde gebruiken
+        """
+        if waarde is _NIET_MEEGEGEVEN:
+            return bestaande
+        # ImportSource valideert en normaliseert verder zelf.
+        return waarde  # type: ignore[return-value]
 
     def set_status(
         self, source_id: str, nieuwe_status: ImportStatus
@@ -338,6 +528,12 @@ class ImportService:
             source_url=source.source_url,
             file_hash=source.file_hash,
             notes=source.notes,
+            category=source.category,
+            manufacturer=source.manufacturer,
+            series=source.series,
+            part_number=source.part_number,
+            document_version=source.document_version,
+            document_date=source.document_date,
         )
 
     def _read_all(self) -> Iterable[ImportSource]:
@@ -400,10 +596,31 @@ class ImportService:
                 json.dump(payload, handle, ensure_ascii=False, indent=2)
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.replace(tmp_name, self._catalog_path)
+            self._atomic_replace(tmp_name, self._catalog_path)
         except Exception:
             try:
                 os.unlink(tmp_name)
             except OSError:
                 pass
             raise
+
+    @staticmethod
+    def _atomic_replace(src: str, dst: Path) -> None:
+        """Vervang dst door src, met korte retry voor Windows.
+
+        Op Windows kan os.replace kortstondig PermissionError [WinError 5]
+        geven wanneer een ander proces (Defender, indexering, cloud-sync)
+        het doelbestand nog vasthoudt. We proberen het een paar keer
+        opnieuw met een kleine slaap. Lukt het dan nog niet, dan geven we
+        de fout door — de aanroeper ruimt de tmp-file op.
+        """
+        laatste_fout: Optional[OSError] = None
+        for _ in range(5):
+            try:
+                os.replace(src, dst)
+                return
+            except PermissionError as exc:
+                laatste_fout = exc
+                time.sleep(0.05)
+        assert laatste_fout is not None
+        raise laatste_fout

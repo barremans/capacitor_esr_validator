@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/documentation/url_import.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
+Versie:     1.2.0
 Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
@@ -21,6 +21,11 @@ Wijzigingen:
                        wordt de oude snapshot bewaard als
                        .oud-<timestamp> en is de operatie atomair met
                        rollback bij snapshot-fout.
+  v1.2.0 (2026-10-07)  Metadata-uitbreiding (fase 5D'.2b): optionele
+                       parameters category, manufacturer, series,
+                       part_number, document_version, document_date.
+                       Worden doorgegeven aan register_url en
+                       replace_source. Backward-compatible: defaults None.
 ================================================================================
 """
 
@@ -86,6 +91,12 @@ def import_url(
     snapshots_dir: Optional[Path] = None,
     notes: Optional[str] = None,
     duplicate_action: DuplicateAction = DuplicateAction.NEW_VERSION,
+    category: Optional[str] = None,
+    manufacturer: Optional[str] = None,
+    series: Optional[str] = None,
+    part_number: Optional[str] = None,
+    document_version: Optional[str] = None,
+    document_date: Optional[str] = None,
 ) -> ImportResult:
     """Importeer één URL als documentatiebron met lokale snapshot.
 
@@ -106,8 +117,11 @@ def import_url(
                       bewaard als .oud-<timestamp>, status terug naar
                       CONCEPT.
 
-    Bij KEEP zonder match of NEW_VERSION zonder match: gewone registratie
-    (identiek aan v1.0.0).
+    Metadata-parameters (sinds 5D'.2b) zijn optioneel. Ze worden
+    doorgegeven aan register_url of, bij OVERWRITE, aan replace_source.
+    Lege strings worden door ImportSource genormaliseerd naar None.
+
+    Bij KEEP zonder match of NEW_VERSION zonder match: gewone registratie.
 
     Bij NEW_VERSION of OVERWRITE met snapshot-fout:
       - NEW_VERSION: registratie blijft bestaan in CONCEPT met foutnotitie
@@ -150,6 +164,12 @@ def import_url(
             title=title,
             snapshots_dir=snapshots_dir,
             notes=notes,
+            category=category,
+            manufacturer=manufacturer,
+            series=series,
+            part_number=part_number,
+            document_version=document_version,
+            document_date=document_date,
         )
 
     # Stap 7 — NEW_VERSION (of KEEP zonder match): archiveer bestaande
@@ -162,6 +182,12 @@ def import_url(
         title=effectieve_titel,
         source_url=meta.url,
         notes=notes,
+        category=category,
+        manufacturer=manufacturer,
+        series=series,
+        part_number=part_number,
+        document_version=document_version,
+        document_date=document_date,
     )
 
     # Stap 8 — snapshot
@@ -200,6 +226,12 @@ def _overwrite_url(
     title: Optional[str],
     snapshots_dir: Optional[Path],
     notes: Optional[str],
+    category: Optional[str],
+    manufacturer: Optional[str],
+    series: Optional[str],
+    part_number: Optional[str],
+    document_version: Optional[str],
+    document_date: Optional[str],
 ) -> ImportResult:
     """Overschrijf een bestaande URL-bron atomair.
 
@@ -242,6 +274,7 @@ def _overwrite_url(
         raise
 
     # Catalogus bijwerken: status terug naar CONCEPT (kernregel 11).
+    # Metadata wordt expliciet meegegeven: de wizard bepaalt de waarden.
     nieuwe_titel = _bepaal_titel(meta.url, title, meta)
     return import_service.replace_source(
         bestaande.source_id,
@@ -251,6 +284,12 @@ def _overwrite_url(
         notes=notes,
         imported_at=import_service._now_ms(),  # type: ignore[attr-defined]
         status=ImportStatus.CONCEPT,
+        category=category,
+        manufacturer=manufacturer,
+        series=series,
+        part_number=part_number,
+        document_version=document_version,
+        document_date=document_date,
     )
 
 

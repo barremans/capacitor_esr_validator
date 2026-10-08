@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/documentation/models.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.4.0
-Datum:      2026-10-02
+Versie:     1.6.0
+Datum:      2026-10-08
 Auteur:     Bart Bossuyt
 
 Doel:       Immutable modellen en vaste enumwaarden voor documentmetadata.
@@ -24,6 +24,14 @@ Wijzigingen:
                         genormaliseerde koppelingen naast legacy tool_key.
   v1.4.0 (2026-10-03)  Overige multi-contextvelden toegevoegd voor component,
                         test, meetmethode, instrument en topics.
+  v1.5.0 (2026-10-07)  is_user_import toegevoegd (fase 5D'.2c) zodat de
+                        viewer kan weten of een document uit de
+                        gebruikerscatalogus komt en dus bewerkbaar is.
+                        Default False, backward-compatible.
+  v1.6.0 (2026-10-08)  import_status toegevoegd (fase 5D'.2e) zodat de
+                        viewer de levenscyclusstatus van een import kan
+                        tonen in een Status-kolom. Default None,
+                        backward-compatible.
 ================================================================================
 """
 
@@ -69,7 +77,19 @@ class DocumentProvenanceRef:
 
 @dataclass(frozen=True, slots=True)
 class DocumentMetadata:
-    """Read-only metadata van één documentbron."""
+    """Read-only metadata van één documentbron.
+
+    Sinds v1.5.0 heeft elk document een ``is_user_import``-vlag:
+      - False (default): het document komt uit de ingebouwde catalogus.
+        De viewer toont het read-only en biedt geen Bewerken-knop.
+      - True: het document komt uit de gebruikerscatalogus (een import).
+        De viewer mag een Bewerken-knop tonen.
+
+    Sinds v1.6.0 heeft elk document een optionele ``import_status``:
+      - None (default): het document heeft geen importstatus (ingebouwd).
+      - Een string (bv. "concept", "actief", "gearchiveerd"): de
+        levenscyclusstatus van een import, bedoeld voor de Status-kolom.
+    """
 
     document_id: str
     title: str
@@ -92,3 +112,5 @@ class DocumentMetadata:
     measurement_methods: tuple[str, ...] = ()
     instrument_keys: tuple[str, ...] = ()
     topics: tuple[str, ...] = ()
+    is_user_import: bool = False
+    import_status: str | None = None

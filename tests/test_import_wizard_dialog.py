@@ -2,15 +2,20 @@
 ================================================================================
 Module:     tests/test_import_wizard_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.1
+Versie:     1.5.0
 Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor de import-wizard. Netwerk, PDF-parsing
             en ImportService worden gemockt of in tmp_path geïsoleerd.
-            Geen echte HTTP-verzoeken. Sinds v1.1.0 ook tests voor de
-            duplicate-popup-flow (fase 5D'.2a). Sinds v1.2.0 startmap-
-            logica (fase 5D'.3). Sinds v1.2.1 titelveld-gedrag.
+            Geen echte HTTP-verzoeken. Sinds v1.1.0 duplicate-popup-flow.
+            Sinds v1.2.0 startmap-logica. Sinds v1.2.1 titelveld-gedrag.
+            Sinds v1.3.0 metadata-sectie (5D'.2b).
+            Sinds v1.4.0 UX-verfijning: QDateEdit + "Datum onbekend" +
+            Ctrl+D + uppercase voor identificatievelden (5D'.2d).
+            Sinds v1.5.0 gebruikt de wizard de gedeelde helpers uit
+            _metadata_form_helpers; tests importeren daar ook
+            naar_uppercase uit.
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
@@ -19,6 +24,12 @@ Wijzigingen:
   v1.1.0 (2026-10-07)  Tests voor duplicate-popup.
   v1.2.0 (2026-10-07)  Tests voor startmap en laatste_importmap.
   v1.2.1 (2026-10-07)  Tests voor titelveld-gedrag bij meerdere PDF-keuzes.
+  v1.3.0 (2026-10-07)  Tests voor metadata-sectie.
+  v1.4.0 (2026-10-07)  Tests voor QDateEdit, "Datum onbekend", Ctrl+D
+                       en uppercase-conversie.
+  v1.5.0 (2026-10-07)  Fix: naar_uppercase wordt geïmporteerd uit
+                       _metadata_form_helpers (verplaatst in wizard
+                       v1.5.0). Alle aanroepen hernoemd.
 ================================================================================
 """
 
@@ -29,6 +40,7 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtCore import QDate, Qt
 from PySide6.QtWidgets import QApplication
 
 import app.gui.dialogs.import_wizard_dialog as wizard_module
@@ -42,6 +54,7 @@ from app.documentation.import_models import (
     ImportStatus,
 )
 from app.documentation.import_service import ImportService
+from app.gui.dialogs._metadata_form_helpers import naar_uppercase
 from app.gui.dialogs.import_wizard_dialog import ImportWizardDialog
 
 
@@ -747,7 +760,6 @@ def test_titel_wisselt_bij_nieuwe_pdf_als_automatisch(tmp_path, monkeypatch):
 
     from PySide6.QtWidgets import QFileDialog
 
-    # Eerste keuze
     monkeypatch.setattr(
         QFileDialog,
         "getOpenFileName",
@@ -757,7 +769,6 @@ def test_titel_wisselt_bij_nieuwe_pdf_als_automatisch(tmp_path, monkeypatch):
     assert dialog.title_edit.text() == "eerste"
     assert dialog._titel_automatisch is True
 
-    # Tweede keuze: titel moet mee veranderen
     monkeypatch.setattr(
         QFileDialog,
         "getOpenFileName",
@@ -782,7 +793,6 @@ def test_titel_blijft_staan_bij_nieuwe_pdf_na_handmatige_bewerking(
 
     from PySide6.QtWidgets import QFileDialog
 
-    # Eerste keuze: automatisch
     monkeypatch.setattr(
         QFileDialog,
         "getOpenFileName",
@@ -791,12 +801,10 @@ def test_titel_blijft_staan_bij_nieuwe_pdf_na_handmatige_bewerking(
     dialog._pick_pdf()
     assert dialog.title_edit.text() == "eerste"
 
-    # Handmatige bewerking simuleren: textEdited-signaal.
     dialog._on_titel_handmatig_bewerkt("Mijn eigen titel")
     dialog.title_edit.setText("Mijn eigen titel")
     assert dialog._titel_automatisch is False
 
-    # Tweede keuze: titel mag NIET worden overschreven
     monkeypatch.setattr(
         QFileDialog,
         "getOpenFileName",
@@ -837,3 +845,390 @@ def test_samenvatting_wisselt_bij_nieuwe_pdf(tmp_path, monkeypatch):
     html_b = dialog.summary_browser.toHtml()
     assert "tweede.pdf" in html_b
     assert "eerste.pdf" not in html_b
+
+
+# ============================================================================
+# v1.3.0 — metadata-sectie (fase 5D'.2b)
+# ============================================================================
+
+def test_metadata_sectie_aanwezig_bij_opstart(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    assert dialog.metadata_label.text() == "Metadata"
+    assert dialog.categorie_label.text() == "Categorie"
+    assert dialog.fabrikant_label.text() == "Fabrikant"
+    assert dialog.serie_label.text() == "Serie"
+    assert dialog.partnummer_label.text() == "Partnummer"
+    assert dialog.documentversie_label.text() == "Documentversie"
+    assert dialog.documentdatum_label.text() == "Documentdatum"
+    assert dialog.notities_label.text() == "Notities"
+
+
+def test_categorie_dropdown_gevuld_met_zeven_categorieen(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    assert dialog.categorie_combo.count() == 7
+    assert dialog.categorie_combo.currentData() == "DATASHEET"
+    assert dialog.categorie_combo.currentText() == "Fabrikantdatasheet"
+
+
+def test_categorie_dropdown_en_labels(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="en_US", import_service=service)
+
+    assert dialog.categorie_combo.count() == 7
+    assert dialog.categorie_combo.currentData() == "DATASHEET"
+    assert dialog.categorie_combo.currentText() == "Manufacturer datasheet"
+
+
+def test_huidige_categorie_leest_itemdata(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.categorie_combo.setCurrentIndex(2)  # MANUAL
+    assert dialog._huidige_categorie() == "MANUAL"
+
+
+def test_metadata_uit_formulier_bevat_geen_notes(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.fabrikant_edit.setText("Panasonic")
+    dialog.serie_edit.setText("FR")
+    dialog.partnummer_edit.setText("FR-123")
+    dialog.documentversie_edit.setText("1.2")
+
+    metadata = dialog._metadata_uit_formulier()
+    assert "notes" not in metadata
+    assert metadata["category"] == "DATASHEET"
+    assert metadata["manufacturer"] == "Panasonic"
+    assert metadata["series"] == "FR"
+    assert metadata["part_number"] == "FR-123"
+    assert metadata["document_version"] == "1.2"
+
+
+def test_notities_uit_formulier_leeg_geeft_none(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    assert dialog._notities_uit_formulier() is None
+    dialog.notities_edit.setText("   ")
+    assert dialog._notities_uit_formulier() is None
+    dialog.notities_edit.setText("noot")
+    assert dialog._notities_uit_formulier() == "noot"
+
+
+def test_importeren_met_metadata(tmp_path, monkeypatch):
+    """Metadata uit de wizard komt in de gebruikerscatalogus."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    pdf_pad = _maak_eenvoudige_pdf(tmp_path / "doc.pdf")
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(pdf_pad), "PDF (*.pdf)")),
+    )
+    monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
+    dialog._pick_pdf()
+
+    dialog.categorie_combo.setCurrentIndex(2)  # MANUAL
+    dialog.fabrikant_edit.setText("Panasonic")
+    dialog.serie_edit.setText("FR")
+    dialog.partnummer_edit.setText("FR-123")
+    dialog.documentversie_edit.setText("1.2")
+    dialog.notities_edit.setText("noot")
+
+    dialog._perform_import()
+
+    items = service.list_sources()
+    assert len(items) == 1
+    s = items[0]
+    assert s.category == "MANUAL"
+    assert s.manufacturer == "Panasonic"
+    assert s.series == "FR"
+    assert s.part_number == "FR-123"
+    assert s.document_version == "1.2"
+    assert s.notes == "noot"
+
+
+def test_importeren_zonder_metadata_laat_velden_none(tmp_path, monkeypatch):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    pdf_pad = _maak_eenvoudige_pdf(tmp_path / "doc.pdf")
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(pdf_pad), "PDF (*.pdf)")),
+    )
+    monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
+    dialog._pick_pdf()
+
+    dialog.datum_onbekend_checkbox.setChecked(True)
+
+    dialog._perform_import()
+
+    items = service.list_sources()
+    assert len(items) == 1
+    s = items[0]
+    assert s.category == "DATASHEET"
+    assert s.manufacturer is None
+    assert s.series is None
+    assert s.part_number is None
+    assert s.document_version is None
+    assert s.document_date is None
+    assert s.notes is None
+
+
+def test_taalwissel_behoudt_categorie_selectie(tmp_path, monkeypatch):
+    """Bij een taalwissel blijft de gekozen categorie staan."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.categorie_combo.setCurrentIndex(2)  # MANUAL
+    dialog.taal = "en_US"
+    dialog._apply_language()
+
+    assert dialog.categorie_combo.currentData() == "MANUAL"
+    assert dialog.categorie_combo.currentText() == "Manual"
+
+
+# ============================================================================
+# v1.4.0 — UX-verfijning (fase 5D'.2d)
+# ============================================================================
+
+def test_documentdatum_is_qdateedit(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    from PySide6.QtWidgets import QDateEdit
+    assert isinstance(dialog.documentdatum_edit, QDateEdit)
+    assert dialog.documentdatum_edit.calendarPopup() is True
+    assert dialog.documentdatum_edit.displayFormat() == "yyyy-MM-dd"
+
+
+def test_documentdatum_default_vandaag(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    assert dialog.documentdatum_edit.date() == QDate.currentDate()
+
+
+def test_documentdatum_onbekend_checkbox_default_uit(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    assert dialog.datum_onbekend_checkbox.isChecked() is False
+    assert dialog.documentdatum_edit.isEnabled() is True
+
+
+def test_documentdatum_onbekend_disablet_veld(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.datum_onbekend_checkbox.setChecked(True)
+    assert dialog.documentdatum_edit.isEnabled() is False
+
+    dialog.datum_onbekend_checkbox.setChecked(False)
+    assert dialog.documentdatum_edit.isEnabled() is True
+
+
+def test_documentdatum_waarde_iso_formaat(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.documentdatum_edit.setDate(QDate(2024, 1, 31))
+    assert dialog._documentdatum_waarde() == "2024-01-31"
+
+
+def test_documentdatum_onbekend_geeft_none(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.datum_onbekend_checkbox.setChecked(True)
+    assert dialog._documentdatum_waarde() is None
+
+
+def test_documentdatum_ctrl_d_zet_vandaag(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.documentdatum_edit.setDate(QDate(2000, 1, 1))
+    dialog._zet_datum_op_vandaag()
+    assert dialog.documentdatum_edit.date() == QDate.currentDate()
+
+
+def test_documentdatum_ctrl_d_negeert_onbekend(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.documentdatum_edit.setDate(QDate(2000, 1, 1))
+    dialog.datum_onbekend_checkbox.setChecked(True)
+    dialog._zet_datum_op_vandaag()
+    assert dialog.documentdatum_edit.date() == QDate(2000, 1, 1)
+
+
+def test_uppercase_fabrikant(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.fabrikant_edit.setText("panasonic")
+    naar_uppercase(dialog.fabrikant_edit)
+    assert dialog.fabrikant_edit.text() == "PANASONIC"
+
+
+def test_uppercase_serie(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.serie_edit.setText("fr-serie")
+    naar_uppercase(dialog.serie_edit)
+    assert dialog.serie_edit.text() == "FR-SERIE"
+
+
+def test_uppercase_partnummer(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.partnummer_edit.setText("fr-123")
+    naar_uppercase(dialog.partnummer_edit)
+    assert dialog.partnummer_edit.text() == "FR-123"
+
+
+def test_uppercase_documentversie(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.documentversie_edit.setText("v1.2")
+    naar_uppercase(dialog.documentversie_edit)
+    assert dialog.documentversie_edit.text() == "V1.2"
+
+
+def test_titel_blijft_gemengd(tmp_path):
+    """Titel wordt niet naar uppercase geconverteerd."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.title_edit.setText("Measure ESR with an ESR meter")
+    assert dialog.title_edit.text() == "Measure ESR with an ESR meter"
+
+
+def test_notities_blijft_gemengd(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.notities_edit.setText("Test notitie met Gemengde Case")
+    assert dialog.notities_edit.text() == "Test notitie met Gemengde Case"
+
+
+def test_uppercase_behoudt_cursorpositie(tmp_path):
+    """Cursorpositie blijft behouden na uppercase-conversie."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.fabrikant_edit.setText("abc")
+    dialog.fabrikant_edit.setCursorPosition(2)
+    naar_uppercase(dialog.fabrikant_edit)
+    assert dialog.fabrikant_edit.text() == "ABC"
+    assert dialog.fabrikant_edit.cursorPosition() == 2
+
+
+def test_uppercase_lege_tekst_blijft_leeg(tmp_path):
+    """Een leeg veld blijft leeg; geen crash."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.fabrikant_edit.setText("")
+    naar_uppercase(dialog.fabrikant_edit)
+    assert dialog.fabrikant_edit.text() == ""
+
+
+def test_uppercase_al_uppercase_doet_niets(tmp_path):
+    """Als de tekst al uppercase is, gebeurt er niets."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.fabrikant_edit.setText("PANASONIC")
+    dialog.fabrikant_edit.setCursorPosition(3)
+    naar_uppercase(dialog.fabrikant_edit)
+    assert dialog.fabrikant_edit.text() == "PANASONIC"
+    assert dialog.fabrikant_edit.cursorPosition() == 3
+
+
+def test_importeren_met_datum_onbekend(tmp_path, monkeypatch):
+    """Met 'Datum onbekend' aangevinkt: document_date is None."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    pdf_pad = _maak_eenvoudige_pdf(tmp_path / "doc.pdf")
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(pdf_pad), "PDF (*.pdf)")),
+    )
+    monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
+    dialog._pick_pdf()
+
+    dialog.datum_onbekend_checkbox.setChecked(True)
+    dialog._perform_import()
+
+    items = service.list_sources()
+    assert len(items) == 1
+    assert items[0].document_date is None
+
+
+def test_importeren_met_datum_ingevuld(tmp_path, monkeypatch):
+    """Met een datum: document_date is ISO-string."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    pdf_pad = _maak_eenvoudige_pdf(tmp_path / "doc.pdf")
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(pdf_pad), "PDF (*.pdf)")),
+    )
+    monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
+    dialog._pick_pdf()
+
+    dialog.documentdatum_edit.setDate(QDate(2024, 1, 31))
+    dialog._perform_import()
+
+    items = service.list_sources()
+    assert len(items) == 1
+    assert items[0].document_date == "2024-01-31"

@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/documentation/import_models.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
+Versie:     1.2.0
 Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
@@ -15,6 +15,12 @@ Wijzigingen:
   v1.1.0 (2026-10-07)  DuplicateAction en DuplicateMatch toegevoegd voor
                        de bestaand-document-popup (fase 5D'.2a). Geen
                        wijziging aan bestaande modellen.
+  v1.2.0 (2026-10-07)  Metadata-uitbreiding (fase 5D'.2b): ImportSource
+                       krijgt optionele velden category, manufacturer,
+                       series, part_number, document_version en
+                       document_date. notes bestond al. Backward-compatible:
+                       from_dict gebruikt .get(), oude catalogi blijven
+                       geldig.
 ================================================================================
 """
 
@@ -100,6 +106,26 @@ def is_allowed_transition(
     return nieuwe in _ALLOWED_TRANSITIONS[huidige]
 
 
+def _normaliseer_optionele_tekst(
+    waarde: Optional[str], veldnaam: str
+) -> Optional[str]:
+    """Valideer en normaliseer een optioneel tekstveld.
+
+    - None blijft None.
+    - Een lege of whitespace-only string wordt None (zodat een leeg veld
+      in de wizard niet als lege string wordt opgeslagen).
+    - Een niet-string, niet-None waarde is een fout.
+    """
+    if waarde is None:
+        return None
+    if not isinstance(waarde, str):
+        raise ImportValidationError(
+            f"{veldnaam} moet een string of None zijn, kreeg {type(waarde)!r}"
+        )
+    gestript = waarde.strip()
+    return gestript or None
+
+
 @dataclass(frozen=True, slots=True)
 class ImportSource:
     """Onveranderlijke metadata van één geïmporteerde bron.
@@ -107,6 +133,10 @@ class ImportSource:
     Een ImportSource beschrijft uitsluitend de bron en zijn provenance.
     Er wordt geen assessment, geen koppeling aan meetgegevens en geen
     interpretatie van de inhoud in dit model opgeslagen.
+
+    Sinds v1.2.0 kunnen optionele metadata-velden worden meegegeven die
+    de gebruiker in de import-wizard invult. Deze velden zijn alle
+    optioneel; een bron zonder metadata is geldig.
     """
 
     source_id: str
@@ -119,6 +149,14 @@ class ImportSource:
     source_url: Optional[str] = None
     file_hash: Optional[str] = None
     notes: Optional[str] = None
+
+    # Metadata-uitbreiding (fase 5D'.2b). Alle optioneel.
+    category: Optional[str] = None
+    manufacturer: Optional[str] = None
+    series: Optional[str] = None
+    part_number: Optional[str] = None
+    document_version: Optional[str] = None
+    document_date: Optional[str] = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_type, ImportSourceType):
@@ -155,6 +193,48 @@ class ImportSource:
                     "URL-bron mag geen original_filename hebben"
                 )
 
+        # Metadata-velden normaliseren: lege strings worden None.
+        # Dit is een validatie, geen mutatie: het object is frozen.
+        object.__setattr__(
+            self,
+            "category",
+            _normaliseer_optionele_tekst(self.category, "category"),
+        )
+        object.__setattr__(
+            self,
+            "manufacturer",
+            _normaliseer_optionele_tekst(self.manufacturer, "manufacturer"),
+        )
+        object.__setattr__(
+            self,
+            "series",
+            _normaliseer_optionele_tekst(self.series, "series"),
+        )
+        object.__setattr__(
+            self,
+            "part_number",
+            _normaliseer_optionele_tekst(self.part_number, "part_number"),
+        )
+        object.__setattr__(
+            self,
+            "document_version",
+            _normaliseer_optionele_tekst(
+                self.document_version, "document_version"
+            ),
+        )
+        object.__setattr__(
+            self,
+            "document_date",
+            _normaliseer_optionele_tekst(
+                self.document_date, "document_date"
+            ),
+        )
+        object.__setattr__(
+            self,
+            "notes",
+            _normaliseer_optionele_tekst(self.notes, "notes"),
+        )
+
     def to_dict(self) -> dict:
         """Serialiseer naar een JSON-vriendelijk dict."""
 
@@ -169,11 +249,21 @@ class ImportSource:
             "source_url": self.source_url,
             "file_hash": self.file_hash,
             "notes": self.notes,
+            "category": self.category,
+            "manufacturer": self.manufacturer,
+            "series": self.series,
+            "part_number": self.part_number,
+            "document_version": self.document_version,
+            "document_date": self.document_date,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "ImportSource":
-        """Lees een ImportSource uit een JSON-dict met validatie."""
+        """Lees een ImportSource uit een JSON-dict met validatie.
+
+        Backward-compatible: ontbrekende metadata-velden (uit catalogi
+        van vóór 5D'.2b) worden None.
+        """
 
         if not isinstance(data, dict):
             raise ImportValidationError("bron-item moet een object zijn")
@@ -204,6 +294,12 @@ class ImportSource:
                 source_url=data.get("source_url"),
                 file_hash=data.get("file_hash"),
                 notes=data.get("notes"),
+                category=data.get("category"),
+                manufacturer=data.get("manufacturer"),
+                series=data.get("series"),
+                part_number=data.get("part_number"),
+                document_version=data.get("document_version"),
+                document_date=data.get("document_date"),
             )
         except KeyError as exc:
             raise ImportValidationError(
