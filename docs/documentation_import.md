@@ -1,14 +1,23 @@
 # Documentatie-import — ontwikkelaarsreferentie
 
-**Versie:** 1.0.0
-**Datum:** 2026-10-07
+**Versie:** 1.1.0
+**Datum:** 2026-10-08
 **Auteur:** Bart Bossuyt
 **Doel:** technische referentie voor de documentatie-import-laag.
 Bevat architectuur, datamodel, opslaglocaties, foutafhandeling en
 uitbreidingspunten. Geen gebruikersdocumentatie — zie `docs/changelog.md`
 voor de eindgebruikersversie.
 
-**Status:** stabiel voor schema_version 1. Geldt voor fase 5 (PDF/URL-import).
+**Status:** stabiel voor schema_version 1. Geldt voor fase 5 (PDF/URL-import)
+en 5D'.2e (statusbeheer).
+
+Wijzigingen:
+  v1.0.0 (2026-10-07)  Eerste versie: architectuur, datamodel,
+                       opslaglocaties, metadata-uitbreiding 5D'.2b/d.
+  v1.1.0 (2026-10-08)  Secties toegevoegd over statusbeheer (5D'.2e):
+                       statusmachine, statuswijzigen in de viewer,
+                       Toon gearchiveerde-filter en Status-kolom.
+                       Robuustheid op Windows (_atomic_replace) beschreven.
 
 ---
 
@@ -39,7 +48,10 @@ geïmporteerd wordt, leeft in een **tweede cataloguslaag** onder
 | `app/documentation/pdf_import.py` | Orkestratie: hash → metadata → registratie → kopie | Nee | Nee |
 | `app/documentation/url_fetch.py` | URL-metadata, HTML-fetch, snapshot opslaan | **Ja** | Nee |
 | `app/documentation/url_import.py` | Orkestratie: metadata → content → registratie → snapshot | **Ja** | Nee |
+| `app/documentation/service.py` | Read-only viewer, ook voor imports (`is_user_import=True`) | Nee | Nee |
 | `app/gui/dialogs/import_wizard_dialog.py` | Wizard-UI | Nee (roept services aan) | Ja |
+| `app/gui/dialogs/edit_metadata_dialog.py` | Metadata-editor | Nee | Ja |
+| `app/gui/dialogs/change_status_dialog.py` | Status-editor | Nee | Ja |
 
 **Enige module met netwerktoegang:** `url_fetch.py`. Alle andere modules
 zijn puur lokaal.
@@ -61,44 +73,9 @@ class ImportSource:
     source_url: Optional[str]         # alleen URL
     file_hash: Optional[str]          # alleen PDF, SHA-256 hex
     notes: Optional[str]              # optioneel, vrije tekst
-
-## Metadata bij importeren
-
-Sinds fase 5D'.2b bevat de import-wizard een metadata-sectie.
-
-### Velden
-
-| Veld | Verplicht | Opmerking |
-|---|---|---|
-| Categorie | Ja | Default `DATASHEET`. Dropdown met de 7 `DocumentCategory`-waarden. |
-| Fabrikant | Nee | Wordt automatisch in uppercase gezet bij typen. |
-| Serie | Nee | Idem. |
-| Partnummer | Nee | Idem. |
-| Documentversie | Nee | Idem. |
-| Documentdatum | Nee | Kalenderveld, ISO-formaat `YYYY-MM-DD`. Checkbox "Datum onbekend" voor `None`. Ctrl+D = vandaag. |
-| Notities | Nee | Vrije tekst, geen uppercase. |
-
-### Opslag
-
-Metadata wordt opgeslagen in `imported_catalog.json` onder elke
-`ImportSource`:
-
-```json
-{
-  "source_id": "…",
-  "source_type": "pdf",
-  "title": "CHONGCD11XSERIES",
-  "imported_at": 1791438042560,
-  "imported_by": "BBossuyt",
-  "status": "concept",
-  "original_filename": "CHONGCD11XSERIES.pdf",
-  "source_url": null,
-  "file_hash": "57a3da2a…",
-  "notes": null,
-  "category": "DATASHEET",
-  "manufacturer": "CHONG",
-  "series": "CDX",
-  "part_number": null,
-  "document_version": "V1.1",
-  "document_date": "2026-10-08"
-}
+    category: Optional[str]           # DocumentCategory-waarde
+    manufacturer: Optional[str]       # uppercase
+    series: Optional[str]             # uppercase
+    part_number: Optional[str]        # uppercase
+    document_version: Optional[str]   # uppercase
+    document_date: Optional[str]      # ISO-datum YYYY-MM-DD

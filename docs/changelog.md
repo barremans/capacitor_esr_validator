@@ -3,6 +3,57 @@
 Overzicht van wat er nieuw of verbeterd is in de Electronics Diagnostic
 Tool Hub. Voor technische details en architectuurkeuzes verwijzen we naar
 `docs/context.md`.
+
+## Versie 1.5 — Status van eigen imports beheren (8 oktober 2026)
+
+**Status van een import wijzigen**
+
+In de documentatiebibliotheek is er nu een knop **Status wijzigen…**
+voor je eigen imports. Je kunt de levenscyclus van een import aanpassen:
+
+- **Concept** — pas geïmporteerd, nog niet bevestigd als bruikbaar.
+- **Actief** — expliciet door jou bevestigd als bruikbaar.
+- **Gearchiveerd** — niet meer in de standaardlijst, maar blijft bewaard.
+
+De toegelaten overgangen zijn:
+
+- Concept → Actief (geen bevestiging nodig)
+- Concept → Gearchiveerd (met bevestiging)
+- Actief → Concept (met bevestiging)
+- Actief → Gearchiveerd (met bevestiging)
+- Gearchiveerd → Concept (met bevestiging)
+
+Een bron wordt **nooit verwijderd**. Je kunt een gearchiveerde bron altijd
+terugzetten naar Concept. De bron en de metadata blijven ongewijzigd bij
+een statuswijziging; alleen de levenscyclus verandert.
+
+Documenten uit de ingebouwde bibliotheek zijn en blijven read-only. De
+Status wijzigen-knop is dan uitgeschakeld met een tooltip die uitlegt
+waarom.
+
+**Gearchiveerde imports zichtbaar maken**
+
+Naast de tool-dropdown staat nu een checkbox **Toon gearchiveerde**.
+Standaard staat die uit: gearchiveerde imports blijven verborgen. Vink
+je hem aan, dan verschijnen ze opnieuw in de lijst, zodat je ze kunt
+openen, bewerken of terugzetten naar Concept.
+
+**Nieuwe Status-kolom**
+
+De documentatietabel heeft nu een extra kolom **Status**, tussen
+Categorie en Fabrikant. Voor ingebouwde documenten is die kolom leeg.
+Voor eigen imports toont hij de huidige levenscyclusstatus (Concept,
+Actief of Gearchiveerd).
+
+**Verbeterd: checkboxen en radio buttons in het donkere thema**
+
+De checkboxen en radio buttons in de hele applicatie zijn nu duidelijk
+zichtbaar in het donkere thema. Voorheen gebruikte Qt de standaard
+Fusion-stijl, waardoor de indicator (het vierkantje of rondje) bijna
+onzichtbaar was op de donkere achtergrond. De nieuwe stijl geeft een
+duidelijke rand, een blauwe checked-state en consistente hover- en
+disabled-styling.
+
 ## Versie 1.4 — Metadata bij import en bewerken in de viewer (7 oktober 2026)
 
 **Metadata bij importeren van een PDF of URL**
@@ -236,7 +287,8 @@ daardoor nu ook voor eigen imports.
 
 ## Gepland voor volgende versies
 - **Versie 2.0** — PDF- en URL-import van fabrikantdocumenten via
-  een wizard.
+  een wizard. *(grotendeels afgerond in 1.4 en 1.5; resterende
+  onderdelen — Word, Excel — volgen in fase 6.)*
 - **Versie 2.1** — Automatische herkenning van fabrikantgegevens
   (met verplichte menselijke goedkeuring).
 - **Versie 3.0** — Grafieken en trends over meerdere metingen.

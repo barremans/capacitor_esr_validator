@@ -1,7 +1,7 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 1.1.0
-**Datum:** 2026-10-07
+**Versie:** 1.2.0
+**Datum:** 2026-10-08
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
 is. Geen bugs, geen beloftes — alleen vragen en observaties.
@@ -12,6 +12,11 @@ Wijzigingen:
                        gemarkeerd. Nieuwe openstaande punten: Word-import,
                        OCR voor gescande PDF's, async URL-fetch,
                        catalogusmigratie bij meerdere versies.
+  v1.2.0 (2026-10-08)  §2.4 en §2.5 bijgewerkt na 5D'.2e (status
+                       wijzigen in viewer). Nieuwe openstaande punten:
+                       status-reden bij archiveren, filter voor
+                       gearchiveerd, statustransitie-beleid,
+                       catalogusmigratie bij statuswijzigingen.
 
 ---
 
@@ -44,7 +49,7 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 
 ---
 
-## 2. Uit Fase 5 — Import-wizard en metadata
+## 2. Uit Fase 5 — Import-wizard, metadata en statusbeheer
 
 ### 2.1 Scope — beantwoord
 
@@ -77,14 +82,22 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
   ongewijzigd.
 - **Ingebouwde catalogus:** blijft read-only, voor altijd.
 
-### 2.4 Menselijke goedkeuring — beantwoord
+### 2.4 Statusbeheer — beantwoord (5D'.2e)
 
-- Statusmachine: `CONCEPT → ACTIEF → GEARCHIVEERD` met terugkeer naar
-  `CONCEPT` via `revoke`.
-- Nieuwe import start altijd als `CONCEPT`.
-- Een bron verwijderen is niet mogelijk; wel `archiveren` en
-  `terugtrekken`.
-- De editor in de viewer wijzigt geen status.
+- **Statusmachine:** `CONCEPT → ACTIEF → GEARCHIVEERD`, met `revoke`
+  terug naar `CONCEPT`.
+- **Wijzigen in de viewer:** ja, sinds 5D'.2e. Alleen voor eigen imports
+  (`is_user_import=True`). De dialoog toont alleen de toegelaten
+  overgangen (afgeleid van `_ALLOWED_TRANSITIONS` in `import_models`).
+- **Bevestigingsvraag:** bij archiveren en bij terug naar Concept.
+  Niet bij Concept → Actief.
+- **Filter:** checkbox "Toon gearchiveerde" naast de tool-dropdown.
+  Standaard uit.
+- **Status-kolom:** ja, sinds 5D'.2e. Tussen Categorie en Fabrikant.
+  Leeg voor ingebouwde documenten.
+- **Nieuwe import start altijd als `CONCEPT`.**
+- **Een bron verwijderen is niet mogelijk;** wel archiveren en
+  terugtrekken.
 
 ### 2.5 Assessment-koppeling — beantwoord
 
@@ -94,15 +107,33 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
   gebruiker die expliciet `ACTIEF` maakt, en nadat een latere fase (12–14)
   de brug slaat.
 
-### 2.6 Nieuwe openstaande punten (na 5D'.2c)
+### 2.6 Nieuwe openstaande punten (na 5D'.2e)
 
-- **Status wijzigen vanuit de viewer.** Een gebruiker kan nu metadata
-  bewerken, maar nog niet de status (concept → actief → gearchiveerd)
-  aanpassen vanuit de documentatiebibliotheek. Dat is een logische
-  volgende deelfase (5D'.2e of 5D'.3).
-  - **Impact:** nieuwe knop(en) in de viewer, nieuwe service-aanroep
-    (`set_status` bestaat al), i18n-keys, tests.
-  - **Status:** open; voorstel voor 5D'.2e.
+- **Reden opgeven bij archiveren.** In 5D'.2e is bewust gekozen voor
+  géén verplichte reden, om een nieuw modelveld + catalogusmigratie te
+  vermijden. De gebruiker kan een reden kwijt in de notities.
+  - **Restvraag:** willen we in een latere fase (6 of 11) een optioneel
+    `archive_reason`-veld toevoegen?
+  - **Impact:** nieuw veld in `ImportSource`, extra rij in de dialoog,
+    i18n-keys.
+  - **Status:** open; geen concrete vraag.
+- **Filter voor gearchiveerde documenten.** Sinds 5D'.2e is er een
+  checkbox "Toon gearchiveerde". Er is nog geen filter om **alleen**
+  gearchiveerde documenten te tonen (inverse filter).
+  - **Restvraag:** is dat nuttig, of volstaat de huidige aanpak?
+  - **Status:** open; klein.
+- **Statustransitie-beleid.** De toegelaten overgangen staan nu hard
+  gecodeerd in `_ALLOWED_TRANSITIONS`. Wat als een gebruiker ooit
+  `GEARCHIVEERD → ACTIEF` wil, of `CONCEPT → CONCEPT` (no-op)?
+  - **Restvraag:** blijft de huidige set definitief, of wordt dit
+    configureerbaar?
+  - **Status:** bewust beperkt gehouden; geen concrete vraag.
+- **Catalogusmigratie bij statuswijzigingen.** `imported_catalog.json`
+  heeft `schema_version=1`. Statuswijzigingen wijzigen alleen het
+  `status`-veld; ze vragen geen schemawijziging.
+  - **Restvraag:** wat als we ooit velden toevoegen (bv.
+    `archive_reason`)? Migratie-mechanisme ontbreekt nog.
+  - **Status:** nog niet nodig.
 - **Word-import (`.docx` / `.doc`).** Moet later worden toegevoegd.
   - `.docx` kan via `python-docx` (pure Python, MIT).
   - `.doc` (oud) vereist `pywin32` + Word-installatie; waarschijnlijk
@@ -117,9 +148,6 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 - **Async URL-fetch.** De huidige fetch is synchroon en blokkeert de GUI
   tot 10 seconden.
   - **Status:** open; overwegen in fase 11.
-- **Catalogusmigratie bij meerdere versies.** `imported_catalog.json` heeft
-  `schema_version=1`. Wat als we ooit velden toevoegen of wijzigen?
-  - **Status:** nog niet nodig; migratie-mechanisme ontbreekt.
 - **Datum-parsing bij bewerken.** De editor accepteert alleen ISO-datums
   (`YYYY-MM-DD`). Een oudere vrije-tekstwaarde (bijv. `"2024-01"`) valt
   terug op "Datum onbekend" bij openen, wat bij opslaan `document_date`
@@ -128,6 +156,8 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
   - **Status:** bewust geaccepteerd in 5D'.2c; mogelijk verfijnen in
     fase 11.
 - **Bulk-edit van meerdere imports.** Nog niet ondersteund.
+  - **Status:** open; geen concrete vraag.
+- **Bulk-statuswijziging van meerdere imports.** Nog niet ondersteund.
   - **Status:** open; geen concrete vraag.
 
 ---
@@ -219,6 +249,8 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 - **Vraag:** willen we een geautomatiseerde check dat alle keys in
   beide locales aanwezig zijn?
 - **Impact:** zou een nieuwe test in `tests/test_i18n_*` vragen.
+- **Status:** bewust nog niet toegevoegd; de huidige tests dekken de
+  meest gebruikte keys.
 
 ### 4.3 Projectstructuur-document
 
@@ -237,6 +269,14 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
   `apply_theme(app, palet)`.
 - **Status:** uitgesteld; bewust nog niet gedaan in 5E om de
   kleine-stappen-regel te respecteren.
+
+### 4.5 Checkbox- en radio-indicator in donker thema
+
+- **Status:** opgelost in 5D'.2f. De `QCheckBox::indicator` en
+  `QRadioButton::indicator` hebben nu expliciete styling.
+- **Restvraag:** willen we in een latere fase ook de **tri-state**
+  checkbox (partially checked) stylen? Niet nodig vandaag.
+- **Impact:** klein.
 
 ---
 
