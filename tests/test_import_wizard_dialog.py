@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_import_wizard_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.5.0
-Datum:      2026-10-07
+Versie:     1.7.0
+Datum:      2026-10-09
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor de import-wizard. Netwerk, PDF-parsing
@@ -16,6 +16,14 @@ Doel:       GUI-regressietests voor de import-wizard. Netwerk, PDF-parsing
             Sinds v1.5.0 gebruikt de wizard de gedeelde helpers uit
             _metadata_form_helpers; tests importeren daar ook
             naar_uppercase uit.
+            Sinds v1.6.0 ondersteunt de wizard ook Word (.docx) en
+            Excel (.xlsx); nieuwe sectie v1.6.0 test de nieuwe types,
+            paneelwissels, samenvatting en import.
+            Sinds v1.7.0 toont de wizard een succesmelding na een
+            geslaagde import. De test patcht _toon_succesmelding op de
+            dialoog-instantie (QMessageBox.information is een
+            C++-staticmethod die zich niet betrouwbaar laat patchen en
+            de test zou laten hangen op een modale dialoog).
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
@@ -30,6 +38,14 @@ Wijzigingen:
   v1.5.0 (2026-10-07)  Fix: naar_uppercase wordt geïmporteerd uit
                        _metadata_form_helpers (verplaatst in wizard
                        v1.5.0). Alle aanroepen hernoemd.
+  v1.6.0 (2026-10-09)  Fase 6B: tests voor Word- en Excel-import in
+                       de wizard. Nieuwe tests gebruiken findData in
+                       plaats van hardcoded categorie-indexen.
+  v1.7.0 (2026-10-09)  Fase 6C: test voor succesmelding na import.
+                       Patch _toon_succesmelding op de dialoog-instantie
+                       in plaats van QMessageBox.information; dat laatste
+                       is een C++-staticmethod die zich niet betrouwbaar
+                       laat monkeypatchen en de test zou laten hangen.
 ================================================================================
 """
 
@@ -73,6 +89,26 @@ def _maak_eenvoudige_pdf(pad: Path, *, titel: str = "Testdocument") -> Path:
     return pad
 
 
+def _maak_docx(pad: Path, *, titel: str = "Testdocument") -> Path:
+    from docx import Document
+
+    document = Document()
+    document.add_paragraph("Inhoud")
+    document.core_properties.title = titel
+    document.save(str(pad))
+    return pad
+
+
+def _maak_xlsx(pad: Path, *, titel: str = "Testwerkmap") -> Path:
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    wb.active["A1"] = "Inhoud"
+    wb.properties.title = titel
+    wb.save(str(pad))
+    return pad
+
+
 # ============================================================================
 # Basis
 # ============================================================================
@@ -83,8 +119,12 @@ def test_dialoog_opent_met_pdf_geselecteerd(tmp_path):
     dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
 
     assert dialog.radio_pdf.isChecked() is True
+    assert dialog.radio_word.isChecked() is False
+    assert dialog.radio_excel.isChecked() is False
     assert dialog.radio_url.isChecked() is False
     assert dialog.pdf_panel.isHidden() is False
+    assert dialog.word_panel.isHidden() is True
+    assert dialog.excel_panel.isHidden() is True
     assert dialog.url_panel.isHidden() is True
     assert dialog.import_btn.isEnabled() is False
 
@@ -98,6 +138,8 @@ def test_type_wissel_toont_url_paneel(tmp_path):
 
     assert dialog.url_panel.isHidden() is False
     assert dialog.pdf_panel.isHidden() is True
+    assert dialog.word_panel.isHidden() is True
+    assert dialog.excel_panel.isHidden() is True
 
 
 # ============================================================================
@@ -270,6 +312,9 @@ def test_importeren_pdf_emit_signal(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
     dialog._pick_pdf()
+
+    # Voorkom dat de succesmelding de test laat hangen.
+    monkeypatch.setattr(dialog, "_toon_succesmelding", lambda titel: None)
 
     ontvangen = {"source_id": None}
     dialog.import_completed.connect(
@@ -504,6 +549,8 @@ def test_wizard_overwrite_bij_match(tmp_path, monkeypatch):
         "vraag_actie",
         staticmethod(lambda **kw: DuplicateAction.OVERWRITE),
     )
+
+    monkeypatch.setattr(dialog, "_toon_succesmelding", lambda titel: None)
 
     ontvangen = {"source_id": None}
     dialog.import_completed.connect(
@@ -891,7 +938,8 @@ def test_huidige_categorie_leest_itemdata(tmp_path):
     service = ImportService(catalog_path=tmp_path / "cat.json")
     dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
 
-    dialog.categorie_combo.setCurrentIndex(2)  # MANUAL
+    index = dialog.categorie_combo.findData("MANUAL")
+    dialog.categorie_combo.setCurrentIndex(index)
     assert dialog._huidige_categorie() == "MANUAL"
 
 
@@ -942,12 +990,15 @@ def test_importeren_met_metadata(tmp_path, monkeypatch):
     monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
     dialog._pick_pdf()
 
-    dialog.categorie_combo.setCurrentIndex(2)  # MANUAL
+    index = dialog.categorie_combo.findData("MANUAL")
+    dialog.categorie_combo.setCurrentIndex(index)
     dialog.fabrikant_edit.setText("Panasonic")
     dialog.serie_edit.setText("FR")
     dialog.partnummer_edit.setText("FR-123")
     dialog.documentversie_edit.setText("1.2")
     dialog.notities_edit.setText("noot")
+
+    monkeypatch.setattr(dialog, "_toon_succesmelding", lambda titel: None)
 
     dialog._perform_import()
 
@@ -979,6 +1030,8 @@ def test_importeren_zonder_metadata_laat_velden_none(tmp_path, monkeypatch):
 
     dialog.datum_onbekend_checkbox.setChecked(True)
 
+    monkeypatch.setattr(dialog, "_toon_succesmelding", lambda titel: None)
+
     dialog._perform_import()
 
     items = service.list_sources()
@@ -999,7 +1052,8 @@ def test_taalwissel_behoudt_categorie_selectie(tmp_path, monkeypatch):
     service = ImportService(catalog_path=tmp_path / "cat.json")
     dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
 
-    dialog.categorie_combo.setCurrentIndex(2)  # MANUAL
+    index = dialog.categorie_combo.findData("MANUAL")
+    dialog.categorie_combo.setCurrentIndex(index)
     dialog.taal = "en_US"
     dialog._apply_language()
 
@@ -1203,6 +1257,7 @@ def test_importeren_met_datum_onbekend(tmp_path, monkeypatch):
     dialog._pick_pdf()
 
     dialog.datum_onbekend_checkbox.setChecked(True)
+    monkeypatch.setattr(dialog, "_toon_succesmelding", lambda titel: None)
     dialog._perform_import()
 
     items = service.list_sources()
@@ -1227,8 +1282,415 @@ def test_importeren_met_datum_ingevuld(tmp_path, monkeypatch):
     dialog._pick_pdf()
 
     dialog.documentdatum_edit.setDate(QDate(2024, 1, 31))
+    monkeypatch.setattr(dialog, "_toon_succesmelding", lambda titel: None)
     dialog._perform_import()
 
     items = service.list_sources()
     assert len(items) == 1
     assert items[0].document_date == "2024-01-31"
+
+
+# ============================================================================
+# v1.6.0 — Word en Excel (fase 6B)
+# ============================================================================
+
+def test_type_wissel_toont_word_paneel(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.radio_word.setChecked(True)
+
+    assert dialog.word_panel.isHidden() is False
+    assert dialog.pdf_panel.isHidden() is True
+    assert dialog.excel_panel.isHidden() is True
+    assert dialog.url_panel.isHidden() is True
+
+
+def test_type_wissel_toont_excel_paneel(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    dialog.radio_excel.setChecked(True)
+
+    assert dialog.excel_panel.isHidden() is False
+    assert dialog.pdf_panel.isHidden() is True
+    assert dialog.word_panel.isHidden() is True
+    assert dialog.url_panel.isHidden() is True
+
+
+def test_kies_docx_vult_samenvatting(tmp_path, monkeypatch):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+    dialog.radio_word.setChecked(True)
+
+    docx_pad = _maak_docx(tmp_path / "doc.docx", titel="Mijn Word")
+
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(docx_pad), "Word (*.docx)")),
+    )
+    monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
+
+    dialog._pick_docx()
+
+    assert dialog._docx_pad == docx_pad
+    assert dialog._docx_meta_titel == "Mijn Word"
+    assert dialog.title_edit.text() == "doc"
+    assert dialog.import_btn.isEnabled() is True
+    assert dialog._docx_hash is not None
+
+
+def test_kies_xlsx_vult_samenvatting(tmp_path, monkeypatch):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+    dialog.radio_excel.setChecked(True)
+
+    xlsx_pad = _maak_xlsx(tmp_path / "doc.xlsx", titel="Mijn Werkmap")
+
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(xlsx_pad), "Excel (*.xlsx)")),
+    )
+    monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
+
+    dialog._pick_xlsx()
+
+    assert dialog._xlsx_pad == xlsx_pad
+    assert dialog._xlsx_meta_titel == "Mijn Werkmap"
+    assert dialog.title_edit.text() == "doc"
+    assert dialog.import_btn.isEnabled() is True
+    assert dialog._xlsx_hash is not None
+
+
+def test_kies_ongeldige_docx_toont_fout(tmp_path, monkeypatch):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+    dialog.radio_word.setChecked(True)
+
+    ongeldig = tmp_path / "kapot.docx"
+    ongeldig.write_text("geen docx", encoding="utf-8")
+
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(ongeldig), "Word (*.docx)")),
+    )
+    monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
+    gewaarschuwd = {"count": 0}
+    monkeypatch.setattr(
+        QMessageBox,
+        "warning",
+        staticmethod(
+            lambda *a, **kw: gewaarschuwd.__setitem__(
+                "count", gewaarschuwd["count"] + 1
+            )
+        ),
+    )
+
+    dialog._pick_docx()
+
+    assert gewaarschuwd["count"] == 1
+    assert dialog._docx_pad is None
+    assert dialog.import_btn.isEnabled() is False
+
+
+def test_kies_ongeldige_xlsx_toont_fout(tmp_path, monkeypatch):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+    dialog.radio_excel.setChecked(True)
+
+    ongeldig = tmp_path / "kapot.xlsx"
+    ongeldig.write_text("geen xlsx", encoding="utf-8")
+
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(ongeldig), "Excel (*.xlsx)")),
+    )
+    monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
+    gewaarschuwd = {"count": 0}
+    monkeypatch.setattr(
+        QMessageBox,
+        "warning",
+        staticmethod(
+            lambda *a, **kw: gewaarschuwd.__setitem__(
+                "count", gewaarschuwd["count"] + 1
+            )
+        ),
+    )
+
+    dialog._pick_xlsx()
+
+    assert gewaarschuwd["count"] == 1
+    assert dialog._xlsx_pad is None
+    assert dialog.import_btn.isEnabled() is False
+
+
+def test_importeren_word_emit_signal(tmp_path, monkeypatch):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+    dialog.radio_word.setChecked(True)
+
+    docx_pad = _maak_docx(tmp_path / "doc.docx")
+
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(docx_pad), "Word (*.docx)")),
+    )
+    monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
+    dialog._pick_docx()
+
+    monkeypatch.setattr(dialog, "_toon_succesmelding", lambda titel: None)
+
+    ontvangen = {"source_id": None}
+    dialog.import_completed.connect(
+        lambda sid: ontvangen.__setitem__("source_id", sid)
+    )
+
+    dialog._perform_import()
+
+    assert ontvangen["source_id"] is not None
+    items = service.list_sources()
+    assert len(items) == 1
+    assert items[0].source_type.value == "docx"
+
+
+def test_importeren_excel_emit_signal(tmp_path, monkeypatch):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+    dialog.radio_excel.setChecked(True)
+
+    xlsx_pad = _maak_xlsx(tmp_path / "doc.xlsx")
+
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(xlsx_pad), "Excel (*.xlsx)")),
+    )
+    monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
+    dialog._pick_xlsx()
+
+    monkeypatch.setattr(dialog, "_toon_succesmelding", lambda titel: None)
+
+    ontvangen = {"source_id": None}
+    dialog.import_completed.connect(
+        lambda sid: ontvangen.__setitem__("source_id", sid)
+    )
+
+    dialog._perform_import()
+
+    assert ontvangen["source_id"] is not None
+    items = service.list_sources()
+    assert len(items) == 1
+    assert items[0].source_type.value == "xlsx"
+
+
+def test_importeren_word_met_metadata(tmp_path, monkeypatch):
+    """Metadata uit de wizard komt in de gebruikerscatalogus voor Word."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+    dialog.radio_word.setChecked(True)
+
+    docx_pad = _maak_docx(tmp_path / "doc.docx")
+
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(docx_pad), "Word (*.docx)")),
+    )
+    monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
+    dialog._pick_docx()
+
+    index = dialog.categorie_combo.findData("MANUAL")
+    dialog.categorie_combo.setCurrentIndex(index)
+    dialog.fabrikant_edit.setText("CHONG")
+    dialog.notities_edit.setText("Word noot")
+
+    monkeypatch.setattr(dialog, "_toon_succesmelding", lambda titel: None)
+
+    dialog._perform_import()
+
+    items = service.list_sources()
+    assert len(items) == 1
+    s = items[0]
+    assert s.category == "MANUAL"
+    assert s.manufacturer == "CHONG"
+    assert s.notes == "Word noot"
+    assert s.source_type.value == "docx"
+
+
+def test_importeren_excel_met_metadata(tmp_path, monkeypatch):
+    """Metadata uit de wizard komt in de gebruikerscatalogus voor Excel."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+    dialog.radio_excel.setChecked(True)
+
+    xlsx_pad = _maak_xlsx(tmp_path / "doc.xlsx")
+
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(xlsx_pad), "Excel (*.xlsx)")),
+    )
+    monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
+    dialog._pick_xlsx()
+
+    index = dialog.categorie_combo.findData("REFERENCE_TABLE")
+    dialog.categorie_combo.setCurrentIndex(index)
+    dialog.fabrikant_edit.setText("TDK")
+
+    monkeypatch.setattr(dialog, "_toon_succesmelding", lambda titel: None)
+
+    dialog._perform_import()
+
+    items = service.list_sources()
+    assert len(items) == 1
+    s = items[0]
+    assert s.category == "REFERENCE_TABLE"
+    assert s.manufacturer == "TDK"
+    assert s.source_type.value == "xlsx"
+
+
+def test_word_en_excel_labels_nl(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    assert dialog.radio_word.text() == "Word-document"
+    assert dialog.radio_excel.text() == "Excel-werkmap"
+    assert dialog.word_pick_btn.text() == "Kies Word…"
+    assert dialog.excel_pick_btn.text() == "Kies Excel…"
+
+
+def test_word_en_excel_labels_en(tmp_path):
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="en_US", import_service=service)
+
+    assert dialog.radio_word.text() == "Word document"
+    assert dialog.radio_excel.text() == "Excel workbook"
+    assert dialog.word_pick_btn.text() == "Choose Word…"
+    assert dialog.excel_pick_btn.text() == "Choose Excel…"
+
+
+def test_taalwissel_behoudt_word_selectie(tmp_path):
+    """Bij een taalwissel blijft de Word-selectie staan."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+    dialog.radio_word.setChecked(True)
+
+    dialog.taal = "en_US"
+    dialog._apply_language()
+
+    assert dialog.radio_word.isChecked() is True
+    assert dialog.radio_word.text() == "Word document"
+
+
+# ============================================================================
+# v1.7.0 — succesmelding na import (fase 6C)
+# ============================================================================
+
+def test_importeren_toont_succesmelding(tmp_path, monkeypatch):
+    """Na een geslaagde import roept de wizard _toon_succesmelding aan.
+
+    We patchen de Python-methode op de dialoog-instantie, niet
+    QMessageBox.information. Dat laatste is een C++-staticmethod die
+    zich niet betrouwbaar laat monkeypatchen en de test zou laten
+    hangen op een modale dialoog.
+    """
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    pdf_pad = _maak_eenvoudige_pdf(tmp_path / "doc.pdf", titel="Mijn PDF")
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(pdf_pad), "PDF (*.pdf)")),
+    )
+    monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
+    dialog._pick_pdf()
+
+    ontvangen = {"count": 0, "titel": None}
+
+    def _fake_succesmelding(titel):
+        ontvangen["count"] += 1
+        ontvangen["titel"] = titel
+
+    monkeypatch.setattr(dialog, "_toon_succesmelding", _fake_succesmelding)
+
+    dialog._perform_import()
+
+    assert ontvangen["count"] == 1
+    # De PDF-titel is afgeleid van de bestandsnaam (doc).
+    assert ontvangen["titel"] == "doc"
+    assert len(service.list_sources()) == 1
+
+
+def test_keep_actie_toont_geen_succesmelding(tmp_path, monkeypatch):
+    """Bij KEEP (changed=False) roept de wizard _toon_succesmelding niet aan."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    pdf_pad = _maak_eenvoudige_pdf(tmp_path / "doc.pdf", titel="Mijn PDF")
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **kw: (str(pdf_pad), "PDF (*.pdf)")),
+    )
+    monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
+    dialog._pick_pdf()
+
+    # Eerste import om een bestaande bron te creëren
+    from app.documentation.pdf_import import import_pdf
+    import_pdf(
+        pdf_pad,
+        import_service=service,
+        sources_dir=tmp_path / "sources",
+    )
+
+    # Popup: KEEP
+    from app.gui.dialogs import duplicate_source_dialog as dup_module
+    monkeypatch.setattr(
+        dup_module.DuplicateSourceDialog,
+        "vraag_actie",
+        staticmethod(lambda **kw: DuplicateAction.KEEP),
+    )
+
+    ontvangen = {"count": 0}
+
+    def _fake_succesmelding(titel):
+        ontvangen["count"] += 1
+
+    monkeypatch.setattr(dialog, "_toon_succesmelding", _fake_succesmelding)
+
+    dialog._perform_import()
+
+    assert ontvangen["count"] == 0
+    # De bestaande bron blijft ongewijzigd.
+    assert len(service.list_sources()) == 1

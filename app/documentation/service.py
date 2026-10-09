@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/documentation/service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.9.1
-Datum:      2026-10-08
+Versie:     1.10.0
+Datum:      2026-10-09
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only service voor de centrale documentatiebibliotheek.
@@ -65,6 +65,13 @@ Wijzigingen:
                         staan. include_archived blijft een filter voor
                         list_documents (weergave), niet voor get_document
                         (lookup).
+  v1.10.0 (2026-10-09) Fase 6C: _import_source_to_document herkent nu ook
+                        'docx' en 'xlsx' als source_type. Word- en
+                        Excel-imports worden gelezen als
+                        DocumentSourceType.FILE met source_path
+                        "sources/<id>.docx" of "sources/<id>.xlsx". De
+                        viewer dispatcht via source_kind() op basis van
+                        de extensie.
 ================================================================================
 """
 
@@ -504,6 +511,11 @@ class DocumentationService:
         Sinds v1.9.0 wordt de bronstatus doorgegeven aan
         DocumentMetadata.import_status, zodat de viewer een Status-kolom
         kan tonen.
+
+        Sinds v1.10.0 worden ook 'docx' en 'xlsx' herkend. Ze worden
+        gelezen als DocumentSourceType.FILE met source_path
+        "sources/<source_id>.docx" of "sources/<source_id>.xlsx". De
+        viewer dispatcht via source_kind() op basis van de extensie.
         """
         if not isinstance(data, Mapping):
             raise DocumentationValidationError(
@@ -524,6 +536,14 @@ class DocumentationService:
         if source_type_raw == "pdf":
             source_type = DocumentSourceType.FILE
             source_path = f"sources/{source_id}.pdf"
+            source_url = None
+        elif source_type_raw == "docx":
+            source_type = DocumentSourceType.FILE
+            source_path = f"sources/{source_id}.docx"
+            source_url = None
+        elif source_type_raw == "xlsx":
+            source_type = DocumentSourceType.FILE
+            source_path = f"sources/{source_id}.xlsx"
             source_url = None
         elif source_type_raw == "url":
             source_type = DocumentSourceType.URL
@@ -553,7 +573,9 @@ class DocumentationService:
 
         original_filename = data.get("original_filename")
         provenance_note = None
-        if source_type_raw == "pdf" and isinstance(original_filename, str):
+        if source_type_raw in ("pdf", "docx", "xlsx") and isinstance(
+            original_filename, str
+        ):
             provenance_note = f"Originele bestandsnaam: {original_filename}"
 
         provenance: tuple[DocumentProvenanceRef, ...] = ()
@@ -570,7 +592,7 @@ class DocumentationService:
                     note="Geïmporteerd via URL-wizard.",
                 ),
             )
-        elif source_type_raw == "pdf":
+        elif source_type_raw in ("pdf", "docx", "xlsx"):
             provenance = (
                 DocumentProvenanceRef(
                     source_id=f"import-{source_id}",

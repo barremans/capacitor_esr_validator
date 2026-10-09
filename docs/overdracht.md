@@ -1,16 +1,16 @@
 # OVERDRACHT — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie overdracht:** 3.4.0
+**Versie overdracht:** 3.5.0
 **Datum:** 2026-10-09
 **Auteur:** Bart Bossuyt
-**Vorige versie:** 3.3.0 (2026-10-08)
+**Vorige versie:** 3.4.0 (2026-10-09)
 **Doel:** volledig overdrachtsdocument voor een nieuwe ChatGPT-sessie of
 nieuwe ontwikkelaar. Bevat projectstaat, architectuur, regels, changelog,
 teststructuur en startprompt. Alles in één bestand.
 
-**Huidige baseline:** 900 passed
-**Laatste afgeronde fase:** 5D'.1b — Metadata van imports doorzoekbaar maken (formaliseren)
-**Volgende fase:** 6 — Fabrikantdocument-import (Word, Excel)
+**Huidige baseline:** 999 passed
+**Laatste afgeronde fase:** 6F — Documentatie bijwerken (Word/Excel)
+**Volgende fase:** 7 — Grafieken en trends
 
 ---
 
@@ -20,7 +20,7 @@ teststructuur en startprompt. Alles in één bestand.
 2. Context — projectstaat en architectuur
 3. Kernregels — bindende afspraken
 4. Stappenplan — chronologisch overzicht
-5. Wat is nieuw sinds versie 3.3.0
+5. Wat is nieuw sinds versie 3.4.0
 6. Openstaande vragen voor de nieuwe chat
 7. Teststatus — baseline en teststructuur
 8. Bestanden die de nieuwe chat moet opvragen
@@ -40,9 +40,9 @@ iets doet.
 
 - Projectmap: `C:\PY\capacitor_esr_validator`.
 - Technologie: Python 3.12 + PySide6 (Qt6, Fusion-stijl), volledig offline.
-- Baseline: **900 passed**.
-- Laatste afgeronde fase: **5D'.1b — Metadata van imports doorzoekbaar maken (formaliseren)**.
-- Volgende fase: **6 — Fabrikantdocument-import (Word, Excel)**.
+- Baseline: **999 passed**.
+- Laatste afgeronde fase: **6F — Documentatie bijwerken (Word/Excel)**.
+- Volgende fase: **7 — Grafieken en trends**.
 
 **Werkafspraken die je strikt volgt:**
 
@@ -55,6 +55,7 @@ iets doet.
 - Lever altijd **volledige bestanden**, nooit secties met
   `# ... ongewijzigd ...` of een `"import": {...}`-fragment in een
   JSON-bestand. Dit is in een eerdere chat fout gelopen.
+- **JSON-bestanden altijd volledig leveren**, nooit fragmenten.
 - Leg elke stap eerst kort uit, dan implementeren.
 - Draai altijd eerst **gerichte tests**, dan **volledige `pytest -q`**.
 - Een fase is pas afgerond wanneer **beide groen** zijn.
@@ -97,9 +98,9 @@ eerst. Geen aannames.
 | Taal GUI | Nederlands + Engels (via i18n) |
 | Werkmodus | Volledig offline, lokale opslag |
 | Database | SQLite op `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\measurements.sqlite3` |
-| Huidige baseline | **900 passed** |
-| Laatste afgeronde fase | 5D'.1b — Metadata van imports doorzoekbaar maken (formaliseren) |
-| Volgende fase | 6 — Fabrikantdocument-import (Word, Excel) |
+| Huidige baseline | **999 passed** |
+| Laatste afgeronde fase | 6F — Documentatie bijwerken (Word/Excel) |
+| Volgende fase | 7 — Grafieken en trends |
 
 ### 2.2 Huidige applicatiearchitectuur
 
@@ -130,6 +131,20 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - Migratieframework transactioneel en sequentieel.
 - Ruwe meetdata append-mostly; assessment en reference als snapshots.
 
+**Belangrijke storage-tabellen voor fase 7:**
+
+- `measurements` — de kern van elke meting (datum, tool_key,
+  component, meetmethode, instrument, frequentie, testspanning).
+- `measurement_values` — de ruwe meetwaarden per meting
+  (capaciteit, ESR, D, V_loss, etc.).
+- `assessments` — de beoordelingssnapshot (eindstatus,
+  betrouwbaarheid, referenties).
+- `reference_snapshots` — de referentiedata die bij de beoordeling
+  is gebruikt.
+- `components` — genormaliseerde componentgegevens
+  (fabrikant, serie, part_number).
+- Er zijn ook `schema_migrations` en `schema_version`.
+
 **Documentatie (read-only viewer + editor):**
 
 - Service met 8 meertalige documenten in de ingebouwde catalogus.
@@ -141,23 +156,25 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - Help-dialoog via knop `?`, `F1`, en via Help-menu
   ("Documentatie zoeken…").
 - Ontwikkelaarsreferentie: `docs/search_syntax.md`.
-- **Sinds 5D'.2c:** Bewerken-knop voor eigen imports. Ingebouwde
-  documenten blijven read-only.
-- **Sinds 5D'.2e:** Status wijzigen-knop voor eigen imports, Toon
-  gearchiveerde-checkbox, Status-kolom.
-- **Sinds 5D'.2f:** checkboxen en radio buttons duidelijk zichtbaar in
-  donker thema.
-- **Sinds 5D'.1b:** formele regressietests voor doorzoekbare metadata
-  van imports; documentatie in `docs/documentation_import.md` §4.
+- Bewerken-knop voor eigen imports (5D'.2c). Ingebouwde documenten
+  blijven read-only.
+- Status wijzigen-knop voor eigen imports, Toon gearchiveerde-checkbox,
+  Status-kolom (5D'.2e).
+- Checkbox- en radio-indicator zichtbaar in donker thema (5D'.2f).
+- Doorzoekbare metadata van imports (5D'.1b).
 
-**Documentatie-import (fase 5 + 5D'.2b/d + 5D'.2e + 5D'.1b):**
+**Documentatie-import (fase 5, 5D', 6):**
 
-- Wizard voor PDF- en URL-import via `Bestand → Document importeren…`
-  (`Ctrl+I`) en via knop "Importeren" op het Documentatie-scherm.
+- Wizard voor **PDF-, Word-, Excel- en URL-import** via
+  `Bestand → Document importeren…` (`Ctrl+I`) en via knop "Importeren"
+  op het Documentatie-scherm.
 - Twee cataloguslagen: ingebouwde `app/data/documentation/catalog.json`
-  en gebruikerscatalogus `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\documentation\imported_catalog.json`.
-- Geïmporteerde PDF's in `...\documentation\sources\<source_id>.pdf`.
-- HTML-snapshots van URL-imports in `...\documentation\snapshots\<source_id>.html`.
+  en gebruikerscatalogus
+  `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\documentation\imported_catalog.json`.
+- Geïmporteerde PDF's/DOCX/XLSX in
+  `...\documentation\sources\<source_id>.pdf|.docx|.xlsx`.
+- HTML-snapshots van URL-imports in
+  `...\documentation\snapshots\<source_id>.html`.
 - Statusmachine: `CONCEPT → ACTIEF → GEARCHIVEERD`, met `revoke` terug
   naar `CONCEPT`.
 - **Metadata in de wizard:** categorie (verplicht, default DATASHEET),
@@ -169,6 +186,11 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
   serie, partnummer, documentversie, documentdatum, notities en
   bron-URL zijn doorzoekbaar via `search_text`. `document_id`,
   `source_path` en `title_key` zijn dat niet.
+- **Bevestiging na import (6C):** `QMessageBox.information` met
+  "Import geslaagd — Het document '...' is geïmporteerd als Concept."
+  Alleen bij `changed=True`.
+- **Geweigerde formaten (6C):** `.doc` en `.xls` met duidelijke
+  melding.
 
 **Metadata-editor (fase 5D'.2c):**
 
@@ -189,19 +211,19 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - Roept `ImportService.set_status` aan.
 - Emit `status_changed(source_id)` bij succes.
 
-**Toon gearchiveerde (fase 5D'.2e):**
+**Word- en Excel-import (fase 6):**
 
-- Checkbox naast de tool-dropdown in `documentation_screen.py`.
-- Standaard uit. Aan = ook gearchiveerde imports zichtbaar.
-- Roept `DocumentationService.list_documents(include_archived=True)` aan.
-- `DocumentationService.get_document` zoekt altijd in beide
-  cataloguslagen, inclusief gearchiveerd.
-
-**Status-kolom (fase 5D'.2e):**
-
-- Extra kolom in de documentatietabel, tussen Categorie en Fabrikant.
-- Leeg voor ingebouwde documenten.
-- `ImportStatus`-waarde voor eigen imports.
+- `app/documentation/docx_extract.py` — metadata, tekst, SHA-256,
+  kopiëren, rollback-helpers.
+- `app/documentation/docx_import.py` — orkestratie (hash → metadata →
+  registratie → kopie, + 3 duplicate-acties).
+- `app/documentation/xlsx_extract.py` — metadata, celinhoud, SHA-256,
+  kopiëren, rollback-helpers.
+- `app/documentation/xlsx_import.py` — orkestratie.
+- `ImportSourceType.DOCX` en `.XLSX`.
+- `ImportService.register_docx` en `register_xlsx`.
+- `.doc` en `.xls` worden geweigerd met duidelijke melding.
+- `python-docx>=1.1` toegevoegd aan `requirements.txt`.
 
 **Help per taal:**
 
@@ -261,20 +283,32 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - **Flaky beste-match-tests** (v1.2.1 van
   `test_documentation_import_service.py`): `time.sleep(0.01)` tussen
   twee registraties zodat `imported_at` gegarandeerd verschilt.
+- **`DocumentationService` herkende `docx`/`xlsx` niet** (v1.10.0 van
+  `service.py`): toegevoegd in fase 6C. De viewer-dispatch werkt nu
+  voor alle lokale bestandstypes via `source_kind()`.
+- **Testhelpers `_maak_xlsx` in xlsx-tests** gebruikten
+  `wb["A1"] = ...` op het Workbook-object; dat ondersteunt geen
+  `__setitem__`. Vervangen door `wb.active["A1"] = ...`.
+- **`extract_xlsx_text` sloeg lege bladen over**: nu krijgt elk blad
+  een header `# <bladnaam>`, ook als het leeg is. Structuur van de
+  werkmap blijft zichtbaar voor latere AI-extractie.
+- **Hangende wizard-tests na 6C**: nieuwe succesmelding opende een
+  modale `QMessageBox.information`. Tests patchen nu
+  `_toon_succesmelding` op de dialoog-instantie, niet op de
+  C++-staticmethod.
 
 ### 2.4 Openstaande werkpunten
 
 Volgens het stappenplan:
 
-- **5F** — Changelog + documentatie. **Deels gedaan.**
-- **6** — Fabrikantdocument-import (incl. Word `.docx` en Excel
-  `.xlsx`). **Volgende fase.**
-- **7** — Grafieken & trends.
-- **8** — Rapportage.
+- **7** — Grafieken en trends. **Volgende fase.**
+- **8** — Rapportage en export.
 - **9** — Packaging / installer / signing.
 - **10** — Praktische ESR-validatie.
-- **11** — Laatste UX/documentatie-afwerking (incl. light theme).
-- **12** — AI-extractie uit fabrikantdocumenten.
+- **11** — Laatste UX/documentatie-afwerking (incl. light theme,
+  async URL-fetch, cosmetische scrollbar in Word-samenvatting).
+- **12** — AI-extractie uit fabrikantdocumenten (docx/xlsx-tekst is
+  al beschikbaar).
 - **13** — Menselijke validatie van AI-output.
 - **14** — Goedgekeurde fabrikantdata koppelen aan assessment.
 - **15** — Tweede diagnosetool — Resistor.
@@ -322,6 +356,8 @@ Volgens het stappenplan:
     verantwoordelijkheden.**
 18. **AI-extractie staat laat in de roadmap**; menselijke goedkeuring
     blijft verplicht.
+19. **Grafieken en trends lezen bestaande data, ze wijzigen niets.**
+    (Toevoeging voor fase 7.)
 
 ### 3.2 Architectuur
 
@@ -336,6 +372,8 @@ Volgens het stappenplan:
   status, nooit `imported_at`.
 - **Status-editor** (5D'.2e) wijzigt alleen status; nooit metadata,
   nooit bronbestand.
+- **Analyse-laag** (nieuw in fase 7) leest de storage read-only en
+  berekent aggregaties. Ze schrijft niet terug.
 
 ### 3.3 ESR-technische kernregels
 
@@ -409,9 +447,11 @@ Volgens het stappenplan:
 | 5D'.2e | Status wijzigen in de viewer | ✅ |
 | 5D'.2f | Checkbox-indicator in donker thema | ✅ |
 | 5D'.1b | Metadata van imports doorzoekbaar maken | ✅ |
-| 5F | Changelog + documentatie | Deels gedaan |
-| 6 | Fabrikantdocument-import (Word, Excel) | **Volgende** |
-| 7 | Grafieken & trends | Gepland |
+| 6A | Datamodel + service + extractie + orkestratie (Word/Excel) | ✅ |
+| 6B | Wizard-uitbreiding (Word/Excel) | ✅ |
+| 6C | Fix `service.py` + succesmelding + i18n-fix | ✅ |
+| 6F | Documentatie bijwerken (Word/Excel) | ✅ |
+| **7** | **Grafieken en trends** | **Volgende** |
 | 8 | Rapportage | Gepland |
 | 9 | Packaging / installer / signing | Gepland |
 | 10 | Praktische ESR-validatie | Gepland |
@@ -423,106 +463,137 @@ Volgens het stappenplan:
 
 ---
 
-## 5. WAT IS NIEUW SINDS VERSIE 3.3.0
+## 5. WAT IS NIEUW SINDS VERSIE 3.4.0
 
-### 5.1 5D'.1b — Metadata van imports doorzoekbaar maken (formaliseren)
+### 5.1 Fase 6 — Word- en Excel-import
 
-**Doel:** formeel vastleggen en testen dat het vrije zoekveld in de
-documentatiebibliotheek de metadata van imports doorzoekt.
+In drie deelfasen (6A, 6B, 6C) is de import-laag uitgebreid met Word
+en Excel. Zie `docs/documentation_import.md` §6 voor de technische
+details.
+
+**Nieuwe bestanden:**
+
+| Bestand | Versie |
+|---|---|
+| `app/documentation/docx_extract.py` | 1.0.0 |
+| `app/documentation/docx_import.py` | 1.0.0 |
+| `app/documentation/xlsx_extract.py` | 1.0.1 |
+| `app/documentation/xlsx_import.py` | 1.0.0 |
+| `tests/test_documentation_docx_extract.py` | 1.0.0 |
+| `tests/test_documentation_docx_import.py` | 1.0.0 |
+| `tests/test_documentation_xlsx_extract.py` | 1.0.1 |
+| `tests/test_documentation_xlsx_import.py` | 1.0.1 |
 
 **Gewijzigde bestanden:**
 
-| Bestand | Versie | Wijziging |
-|---|---|---|
-| `tests/test_documentation_service_user_catalog.py` | 1.1.0 → 1.2.1 | 17 nieuwe tests voor metadata-doorzoekbaarheid; fix voor `test_search_text_vindt_source_url` |
-| `tests/test_documentation_import_service.py` | 1.2.0 → 1.2.1 | Flakiness-fix in twee beste-match-tests (`time.sleep(0.01)`) |
-| `docs/documentation_import.md` | 1.1.0 → 1.2.0 | Nieuwe sectie 4 over doorzoekbare metadata |
-| `docs/openvragen.md` | 1.2.0 → 1.3.0 | §2.7 toegevoegd: metadata doorzoekbaar (beantwoord) |
+| Bestand | Versie |
+|---|---|
+| `app/documentation/import_models.py` | 1.3.0 |
+| `app/documentation/import_service.py` | 1.4.0 |
+| `app/documentation/service.py` | 1.10.0 |
+| `app/gui/dialogs/import_wizard_dialog.py` | 1.7.0 |
+| `i18n/locales/nl_NL/documentation.json` | 1.6.0 |
+| `i18n/locales/en_US/documentation.json` | 1.6.0 |
+| `tests/test_documentation_import_models.py` | 1.3.0 |
+| `tests/test_documentation_import_service.py` | 1.3.0 |
+| `tests/test_documentation_service_user_catalog.py` | 1.3.0 |
+| `tests/test_import_wizard_dialog.py` | 1.7.0 |
+| `requirements.txt` | +`python-docx>=1.1` |
 
-**Geen productiecodewijziging.** `service.py` blijft op 1.9.1,
-`import_service.py` op 1.3.1.
+**Nieuwe i18n-keys (sinds 3.4.0):**
 
-**Nieuwe tests (17):**
-- Per metadata-veld één test: `manufacturer`, `series`, `part_number`,
-  `document_version`, `document_date`, `notes`, `category`,
-  `source_url`, `title`.
-- Negatieve tests: `document_id` en `source_path` matchen niet.
-- Combinatietests: metadata + titel, metadata + gearchiveerd, metadata
-  zonder `include_archived`.
-- Lege metadata matcht niet per ongeluk.
+- `succes_titel`, `succes_bericht` in beide talen.
 
-**Bugfix in nieuwe test:** `test_search_text_vindt_source_url` gebruikte
-zoekterm "datasheet", die ook matchte op de ingebouwde categorie
-DATASHEET. Vervangen door een unieke URL en zoekterm.
+**Belangrijkste bugs onderweg gefixt:**
 
-**Flakiness-fix in bestaande tests:** twee beste-match-tests
-registreerden bronnen binnen dezelfde milliseconde, waardoor
-`imported_at` gelijk was en de sortering niet-deterministisch. Opgelost
-met `time.sleep(0.01)` tussen de registraties.
+- `service.py` herkende `docx`/`xlsx` niet → v1.10.0.
+- `extract_xlsx_text` sloeg lege bladen over → v1.0.1.
+- Testhelpers in xlsx-tests gebruikten `wb["A1"]` → `wb.active["A1"]`.
+- Hangende wizard-tests na succesmelding → patch op `_toon_succesmelding`.
 
-### 5.2 Nieuwe i18n-keys (sinds 3.3.0)
+### 5.2 Fase 6F — Documentatie bijwerken
 
-Geen nieuwe i18n-keys in 5D'.1b. De fase raakt geen GUI-tekst.
+- `docs/changelog.md` — versie 1.6 toegevoegd.
+- `docs/documentation_import.md` — v1.3.0 met Word/Excel-sectie.
+- `docs/openvragen.md` — v1.4.0 met §2.8 en §2.9.
+- `overdracht.md` — deze versie.
 
-### 5.3 Nieuwe dependencies
+### 5.3 Teststatus
 
-Geen nieuwe dependencies in 5D'.1b.
+**Baseline: 999 passed.** Dat is +99 ten opzichte van v3.4.0 (900).
 
-### 5.4 Belangrijke ontwerpkeuzes (sinds 3.3.0)
-
-- **Doorzoekbare metadata is menselijke metadata.** Technische
-  identificatie (`document_id`, `source_path`, `title_key`) hoort niet
-  in het vrije zoekveld; gebruik daarvoor de filter-dropdowns of
-  `get_document`.
-- **Formele tests voor bestaand gedrag.** `_search_blob` was al correct
-  sinds v1.7.0; 5D'.1b voegt alleen tests en documentatie toe.
-- **Testflakiness is een bug.** De twee beste-match-tests waren
-  timing-afhankelijk; een kleine slaap maakt ze deterministisch zonder
-  productiecode te wijzigen.
-
-### 5.5 Bekende beperkingen
+### 5.4 Bekende beperkingen
 
 - **Geen OCR** voor gescande PDF's.
-- **Geen Word/Excel-import** in fase 5. **Volgende fase (6).**
+- **`.doc` en `.xls` worden geweigerd** (oud formaat).
 - **Geen async URL-fetch.** Blokkeert de GUI tot 10s.
 - **Datum-parsing bij bewerken** accepteert alleen ISO-formaat.
 - **Geen bulk-edit** van meerdere imports.
 - **Geen bulk-statuswijziging** van meerdere imports.
 - **Geen reden bij archiveren.** Bewust geaccepteerd in 5D'.2e.
+- **Cosmetische scrollbar** in de Word-samenvatting.
+- **`extract_docx_text` en `extract_xlsx_text`** zijn aanwezig maar
+  worden niet gebruikt in fase 6. Ze zijn voorbereiding voor fase 12.
 
 ---
 
 ## 6. OPENSTAANDE VRAGEN VOOR DE NIEUWE CHAT
 
-### 6.1 Welke fase starten?
+### 6.1 Fase 7 — Grafieken en trends
 
-De laatst afgeronde fase is **5D'.1b**. De volgende fase is **6 —
-Fabrikantdocument-import (Word, Excel)**.
+**Doel:** de gebruiker kan meetgegevens uit de historiek visualiseren
+als grafiek of trend. Denk aan:
 
-**Fase 6 — Fabrikantdocument-import (Word, Excel)**
+- ESR verloop over tijd voor één component of één serie.
+- Capaciteit verloop.
+- D-verloop.
+- Vergelijking van meetmethodes (EX_SITU / ONE_LEG / IN_CIRCUIT) voor
+  dezelfde component.
+- Verdeling van eindstatussen over een periode.
+- Verdeling van betrouwbaarheid.
 
-- `.docx` via `python-docx` (pure Python, MIT).
-- `.doc` (oud) weigeren met duidelijke melding; vereist `pywin32` +
-  Word-installatie.
-- `.xlsx` via `openpyxl` (staat al in `requirements.txt`).
-- Uitbreiding van de wizard met nieuwe bron-types.
-- Nieuwe `ImportSourceType`-waarden of een aparte service.
+**Belangrijke uitgangspunten:**
 
-### 6.2 Open vragen voor fase 6
+1. **Read-only.** De analyse-laag leest de SQLite-storage, schrijft
+   niets terug. Historische metingen worden nooit opnieuw beoordeeld.
+2. **Geen wijziging aan bestaande data.** Grafieken zijn puur visueel.
+3. **Filtreerbaar.** De gebruiker kiest een periode, een tool, een
+   component, een meetmethode, een instrument.
+4. **Geen AI.** Eenvoudige aggregaties en grafieken.
+5. **Backward-compatible.** Bestaande historiek blijft werken.
 
-1. Moet de wizard één type-keuze krijgen met vier opties (PDF / URL /
-   Word / Excel), of aparte menu-items?
-2. Moet Word/Excel ook een kopie naar `sources/` krijgen?
-3. Hoe omgaan met `.doc` (oud Word-formaat)? Weigeren met melding?
-4. Moet Excel-extractie de cellen als tekst in de catalogus opslaan, of
-   alleen het bestand kopiëren?
-5. Nieuwe dependency `python-docx` toevoegen aan `requirements.txt`?
-6. Moet de metadata-uitbreiding (categorie, fabrikant, serie, etc.) ook
-   voor Word/Excel gelden? Waarschijnlijk ja, via dezelfde
-   `_metadata_form_helpers`.
-7. Moet het bestandsformaat in de catalogus bewaard worden (voor de
-   viewer-dispatch)? Nu is er `source_type` met PDF/URL; Word/Excel
-   zouden nieuwe waarden krijgen of een apart veld.
+### 6.2 Open vragen voor fase 7
+
+De nieuwe chat moet eerst deze vragen met de gebruiker afstemmen
+voordat er code wordt geschreven:
+
+1. **Welke grafiekbibliotheek?** De kandidaat is `matplotlib`, maar
+   die is zwaar (voegt ~50MB toe aan de installer). Alternatief:
+   `pyqtgraph` (Qt-native, licht, interactief). Of `QtCharts` (Qt-
+   native, geen extra dependency). Wat weegt zwaarder: eenvoud of
+   lichtgewicht?
+
+2. **Waar komt de grafiek?** Een nieuw tabblad in de historiek-pagina?
+   Een aparte pagina "Analyse" in het hoofdmenu? Een apart dialoog dat
+   je opent vanuit de historiek?
+
+3. **Welke grafiektypes in fase 7?** Alleen lijngrafieken (trend over
+   tijd), of ook scatter (ESR vs. capaciteit), histogram (verdeling),
+   boxplot (spreiding per meetmethode)?
+
+4. **Eén grafiek per keer, of een dashboard?** Een eenvoudige aanpak
+   is één grafiek per keer met filters. Een dashboard met meerdere
+   grafieken naast elkaar is complexer.
+
+5. **Welke aggregaties?** Ruwe meetwaarden (elke meting een punt),
+   of geaggregeerd (gemiddelde per dag/week/maand)? Of beide, met een
+   dropdown?
+
+6. **Export?** Moet de grafiek kunnen worden geëxporteerd als PNG of
+   PDF? Dat hoort misschien bij fase 8 (Rapportage), niet bij fase 7.
+
+7. **Multi-component vergelijking?** Moet de gebruiker twee of meer
+   componenten naast elkaar kunnen zetten in één grafiek?
 
 ### 6.3 Overige openstaande punten
 
@@ -533,13 +604,15 @@ Fabrikantdocument-import (Word, Excel)**.
 - **Async URL-fetch.** Fase 11.
 - **Catalogusmigratie bij meerdere versies.** Nog niet nodig.
 - **Light theme.** Uitgesteld naar fase 11.
+- **AI-tekstextractie uit docx/xlsx.** Voorbereiding voor fase 12.
+- **Cosmetische scrollbar** in Word-samenvatting. Fase 11.
 
 ---
 
 ## 7. TESTSTATUS — BASELINE EN TESTSTRUCTUUR
 
 **Datum:** 2026-10-09
-**Baseline:** 900 passed
+**Baseline:** 999 passed
 **Werkwijze:** eerst gerichte tests, dan volledige `pytest -q`.
 
 ### 7.1 Commando's

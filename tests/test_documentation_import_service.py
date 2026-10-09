@@ -31,6 +31,7 @@ Wijzigingen:
                         gelijk was en de sortering niet-deterministisch.
                         time.sleep(0.01) tussen de registraties maakt de
                         tests deterministisch. Geen productiecodewijziging.
+  v1.3.0 — register_docx en register_xlsx (fase 6A)                      
 ================================================================================
 """
 
@@ -798,3 +799,98 @@ def test_catalogus_backward_compat_zonder_metadata(tmp_path):
     assert len(items) == 1
     assert items[0].category is None
     assert items[0].manufacturer is None
+    
+# ============================================================================
+# v1.3.0 — register_docx en register_xlsx (fase 6A)
+# ============================================================================
+
+def test_register_docx_maakt_concept(service):
+    result = service.register_docx(
+        title="Word-doc", original_filename="doc.docx"
+    )
+    assert result.changed is True
+    assert result.source.source_type is ImportSourceType.DOCX
+    assert result.source.status is ImportStatus.CONCEPT
+    assert result.source.original_filename == "doc.docx"
+
+
+def test_register_xlsx_maakt_concept(service):
+    result = service.register_xlsx(
+        title="Excel-werkmap", original_filename="doc.xlsx"
+    )
+    assert result.changed is True
+    assert result.source.source_type is ImportSourceType.XLSX
+    assert result.source.status is ImportStatus.CONCEPT
+    assert result.source.original_filename == "doc.xlsx"
+
+
+def test_register_docx_zonder_titel_faalt(service):
+    with pytest.raises(ImportValidationError):
+        service.register_docx(title="", original_filename="doc.docx")
+
+
+def test_register_xlsx_zonder_titel_faalt(service):
+    with pytest.raises(ImportValidationError):
+        service.register_xlsx(title="", original_filename="doc.xlsx")
+
+
+def test_register_docx_zonder_bestandsnaam_faalt(service):
+    with pytest.raises(ImportValidationError):
+        service.register_docx(title="Titel", original_filename="")
+
+
+def test_register_xlsx_zonder_bestandsnaam_faalt(service):
+    with pytest.raises(ImportValidationError):
+        service.register_xlsx(title="Titel", original_filename="")
+
+
+def test_register_docx_met_metadata(service):
+    result = service.register_docx(
+        title="Word-doc",
+        original_filename="doc.docx",
+        category="MANUAL",
+        manufacturer="CHONG",
+        series="CDX",
+        part_number="CDX-1",
+        document_version="V1.1",
+        document_date="2026-10-09",
+        notes="noot",
+    )
+    s = result.source
+    assert s.category == "MANUAL"
+    assert s.manufacturer == "CHONG"
+    assert s.series == "CDX"
+    assert s.part_number == "CDX-1"
+    assert s.document_version == "V1.1"
+    assert s.document_date == "2026-10-09"
+    assert s.notes == "noot"
+
+
+def test_register_xlsx_met_metadata(service):
+    result = service.register_xlsx(
+        title="Excel-werkmap",
+        original_filename="doc.xlsx",
+        category="REFERENCE_TABLE",
+        manufacturer="TDK",
+    )
+    s = result.source
+    assert s.category == "REFERENCE_TABLE"
+    assert s.manufacturer == "TDK"
+
+
+def test_docx_persisteert_naar_disk(service):
+    result = service.register_docx(
+        title="Word-doc", original_filename="doc.docx"
+    )
+    service2 = ImportService(catalog_path=service.catalog_path)
+    terug = service2.get(result.source.source_id)
+    assert terug.source_type is ImportSourceType.DOCX
+
+
+def test_xlsx_persisteert_naar_disk(service):
+    result = service.register_xlsx(
+        title="Excel-werkmap", original_filename="doc.xlsx"
+    )
+    service2 = ImportService(catalog_path=service.catalog_path)
+    terug = service2.get(result.source.source_id)
+    assert terug.source_type is ImportSourceType.XLSX    

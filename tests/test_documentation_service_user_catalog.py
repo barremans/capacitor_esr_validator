@@ -2,7 +2,7 @@
 ================================================================================
 Module:     tests/test_documentation_service_user_catalog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.1
+Versie:     1.3.0
 Datum:      2026-10-09
 Auteur:     Bart Bossuyt
 
@@ -32,6 +32,10 @@ Wijzigingen:
                        ingebouwde categorie DATASHEET. Vervangen door
                        een unieke URL en zoekterm zodat alleen de
                        URL-import matcht.
+  v1.3.0 (2026-10-09)  Fase 6C: tests voor docx/xlsx-imports in de
+                       gebruikerscatalogus. Bevestigt dat de viewer
+                       docx/xlsx herkent als FILE met het juiste
+                       source_path.
 ================================================================================
 """
 
@@ -42,7 +46,7 @@ from pathlib import Path
 
 import pytest
 
-from app.documentation.models import DocumentCategory
+from app.documentation.models import DocumentCategory, DocumentSourceType
 from app.documentation.service import DocumentationService
 
 
@@ -557,3 +561,262 @@ def test_search_text_lege_metadata_matcht_niet(tmp_path):
     # Een term die nergens voorkomt levert niets op.
     niets = service.list_documents(search_text="bestaat-niet-xyz")
     assert niets == []
+
+
+# ============================================================================
+# v1.3.0 — docx- en xlsx-imports (fase 6C)
+# ============================================================================
+
+def test_docx_import_wordt_gelezen_als_file(tmp_path):
+    """Een docx-import verschijnt als DocumentSourceType.FILE."""
+    service = _service_met_imports(
+        tmp_path,
+        [
+            {
+                "source_id": "import-docx",
+                "source_type": "docx",
+                "title": "Word-document",
+                "imported_at": 1_700_000_000_000,
+                "imported_by": "tester",
+                "status": "concept",
+                "original_filename": "doc.docx",
+                "file_hash": "hash_docx",
+            }
+        ],
+    )
+
+    docs = service.load_documents()
+    docx_docs = [d for d in docs if d.document_id == "import-docx"]
+    assert len(docx_docs) == 1
+
+    doc = docx_docs[0]
+    assert doc.source_type is DocumentSourceType.FILE
+    assert doc.source_path == "sources/import-docx.docx"
+    assert doc.source_url is None
+    assert doc.is_user_import is True
+
+
+def test_xlsx_import_wordt_gelezen_als_file(tmp_path):
+    """Een xlsx-import verschijnt als DocumentSourceType.FILE."""
+    service = _service_met_imports(
+        tmp_path,
+        [
+            {
+                "source_id": "import-xlsx",
+                "source_type": "xlsx",
+                "title": "Excel-werkmap",
+                "imported_at": 1_700_000_000_000,
+                "imported_by": "tester",
+                "status": "concept",
+                "original_filename": "doc.xlsx",
+                "file_hash": "hash_xlsx",
+            }
+        ],
+    )
+
+    docs = service.load_documents()
+    xlsx_docs = [d for d in docs if d.document_id == "import-xlsx"]
+    assert len(xlsx_docs) == 1
+
+    doc = xlsx_docs[0]
+    assert doc.source_type is DocumentSourceType.FILE
+    assert doc.source_path == "sources/import-xlsx.xlsx"
+    assert doc.source_url is None
+    assert doc.is_user_import is True
+
+
+def test_docx_import_krijgt_provenance(tmp_path):
+    """Een docx-import krijgt een FILE-provenance met originele bestandsnaam."""
+    service = _service_met_imports(
+        tmp_path,
+        [
+            {
+                "source_id": "import-docx",
+                "source_type": "docx",
+                "title": "Word-document",
+                "imported_at": 1_700_000_000_000,
+                "imported_by": "tester",
+                "status": "concept",
+                "original_filename": "mijn-bestand.docx",
+                "file_hash": "hash",
+            }
+        ],
+    )
+
+    doc = service.get_document("import-docx")
+    assert len(doc.provenance) == 1
+    ref = doc.provenance[0]
+    assert ref.source_kind == "FILE"
+    assert ref.source_path == "sources/import-docx.docx"
+    assert "mijn-bestand.docx" in (ref.note or "")
+
+
+def test_xlsx_import_krijgt_provenance(tmp_path):
+    """Een xlsx-import krijgt een FILE-provenance met originele bestandsnaam."""
+    service = _service_met_imports(
+        tmp_path,
+        [
+            {
+                "source_id": "import-xlsx",
+                "source_type": "xlsx",
+                "title": "Excel-werkmap",
+                "imported_at": 1_700_000_000_000,
+                "imported_by": "tester",
+                "status": "concept",
+                "original_filename": "mijn-bestand.xlsx",
+                "file_hash": "hash",
+            }
+        ],
+    )
+
+    doc = service.get_document("import-xlsx")
+    assert len(doc.provenance) == 1
+    ref = doc.provenance[0]
+    assert ref.source_kind == "FILE"
+    assert ref.source_path == "sources/import-xlsx.xlsx"
+    assert "mijn-bestand.xlsx" in (ref.note or "")
+
+
+def test_docx_en_xlsx_kunnen_gearchiveerd_worden(tmp_path):
+    """Ook docx/xlsx respecteren include_archived."""
+    service = _service_met_imports(
+        tmp_path,
+        [
+            {
+                "source_id": "import-docx",
+                "source_type": "docx",
+                "title": "Word",
+                "imported_at": 1_700_000_000_000,
+                "imported_by": "tester",
+                "status": "gearchiveerd",
+                "original_filename": "doc.docx",
+                "file_hash": "h1",
+            },
+            {
+                "source_id": "import-xlsx",
+                "source_type": "xlsx",
+                "title": "Excel",
+                "imported_at": 1_700_000_000_000,
+                "imported_by": "tester",
+                "status": "gearchiveerd",
+                "original_filename": "doc.xlsx",
+                "file_hash": "h2",
+            },
+        ],
+    )
+
+    zonder = service.load_documents()
+    zonder_ids = {d.document_id for d in zonder}
+    assert "import-docx" not in zonder_ids
+    assert "import-xlsx" not in zonder_ids
+
+    met = service.load_documents(include_archived=True)
+    met_ids = {d.document_id for d in met}
+    assert "import-docx" in met_ids
+    assert "import-xlsx" in met_ids
+
+
+def test_docx_metadata_wordt_doorgegeven(tmp_path):
+    """Metadata van een docx-import komt door in DocumentMetadata."""
+    service = _service_met_imports(
+        tmp_path,
+        [
+            {
+                "source_id": "import-docx",
+                "source_type": "docx",
+                "title": "Word-doc",
+                "imported_at": 1_700_000_000_000,
+                "imported_by": "tester",
+                "status": "concept",
+                "original_filename": "doc.docx",
+                "file_hash": "h",
+                "category": "MANUAL",
+                "manufacturer": "CHONG",
+                "series": "CDX",
+                "part_number": "CDX-1",
+                "document_version": "V1.1",
+                "document_date": "2026-10-09",
+                "notes": "Word notitie",
+            }
+        ],
+    )
+
+    doc = service.get_document("import-docx")
+    assert doc.category is DocumentCategory.MANUAL
+    assert doc.manufacturer == "CHONG"
+    assert doc.series == "CDX"
+    assert doc.part_number == "CDX-1"
+    assert doc.document_version == "V1.1"
+    assert doc.document_date == "2026-10-09"
+    assert doc.notes == "Word notitie"
+
+
+def test_xlsx_metadata_wordt_doorgegeven(tmp_path):
+    """Metadata van een xlsx-import komt door in DocumentMetadata."""
+    service = _service_met_imports(
+        tmp_path,
+        [
+            {
+                "source_id": "import-xlsx",
+                "source_type": "xlsx",
+                "title": "Excel-werkmap",
+                "imported_at": 1_700_000_000_000,
+                "imported_by": "tester",
+                "status": "concept",
+                "original_filename": "doc.xlsx",
+                "file_hash": "h",
+                "category": "REFERENCE_TABLE",
+                "manufacturer": "TDK",
+            }
+        ],
+    )
+
+    doc = service.get_document("import-xlsx")
+    assert doc.category is DocumentCategory.REFERENCE_TABLE
+    assert doc.manufacturer == "TDK"
+
+
+def test_docx_zoekbaar_op_metadata(tmp_path):
+    """Docx-imports zijn doorzoekbaar op hun metadata."""
+    service = _service_met_imports(
+        tmp_path,
+        [
+            {
+                "source_id": "import-docx",
+                "source_type": "docx",
+                "title": "Word-doc",
+                "imported_at": 1_700_000_000_000,
+                "imported_by": "tester",
+                "status": "concept",
+                "original_filename": "doc.docx",
+                "file_hash": "h",
+                "manufacturer": "CHONG",
+            }
+        ],
+    )
+
+    result = service.list_documents(search_text="CHONG")
+    assert {d.document_id for d in result} == {"import-docx"}
+
+
+def test_xlsx_zoekbaar_op_metadata(tmp_path):
+    """Xlsx-imports zijn doorzoekbaar op hun metadata."""
+    service = _service_met_imports(
+        tmp_path,
+        [
+            {
+                "source_id": "import-xlsx",
+                "source_type": "xlsx",
+                "title": "Excel-werkmap",
+                "imported_at": 1_700_000_000_000,
+                "imported_by": "tester",
+                "status": "concept",
+                "original_filename": "doc.xlsx",
+                "file_hash": "h",
+                "manufacturer": "TDK",
+            }
+        ],
+    )
+
+    result = service.list_documents(search_text="TDK")
+    assert {d.document_id for d in result} == {"import-xlsx"}

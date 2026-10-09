@@ -4,6 +4,56 @@ Overzicht van wat er nieuw of verbeterd is in de Electronics Diagnostic
 Tool Hub. Voor technische details en architectuurkeuzes verwijzen we naar
 `docs/context.md`.
 
+## Versie 1.6 — Fabrikantdocumenten: Word en Excel (9 oktober 2026)
+
+**Word- en Excel-import**
+
+Naast PDF en URL kun je nu ook **Word-documenten (.docx)** en
+**Excel-werkmappen (.xlsx)** importeren als documentatiebron. De
+import-wizard heeft vier keuzes:
+
+- **PDF-bestand**
+- **Word-document**
+- **Excel-werkmap**
+- **Vanaf URL**
+
+De wizard werkt voor alle vier de types hetzelfde: kies het bestand,
+controleer de samenvatting, vul eventueel metadata in, en bevestig.
+Duplicate-detectie op basis van SHA-256, de metadata-sectie, de
+documentdatum en de notities werken identiek aan de PDF-import.
+
+**Wat je in de samenvatting ziet**
+
+Voor Word: het aantal paragrafen. Voor Excel: het aantal werkbladen.
+In beide gevallen ook de bestandsnaam, de grootte in bytes en de
+documenttitel.
+
+**Bevestiging na import**
+
+Na een geslaagde import toont de applicatie een bevestigingsvenster:
+"Het document '...' is geïmporteerd als Concept." Zo weet je meteen
+dat de import gelukt is. Voorheen sloot de wizard zonder melding.
+
+**Oude formaten worden geweigerd**
+
+Het oude `.doc`-formaat (Word 97-2003) en `.xls`-formaat (Excel 97-2003)
+worden niet ondersteund. Converteer naar `.docx` of `.xlsx` en probeer
+opnieuw. De applicatie geeft een duidelijke melding als je zo'n bestand
+toch probeert te importeren.
+
+**Verbeterd: Word- en Excel-bestanden openen**
+
+Geïmporteerde Word- en Excel-bestanden worden geopend in de standaard
+Word- of Excel-applicatie, net zoals PDF's dat al deden. De metadata
+(categorie, fabrikant, serie, partnummer, versie, datum, notities)
+blijft zichtbaar in de documentatiebibliotheek en is doorzoekbaar.
+
+**Opgelost: foutmelding bij openen van Word- of Excel-import**
+
+Een eerdere versie gaf de melding "onbekend source_type" bij het openen
+van de documentatiebibliotheek nadat een Word- of Excel-bestand was
+geïmporteerd. Dat is nu opgelost.
+
 ## Versie 1.5 — Status van eigen imports beheren (8 oktober 2026)
 
 **Status van een import wijzigen**
@@ -89,7 +139,6 @@ Het zoekveld in de documentatiebibliotheek doorzoekt nu ook de metadata
 van geïmporteerde documenten (categorie, fabrikant, serie, partnummer,
 versie, datum, notities en bron-URL). Zoeken op fabrikant of serie werkt
 daardoor nu ook voor eigen imports.
-
 
 ## Versie 1.3 — Help per taal en duidelijkere zoekuitleg
 **Datum:** 6 oktober 2026
@@ -286,14 +335,13 @@ daardoor nu ook voor eigen imports.
 ---
 
 ## Gepland voor volgende versies
-- **Versie 2.0** — PDF- en URL-import van fabrikantdocumenten via
-  een wizard. *(grotendeels afgerond in 1.4 en 1.5; resterende
-  onderdelen — Word, Excel — volgen in fase 6.)*
-- **Versie 2.1** — Automatische herkenning van fabrikantgegevens
-  (met verplichte menselijke goedkeuring).
-- **Versie 3.0** — Grafieken en trends over meerdere metingen.
-- **Versie 3.1** — Rapportage en export van bevindingen.
-- **Versie 4.0** — Installer en code-ondertekening voor eenvoudige
+- **Versie 2.0** — Grafieken en trends over meerdere metingen.
+  *(was voorheen gepland onder versie 3.0; verschoven naar voren omdat
+  de documentatie-import nu klaar is.)*
+- **Versie 2.1** — Rapportage en export van bevindingen.
+- **Versie 3.0** — Installer en code-ondertekening voor eenvoudige
   installatie op Windows.
-- **Versie 5.0** — Uitgebreide praktijkvalidatie van ESR-metingen.
-- **Versie 6.0** — Een tweede diagnosetool: weerstandsmetingen.
+- **Versie 4.0** — Uitgebreide praktijkvalidatie van ESR-metingen.
+- **Versie 5.0** — Een tweede diagnosetool: weerstandsmetingen.
+- **Versie 6.0** — AI-extractie uit fabrikantdocumenten met verplichte
+  menselijke goedkeuring.

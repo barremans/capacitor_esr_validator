@@ -2,15 +2,15 @@
 ================================================================================
 Module:     app/documentation/import_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.3.1
-Datum:      2026-10-08
+Versie:     1.4.0
+Datum:      2026-10-09
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-onafhankelijke service voor het registreren en beheren van
-            geïmporteerde documentatiebronnen (PDF / URL). Schrijft naar een
-            aparte gebruikerscatalogus in %LOCALAPPDATA%, los van de
-            ingebouwde read-only catalogus. Geen Qt, geen netwerk, geen
-            PDF-parsing.
+            geïmporteerde documentatiebronnen (PDF / URL / Word / Excel).
+            Schrijft naar een aparte gebruikerscatalogus in %LOCALAPPDATA%,
+            los van de ingebouwde read-only catalogus. Geen Qt, geen
+            netwerk, geen PDF/DOCX/XLSX-parsing.
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie: register_pdf, register_url,
@@ -48,6 +48,9 @@ Wijzigingen:
                        doelbestand nog kort vasthoudt na een eerdere read
                        (virusscanner, indexering, cloud-sync).
                        Backward-compatible; geen API-wijziging.
+  v1.4.0 (2026-10-09)  Fase 6A: register_docx en register_xlsx toegevoegd
+                       voor Word- en Excel-imports. Zelfde patroon als
+                       register_pdf. Backward-compatible.
 ================================================================================
 """
 
@@ -109,7 +112,7 @@ class ImportService:
     """Beheert de gebruikerscatalogus van geïmporteerde documentatiebronnen.
 
     De service is volledig GUI-onafhankelijk en doet geen netwerk- of
-    PDF-operaties. Registratie betekent hier: metadata vastleggen.
+    PDF/DOCX/XLSX-operaties. Registratie betekent hier: metadata vastleggen.
     """
 
     def __init__(
@@ -146,15 +149,10 @@ class ImportService:
         worden door ImportSource genormaliseerd naar None.
         """
 
-        source = ImportSource(
-            source_id=self._new_source_id(),
+        return self._register_local_file(
             source_type=ImportSourceType.PDF,
             title=title,
-            imported_at=self._now_ms(),
-            imported_by=self._imported_by,
-            status=ImportStatus.CONCEPT,
             original_filename=original_filename,
-            source_url=None,
             file_hash=file_hash,
             notes=notes,
             category=category,
@@ -164,8 +162,72 @@ class ImportService:
             document_version=document_version,
             document_date=document_date,
         )
-        self._append(source)
-        return ImportResult(source=source, changed=True)
+
+    def register_docx(
+        self,
+        *,
+        title: str,
+        original_filename: str,
+        file_hash: Optional[str] = None,
+        notes: Optional[str] = None,
+        category: Optional[str] = None,
+        manufacturer: Optional[str] = None,
+        series: Optional[str] = None,
+        part_number: Optional[str] = None,
+        document_version: Optional[str] = None,
+        document_date: Optional[str] = None,
+    ) -> ImportResult:
+        """Registreer een nieuwe Word-bron (DOCX) in CONCEPT-status.
+
+        Sinds fase 6A. Zelfde patroon als register_pdf.
+        """
+
+        return self._register_local_file(
+            source_type=ImportSourceType.DOCX,
+            title=title,
+            original_filename=original_filename,
+            file_hash=file_hash,
+            notes=notes,
+            category=category,
+            manufacturer=manufacturer,
+            series=series,
+            part_number=part_number,
+            document_version=document_version,
+            document_date=document_date,
+        )
+
+    def register_xlsx(
+        self,
+        *,
+        title: str,
+        original_filename: str,
+        file_hash: Optional[str] = None,
+        notes: Optional[str] = None,
+        category: Optional[str] = None,
+        manufacturer: Optional[str] = None,
+        series: Optional[str] = None,
+        part_number: Optional[str] = None,
+        document_version: Optional[str] = None,
+        document_date: Optional[str] = None,
+    ) -> ImportResult:
+        """Registreer een nieuwe Excel-bron (XLSX) in CONCEPT-status.
+
+        Sinds fase 6A. Zelfde patroon als register_pdf.
+        """
+
+        return self._register_local_file(
+            source_type=ImportSourceType.XLSX,
+            title=title,
+            original_filename=original_filename,
+            file_hash=file_hash,
+            notes=notes,
+            category=category,
+            manufacturer=manufacturer,
+            series=series,
+            part_number=part_number,
+            document_version=document_version,
+            document_date=document_date,
+        )
 
     def register_url(
         self,
@@ -195,6 +257,43 @@ class ImportService:
             original_filename=None,
             source_url=source_url,
             file_hash=None,
+            notes=notes,
+            category=category,
+            manufacturer=manufacturer,
+            series=series,
+            part_number=part_number,
+            document_version=document_version,
+            document_date=document_date,
+        )
+        self._append(source)
+        return ImportResult(source=source, changed=True)
+
+    def _register_local_file(
+        self,
+        *,
+        source_type: ImportSourceType,
+        title: str,
+        original_filename: str,
+        file_hash: Optional[str],
+        notes: Optional[str],
+        category: Optional[str],
+        manufacturer: Optional[str],
+        series: Optional[str],
+        part_number: Optional[str],
+        document_version: Optional[str],
+        document_date: Optional[str],
+    ) -> ImportResult:
+        """Gedeelde implementatie voor register_pdf / register_docx / register_xlsx."""
+        source = ImportSource(
+            source_id=self._new_source_id(),
+            source_type=source_type,
+            title=title,
+            imported_at=self._now_ms(),
+            imported_by=self._imported_by,
+            status=ImportStatus.CONCEPT,
+            original_filename=original_filename,
+            source_url=None,
+            file_hash=file_hash,
             notes=notes,
             category=category,
             manufacturer=manufacturer,
@@ -318,9 +417,6 @@ class ImportService:
 
         Er wordt GEEN is_allowed_transition-check gedaan: 'Overschrijven'
         is een expliciete gebruikersactie.
-
-        Voor metadata-wijzigingen zonder bronbestand-wijziging gebruikt de
-        editor update_metadata(), niet deze methode.
         """
 
         items = list(self._read_all())
@@ -393,8 +489,6 @@ class ImportService:
           - niet meegegeven  -> bestaande waarde behouden
           - expliciet None   -> veld leegmaken
           - waarde           -> veld vervangen (ImportSource valideert)
-
-        Wordt gebruikt door de editor in de viewer (fase 5D'.2c).
         """
 
         items = list(self._read_all())
@@ -439,10 +533,6 @@ class ImportService:
     def _kies_titel_met_default(waarde: object, bestaande: str) -> str:
         """Titel mag niet leeg zijn; een lege of niet-meegegeven titel
         behoudt de bestaande waarde.
-
-        ImportSource zelf verbiedt een lege titel, dus de editor moet
-        ofwel een niet-lege titel meegeven, ofwel niets. In beide gevallen
-        blijft de bestaande titel behouden als het veld leeg is.
         """
         if waarde is _NIET_MEEGEGEVEN:
             return bestaande
@@ -451,7 +541,6 @@ class ImportService:
         if isinstance(waarde, str):
             gestript = waarde.strip()
             return gestript or bestaande
-        # Onbekend type: laat ImportSource klagen.
         return waarde  # type: ignore[return-value]
 
     @staticmethod
@@ -463,7 +552,6 @@ class ImportService:
         """
         if waarde is _NIET_MEEGEGEVEN:
             return bestaande
-        # ImportSource valideert en normaliseert verder zelf.
         return waarde  # type: ignore[return-value]
 
     def set_status(

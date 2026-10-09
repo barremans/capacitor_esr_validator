@@ -2,14 +2,15 @@
 ================================================================================
 Module:     tests/test_documentation_import_models.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.0
-Datum:      2026-10-07
+Versie:     1.3.0
+Datum:      2026-10-09
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor import_models: enums, frozen-gedrag,
             statusovergangen, serialisatie en de metadata-uitbreiding
             uit fase 5D'.2b (category, manufacturer, series, part_number,
-            document_version, document_date).
+            document_version, document_date). Sinds v1.3.0 ook de
+            DOCX- en XLSX-brontypes uit fase 6A.
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
@@ -17,6 +18,8 @@ Wijzigingen:
   v1.2.0 (2026-10-07)  Metadata-velden (5D'.2b): defaults, normalisatie
                        van lege strings naar None, to_dict/from_dict
                        round-trip, backward-compat met oude catalogi.
+  v1.3.0 (2026-10-09)  Fase 6A: ImportSourceType.DOCX en .XLSX,
+                       validatie van local-file-types, round-trip.
 ================================================================================
 """
 
@@ -69,6 +72,36 @@ def _url_source(**overrides) -> ImportSource:
     return ImportSource(**basis)
 
 
+def _docx_source(**overrides) -> ImportSource:
+    basis = dict(
+        source_id="src-3",
+        source_type=ImportSourceType.DOCX,
+        title="Titel",
+        imported_at=1_700_000_000_000,
+        imported_by="tester",
+        status=ImportStatus.CONCEPT,
+        original_filename="doc.docx",
+        file_hash="abc123",
+    )
+    basis.update(overrides)
+    return ImportSource(**basis)
+
+
+def _xlsx_source(**overrides) -> ImportSource:
+    basis = dict(
+        source_id="src-4",
+        source_type=ImportSourceType.XLSX,
+        title="Titel",
+        imported_at=1_700_000_000_000,
+        imported_by="tester",
+        status=ImportStatus.CONCEPT,
+        original_filename="doc.xlsx",
+        file_hash="abc123",
+    )
+    basis.update(overrides)
+    return ImportSource(**basis)
+
+
 # ============================================================================
 # Enums
 # ============================================================================
@@ -76,6 +109,8 @@ def _url_source(**overrides) -> ImportSource:
 def test_import_source_type_waarden():
     assert ImportSourceType.PDF.value == "pdf"
     assert ImportSourceType.URL.value == "url"
+    assert ImportSourceType.DOCX.value == "docx"
+    assert ImportSourceType.XLSX.value == "xlsx"
 
 
 def test_import_status_waarden():
@@ -425,3 +460,135 @@ def test_duplicate_match_ongeldig_type_faalt():
 def test_duplicate_match_bestaande_verkeerd_type_faalt():
     with pytest.raises(ImportValidationError):
         DuplicateMatch(bestaande="geen-source", match_type="file_hash")  # type: ignore[arg-type]
+
+
+# ============================================================================
+# v1.3.0 — ImportSourceType DOCX en XLSX (fase 6A)
+# ============================================================================
+
+def test_docx_source_geldig():
+    s = _docx_source()
+    assert s.source_type is ImportSourceType.DOCX
+    assert s.original_filename == "doc.docx"
+    assert s.source_url is None
+
+
+def test_xlsx_source_geldig():
+    s = _xlsx_source()
+    assert s.source_type is ImportSourceType.XLSX
+    assert s.original_filename == "doc.xlsx"
+    assert s.source_url is None
+
+
+def test_docx_zonder_original_filename_faalt():
+    with pytest.raises(ImportValidationError):
+        _docx_source(original_filename=None)
+
+
+def test_docx_met_source_url_faalt():
+    with pytest.raises(ImportValidationError):
+        _docx_source(source_url="https://example.com")
+
+
+def test_xlsx_zonder_original_filename_faalt():
+    with pytest.raises(ImportValidationError):
+        _xlsx_source(original_filename=None)
+
+
+def test_xlsx_met_source_url_faalt():
+    with pytest.raises(ImportValidationError):
+        _xlsx_source(source_url="https://example.com")
+
+
+def test_round_trip_docx_zonder_metadata():
+    s = _docx_source()
+    hersteld = ImportSource.from_dict(s.to_dict())
+    assert hersteld == s
+
+
+def test_round_trip_xlsx_zonder_metadata():
+    s = _xlsx_source()
+    hersteld = ImportSource.from_dict(s.to_dict())
+    assert hersteld == s
+
+
+def test_round_trip_docx_met_metadata():
+    s = _docx_source(
+        category="MANUAL",
+        manufacturer="CHONG",
+        series="CDX",
+        part_number="CDX-1",
+        document_version="V1.1",
+        document_date="2026-10-09",
+        notes="noot",
+    )
+    hersteld = ImportSource.from_dict(s.to_dict())
+    assert hersteld == s
+
+
+def test_round_trip_xlsx_met_metadata():
+    s = _xlsx_source(
+        category="REFERENCE_TABLE",
+        manufacturer="TDK",
+        notes="noot",
+    )
+    hersteld = ImportSource.from_dict(s.to_dict())
+    assert hersteld == s
+
+
+def test_docx_to_dict_heeft_docx_source_type():
+    s = _docx_source()
+    assert s.to_dict()["source_type"] == "docx"
+
+
+def test_xlsx_to_dict_heeft_xlsx_source_type():
+    s = _xlsx_source()
+    assert s.to_dict()["source_type"] == "xlsx"
+
+
+def test_from_dict_docx():
+    data = {
+        "source_id": "src-3",
+        "source_type": "docx",
+        "title": "Titel",
+        "imported_at": 1_700_000_000_000,
+        "imported_by": "tester",
+        "status": "concept",
+        "original_filename": "doc.docx",
+        "source_url": None,
+        "file_hash": "abc123",
+        "notes": None,
+    }
+    s = ImportSource.from_dict(data)
+    assert s.source_type is ImportSourceType.DOCX
+
+
+def test_from_dict_xlsx():
+    data = {
+        "source_id": "src-4",
+        "source_type": "xlsx",
+        "title": "Titel",
+        "imported_at": 1_700_000_000_000,
+        "imported_by": "tester",
+        "status": "concept",
+        "original_filename": "doc.xlsx",
+        "source_url": None,
+        "file_hash": "abc123",
+        "notes": None,
+    }
+    s = ImportSource.from_dict(data)
+    assert s.source_type is ImportSourceType.XLSX
+
+
+def test_from_dict_onbekende_source_type_faalt():
+    data = {
+        "source_id": "src-x",
+        "source_type": "pptx",  # niet ondersteund
+        "title": "Titel",
+        "imported_at": 1_700_000_000_000,
+        "imported_by": "tester",
+        "status": "concept",
+        "original_filename": "doc.pptx",
+    }
+    with pytest.raises(ImportValidationError):
+        ImportSource.from_dict(data)

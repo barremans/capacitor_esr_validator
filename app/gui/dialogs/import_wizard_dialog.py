@@ -2,13 +2,14 @@
 ================================================================================
 Module:     app/gui/dialogs/import_wizard_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.5.0
-Datum:      2026-10-07
+Versie:     1.7.0
+Datum:      2026-10-09
 Auteur:     Bart Bossuyt
 
-Doel:       Modale wizard voor het importeren van een PDF of URL als
-            documentatiebron. Roept de GUI-onafhankelijke services aan
-            (import_pdf / import_url) en toont een samenvatting vóór
+Doel:       Modale wizard voor het importeren van een PDF, Word-document,
+            Excel-werkmap of URL als documentatiebron. Roept de
+            GUI-onafhankelijke services aan (import_pdf / import_docx /
+            import_xlsx / import_url) en toont een samenvatting vóór
             bevestiging. Bij een bestaande bron toont de wizard een
             popup met drie keuzes (Behouden / Nieuwe versie / Overschrijven)
             via DuplicateSourceDialog. Sinds 5D'.2b bevat de wizard ook
@@ -17,6 +18,11 @@ Doel:       Modale wizard voor het importeren van een PDF of URL als
             en "Datum onbekend"-checkbox, en worden identificatievelden
             automatisch in uppercase gezet. Sinds 5D'.2c gebruikt de
             wizard de gedeelde helpers uit _metadata_form_helpers.
+            Sinds 6B ondersteunt de wizard ook Word (.docx) en Excel
+            (.xlsx); de oude formaten .doc en .xls worden geweigerd.
+            Sinds 6C toont de wizard een expliciete succesmelding na
+            een geslaagde import, zodat de gebruiker visueel bevestiging
+            krijgt vóór het sluiten van de wizard.
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
@@ -33,6 +39,14 @@ Wijzigingen:
                        _metadata_form_helpers gebruikt voor
                        categorie-dropdown en uppercase. Geen
                        gedragswijziging.
+  v1.6.0 (2026-10-09)  Fase 6B: vier radio buttons (PDF / Word / Excel /
+                       URL). Nieuwe methoden _pick_docx en _pick_xlsx,
+                       uitbreiding van _update_state, _refresh_summary,
+                       _check_duplicate en _perform_import. .doc en
+                       .xls worden geweigerd door de extractors.
+  v1.7.0 (2026-10-09)  Fase 6C: succesmelding na geslaagde import via
+                       QMessageBox.information met de titel van het
+                       geïmporteerde document.
 ================================================================================
 """
 
@@ -81,6 +95,18 @@ from app.documentation.pdf_extract import (
     extract_pdf_metadata,
 )
 from app.documentation.pdf_import import import_pdf
+from app.documentation.docx_extract import (
+    DocxExtractError,
+    compute_file_hash as compute_docx_hash,
+    extract_docx_metadata,
+)
+from app.documentation.docx_import import import_docx
+from app.documentation.xlsx_extract import (
+    XlsxExtractError,
+    compute_file_hash as compute_xlsx_hash,
+    extract_xlsx_metadata,
+)
+from app.documentation.xlsx_import import import_xlsx
 from app.documentation.url_fetch import (
     UrlFetchError,
     UrlMetadata,
@@ -98,7 +124,7 @@ from dataclasses import replace as _dc_replace
 
 
 class ImportWizardDialog(QDialog):
-    """Modale wizard voor het importeren van een PDF of URL."""
+    """Modale wizard voor het importeren van een PDF, Word, Excel of URL."""
 
     import_completed = Signal(str)  # source_id van de nieuwe bron
 
@@ -113,10 +139,19 @@ class ImportWizardDialog(QDialog):
         self.taal = taal
         self.import_service = import_service or ImportService()
 
-        # Interne toestand
+        # Interne toestand — PDF
         self._pdf_pad: Optional[Path] = None
         self._pdf_meta_titel: Optional[str] = None
         self._pdf_hash: Optional[str] = None
+        # Interne toestand — DOCX
+        self._docx_pad: Optional[Path] = None
+        self._docx_meta_titel: Optional[str] = None
+        self._docx_hash: Optional[str] = None
+        # Interne toestand — XLSX
+        self._xlsx_pad: Optional[Path] = None
+        self._xlsx_meta_titel: Optional[str] = None
+        self._xlsx_hash: Optional[str] = None
+        # Interne toestand — URL
         self._url: Optional[str] = None
         self._url_meta: Optional[UrlMetadata] = None
         # Titelveld-state: True zolang de titel automatisch is ingevuld en
@@ -124,8 +159,8 @@ class ImportWizardDialog(QDialog):
         self._titel_automatisch: bool = True
 
         self.setModal(True)
-        self.resize(560, 660)
-        self.setMinimumSize(480, 600)
+        self.resize(620, 700)
+        self.setMinimumSize(520, 640)
 
         self._build_ui()
         self._apply_language()
@@ -194,21 +229,13 @@ class ImportWizardDialog(QDialog):
         return str(data)
 
     def _documentdatum_waarde(self) -> Optional[str]:
-        """Lees de documentdatum als ISO-string, of None.
-
-        Wanneer de "Datum onbekend"-checkbox aan staat, is de waarde None.
-        Anders wordt de QDateEdit-waarde geconverteerd naar yyyy-MM-dd.
-        """
+        """Lees de documentdatum als ISO-string, of None."""
         if self.datum_onbekend_checkbox.isChecked():
             return None
         return self.documentdatum_edit.date().toString("yyyy-MM-dd")
 
     def _metadata_uit_formulier(self) -> dict:
-        """Verzamel alle metadata-velden behalve notes.
-
-        Notes wordt apart meegegeven aan import_pdf/import_url, omdat die
-        functies een expliciete notes-parameter hebben.
-        """
+        """Verzamel alle metadata-velden behalve notes."""
         return {
             "category": self._huidige_categorie(),
             "manufacturer": self.fabrikant_edit.text(),
@@ -228,13 +255,23 @@ class ImportWizardDialog(QDialog):
         self.documentdatum_edit.setEnabled(not aangevinkt)
 
     def _zet_datum_op_vandaag(self) -> None:
-        """Sneltoets Ctrl+D: zet de documentdatum op vandaag.
-
-        Doet niets als de "Datum onbekend"-checkbox aan staat.
-        """
+        """Sneltoets Ctrl+D: zet de documentdatum op vandaag."""
         if self.datum_onbekend_checkbox.isChecked():
             return
         self.documentdatum_edit.setDate(QDate.currentDate())
+
+    def _toon_succesmelding(self, titel: str) -> None:
+        """Toon een korte bevestiging dat het document geïmporteerd is.
+
+        Wordt aangeroepen vóór self.accept(), zodat de gebruiker ziet
+        dat de import geslaagd is. De wizard blijft open tot de gebruiker
+        op OK klikt; daarna sluit hij.
+        """
+        QMessageBox.information(
+            self,
+            self._t("documentatie.import.succes_titel"),
+            self._t("documentatie.import.succes_bericht", titel=titel),
+        )
 
     # ---------------------------------------------------------------- UI
 
@@ -255,12 +292,18 @@ class ImportWizardDialog(QDialog):
         type_row = QHBoxLayout()
         self.radio_pdf = QRadioButton()
         self.radio_pdf.setChecked(True)
+        self.radio_word = QRadioButton()
+        self.radio_excel = QRadioButton()
         self.radio_url = QRadioButton()
         self.type_group = QButtonGroup(self)
         self.type_group.addButton(self.radio_pdf)
+        self.type_group.addButton(self.radio_word)
+        self.type_group.addButton(self.radio_excel)
         self.type_group.addButton(self.radio_url)
         self.radio_pdf.toggled.connect(self._on_type_changed)
         type_row.addWidget(self.radio_pdf)
+        type_row.addWidget(self.radio_word)
+        type_row.addWidget(self.radio_excel)
         type_row.addWidget(self.radio_url)
         type_row.addStretch()
         layout.addLayout(type_row)
@@ -278,6 +321,32 @@ class ImportWizardDialog(QDialog):
         pdf_layout.addWidget(self.pdf_pick_btn)
         layout.addWidget(self.pdf_panel)
 
+        # Word-paneel
+        self.word_panel = QWidget()
+        word_layout = QHBoxLayout(self.word_panel)
+        word_layout.setContentsMargins(0, 0, 0, 0)
+        self.word_path_label = QLabel()
+        self.word_path_label.setWordWrap(True)
+        self.word_path_label.setStyleSheet("color: #AAAAAA;")
+        word_layout.addWidget(self.word_path_label, 1)
+        self.word_pick_btn = QPushButton()
+        self.word_pick_btn.clicked.connect(self._pick_docx)
+        word_layout.addWidget(self.word_pick_btn)
+        layout.addWidget(self.word_panel)
+
+        # Excel-paneel
+        self.excel_panel = QWidget()
+        excel_layout = QHBoxLayout(self.excel_panel)
+        excel_layout.setContentsMargins(0, 0, 0, 0)
+        self.excel_path_label = QLabel()
+        self.excel_path_label.setWordWrap(True)
+        self.excel_path_label.setStyleSheet("color: #AAAAAA;")
+        excel_layout.addWidget(self.excel_path_label, 1)
+        self.excel_pick_btn = QPushButton()
+        self.excel_pick_btn.clicked.connect(self._pick_xlsx)
+        excel_layout.addWidget(self.excel_pick_btn)
+        layout.addWidget(self.excel_panel)
+
         # URL-paneel
         self.url_panel = QWidget()
         url_layout = QHBoxLayout(self.url_panel)
@@ -294,13 +363,11 @@ class ImportWizardDialog(QDialog):
         titel_form = QFormLayout()
         self.title_label_field = QLabel()
         self.title_edit = QLineEdit()
-        # textEdited vuurt alleen bij echte gebruikersinvoer, niet bij
-        # programmatische setText. Zo blijft _titel_automatisch correct.
         self.title_edit.textEdited.connect(self._on_titel_handmatig_bewerkt)
         titel_form.addRow(self.title_label_field, self.title_edit)
         layout.addLayout(titel_form)
 
-        # Metadata-sectie (fase 5D'.2b)
+        # Metadata-sectie
         self.metadata_label = QLabel()
         self.metadata_label.setStyleSheet("font-weight: bold;")
         layout.addWidget(self.metadata_label)
@@ -308,12 +375,10 @@ class ImportWizardDialog(QDialog):
         metadata_form = QFormLayout()
         self.categorie_label = QLabel()
         self.categorie_combo = QComboBox()
-        # De labels worden door _apply_language gezet via vul_categorie_combo.
         metadata_form.addRow(self.categorie_label, self.categorie_combo)
 
         self.fabrikant_label = QLabel()
         self.fabrikant_edit = QLineEdit()
-        # Uppercase bij gebruikersinvoer (5D'.2d).
         self.fabrikant_edit.textEdited.connect(
             lambda _t: naar_uppercase(self.fabrikant_edit)
         )
@@ -342,7 +407,7 @@ class ImportWizardDialog(QDialog):
             self.documentversie_label, self.documentversie_edit
         )
 
-        # Documentdatum: QDateEdit + "Datum onbekend"-checkbox (5D'.2d).
+        # Documentdatum: QDateEdit + "Datum onbekend"-checkbox
         self.documentdatum_label = QLabel()
         self.documentdatum_edit = QDateEdit()
         self.documentdatum_edit.setCalendarPopup(True)
@@ -398,13 +463,27 @@ class ImportWizardDialog(QDialog):
         self.title_label.setText(self._t("documentatie.import.titel"))
         self.type_label.setText(self._t("documentatie.import.type_vraag"))
         self.radio_pdf.setText(self._t("documentatie.import.type_pdf"))
+        self.radio_word.setText(self._t("documentatie.import.type_word"))
+        self.radio_excel.setText(self._t("documentatie.import.type_excel"))
         self.radio_url.setText(self._t("documentatie.import.type_url"))
         self.pdf_path_label.setText(
             self._pdf_pad.name
             if self._pdf_pad
             else self._t("documentatie.import.geen_bestand")
         )
+        self.word_path_label.setText(
+            self._docx_pad.name
+            if self._docx_pad
+            else self._t("documentatie.import.geen_bestand")
+        )
+        self.excel_path_label.setText(
+            self._xlsx_pad.name
+            if self._xlsx_pad
+            else self._t("documentatie.import.geen_bestand")
+        )
         self.pdf_pick_btn.setText(self._t("documentatie.import.kies_bestand"))
+        self.word_pick_btn.setText(self._t("documentatie.import.kies_word"))
+        self.excel_pick_btn.setText(self._t("documentatie.import.kies_excel"))
         self.url_edit.setPlaceholderText(
             self._t("documentatie.import.url_placeholder")
         )
@@ -443,7 +522,6 @@ class ImportWizardDialog(QDialog):
             self._t("documentatie.import.veld_notities")
         )
         # Categorie-labels vullen/herzetten via de gedeelde helper.
-        # Bewaar de huidige selectie zodat een taalwissel die niet verliest.
         huidige_selectie = self.categorie_combo.currentData()
         vul_categorie_combo(self.categorie_combo, self._t)
         if self.categorie_combo.count() > 0:
@@ -465,15 +543,24 @@ class ImportWizardDialog(QDialog):
 
     def _update_state(self) -> None:
         is_pdf = self.radio_pdf.isChecked()
+        is_word = self.radio_word.isChecked()
+        is_excel = self.radio_excel.isChecked()
+        is_url = self.radio_url.isChecked()
+
         self.pdf_panel.setVisible(is_pdf)
-        self.url_panel.setVisible(not is_pdf)
+        self.word_panel.setVisible(is_word)
+        self.excel_panel.setVisible(is_excel)
+        self.url_panel.setVisible(is_url)
+
         self.url_fetch_btn.setEnabled(
-            not is_pdf and bool(self.url_edit.text().strip())
+            is_url and bool(self.url_edit.text().strip())
         )
 
         klaar = (
             (is_pdf and self._pdf_pad is not None)
-            or (not is_pdf and self._url_meta is not None)
+            or (is_word and self._docx_pad is not None)
+            or (is_excel and self._xlsx_pad is not None)
+            or (is_url and self._url_meta is not None)
         )
         self.import_btn.setEnabled(klaar)
 
@@ -518,7 +605,92 @@ class ImportWizardDialog(QDialog):
         self.pdf_path_label.setText(bron_pad.name)
 
         self._stel_titel_voor(bron_pad.stem)
+        self._onthoud_laatste_importmap(bron_pad)
 
+        self._update_state()
+
+    def _pick_docx(self) -> None:
+        instellingen = laad_instellingen()
+        start_map = self._start_map_voor_pdf(instellingen)
+
+        pad, _ = QFileDialog.getOpenFileName(
+            self,
+            self._t("documentatie.import.kies_word_titel"),
+            start_map,
+            "Word (*.docx)",
+        )
+        if not pad:
+            return
+
+        bron_pad = Path(pad)
+        try:
+            meta = extract_docx_metadata(bron_pad)
+        except DocxExtractError as exc:
+            QMessageBox.warning(
+                self,
+                self._t("documentatie.import.fout_titel"),
+                self._t("documentatie.import.fout_word", bericht=str(exc)),
+            )
+            return
+
+        try:
+            self._docx_hash = compute_docx_hash(bron_pad)
+        except DocxExtractError as exc:
+            QMessageBox.warning(
+                self,
+                self._t("documentatie.import.fout_titel"),
+                self._t("documentatie.import.fout_word", bericht=str(exc)),
+            )
+            return
+
+        self._docx_pad = bron_pad
+        self._docx_meta_titel = meta.title
+        self.word_path_label.setText(bron_pad.name)
+
+        self._stel_titel_voor(bron_pad.stem)
+        self._onthoud_laatste_importmap(bron_pad)
+
+        self._update_state()
+
+    def _pick_xlsx(self) -> None:
+        instellingen = laad_instellingen()
+        start_map = self._start_map_voor_pdf(instellingen)
+
+        pad, _ = QFileDialog.getOpenFileName(
+            self,
+            self._t("documentatie.import.kies_excel_titel"),
+            start_map,
+            "Excel (*.xlsx)",
+        )
+        if not pad:
+            return
+
+        bron_pad = Path(pad)
+        try:
+            meta = extract_xlsx_metadata(bron_pad)
+        except XlsxExtractError as exc:
+            QMessageBox.warning(
+                self,
+                self._t("documentatie.import.fout_titel"),
+                self._t("documentatie.import.fout_excel", bericht=str(exc)),
+            )
+            return
+
+        try:
+            self._xlsx_hash = compute_xlsx_hash(bron_pad)
+        except XlsxExtractError as exc:
+            QMessageBox.warning(
+                self,
+                self._t("documentatie.import.fout_titel"),
+                self._t("documentatie.import.fout_excel", bericht=str(exc)),
+            )
+            return
+
+        self._xlsx_pad = bron_pad
+        self._xlsx_meta_titel = meta.title
+        self.excel_path_label.setText(bron_pad.name)
+
+        self._stel_titel_voor(bron_pad.stem)
         self._onthoud_laatste_importmap(bron_pad)
 
         self._update_state()
@@ -567,6 +739,64 @@ class ImportWizardDialog(QDialog):
             self.summary_browser.setHtml("<br>".join(regels))
             return
 
+        if self.radio_word.isChecked() and self._docx_pad:
+            try:
+                grootte = self._docx_pad.stat().st_size
+            except OSError:
+                grootte = 0
+            regels = [
+                f"<b>{self._t('documentatie.import.samenvatting_type')}:</b> "
+                f"{self._t('documentatie.import.type_word')}",
+                f"<b>{self._t('documentatie.import.samenvatting_bestand')}:</b> "
+                f"{self._docx_pad.name}",
+                f"<b>{self._t('documentatie.import.samenvatting_grootte')}:</b> "
+                f"{grootte} bytes",
+            ]
+            try:
+                meta = extract_docx_metadata(self._docx_pad)
+                regels.append(
+                    f"<b>{self._t('documentatie.import.samenvatting_paragrafen')}:</b> "
+                    f"{meta.paragraph_count}"
+                )
+            except DocxExtractError:
+                pass
+            if self._docx_meta_titel:
+                regels.append(
+                    f"<b>{self._t('documentatie.import.samenvatting_pdf_titel')}:</b> "
+                    f"{self._docx_meta_titel}"
+                )
+            self.summary_browser.setHtml("<br>".join(regels))
+            return
+
+        if self.radio_excel.isChecked() and self._xlsx_pad:
+            try:
+                grootte = self._xlsx_pad.stat().st_size
+            except OSError:
+                grootte = 0
+            regels = [
+                f"<b>{self._t('documentatie.import.samenvatting_type')}:</b> "
+                f"{self._t('documentatie.import.type_excel')}",
+                f"<b>{self._t('documentatie.import.samenvatting_bestand')}:</b> "
+                f"{self._xlsx_pad.name}",
+                f"<b>{self._t('documentatie.import.samenvatting_grootte')}:</b> "
+                f"{grootte} bytes",
+            ]
+            try:
+                meta = extract_xlsx_metadata(self._xlsx_pad)
+                regels.append(
+                    f"<b>{self._t('documentatie.import.samenvatting_bladen')}:</b> "
+                    f"{meta.sheet_count}"
+                )
+            except XlsxExtractError:
+                pass
+            if self._xlsx_meta_titel:
+                regels.append(
+                    f"<b>{self._t('documentatie.import.samenvatting_pdf_titel')}:</b> "
+                    f"{self._xlsx_meta_titel}"
+                )
+            self.summary_browser.setHtml("<br>".join(regels))
+            return
+
         if self.radio_url.isChecked() and self._url_meta:
             regels = [
                 f"<b>{self._t('documentatie.import.samenvatting_type')}:</b> "
@@ -603,6 +833,18 @@ class ImportWizardDialog(QDialog):
                 return None
             return find_duplicate(
                 self.import_service, file_hash=self._pdf_hash
+            )
+        if self.radio_word.isChecked():
+            if self._docx_hash is None:
+                return None
+            return find_duplicate(
+                self.import_service, file_hash=self._docx_hash
+            )
+        if self.radio_excel.isChecked():
+            if self._xlsx_hash is None:
+                return None
+            return find_duplicate(
+                self.import_service, file_hash=self._xlsx_hash
             )
         if self._url_meta is None:
             return None
@@ -644,6 +886,28 @@ class ImportWizardDialog(QDialog):
                     duplicate_action=actie,
                     **metadata,
                 )
+            elif self.radio_word.isChecked():
+                if self._docx_pad is None:
+                    return
+                result = import_docx(
+                    self._docx_pad,
+                    import_service=self.import_service,
+                    title=titel,
+                    notes=notities,
+                    duplicate_action=actie,
+                    **metadata,
+                )
+            elif self.radio_excel.isChecked():
+                if self._xlsx_pad is None:
+                    return
+                result = import_xlsx(
+                    self._xlsx_pad,
+                    import_service=self.import_service,
+                    title=titel,
+                    notes=notities,
+                    duplicate_action=actie,
+                    **metadata,
+                )
             else:
                 if self._url is None:
                     return
@@ -655,13 +919,23 @@ class ImportWizardDialog(QDialog):
                     duplicate_action=actie,
                     **metadata,
                 )
-        except (PdfExtractError, UrlFetchError, ImportValidationError) as exc:
+        except (
+            PdfExtractError,
+            DocxExtractError,
+            XlsxExtractError,
+            UrlFetchError,
+            ImportValidationError,
+        ) as exc:
             QMessageBox.warning(
                 self,
                 self._t("documentatie.import.fout_titel"),
                 self._t("documentatie.import.fout_import", bericht=str(exc)),
             )
             return
+
+        # Toon bevestiging vóór het sluiten van de wizard.
+        if result.changed:
+            self._toon_succesmelding(result.source.title)
 
         self.import_completed.emit(result.source.source_id)
         self.accept()

@@ -3,13 +3,12 @@
 
 ## Bestand 3: `docs/openvragen.md`
 
-**Versie:** 1.2.0 → 1.3.0
-**Wijziging:** §2.6 bijgewerkt — "Metadata van imports doorzoekbaar maken" is nu beantwoord.
+Ik werk de Word/Excel-punten bij. Volledige file:
 
 ```markdown
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 1.3.0
+**Versie:** 1.4.0
 **Datum:** 2026-10-09
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
@@ -29,6 +28,10 @@ Wijzigingen:
   v1.3.0 (2026-10-09)  §2.7 toegevoegd: metadata van imports
                        doorzoekbaar maken (5D'.1b) — beantwoord met
                        formele regressietests. Geen codewijziging.
+  v1.4.0 (2026-10-09)  §2.8 toegevoegd: Word- en Excel-import (fase 6)
+                       — beantwoord. Nieuwe openstaande punten: AI-
+                       tekstextractie uit docx/xlsx (fase 12),
+                       cosmetische scrollbar in Word-samenvatting.
 
 ---
 
@@ -61,7 +64,7 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 
 ---
 
-## 2. Uit Fase 5 — Import-wizard, metadata en statusbeheer
+## 2. Uit Fase 5 en 6 — Import, metadata en statusbeheer
 
 ### 2.1 Scope — beantwoord
 
@@ -75,8 +78,9 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 
 - Verplichte velden: `source_id`, `source_type`, `title`, `imported_at`,
   `imported_by`, `status`.
-- Type-specifiek verplicht: `original_filename` (PDF) of `source_url` (URL).
-- Optioneel: `file_hash` (PDF), `notes`.
+- Type-specifiek verplicht: `original_filename` (PDF/DOCX/XLSX) of
+  `source_url` (URL).
+- Optioneel: `file_hash` (PDF/DOCX/XLSX), `notes`.
 - Eén `ImportSource` = één document.
 
 ### 2.3 Metadata — beantwoord (5D'.2b en 5D'.2d)
@@ -146,13 +150,6 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
   - **Restvraag:** wat als we ooit velden toevoegen (bv.
     `archive_reason`)? Migratie-mechanisme ontbreekt nog.
   - **Status:** nog niet nodig.
-- **Word-import (`.docx` / `.doc`).** Moet later worden toegevoegd.
-  - `.docx` kan via `python-docx` (pure Python, MIT).
-  - `.doc` (oud) vereist `pywin32` + Word-installatie; waarschijnlijk
-    weigeren met een duidelijke melding.
-  - **Status:** voorbereiding voor fase 6 (Fabrikantdocument-import).
-- **Excel-import (`.xlsx`).** `openpyxl` staat al in `requirements.txt`.
-  Zelfde deelfase als Word?
 - **OCR voor gescande PDF's.** `pypdf` kan geen tekst uit
   afbeeldings-PDF's halen. Willen we ooit OCR?
   - **Impact:** zware dependency, breekt "licht en lokaal".
@@ -186,6 +183,42 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 - **Documentatie:** sectie 4 in `docs/documentation_import.md`.
 - **Geen codewijziging nodig.** `_search_blob` was al correct.
 - **Status:** afgerond.
+
+### 2.8 Word- en Excel-import — beantwoord (fase 6)
+
+- **Vraag:** kunnen we naast PDF en URL ook Word- en Excel-bestanden
+  importeren als documentatiebron?
+- **Antwoord:** ja, sinds fase 6. Word `.docx` via `python-docx`,
+  Excel `.xlsx` via `openpyxl`. Oude formaten `.doc` en `.xls` worden
+  geweigerd.
+- **Metadata-extractie:** `paragraph_count` voor Word, `sheet_count`
+  en `sheet_names` voor Excel. Titel, auteur, aanmaakdatum zijn
+  optioneel (uit `core_properties` / `workbook.properties`).
+- **Bevestiging na import:** sinds fase 6C toont de wizard een
+  `QMessageBox.information` met "Import geslaagd — Het document '...'
+  is geïmporteerd als Concept."
+- **Viewer-dispatch:** de viewer herkent docx/xlsx via `source_kind()`
+  en opent ze extern in Word of Excel. `service.py` v1.10.0 vertaalt
+  `source_type_raw` "docx"/"xlsx" naar `DocumentSourceType.FILE` met
+  het juiste `source_path`.
+- **Nieuwe dependency:** `python-docx>=1.1`.
+- **Status:** afgerond.
+
+### 2.9 Nieuwe openstaande punten (na fase 6)
+
+- **AI-tekstextractie uit docx/xlsx.** `extract_docx_text` en
+  `extract_xlsx_text` bestaan al, maar worden in fase 6 niet gebruikt.
+  Ze zijn bedoeld voor fase 12 (AI-extractie). Bij Excel krijgt elk
+  werkblad een header `# <bladnaam>`, ook als het blad leeg is, zodat
+  de structuur zichtbaar blijft voor een AI-model.
+  - **Restvraag:** is de tekstextractie geschikt voor AI-input, of moet
+    die eerst worden verfijnd (tabellen, formules, opmaak)?
+  - **Status:** voorbereiding voor fase 12.
+- **Cosmetische scrollbar in Word-samenvatting.** Voor een Word-bestand
+  met een lange documenttitel kan de samenvatting in de wizard een
+  scrollbar krijgen. Niet functioneel, wel cosmetisch.
+  - **Restvraag:** lost fase 11 dit op (bijv. scrollbar uitschakelen)?
+  - **Status:** open; klein.
 
 ---
 

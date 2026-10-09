@@ -2,12 +2,13 @@
 ================================================================================
 Module:     app/documentation/import_models.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.0
-Datum:      2026-10-07
+Versie:     1.3.0
+Datum:      2026-10-09
 Auteur:     Bart Bossuyt
 
 Doel:       Immutable modellen en vaste enumwaarden voor de import van
-            externe documentatiebronnen (PDF / URL). GUI-onafhankelijk.
+            externe documentatiebronnen (PDF / URL / Word / Excel).
+            GUI-onafhankelijk.
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie: ImportSourceType, ImportStatus,
@@ -21,6 +22,11 @@ Wijzigingen:
                        document_date. notes bestond al. Backward-compatible:
                        from_dict gebruikt .get(), oude catalogi blijven
                        geldig.
+  v1.3.0 (2026-10-09)  Fase 6A: ImportSourceType uitgebreid met DOCX en
+                       XLSX voor fabrikantdocumenten. ImportSource-
+                       validatie in __post_init__ aangepast: DOCX en XLSX
+                       gedragen zich als PDF (verplicht original_filename,
+                       geen source_url). Backward-compatible.
 ================================================================================
 """
 
@@ -40,6 +46,8 @@ class ImportSourceType(str, Enum):
 
     PDF = "pdf"
     URL = "url"
+    DOCX = "docx"
+    XLSX = "xlsx"
 
 
 class ImportStatus(str, Enum):
@@ -60,8 +68,8 @@ class DuplicateAction(str, Enum):
     """Keuze van de gebruiker bij een exact bestaande bron.
 
     Wordt gebruikt door de wizard-popup (fase 5D'.2a) en door de
-    orkestratielaag (pdf_import / url_import) om te bepalen wat er met
-    een duplicate gebeurt.
+    orkestratielaag (pdf_import / url_import / docx_import / xlsx_import)
+    om te bepalen wat er met een duplicate gebeurt.
 
     KEEP          Niets doen. Bestaande bron blijft ongewijzigd, geen
                   nieuwe registratie.
@@ -86,6 +94,16 @@ _ALLOWED_TRANSITIONS: dict[ImportStatus, frozenset[ImportStatus]] = {
     ),
     ImportStatus.GEARCHIVEERD: frozenset({ImportStatus.CONCEPT}),
 }
+
+
+# Bron-types die een lokaal bestand met original_filename vereisen.
+_LOCAL_FILE_SOURCE_TYPES: frozenset[ImportSourceType] = frozenset(
+    {
+        ImportSourceType.PDF,
+        ImportSourceType.DOCX,
+        ImportSourceType.XLSX,
+    }
+)
 
 
 def is_allowed_transition(
@@ -137,6 +155,10 @@ class ImportSource:
     Sinds v1.2.0 kunnen optionele metadata-velden worden meegegeven die
     de gebruiker in de import-wizard invult. Deze velden zijn alle
     optioneel; een bron zonder metadata is geldig.
+
+    Sinds v1.3.0 ondersteunt source_type ook DOCX en XLSX. Die gedragen
+    zich in de validatie identiek aan PDF: verplicht original_filename,
+    geen source_url.
     """
 
     source_id: str
@@ -176,14 +198,16 @@ class ImportSource:
         if not isinstance(self.imported_by, str) or not self.imported_by:
             raise ImportValidationError("imported_by mag niet leeg zijn")
 
-        if self.source_type is ImportSourceType.PDF:
+        if self.source_type in _LOCAL_FILE_SOURCE_TYPES:
             if not self.original_filename:
                 raise ImportValidationError(
-                    "PDF-bron vereist original_filename"
+                    f"{self.source_type.value.upper()}-bron vereist "
+                    "original_filename"
                 )
             if self.source_url:
                 raise ImportValidationError(
-                    "PDF-bron mag geen source_url hebben"
+                    f"{self.source_type.value.upper()}-bron mag geen "
+                    "source_url hebben"
                 )
         elif self.source_type is ImportSourceType.URL:
             if not self.source_url:
@@ -262,7 +286,9 @@ class ImportSource:
         """Lees een ImportSource uit een JSON-dict met validatie.
 
         Backward-compatible: ontbrekende metadata-velden (uit catalogi
-        van vóór 5D'.2b) worden None.
+        van vóór 5D'.2b) worden None. Onbekende source_type-waarden
+        (bv. "docx" uit een catalogus die door een nieuwere app-versie
+        is geschreven) worden geweigerd met een duidelijke fout.
         """
 
         if not isinstance(data, dict):
