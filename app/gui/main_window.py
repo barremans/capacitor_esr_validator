@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.9.0
-Datum:      2026-10-06
+Versie:     2.10.0
+Datum:      2026-10-09
 Auteur:     Bart Bossuyt
 
 Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
@@ -77,6 +77,11 @@ Wijzigingen:
                         import_completed ververst het Documentatie-scherm en
                         selecteert het nieuwe document. Geen wijziging aan
                         andere menu's, shortcuts of pagina's.
+  v2.10.0 (2026-10-09) Fase 7B: nieuwe Analyse-pagina. Hub-knop naast
+                        Diagnose/Historiek/Documentatie. Menu-item onder
+                        Diagnose. Ctrl+A op hub opent Analyse. Esc op
+                        Analyse gaat terug naar hub. closeEvent behandelt
+                        analyse_page. Venstertitel volgt.
 ================================================================================
 """
 
@@ -146,6 +151,11 @@ class ToolHubWindow(QMainWindow):
         self.documentation_page.import_requested.connect(self._show_import_wizard)
         self.stack.addWidget(self.documentation_page)
 
+        from app.gui.analysis_screen import AnalysisScreen
+        self.analysis_page = AnalysisScreen(taal=self.taal)
+        self.analysis_page.back_requested.connect(self._show_hub)
+        self.stack.addWidget(self.analysis_page)
+
         self.stack.setCurrentWidget(self.hub_page)
         # Menu wordt opgebouwd in _apply_language(); niet hier, om dubbele
         # menu-creatie in __init__ te vermijden.
@@ -197,7 +207,15 @@ class ToolHubWindow(QMainWindow):
             self.documentation_btn, 0, 2, Qt.AlignmentFlag.AlignCenter
         )
 
-        menu_grid.setColumnStretch(3, 1)
+        self.analysis_btn = QPushButton(self._t("tool.analyse"))
+        self.analysis_btn.setFixedSize(180, 120)
+        self.analysis_btn.setToolTip(self._t("tool.analyse_omschrijving"))
+        self.analysis_btn.clicked.connect(self._show_analysis)
+        menu_grid.addWidget(
+            self.analysis_btn, 0, 3, Qt.AlignmentFlag.AlignCenter
+        )
+
+        menu_grid.setColumnStretch(4, 1)
         layout.addLayout(menu_grid)
         layout.addStretch()
 
@@ -205,7 +223,7 @@ class ToolHubWindow(QMainWindow):
         return central
 
     def _install_hub_shortcuts(self, hub_widget: QWidget) -> None:
-        """Lokale sneltoetsen voor het Hoofdmenu (Fase 4F)."""
+        """Lokale sneltoetsen voor het Hoofdmenu (Fase 4F + 7B)."""
         ctx = Qt.ShortcutContext.WidgetWithChildrenShortcut
 
         self.sc_hub_diagnose = QShortcut(QKeySequence("Ctrl+D"), hub_widget)
@@ -219,6 +237,11 @@ class ToolHubWindow(QMainWindow):
         self.sc_hub_documentation = QShortcut(QKeySequence("Ctrl+K"), hub_widget)
         self.sc_hub_documentation.setContext(ctx)
         self.sc_hub_documentation.activated.connect(self._show_documentation)
+
+        # Nieuw in 7B: Ctrl+A opent Analyse.
+        self.sc_hub_analysis = QShortcut(QKeySequence("Ctrl+A"), hub_widget)
+        self.sc_hub_analysis.setContext(ctx)
+        self.sc_hub_analysis.activated.connect(self._show_analysis)
 
         # Fase 4F.2: Esc op hub vraagt bevestiging vóór afsluiten.
         self.sc_hub_close = QShortcut(QKeySequence("Esc"), hub_widget)
@@ -348,6 +371,13 @@ class ToolHubWindow(QMainWindow):
             self._t("app.titel") + " — " + self._t("documentatie.titel")
         )
 
+    def _show_analysis(self):
+        self.analysis_page.refresh()
+        self.stack.setCurrentWidget(self.analysis_page)
+        self.setWindowTitle(
+            self._t("app.titel") + " — " + self._t("analyse.titel")
+        )
+
     def _build_menu(self):
         menubar = self.menuBar()
 
@@ -374,6 +404,12 @@ class ToolHubWindow(QMainWindow):
         esr_action.setShortcut(QKeySequence("Ctrl+E"))
         esr_action.triggered.connect(self._open_esr_test)
         diagnose_menu.addAction(esr_action)
+
+        # Nieuw in 7B: Analyse openen vanuit Diagnose-menu.
+        analysis_action = QAction(self._t("menu.analyse"), self)
+        analysis_action.setShortcut(QKeySequence("Ctrl+A"))
+        analysis_action.triggered.connect(self._show_analysis)
+        diagnose_menu.addAction(analysis_action)
 
         # Instellingen
         settings_menu = menubar.addMenu(self._t("menu.instellingen"))
@@ -465,6 +501,9 @@ class ToolHubWindow(QMainWindow):
             self.documentation_btn.setToolTip(
                 self._t("tool.documentatie_omschrijving")
             )
+        if hasattr(self, "analysis_btn"):
+            self.analysis_btn.setText(self._t("tool.analyse"))
+            self.analysis_btn.setToolTip(self._t("tool.analyse_omschrijving"))
         if hasattr(self, "future_tool_placeholder"):
             self.future_tool_placeholder.setToolTip(self._t("tool.toekomstig"))
 
@@ -474,6 +513,8 @@ class ToolHubWindow(QMainWindow):
                 self.history_page.refresh()
         if hasattr(self, "documentation_page"):
             self.documentation_page.apply_language(self.taal)
+        if hasattr(self, "analysis_page"):
+            self.analysis_page.apply_language(self.taal)
         if hasattr(self, "esr_page"):
             self.esr_page.apply_language(self.taal)
         if hasattr(self, "esr_btn"):
@@ -497,6 +538,8 @@ class ToolHubWindow(QMainWindow):
             suffix = self._t("scherm.historiek")
         elif current is getattr(self, "documentation_page", None):
             suffix = self._t("documentatie.titel")
+        elif current is getattr(self, "analysis_page", None):
+            suffix = self._t("analyse.titel")
         else:
             suffix = None
 
@@ -538,9 +581,9 @@ class ToolHubWindow(QMainWindow):
         """Sluit contextueel.
 
         Vanuit ESR werkt de venster-X als 'Terug' naar Diagnose. Vanuit
-        Diagnose, Historiek of Documentatie gaat de X terug naar het Hoofdmenu.
-        Alleen op
-        het Hoofdmenu sluit de venster-X de applicatie volledig.
+        Diagnose, Historiek, Documentatie of Analyse gaat de X terug naar
+        het Hoofdmenu. Alleen op het Hoofdmenu sluit de venster-X de
+        applicatie volledig.
         """
         if hasattr(self, "stack"):
             current = self.stack.currentWidget()
@@ -557,6 +600,10 @@ class ToolHubWindow(QMainWindow):
                 event.ignore()
                 return
             if current is self.documentation_page:
+                self._show_hub()
+                event.ignore()
+                return
+            if current is getattr(self, "analysis_page", None):
                 self._show_hub()
                 event.ignore()
                 return

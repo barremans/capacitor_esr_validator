@@ -4,6 +4,52 @@ Overzicht van wat er nieuw of verbeterd is in de Electronics Diagnostic
 Tool Hub. Voor technische details en architectuurkeuzes verwijzen we naar
 `docs/context.md`.
 
+## Versie 1.7 — Grafieken en trends (9 oktober 2026)
+
+**Nieuwe pagina "Analyse"**
+
+In het hoofdmenu staat nu een vierde knop **Analyse**, naast Diagnose,
+Historiek en Documentatie. De pagina toont grafieken en trends op basis
+van je opgeslagen metingen. Je opent de pagina via de hub-knop, via het
+Diagnose-menu ("Analyse openen"), of met de sneltoets **Ctrl+A**.
+
+**Vier grafiektypes**
+
+Met een dropdown kies je welk type grafiek je wilt zien:
+
+- **ESR over tijd** — het ESR-verloop van je metingen, oud naar nieuw.
+- **Capaciteit over tijd** — het capaciteitsverloop.
+- **D over tijd** — het verloop van de dissipatiefactor.
+- **ESR vs. capaciteit** — een spreidingsdiagram waarin elke meting een
+  punt is. De kleur toont de eindstatus (goed, aandachtspunt,
+  twijfelachtig, defect, of geen status).
+
+**Filteren op precies dezelfde velden als de historiek**
+
+De filterbalk gebruikt dezelfde velden als de historiekpagina:
+fabrikant, serie, meetmethode, instrument, frequentie en een
+periode (van/tot datum). Zo zie je alleen de metingen die je wilt
+vergelijken. Met **Ctrl+F** open je het filterpaneel.
+
+**Aggregatie per dag, week of maand**
+
+Standaard toont elke grafiek alle ruwe meetwaarden. Met een tweede
+dropdown kies je **gemiddelde per dag**, **per week** of **per maand**.
+Dat is handig als je veel metingen hebt en de grote lijn wilt zien.
+
+**Read-only**
+
+De Analyse-pagina leest je opgeslagen metingen en schrijft niets terug.
+Historische metingen worden nooit opnieuw beoordeeld of gewijzigd.
+Grafieken zijn puur visueel.
+
+**Sneltoetsen**
+
+- **Ctrl+A** op het Hoofdmenu opent de Analyse-pagina.
+- **Ctrl+R** op de Analyse-pagina ververst de gegevens.
+- **Ctrl+F** opent het filterpaneel.
+- **Esc** gaat terug naar het Hoofdmenu.
+
 ## Versie 1.6 — Fabrikantdocumenten: Word en Excel (9 oktober 2026)
 
 **Word- en Excel-import**
@@ -335,10 +381,10 @@ daardoor nu ook voor eigen imports.
 ---
 
 ## Gepland voor volgende versies
-- **Versie 2.0** — Grafieken en trends over meerdere metingen.
-  *(was voorheen gepland onder versie 3.0; verschoven naar voren omdat
-  de documentatie-import nu klaar is.)*
-- **Versie 2.1** — Rapportage en export van bevindingen.
+- **Versie 2.0** — Rapportage en export van bevindingen.
+  *(was voorheen gepland onder versie 2.1; de grafieken zijn in
+  versie 1.7 afgerond, dus rapportage schuift op naar de volgende
+  mijlpaal.)*
 - **Versie 3.0** — Installer en code-ondertekening voor eenvoudige
   installatie op Windows.
 - **Versie 4.0** — Uitgebreide praktijkvalidatie van ESR-metingen.

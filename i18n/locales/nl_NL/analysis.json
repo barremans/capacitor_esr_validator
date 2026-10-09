@@ -1,0 +1,39 @@
+{
+  "_comment": "Brontaal Nederlands — module analysis.",
+  "tool": {
+    "analyse": "Analyse",
+    "analyse_omschrijving": "Bekijk grafieken en trends van opgeslagen metingen."
+  },
+  "menu": {
+    "analyse": "Analyse openen"
+  },
+  "scherm": {
+    "analyse": "Analyse"
+  },
+  "analyse": {
+    "titel": "Analyse — grafieken en trends",
+    "leeg": "Geen gegevens voor deze filters.",
+    "geen_gegevens": "Geen gegevens",
+    "aantal": "{aantal} punt(en) weergegeven.",
+    "fout": "Analyse kon niet worden geladen: {bericht}",
+    "status_onbekend": "Geen status",
+    "grafiektype": {
+      "esr": "ESR over tijd",
+      "capaciteit": "Capaciteit over tijd",
+      "d": "D over tijd",
+      "scatter_esr_c": "ESR vs. capaciteit"
+    },
+    "aggregatie": {
+      "ruw": "Ruwe metingen",
+      "dag": "Gemiddelde per dag",
+      "week": "Gemiddelde per week",
+      "maand": "Gemiddelde per maand"
+    },
+    "as": {
+      "datum": "Datum",
+      "esr_mohm": "ESR (mΩ)",
+      "capaciteit_uf": "Capaciteit (µF)",
+      "d": "D"
+    }
+  }
+}

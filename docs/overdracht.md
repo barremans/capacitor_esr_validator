@@ -1,16 +1,16 @@
 # OVERDRACHT — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie overdracht:** 3.5.0
+**Versie overdracht:** 3.6.0
 **Datum:** 2026-10-09
 **Auteur:** Bart Bossuyt
-**Vorige versie:** 3.4.0 (2026-10-09)
+**Vorige versie:** 3.5.0 (2026-10-09)
 **Doel:** volledig overdrachtsdocument voor een nieuwe ChatGPT-sessie of
 nieuwe ontwikkelaar. Bevat projectstaat, architectuur, regels, changelog,
 teststructuur en startprompt. Alles in één bestand.
 
-**Huidige baseline:** 999 passed
-**Laatste afgeronde fase:** 6F — Documentatie bijwerken (Word/Excel)
-**Volgende fase:** 7 — Grafieken en trends
+**Huidige baseline:** 1037 passed
+**Laatste afgeronde fase:** 7C — Grafieken en trends (documentatie)
+**Volgende fase:** 8 — Rapportage
 
 ---
 
@@ -20,7 +20,7 @@ teststructuur en startprompt. Alles in één bestand.
 2. Context — projectstaat en architectuur
 3. Kernregels — bindende afspraken
 4. Stappenplan — chronologisch overzicht
-5. Wat is nieuw sinds versie 3.4.0
+5. Wat is nieuw sinds versie 3.5.0
 6. Openstaande vragen voor de nieuwe chat
 7. Teststatus — baseline en teststructuur
 8. Bestanden die de nieuwe chat moet opvragen
@@ -40,9 +40,9 @@ iets doet.
 
 - Projectmap: `C:\PY\capacitor_esr_validator`.
 - Technologie: Python 3.12 + PySide6 (Qt6, Fusion-stijl), volledig offline.
-- Baseline: **999 passed**.
-- Laatste afgeronde fase: **6F — Documentatie bijwerken (Word/Excel)**.
-- Volgende fase: **7 — Grafieken en trends**.
+- Baseline: **1037 passed**.
+- Laatste afgeronde fase: **7C — Grafieken en trends (documentatie)**.
+- Volgende fase: **8 — Rapportage**.
 
 **Werkafspraken die je strikt volgt:**
 
@@ -64,6 +64,10 @@ iets doet.
 - Python-bestanden krijgen een **header** met bestandsnaam, project,
   versie, datum, auteur, doel en **cumulatieve wijzigingshistoriek**.
   Zie `docs/python_header_standard.md`.
+- **`pytest-qt` is geen dependency van dit project.** GUI-tests
+  gebruiken `os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")` en
+  een lokale `_app()`-helper (`QApplication.instance() or QApplication([])`).
+  Er is geen `conftest.py`. Gebruik geen `qtbot`-fixture.
 - Geen aannames over de volgende fase: vraag het na of verwijs naar
   sectie 4 van dit document.
 
@@ -98,27 +102,29 @@ eerst. Geen aannames.
 | Taal GUI | Nederlands + Engels (via i18n) |
 | Werkmodus | Volledig offline, lokale opslag |
 | Database | SQLite op `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\measurements.sqlite3` |
-| Huidige baseline | **999 passed** |
-| Laatste afgeronde fase | 6F — Documentatie bijwerken (Word/Excel) |
-| Volgende fase | 7 — Grafieken en trends |
+| Huidige baseline | **1037 passed** |
+| Laatste afgeronde fase | 7C — Grafieken en trends (documentatie) |
+| Volgende fase | 8 — Rapportage |
 
 ### 2.2 Huidige applicatiearchitectuur
 
 **Eén-venster-navigatie (ToolHubWindow):**
 
-- `QStackedWidget` met pagina's: hub, diagnose, ESR, historiek, documentatie.
+- `QStackedWidget` met pagina's: hub, diagnose, ESR, historiek,
+  documentatie, **analyse** (nieuw in 7B).
 - Contextueel X-gedrag: binnen een pagina terug naar de bovenliggende pagina;
   op de hub sluit de applicatie.
-- Menu: Bestand, Diagnose, Instellingen (incl. Talen), Help.
+- Menu: Bestand, Diagnose (incl. Analyse), Instellingen (incl. Talen), Help.
 
 **Sneltoetsen:**
 
-- **Globaal:** `Ctrl+Q`, `Ctrl+E`, `Ctrl+I`, `F1`.
+- **Globaal:** `Ctrl+Q`, `Ctrl+E`, `Ctrl+I`, `Ctrl+A`, `F1`.
 - **ESR-scherm:** `Esc`, `Ctrl+Return`, `Ctrl+S`, `Ctrl+W`, `Ctrl+I`.
 - **Historiek:** `Esc`, `Ctrl+R`, `Ctrl+F`, `Ctrl+D`, `Ctrl+H`.
-- **Hoofdmenu:** `Ctrl+D`, `Ctrl+H`, `Ctrl+K`, `Esc`.
+- **Hoofdmenu:** `Ctrl+D`, `Ctrl+H`, `Ctrl+K`, `Ctrl+A`, `Esc`.
 - **Diagnose:** `Esc`.
 - **Documentatie:** `Esc`, `Return`, `Ctrl+F`, `Ctrl+L`, `Ctrl+O`, `F1`.
+- **Analyse:** `Esc`, `Ctrl+R`, `Ctrl+F`.
 - **Import-wizard:** `Ctrl+D` (datum op vandaag).
 - **Metadata-editor:** `Ctrl+D` (datum op vandaag).
 
@@ -131,19 +137,20 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - Migratieframework transactioneel en sequentieel.
 - Ruwe meetdata append-mostly; assessment en reference als snapshots.
 
-**Belangrijke storage-tabellen voor fase 7:**
+**Analyse-laag (nieuw in fase 7):**
 
-- `measurements` — de kern van elke meting (datum, tool_key,
-  component, meetmethode, instrument, frequentie, testspanning).
-- `measurement_values` — de ruwe meetwaarden per meting
-  (capaciteit, ESR, D, V_loss, etc.).
-- `assessments` — de beoordelingssnapshot (eindstatus,
-  betrouwbaarheid, referenties).
-- `reference_snapshots` — de referentiedata die bij de beoordeling
-  is gebruikt.
-- `components` — genormaliseerde componentgegevens
-  (fabrikant, serie, part_number).
-- Er zijn ook `schema_migrations` en `schema_version`.
+- `app/helpers/analysis_series.py` — pure functies, geen Qt, geen
+  database. Bouwt `TimeSeriesPoint`- en `ScatterPoint`-lijsten en
+  aggregeert per dag/week/maand.
+- `app/services/analysis_service.py` — read-only service bovenop
+  `MeasurementHistoryService`. Leest in pagina's (default 500 per keer).
+  Schrijft nooit.
+- `app/gui/analysis_screen.py` — QtCharts-pagina. Roept alleen de
+  service aan; geen data-logica in de GUI.
+- Read-only bewijs: `tests/test_analysis_service.py::_ReadOnlyHistoryStub`
+  laat elke schrijfmethode-aanroep falen.
+- Aggregatie gebeurt in `analysis_series.aggregate_time_series`, niet
+  in de GUI. De GUI kiest alleen de aggregatie-dropdown.
 
 **Documentatie (read-only viewer + editor):**
 
@@ -237,7 +244,7 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - Alle GUI-teksten via `app/helpers/i18n.py` en JSON-bestanden onder
   `i18n/locales/<taal>/`.
 - Modules: `app.json`, `esr.json`, `history.json`, `documentation.json`,
-  `settings.json`, `language.json`.
+  `settings.json`, `language.json`, `analysis.json` (nieuw in 7B).
 - Ontbrekende EN-key valt terug op NL.
 - Live taalwissel behoudt state.
 
@@ -248,6 +255,13 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
   `QRadioButton::indicator` en `QCheckBox::indicator`.
 - Sinds 5D'.2f heeft `styles.py` expliciete `QCheckBox::indicator` en
   `QRadioButton::indicator`-regels.
+
+**QtCharts:**
+
+- `PySide6.QtCharts` wordt gebruikt in `app/gui/analysis_screen.py`.
+  Geen aparte dependency.
+- `matplotlib` en `pyqtgraph` zijn **niet** toegevoegd aan
+  `requirements.txt`.
 
 ### 2.3 Belangrijke recente bugfixes
 
@@ -284,29 +298,31 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
   `test_documentation_import_service.py`): `time.sleep(0.01)` tussen
   twee registraties zodat `imported_at` gegarandeerd verschilt.
 - **`DocumentationService` herkende `docx`/`xlsx` niet** (v1.10.0 van
-  `service.py`): toegevoegd in fase 6C. De viewer-dispatch werkt nu
-  voor alle lokale bestandstypes via `source_kind()`.
-- **Testhelpers `_maak_xlsx` in xlsx-tests** gebruikten
-  `wb["A1"] = ...` op het Workbook-object; dat ondersteunt geen
-  `__setitem__`. Vervangen door `wb.active["A1"] = ...`.
+  `service.py`): toegevoegd in fase 6C.
+- **Testhelpers `_maak_xlsx` in xlsx-tests**: vervangen door
+  `wb.active["A1"] = ...`.
 - **`extract_xlsx_text` sloeg lege bladen over**: nu krijgt elk blad
-  een header `# <bladnaam>`, ook als het leeg is. Structuur van de
-  werkmap blijft zichtbaar voor latere AI-extractie.
-- **Hangende wizard-tests na 6C**: nieuwe succesmelding opende een
-  modale `QMessageBox.information`. Tests patchen nu
-  `_toon_succesmelding` op de dialoog-instantie, niet op de
-  C++-staticmethod.
+  een header `# <bladnaam>`.
+- **Hangende wizard-tests na 6C**: patch op `_toon_succesmelding`.
+- **`aggregate_time_series` valideerde de aggregatie niet** bij een
+  lege reeks (v1.0.1 van `analysis_series.py`): validatie nu vóór de
+  lege-input-return.
+- **`AnalysisScreen.__init__` zette de labels niet** (v1.0.1 van
+  `analysis_screen.py`): `_apply_static_labels()` in `__init__`.
+- **`AnalysisScreen.apply_language()` deed een refresh in `__init__`**
+  (v1.0.2): gesplitst in `_apply_static_labels()` (init) en
+  `apply_language()` (taalwissel + refresh).
 
 ### 2.4 Openstaande werkpunten
 
 Volgens het stappenplan:
 
-- **7** — Grafieken en trends. **Volgende fase.**
-- **8** — Rapportage en export.
+- **8** — Rapportage en export. **Volgende fase.**
 - **9** — Packaging / installer / signing.
 - **10** — Praktische ESR-validatie.
 - **11** — Laatste UX/documentatie-afwerking (incl. light theme,
-  async URL-fetch, cosmetische scrollbar in Word-samenvatting).
+  async URL-fetch, cosmetische scrollbar in Word-samenvatting,
+  refresh()-opsplitsing in AnalysisScreen).
 - **12** — AI-extractie uit fabrikantdocumenten (docx/xlsx-tekst is
   al beschikbaar).
 - **13** — Menselijke validatie van AI-output.
@@ -326,6 +342,9 @@ Volgens het stappenplan:
 - **Meld nieuwe i18n-keys expliciet**, met de waarde voor NL én EN.
 - **Python-headers zijn cumulatief.** Nieuwe versies krijgen een nieuwe
   regel bovenaan de `Wijzigingen:`-lijst; oudere regels blijven staan.
+- **Geen `qtbot` gebruiken in tests.** Er is geen `pytest-qt`.
+  Gebruik `QApplication.instance() or QApplication([])` en
+  `QSignalSpy` uit `PySide6.QtTest`.
 - **Geen aannames over de eerstvolgende fase** — vraag het na.
 
 ---
@@ -357,7 +376,6 @@ Volgens het stappenplan:
 18. **AI-extractie staat laat in de roadmap**; menselijke goedkeuring
     blijft verplicht.
 19. **Grafieken en trends lezen bestaande data, ze wijzigen niets.**
-    (Toevoeging voor fase 7.)
 
 ### 3.2 Architectuur
 
@@ -372,8 +390,8 @@ Volgens het stappenplan:
   status, nooit `imported_at`.
 - **Status-editor** (5D'.2e) wijzigt alleen status; nooit metadata,
   nooit bronbestand.
-- **Analyse-laag** (nieuw in fase 7) leest de storage read-only en
-  berekent aggregaties. Ze schrijft niet terug.
+- **Analyse-laag** (fase 7) leest de storage read-only en berekent
+  aggregaties. Ze schrijft niet terug.
 
 ### 3.3 ESR-technische kernregels
 
@@ -451,8 +469,10 @@ Volgens het stappenplan:
 | 6B | Wizard-uitbreiding (Word/Excel) | ✅ |
 | 6C | Fix `service.py` + succesmelding + i18n-fix | ✅ |
 | 6F | Documentatie bijwerken (Word/Excel) | ✅ |
-| **7** | **Grafieken en trends** | **Volgende** |
-| 8 | Rapportage | Gepland |
+| 7A | Analyse-laag: reeksen, aggregatie, read-only service | ✅ |
+| 7B | Analyse-pagina: QtCharts, filters, hub-knop, menu, i18n | ✅ |
+| 7C | Documentatie bijwerken (changelog, openvragen, overdracht) | ✅ |
+| **8** | **Rapportage** | **Volgende** |
 | 9 | Packaging / installer / signing | Gepland |
 | 10 | Praktische ESR-validatie | Gepland |
 | 11 | Laatste UX/documentatie-afwerking | Gepland |
@@ -463,64 +483,66 @@ Volgens het stappenplan:
 
 ---
 
-## 5. WAT IS NIEUW SINDS VERSIE 3.4.0
+## 5. WAT IS NIEUW SINDS VERSIE 3.5.0
 
-### 5.1 Fase 6 — Word- en Excel-import
+### 5.1 Fase 7 — Grafieken en trends
 
-In drie deelfasen (6A, 6B, 6C) is de import-laag uitgebreid met Word
-en Excel. Zie `docs/documentation_import.md` §6 voor de technische
-details.
+In drie deelfasen (7A, 7B, 7C) is een read-only analyse-laag en een
+Analyse-pagina toegevoegd.
 
 **Nieuwe bestanden:**
 
 | Bestand | Versie |
 |---|---|
-| `app/documentation/docx_extract.py` | 1.0.0 |
-| `app/documentation/docx_import.py` | 1.0.0 |
-| `app/documentation/xlsx_extract.py` | 1.0.1 |
-| `app/documentation/xlsx_import.py` | 1.0.0 |
-| `tests/test_documentation_docx_extract.py` | 1.0.0 |
-| `tests/test_documentation_docx_import.py` | 1.0.0 |
-| `tests/test_documentation_xlsx_extract.py` | 1.0.1 |
-| `tests/test_documentation_xlsx_import.py` | 1.0.1 |
+| `app/helpers/analysis_series.py` | 1.0.1 |
+| `app/services/analysis_service.py` | 1.0.0 |
+| `app/gui/analysis_screen.py` | 1.0.2 |
+| `i18n/locales/nl_NL/analysis.json` | 1.0.0 |
+| `i18n/locales/en_US/analysis.json` | 1.0.0 |
+| `tests/test_analysis_series.py` | 1.0.0 |
+| `tests/test_analysis_service.py` | 1.0.0 |
+| `tests/test_analysis_screen.py` | 1.0.2 |
 
 **Gewijzigde bestanden:**
 
 | Bestand | Versie |
 |---|---|
-| `app/documentation/import_models.py` | 1.3.0 |
-| `app/documentation/import_service.py` | 1.4.0 |
-| `app/documentation/service.py` | 1.10.0 |
-| `app/gui/dialogs/import_wizard_dialog.py` | 1.7.0 |
-| `i18n/locales/nl_NL/documentation.json` | 1.6.0 |
-| `i18n/locales/en_US/documentation.json` | 1.6.0 |
-| `tests/test_documentation_import_models.py` | 1.3.0 |
-| `tests/test_documentation_import_service.py` | 1.3.0 |
-| `tests/test_documentation_service_user_catalog.py` | 1.3.0 |
-| `tests/test_import_wizard_dialog.py` | 1.7.0 |
-| `requirements.txt` | +`python-docx>=1.1` |
+| `app/gui/main_window.py` | 2.10.0 |
+| `tests/test_gui_language_switch.py` | uitgebreid met Analyse-test |
 
-**Nieuwe i18n-keys (sinds 3.4.0):**
+**Geen wijziging aan `requirements.txt`.** `PySide6.QtCharts` zit
+standaard bij PySide6. `matplotlib` en `pyqtgraph` zijn niet toegevoegd.
 
-- `succes_titel`, `succes_bericht` in beide talen.
+**Nieuwe i18n-module:** `analysis.json` in beide locales.
+
+**Nieuwe i18n-keys:** zie de tabel in de chat bij fase 7B. Kort: `tool.analyse`,
+`menu.analyse`, `scherm.analyse`, `analyse.*` (titels, labels,
+grafiektypes, aggregaties, as-labels, status_onbekend).
 
 **Belangrijkste bugs onderweg gefixt:**
 
-- `service.py` herkende `docx`/`xlsx` niet → v1.10.0.
-- `extract_xlsx_text` sloeg lege bladen over → v1.0.1.
-- Testhelpers in xlsx-tests gebruikten `wb["A1"]` → `wb.active["A1"]`.
-- Hangende wizard-tests na succesmelding → patch op `_toon_succesmelding`.
+- `aggregate_time_series` valideerde de aggregatie niet bij een lege
+  reeks → `analysis_series.py` v1.0.1.
+- `AnalysisScreen.__init__` zette de labels niet → v1.0.1.
+- `AnalysisScreen.apply_language()` deed een refresh in `__init__`,
+  wat de stub-calls onvoorspelbaar maakte → v1.0.2.
 
-### 5.2 Fase 6F — Documentatie bijwerken
+### 5.2 Fase 7C — Documentatie bijwerken
 
-- `docs/changelog.md` — versie 1.6 toegevoegd.
-- `docs/documentation_import.md` — v1.3.0 met Word/Excel-sectie.
-- `docs/openvragen.md` — v1.4.0 met §2.8 en §2.9.
+- `docs/changelog.md` — versie 1.7 toegevoegd.
+- `docs/openvragen.md` — v1.5.0 met §2.10 en §2.11.
 - `overdracht.md` — deze versie.
 
 ### 5.3 Teststatus
 
-**Baseline: 999 passed.** Dat is +99 ten opzichte van v3.4.0 (900).
+**Baseline: 1037 passed.** Dat is +38 ten opzichte van v3.5.0 (999).
+
+Verdeling van de nieuwe tests:
+
+- 20 tests in de analyse-laag (`test_analysis_series.py` +
+  `test_analysis_service.py`) — fase 7A.
+- 17 tests in `test_analysis_screen.py` + 1 in
+  `test_gui_language_switch.py` — fase 7B.
 
 ### 5.4 Bekende beperkingen
 
@@ -534,66 +556,58 @@ details.
 - **Cosmetische scrollbar** in de Word-samenvatting.
 - **`extract_docx_text` en `extract_xlsx_text`** zijn aanwezig maar
   worden niet gebruikt in fase 6. Ze zijn voorbereiding voor fase 12.
+- **Analyse-pagina: geen zoom/pan, geen PNG/PDF-export.** Bewust
+  buiten fase 7.
+- **Analyse-pagina: vaste as-schaling** (µF, mΩ). Zie openvragen §2.11.
+- **Analyse-pagina: `apply_language()` doet een refresh.** Zie
+  openvragen §2.11.
 
 ---
 
 ## 6. OPENSTAANDE VRAGEN VOOR DE NIEUWE CHAT
 
-### 6.1 Fase 7 — Grafieken en trends
+### 6.1 Fase 8 — Rapportage
 
-**Doel:** de gebruiker kan meetgegevens uit de historiek visualiseren
-als grafiek of trend. Denk aan:
-
-- ESR verloop over tijd voor één component of één serie.
-- Capaciteit verloop.
-- D-verloop.
-- Vergelijking van meetmethodes (EX_SITU / ONE_LEG / IN_CIRCUIT) voor
-  dezelfde component.
-- Verdeling van eindstatussen over een periode.
-- Verdeling van betrouwbaarheid.
+**Doel:** de gebruiker kan meetgegevens en beoordelingen omzetten in
+een rapport dat gedeeld of afgedrukt kan worden.
 
 **Belangrijke uitgangspunten:**
 
-1. **Read-only.** De analyse-laag leest de SQLite-storage, schrijft
-   niets terug. Historische metingen worden nooit opnieuw beoordeeld.
-2. **Geen wijziging aan bestaande data.** Grafieken zijn puur visueel.
-3. **Filtreerbaar.** De gebruiker kiest een periode, een tool, een
-   component, een meetmethode, een instrument.
-4. **Geen AI.** Eenvoudige aggregaties en grafieken.
-5. **Backward-compatible.** Bestaande historiek blijft werken.
+1. **Read-only.** Rapportage leest de storage en de analyse-laag,
+   schrijft niets terug.
+2. **Historische data niet herberekenen.** Gebruik de
+   assessment-snapshots, niet de huidige regels.
+3. **Backward-compatible.** Bestaande historiek en export blijven
+   werken.
+4. **Geen AI.**
 
-### 6.2 Open vragen voor fase 7
+### 6.2 Open vragen voor fase 8
 
 De nieuwe chat moet eerst deze vragen met de gebruiker afstemmen
 voordat er code wordt geschreven:
 
-1. **Welke grafiekbibliotheek?** De kandidaat is `matplotlib`, maar
-   die is zwaar (voegt ~50MB toe aan de installer). Alternatief:
-   `pyqtgraph` (Qt-native, licht, interactief). Of `QtCharts` (Qt-
-   native, geen extra dependency). Wat weegt zwaarder: eenvoud of
-   lichtgewicht?
-
-2. **Waar komt de grafiek?** Een nieuw tabblad in de historiek-pagina?
-   Een aparte pagina "Analyse" in het hoofdmenu? Een apart dialoog dat
-   je opent vanuit de historiek?
-
-3. **Welke grafiektypes in fase 7?** Alleen lijngrafieken (trend over
-   tijd), of ook scatter (ESR vs. capaciteit), histogram (verdeling),
-   boxplot (spreiding per meetmethode)?
-
-4. **Eén grafiek per keer, of een dashboard?** Een eenvoudige aanpak
-   is één grafiek per keer met filters. Een dashboard met meerdere
-   grafieken naast elkaar is complexer.
-
-5. **Welke aggregaties?** Ruwe meetwaarden (elke meting een punt),
-   of geaggregeerd (gemiddelde per dag/week/maand)? Of beide, met een
-   dropdown?
-
-6. **Export?** Moet de grafiek kunnen worden geëxporteerd als PNG of
-   PDF? Dat hoort misschien bij fase 8 (Rapportage), niet bij fase 7.
-
-7. **Multi-component vergelijking?** Moet de gebruiker twee of meer
-   componenten naast elkaar kunnen zetten in één grafiek?
+1. **Welk rapportformaat?** PDF, HTML, Markdown, of meerdere? PDF is
+   het meest bruikbaar voor afdrukken, maar vereist een extra
+   dependency (`reportlab`, `weasyprint`, of `QtPdf`). HTML is
+   lichtgewicht en kan in een `QTextBrowser` getoond worden. Markdown
+   sluit aan bij de bestaande documentatie.
+2. **Eén rapport per meting, of een rapport over meerdere metingen?**
+   Een meetrapport voor één component is de meest voorkomende vraag.
+   Een samenvattend rapport over een filter of periode hoort er
+   misschien ook bij.
+3. **Wat komt er in een rapport?** Componentgegevens, meetcontext,
+   ruwe meetwaarden, assessment, referenties, grafiek? Alles?
+4. **Moet de grafiek uit fase 7 in het rapport?** Dat kan als de
+   grafiek als afbeelding geëxporteerd wordt (`QChartView.grab()`),
+   maar dan moet de analyse-laag ook door de rapportage gebruikt
+   worden.
+5. **Waar komen rapporten terecht?** Een vaste map
+   (`%LOCALAPPDATA%\...\reports\`)? De laatste exportmap, zoals de
+   historiek-export? Een dialoog waarin de gebruiker kiest?
+6. **Moet een rapport ook de referentiesnapshots bevatten?** Dat is
+   relevant voor traceerbaarheid.
+7. **Welke taal?** Rapport in de actieve app-taal, of een vaste taal
+   per rapport?
 
 ### 6.3 Overige openstaande punten
 
@@ -606,13 +620,16 @@ voordat er code wordt geschreven:
 - **Light theme.** Uitgesteld naar fase 11.
 - **AI-tekstextractie uit docx/xlsx.** Voorbereiding voor fase 12.
 - **Cosmetische scrollbar** in Word-samenvatting. Fase 11.
+- **Analyse-pagina:** refresh()-opsplitsing, automatische
+  as-schaling, `QDateTimeAxis`-tickformaat, zoom/pan. Zie
+  `docs/openvragen.md` §2.11.
 
 ---
 
 ## 7. TESTSTATUS — BASELINE EN TESTSTRUCTUUR
 
 **Datum:** 2026-10-09
-**Baseline:** 999 passed
+**Baseline:** 1037 passed
 **Werkwijze:** eerst gerichte tests, dan volledige `pytest -q`.
 
 ### 7.1 Commando's

@@ -1,0 +1,39 @@
+{
+  "_comment": "English translation — module analysis.",
+  "tool": {
+    "analyse": "Analysis",
+    "analyse_omschrijving": "View charts and trends of stored measurements."
+  },
+  "menu": {
+    "analyse": "Open Analysis"
+  },
+  "scherm": {
+    "analyse": "Analysis"
+  },
+  "analyse": {
+    "titel": "Analysis — charts and trends",
+    "leeg": "No data for these filters.",
+    "geen_gegevens": "No data",
+    "aantal": "{aantal} point(s) shown.",
+    "fout": "Analysis could not be loaded: {bericht}",
+    "status_onbekend": "No status",
+    "grafiektype": {
+      "esr": "ESR over time",
+      "capaciteit": "Capacitance over time",
+      "d": "D over time",
+      "scatter_esr_c": "ESR vs. capacitance"
+    },
+    "aggregatie": {
+      "ruw": "Raw measurements",
+      "dag": "Average per day",
+      "week": "Average per week",
+      "maand": "Average per month"
+    },
+    "as": {
+      "datum": "Date",
+      "esr_mohm": "ESR (mΩ)",
+      "capaciteit_uf": "Capacitance (µF)",
+      "d": "D"
+    }
+  }
+}

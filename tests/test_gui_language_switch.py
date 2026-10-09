@@ -2,7 +2,7 @@
 ================================================================================
 Module:     tests/test_gui_language_switch.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
+Versie:     1.1.1
 Datum:      2026-10-01
 Auteur:     Bart Bossuyt
 
@@ -13,6 +13,7 @@ Doel:       Regressietests voor live taalwissel in Hoofdmenu/Diagnose, ESR en
 Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste regressietests voor de taalwissel-UX-fix.
   v1.1.0 (2026-10-02)  Documentatiepagina opgenomen in live taalwisseltests.
+  v1.1.1 (2026-10-03)  analysis test toegevoegd
 ================================================================================
 """
 
@@ -161,3 +162,18 @@ def test_main_window_language_switch_updates_current_page_title(monkeypatch):
     assert window.esr_page.title_label.text() == "en_US:scherm.esr_test"
     assert window.documentation_page.title_label.text() == "en_US:documentatie.titel"
     assert window.windowTitle() == "en_US:app.titel — en_US:scherm.diagnose"
+
+def test_language_switch_updates_analysis_page_title() -> None:
+    """Fase 7B: taalwissel vertaalt de Analyse-pagina."""
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication([])
+
+    from app.gui.main_window import ToolHubWindow
+
+    window = ToolHubWindow(taal="nl_NL")
+    try:
+        window._set_language("en_US")
+        assert window.analysis_page.taal == "en_US"
+        assert window.analysis_page.title_label.text() != ""
+    finally:
+        window.deleteLater()

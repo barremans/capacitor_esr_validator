@@ -1,14 +1,6 @@
-
----
-
-## Bestand 3: `docs/openvragen.md`
-
-Ik werk de Word/Excel-punten bij. Volledige file:
-
-```markdown
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 1.4.0
+**Versie:** 1.5.0
 **Datum:** 2026-10-09
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
@@ -32,6 +24,11 @@ Wijzigingen:
                        — beantwoord. Nieuwe openstaande punten: AI-
                        tekstextractie uit docx/xlsx (fase 12),
                        cosmetische scrollbar in Word-samenvatting.
+  v1.5.0 (2026-10-09)  §2.10 toegevoegd: Grafieken en trends (fase 7)
+                       — beantwoord. Nieuwe openstaande punten:
+                       refresh()-opsplitsing, automatische as-schaling,
+                       QDateTimeAxis-tickformaat, scatterkleur bij
+                       onbekende status, zoom/pan in QtCharts.
 
 ---
 
@@ -64,7 +61,7 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 
 ---
 
-## 2. Uit Fase 5 en 6 — Import, metadata en statusbeheer
+## 2. Uit Fase 5, 6 en 7 — Import, metadata, statusbeheer en analyse
 
 ### 2.1 Scope — beantwoord
 
@@ -219,6 +216,66 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
   scrollbar krijgen. Niet functioneel, wel cosmetisch.
   - **Restvraag:** lost fase 11 dit op (bijv. scrollbar uitschakelen)?
   - **Status:** open; klein.
+
+### 2.10 Grafieken en trends — beantwoord (fase 7)
+
+- **Vraag:** kunnen we opgeslagen metingen visualiseren als grafiek of
+  trend?
+- **Antwoord:** ja, sinds fase 7. Nieuwe pagina "Analyse" in het
+  hoofdmenu met vier grafiektypes: ESR over tijd, capaciteit over tijd,
+  D over tijd, en scatter ESR vs. C.
+- **Grafiekbibliotheek:** `QtCharts`, dat standaard bij PySide6 zit.
+  Geen nieuwe dependency toegevoegd aan `requirements.txt`, in lijn met
+  het dependencybeleid in `docs/future_tools.md` §5.
+- **Aggregatie:** ruwe metingen (elke meting = één punt) of gemiddelde
+  per dag, week of maand via een dropdown. Aggregatie gebeurt in
+  `app/helpers/analysis_series.py`, GUI-onafhankelijk en getest zonder
+  Qt.
+- **Read-only bewijs:** `tests/test_analysis_service.py` bevat een
+  `_ReadOnlyHistoryStub` die elke `create_*`, `save_*`, `update_*` of
+  `delete_*`-aanroep laat falen. Als `AnalysisService` ooit per ongeluk
+  gaat schrijven, valt de test om.
+- **Historische data:** de analyse-laag leest de bestaande storage. Ze
+  gebruikt geen assessment-snapshots anders dan de `final_status` voor
+  de scatterkleur; er wordt niets herberekend.
+- **Status:** afgerond.
+
+### 2.11 Nieuwe openstaande punten (na fase 7)
+
+- **Splitsen van `refresh()` in data-herberekening en label-update.**
+  `AnalysisScreen.apply_language()` roept `refresh()` aan, wat bij een
+  taalwissel alle reeksen opnieuw ophaalt uit de historiekservice.
+  Voor een redelijke historiek is dat onmerkbaar; bij duizenden
+  metingen zou dat even kunnen duren.
+  - **Restvraag:** splitsen in fase 11, of accepteren?
+  - **Impact:** kleine refactor van `AnalysisScreen`; geen
+    architectuurwijziging.
+  - **Status:** open; klein.
+- **Automatische as-schaling voor capaciteit.** De capaciteitsgrafiek
+  schaalt altijd naar µF. Een gebruiker met kleine condensatoren (pF/nF)
+  of juist grote (mF) zou een andere schaal willen.
+  - **Restvraag:** automatische schaal per bereik (pF/nF/µF/mF), of
+    vaste µF met een `QValueAxis`-label dat de gebruiker vertelt?
+  - **Impact:** kleine wijziging in `_scale_for` en het aslabel.
+  - **Status:** open; cosmetisch.
+- **`QDateTimeAxis` tick-formaat.** De x-as toont nu altijd
+  `dd-MM-yyyy`. Bij een korte periode (één dag, één uur) zou `HH:mm`
+  nuttiger zijn.
+  - **Restvraag:** dynamisch formaat op basis van de periode?
+  - **Impact:** kleine wijziging in `_draw_time_series`.
+  - **Status:** open; cosmetisch.
+- **Scatterkleur bij onbekende `final_status`.** Valt terug op een
+  neutrale grijstint (`#9E9E9E`).
+  - **Restvraag:** aparte kleur per onbekende status, of alle onbekende
+    samen grijs?
+  - **Status:** bewust grijs gehouden; geen concrete vraag.
+- **Geen zoom/pan.** QtCharts ondersteunt interactieve zoom via
+  `QChartView.setRubberBand()`, maar dat staat uit.
+  - **Restvraag:** in fase 7D toevoegen, of pas in fase 8?
+  - **Impact:** enkele regels in `AnalysisScreen._build_ui`.
+  - **Status:** open; wacht op gebruikersvraag.
+- **Geen PNG/PDF-export van grafieken.** Bewust buiten fase 7 gehouden;
+  hoort bij fase 8 (Rapportage).
 
 ---
 
