@@ -1,7 +1,16 @@
+
+---
+
+## Bestand 3: `docs/openvragen.md`
+
+**Versie:** 1.2.0 → 1.3.0
+**Wijziging:** §2.6 bijgewerkt — "Metadata van imports doorzoekbaar maken" is nu beantwoord.
+
+```markdown
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 1.2.0
-**Datum:** 2026-10-08
+**Versie:** 1.3.0
+**Datum:** 2026-10-09
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
 is. Geen bugs, geen beloftes — alleen vragen en observaties.
@@ -17,6 +26,9 @@ Wijzigingen:
                        status-reden bij archiveren, filter voor
                        gearchiveerd, statustransitie-beleid,
                        catalogusmigratie bij statuswijzigingen.
+  v1.3.0 (2026-10-09)  §2.7 toegevoegd: metadata van imports
+                       doorzoekbaar maken (5D'.1b) — beantwoord met
+                       formele regressietests. Geen codewijziging.
 
 ---
 
@@ -159,6 +171,21 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
   - **Status:** open; geen concrete vraag.
 - **Bulk-statuswijziging van meerdere imports.** Nog niet ondersteund.
   - **Status:** open; geen concrete vraag.
+
+### 2.7 Metadata van imports doorzoekbaar — beantwoord (5D'.1b)
+
+- **Vraag:** is het vrije zoekveld in de documentatiebibliotheek van
+  toepassing op de metadata van imports?
+- **Antwoord:** ja. Sinds v1.7.0 van `service.py` neemt `_search_blob`
+  de menselijke metadata op: titel, categorie, fabrikant, serie,
+  partnummer, documentversie, documentdatum, notities en bron-URL.
+- **Formele regressietests:** toegevoegd in 5D'.1b aan
+  `tests/test_documentation_service_user_catalog.py`. Per veld één test,
+  plus negatieve tests voor `document_id` en `source_path`, plus
+  combinatietests met `include_archived`.
+- **Documentatie:** sectie 4 in `docs/documentation_import.md`.
+- **Geen codewijziging nodig.** `_search_blob` was al correct.
+- **Status:** afgerond.
 
 ---
 

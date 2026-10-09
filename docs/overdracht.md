@@ -1,19 +1,16 @@
 # OVERDRACHT — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie overdracht:** 3.3.0
-**Datum:** 2026-10-08
+**Versie overdracht:** 3.4.0
+**Datum:** 2026-10-09
 **Auteur:** Bart Bossuyt
-**Vorige versie:** 3.2.0 (2026-10-08)
+**Vorige versie:** 3.3.0 (2026-10-08)
 **Doel:** volledig overdrachtsdocument voor een nieuwe ChatGPT-sessie of
 nieuwe ontwikkelaar. Bevat projectstaat, architectuur, regels, changelog,
 teststructuur en startprompt. Alles in één bestand.
 
-**Huidige baseline:** 885 passed
-**Laatste afgeronde fase:** 5D'.2f — Checkbox-indicator in donker thema
-**Volgende fase:** Nog te bepalen —
-   - 5D'.1b — Metadata van imports doorzoekbaar maken (formaliseren; geen codewijziging)
-   - 6 — Fabrikantdocument-import (Word, Excel)
-   - 5F-formalisering — Documentatie definitief afronden (deels gedaan)
+**Huidige baseline:** 900 passed
+**Laatste afgeronde fase:** 5D'.1b — Metadata van imports doorzoekbaar maken (formaliseren)
+**Volgende fase:** 6 — Fabrikantdocument-import (Word, Excel)
 
 ---
 
@@ -23,7 +20,7 @@ teststructuur en startprompt. Alles in één bestand.
 2. Context — projectstaat en architectuur
 3. Kernregels — bindende afspraken
 4. Stappenplan — chronologisch overzicht
-5. Wat is nieuw sinds versie 3.2.0
+5. Wat is nieuw sinds versie 3.3.0
 6. Openstaande vragen voor de nieuwe chat
 7. Teststatus — baseline en teststructuur
 8. Bestanden die de nieuwe chat moet opvragen
@@ -43,9 +40,9 @@ iets doet.
 
 - Projectmap: `C:\PY\capacitor_esr_validator`.
 - Technologie: Python 3.12 + PySide6 (Qt6, Fusion-stijl), volledig offline.
-- Baseline: **885 passed**.
-- Laatste afgeronde fase: **5D'.2f — Checkbox-indicator in donker thema**.
-- Volgende fase: **nog te bepalen** — zie sectie 6.
+- Baseline: **900 passed**.
+- Laatste afgeronde fase: **5D'.1b — Metadata van imports doorzoekbaar maken (formaliseren)**.
+- Volgende fase: **6 — Fabrikantdocument-import (Word, Excel)**.
 
 **Werkafspraken die je strikt volgt:**
 
@@ -100,9 +97,9 @@ eerst. Geen aannames.
 | Taal GUI | Nederlands + Engels (via i18n) |
 | Werkmodus | Volledig offline, lokale opslag |
 | Database | SQLite op `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\measurements.sqlite3` |
-| Huidige baseline | **885 passed** |
-| Laatste afgeronde fase | 5D'.2f — Checkbox-indicator in donker thema |
-| Volgende fase | Nog te bepalen |
+| Huidige baseline | **900 passed** |
+| Laatste afgeronde fase | 5D'.1b — Metadata van imports doorzoekbaar maken (formaliseren) |
+| Volgende fase | 6 — Fabrikantdocument-import (Word, Excel) |
 
 ### 2.2 Huidige applicatiearchitectuur
 
@@ -150,8 +147,10 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
   gearchiveerde-checkbox, Status-kolom.
 - **Sinds 5D'.2f:** checkboxen en radio buttons duidelijk zichtbaar in
   donker thema.
+- **Sinds 5D'.1b:** formele regressietests voor doorzoekbare metadata
+  van imports; documentatie in `docs/documentation_import.md` §4.
 
-**Documentatie-import (fase 5 + 5D'.2b/d + 5D'.2e):**
+**Documentatie-import (fase 5 + 5D'.2b/d + 5D'.2e + 5D'.1b):**
 
 - Wizard voor PDF- en URL-import via `Bestand → Document importeren…`
   (`Ctrl+I`) en via knop "Importeren" op het Documentatie-scherm.
@@ -166,6 +165,10 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
   documentdatum (`QDateEdit` + "Datum onbekend"-checkbox + `Ctrl+D`),
   notities.
 - **Import is gescheiden van viewer en van assessment.**
+- **Doorzoekbare metadata (5D'.1b):** titel, categorie, fabrikant,
+  serie, partnummer, documentversie, documentdatum, notities en
+  bron-URL zijn doorzoekbaar via `search_text`. `document_id`,
+  `source_path` en `title_key` zijn dat niet.
 
 **Metadata-editor (fase 5D'.2c):**
 
@@ -255,16 +258,17 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
   `service.py`): zoekt nu altijd in beide cataloguslagen.
 - **Checkbox-indicator onzichtbaar in donker thema** (v1.3.0 van
   `styles.py`): expliciete `QCheckBox::indicator`-styling.
+- **Flaky beste-match-tests** (v1.2.1 van
+  `test_documentation_import_service.py`): `time.sleep(0.01)` tussen
+  twee registraties zodat `imported_at` gegarandeerd verschilt.
 
 ### 2.4 Openstaande werkpunten
 
 Volgens het stappenplan:
 
-- **5D'.1b** — Metadata van imports doorzoekbaar maken (deels al
-  gedaan via `_search_blob`, te formaliseren).
-- **5F** — Changelog + documentatie. **Deels gedaan in deze sessie.**
+- **5F** — Changelog + documentatie. **Deels gedaan.**
 - **6** — Fabrikantdocument-import (incl. Word `.docx` en Excel
-  `.xlsx`).
+  `.xlsx`). **Volgende fase.**
 - **7** — Grafieken & trends.
 - **8** — Rapportage.
 - **9** — Packaging / installer / signing.
@@ -404,9 +408,9 @@ Volgens het stappenplan:
 | 5D'.2c | Metadata bewerken in de viewer | ✅ |
 | 5D'.2e | Status wijzigen in de viewer | ✅ |
 | 5D'.2f | Checkbox-indicator in donker thema | ✅ |
-| 5D'.1b | Metadata van imports doorzoekbaar maken | Deels gedaan |
+| 5D'.1b | Metadata van imports doorzoekbaar maken | ✅ |
 | 5F | Changelog + documentatie | Deels gedaan |
-| 6 | Fabrikantdocument-import (Word, Excel) | Gepland |
+| 6 | Fabrikantdocument-import (Word, Excel) | **Volgende** |
 | 7 | Grafieken & trends | Gepland |
 | 8 | Rapportage | Gepland |
 | 9 | Packaging / installer / signing | Gepland |
@@ -419,105 +423,69 @@ Volgens het stappenplan:
 
 ---
 
-## 5. WAT IS NIEUW SINDS VERSIE 3.2.0
+## 5. WAT IS NIEUW SINDS VERSIE 3.3.0
 
-### 5.1 5D'.2e — Status wijzigen in de viewer
+### 5.1 5D'.1b — Metadata van imports doorzoekbaar maken (formaliseren)
 
-**Doel:** de gebruiker kan de levenscyclus van een eigen import aanpassen
-vanuit de documentatiebibliotheek.
-
-**Nieuwe bestanden:**
-
-| Bestand | Versie | Verantwoordelijkheid |
-|---|---|---|
-| `app/gui/dialogs/change_status_dialog.py` | 1.0.0 | Status-editor |
-| `tests/test_change_status_dialog.py` | 1.0.0 | GUI-tests |
+**Doel:** formeel vastleggen en testen dat het vrije zoekveld in de
+documentatiebibliotheek de metadata van imports doorzoekt.
 
 **Gewijzigde bestanden:**
 
 | Bestand | Versie | Wijziging |
 |---|---|---|
-| `app/gui/documentation_screen.py` | 2.2.0 → 2.3.0 | Status wijzigen-knop, Toon gearchiveerde-checkbox, Status-kolom |
-| `app/documentation/service.py` | 1.8.2 → 1.9.1 | `include_archived`-parameter, `get_document` zoekt ook gearchiveerd |
-| `app/documentation/models.py` | 1.5.0 → 1.6.0 | `import_status`-veld |
-| `app/documentation/import_service.py` | 1.3.0 → 1.3.1 | `_atomic_replace` voor Windows-robuustheid |
-| `i18n/locales/nl_NL/documentation.json` | 1.3.0 → 1.4.0 | 19 nieuwe keys |
-| `i18n/locales/en_US/documentation.json` | 1.3.0 → 1.4.0 | 19 nieuwe keys |
-| `tests/test_documentation_screen.py` | 1.10.1 → 1.11.0 | 12 nieuwe tests |
-| `tests/test_documentation_service_user_catalog.py` | 1.0.1 → 1.1.0 | 6 nieuwe tests |
+| `tests/test_documentation_service_user_catalog.py` | 1.1.0 → 1.2.1 | 17 nieuwe tests voor metadata-doorzoekbaarheid; fix voor `test_search_text_vindt_source_url` |
+| `tests/test_documentation_import_service.py` | 1.2.0 → 1.2.1 | Flakiness-fix in twee beste-match-tests (`time.sleep(0.01)`) |
+| `docs/documentation_import.md` | 1.1.0 → 1.2.0 | Nieuwe sectie 4 over doorzoekbare metadata |
+| `docs/openvragen.md` | 1.2.0 → 1.3.0 | §2.7 toegevoegd: metadata doorzoekbaar (beantwoord) |
 
-### 5.2 5D'.2f — Checkbox-indicator in donker thema
+**Geen productiecodewijziging.** `service.py` blijft op 1.9.1,
+`import_service.py` op 1.3.1.
 
-**Doel:** checkboxen en radio buttons duidelijk zichtbaar in het donkere
-thema.
+**Nieuwe tests (17):**
+- Per metadata-veld één test: `manufacturer`, `series`, `part_number`,
+  `document_version`, `document_date`, `notes`, `category`,
+  `source_url`, `title`.
+- Negatieve tests: `document_id` en `source_path` matchen niet.
+- Combinatietests: metadata + titel, metadata + gearchiveerd, metadata
+  zonder `include_archived`.
+- Lege metadata matcht niet per ongeluk.
 
-**Gewijzigde bestanden:**
+**Bugfix in nieuwe test:** `test_search_text_vindt_source_url` gebruikte
+zoekterm "datasheet", die ook matchte op de ingebouwde categorie
+DATASHEET. Vervangen door een unieke URL en zoekterm.
 
-| Bestand | Versie | Wijziging |
-|---|---|---|
-| `app/gui/styles.py` | 1.2.0 → 1.3.0 | `QCheckBox::indicator`- en `QRadioButton::indicator`-styling |
+**Flakiness-fix in bestaande tests:** twee beste-match-tests
+registreerden bronnen binnen dezelfde milliseconde, waardoor
+`imported_at` gelijk was en de sortering niet-deterministisch. Opgelost
+met `time.sleep(0.01)` tussen de registraties.
 
-**Geen nieuwe tests, geen functionele impact.**
+### 5.2 Nieuwe i18n-keys (sinds 3.3.0)
 
-### 5.3 Nieuwe i18n-keys (sinds 3.2.0)
+Geen nieuwe i18n-keys in 5D'.1b. De fase raakt geen GUI-tekst.
 
-In `i18n/locales/<taal>/documentation.json`:
+### 5.3 Nieuwe dependencies
 
-| Key | NL | EN |
-|---|---|---|
-| `status_wijzigen` | Status wijzigen… | Change status… |
-| `status_wijzigen_tooltip` | Wijzig de status van deze import | Change the status of this import |
-| `status_wijzigen_alleen_eigen` | Alleen eigen imports kunnen van status veranderen. Ingebouwde documenten zijn read-only. | Only your own imports can change status. Built-in documents are read-only. |
-| `status_wijzigen_titel` | Status wijzigen | Change status |
-| `status_wijzigen_subtitel` | Kies de nieuwe status voor deze import. De bron en de metadata blijven ongewijzigd. | Choose the new status for this import. The source and metadata remain unchanged. |
-| `status_wijzigen_huidige` | Huidige status | Current status |
-| `status_wijzigen_nieuwe` | Nieuwe status | New status |
-| `status_wijzigen_opslaan` | Opslaan | Save |
-| `status_wijzigen_annuleren` | Annuleren | Cancel |
-| `status_wijzigen_fout_titel` | Fout bij wijzigen | Error changing status |
-| `status_wijzigen_fout_bericht` | Status kon niet worden gewijzigd: {bericht} | Status could not be changed: {bericht} |
-| `status_wijzigen_bevestiging_archiveren` | Weet je zeker dat je deze bron wilt archiveren? De bron verdwijnt uit de standaardlijst maar blijft bewaard. | Are you sure you want to archive this source? The source disappears from the default list but is kept. |
-| `status_wijzigen_bevestiging_terug` | Weet je zeker dat je deze bron terug wilt zetten naar Concept? De bron verschijnt opnieuw in de standaardlijst. | Are you sure you want to set this source back to Concept? The source reappears in the default list. |
-| `toon_gearchiveerd` | Toon gearchiveerde | Show archived |
-| `toon_gearchiveerd_tooltip` | Toon ook gearchiveerde imports in de lijst. | Also show archived imports in the list. |
-| `status_kolom.concept` | Concept | Concept |
-| `status_kolom.actief` | Actief | Active |
-| `status_kolom.gearchiveerd` | Gearchiveerd | Archived |
-| `kolom.status` | Status | Status |
+Geen nieuwe dependencies in 5D'.1b.
 
-### 5.4 Nieuwe dependencies
+### 5.4 Belangrijke ontwerpkeuzes (sinds 3.3.0)
 
-Geen nieuwe dependencies in 5D'.2e/f. De bestaande set blijft:
-- `pypdf>=5.0`
-- `requests>=2.31`
-- `beautifulsoup4>=4.12`
+- **Doorzoekbare metadata is menselijke metadata.** Technische
+  identificatie (`document_id`, `source_path`, `title_key`) hoort niet
+  in het vrije zoekveld; gebruik daarvoor de filter-dropdowns of
+  `get_document`.
+- **Formele tests voor bestaand gedrag.** `_search_blob` was al correct
+  sinds v1.7.0; 5D'.1b voegt alleen tests en documentatie toe.
+- **Testflakiness is een bug.** De twee beste-match-tests waren
+  timing-afhankelijk; een kleine slaap maakt ze deterministisch zonder
+  productiecode te wijzigen.
 
-### 5.5 Belangrijke ontwerpkeuzes (sinds 3.2.0)
-
-- **Status wijzigen alleen voor eigen imports.** Ingebouwde documenten
-  blijven read-only, ook in de status-editor.
-- **Bevestigingsvraag bij ingrijpende overgangen.** Archiveren en terug
-  naar Concept vragen bevestiging; activeren niet.
-- **Toon gearchiveerde is een filter, geen opslagwijziging.** De
-  checkbox beïnvloedt alleen de weergave.
-- **`get_document` zoekt altijd beide cataloguslagen, inclusief
-  gearchiveerd.** Reden: de Bewerken- en Status-knoppen moeten ook
-  werken voor een gearchiveerd document dat zichtbaar is via de
-  checkbox.
-- **`include_archived` is een filter voor `list_documents`, niet voor
-  `get_document`.**
-- **Status-kolom is leeg voor ingebouwde documenten.** Ze hebben geen
-  status.
-- **Checkbox- en radio-indicator expliciet gestyled.** Fusion respecteert
-  CSS, maar de default-indicator had te weinig contrast.
-
-### 5.6 Bekende beperkingen
+### 5.5 Bekende beperkingen
 
 - **Geen OCR** voor gescande PDF's.
-- **Geen Word/Excel-import** in fase 5. Voorbereiding voor fase 6.
+- **Geen Word/Excel-import** in fase 5. **Volgende fase (6).**
 - **Geen async URL-fetch.** Blokkeert de GUI tot 10s.
-- **Datum-parsing bij bewerken** accepteert alleen ISO-formaat. Een
-  oudere vrije-tekstwaarde valt terug op "Datum onbekend".
+- **Datum-parsing bij bewerken** accepteert alleen ISO-formaat.
 - **Geen bulk-edit** van meerdere imports.
 - **Geen bulk-statuswijziging** van meerdere imports.
 - **Geen reden bij archiveren.** Bewust geaccepteerd in 5D'.2e.
@@ -528,65 +496,39 @@ Geen nieuwe dependencies in 5D'.2e/f. De bestaande set blijft:
 
 ### 6.1 Welke fase starten?
 
-De laatst afgeronde fase is **5D'.2f** (checkbox-indicator). Er zijn
-drie logische volgende stappen:
+De laatst afgeronde fase is **5D'.1b**. De volgende fase is **6 —
+Fabrikantdocument-import (Word, Excel)**.
 
-**A. 5D'.1b — Metadata van imports doorzoekbaar maken (formaliseren)**
+**Fase 6 — Fabrikantdocument-import (Word, Excel)**
 
-Het vrije zoekveld doorzoekt nu al de metadata van imports (omdat
-`_search_blob` de velden meeneemt en `service.py` ze vult). Maar er is
-nog geen formele test of documentatie voor dit gedrag.
-
-- Tests toevoegen aan `test_documentation_service_user_catalog.py`.
-- Documentatie bijwerken.
-- **Geen codewijziging nodig.**
-
-**B. 6 — Fabrikantdocument-import (Word, Excel)**
-
-- `.docx` via `python-docx`.
-- `.doc` weigeren met duidelijke melding.
+- `.docx` via `python-docx` (pure Python, MIT).
+- `.doc` (oud) weigeren met duidelijke melding; vereist `pywin32` +
+  Word-installatie.
 - `.xlsx` via `openpyxl` (staat al in `requirements.txt`).
 - Uitbreiding van de wizard met nieuwe bron-types.
 - Nieuwe `ImportSourceType`-waarden of een aparte service.
 
-**C. 5F-formalisering — Documentatie definitief afronden**
-
-- Changelog, openvragen en overdracht zijn in deze sessie bijgewerkt.
-- `docs/PROJECT_STRUCTURE.md` is deels bijgewerkt; formele generator
-  ontbreekt nog.
-- Geen functionele wijziging.
-
-### 6.2 Open vragen per optie
-
-**Voor 5D'.1b:**
-
-1. Moet het zoeken op metadata ook formeel gedocumenteerd worden in
-   `docs/documentation_import.md`?
-2. Willen we een test die bevestigt dat **specifiek** op metadata wordt
-   gezocht (bijv. op document_date of part_number)?
-
-**Voor 6:**
+### 6.2 Open vragen voor fase 6
 
 1. Moet de wizard één type-keuze krijgen met vier opties (PDF / URL /
    Word / Excel), of aparte menu-items?
 2. Moet Word/Excel ook een kopie naar `sources/` krijgen?
-3. Hoe omgaan met `.doc` (oud Word-formaat)?
+3. Hoe omgaan met `.doc` (oud Word-formaat)? Weigeren met melding?
 4. Moet Excel-extractie de cellen als tekst in de catalogus opslaan, of
    alleen het bestand kopiëren?
 5. Nieuwe dependency `python-docx` toevoegen aan `requirements.txt`?
-
-**Voor 5F-formalisering:**
-
-1. Willen we een script om `PROJECT_STRUCTURE.md` te genereren?
-2. Waar hoort dat script? (`tools/generate_project_structure.py`?)
+6. Moet de metadata-uitbreiding (categorie, fabrikant, serie, etc.) ook
+   voor Word/Excel gelden? Waarschijnlijk ja, via dezelfde
+   `_metadata_form_helpers`.
+7. Moet het bestandsformaat in de catalogus bewaard worden (voor de
+   viewer-dispatch)? Nu is er `source_type` met PDF/URL; Word/Excel
+   zouden nieuwe waarden krijgen of een apart veld.
 
 ### 6.3 Overige openstaande punten
 
 - **Reden opgeven bij archiveren.** Bewust niet gedaan in 5D'.2e.
 - **Filter voor alleen gearchiveerde documenten.** Nog niet aanwezig.
 - **Bulk-edit en bulk-statuswijziging.** Nog niet ondersteund.
-- **Word-import (`.docx` / `.doc`).** Fase 6.
-- **Excel-import (`.xlsx`).** Fase 6.
 - **OCR voor gescande PDF's.** Uitgesteld.
 - **Async URL-fetch.** Fase 11.
 - **Catalogusmigratie bij meerdere versies.** Nog niet nodig.
@@ -596,8 +538,8 @@ nog geen formele test of documentatie voor dit gedrag.
 
 ## 7. TESTSTATUS — BASELINE EN TESTSTRUCTUUR
 
-**Datum:** 2026-10-08
-**Baseline:** 885 passed
+**Datum:** 2026-10-09
+**Baseline:** 900 passed
 **Werkwijze:** eerst gerichte tests, dan volledige `pytest -q`.
 
 ### 7.1 Commando's

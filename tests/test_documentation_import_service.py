@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_documentation_import_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.0
-Datum:      2026-10-07
+Versie:     1.2.1
+Datum:      2026-10-09
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor ImportService: registratie, statusmachine,
@@ -24,12 +24,20 @@ Wijzigingen:
   v1.2.0 (2026-10-07)  Metadata-uitbreiding (5D'.2b): register_* met
                         metadata, replace_source met sentinel,
                         persistentie van metadata, backward-compat.
+  v1.2.1 (2026-10-09)  Fix flakiness: test_find_by_file_hash_gelijke_status_
+                        kiest_recentste en test_find_by_source_url_gelijke_
+                        status_kiest_recentste registreerden twee bronnen
+                        binnen dezelfde milliseconde, waardoor imported_at
+                        gelijk was en de sortering niet-deterministisch.
+                        time.sleep(0.01) tussen de registraties maakt de
+                        tests deterministisch. Geen productiecodewijziging.
 ================================================================================
 """
 
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -513,10 +521,16 @@ def test_find_by_file_hash_kiest_actief_boven_concept(service):
 
 
 def test_find_by_file_hash_gelijke_status_kiest_recentste(service):
-    """Bij gelijke status: hoogste imported_at (meest recente)."""
+    """Bij gelijke status: hoogste imported_at (meest recente).
+
+    De kleine slaap garandeert dat imported_at verschilt; zonder die slaap
+    kunnen beide registraties binnen dezelfde milliseconde vallen en is
+    de sortering niet-deterministisch.
+    """
     service.register_pdf(
         title="Eerste", original_filename="eerste.pdf", file_hash="abc123"
     )
+    time.sleep(0.01)
     tweede = service.register_pdf(
         title="Tweede", original_filename="tweede.pdf", file_hash="abc123"
     )
@@ -543,8 +557,14 @@ def test_find_by_source_url_kiest_actief_boven_gearchiveerd(service):
 
 
 def test_find_by_source_url_gelijke_status_kiest_recentste(service):
-    """Bij gelijke status: hoogste imported_at."""
+    """Bij gelijke status: hoogste imported_at.
+
+    De kleine slaap garandeert dat imported_at verschilt; zonder die slaap
+    kunnen beide registraties binnen dezelfde milliseconde vallen en is
+    de sortering niet-deterministisch.
+    """
     service.register_url(title="Eerste", source_url="https://example.com")
+    time.sleep(0.01)
     tweede = service.register_url(
         title="Tweede", source_url="https://example.com"
     )

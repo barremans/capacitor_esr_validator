@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_documentation_service_user_catalog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-08
+Versie:     1.2.1
+Datum:      2026-10-09
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor de tweede cataloguslaag in
@@ -18,6 +18,20 @@ Wijzigingen:
   v1.1.0 (2026-10-08)  Fase 5D'.2e: tests voor include_archived-
                        parameter en voor het doorgeven van import_status
                        aan DocumentMetadata.
+  v1.2.0 (2026-10-09)  Fase 5D'.1b: formele regressietests voor het
+                       doorzoeken van importmetadata via search_text.
+                       Bevestigt dat manufacturer, series, part_number,
+                       document_version, document_date, notes, category
+                       en source_url doorzoekbaar zijn, en dat
+                       technische identificatie (document_id,
+                       source_path) NIET doorzoekbaar is. Geen
+                       codewijziging; formaliseert bestaand gedrag van
+                       _search_blob.
+  v1.2.1 (2026-10-09)  Fix: test_search_text_vindt_source_url gebruikte
+                       zoekterm "datasheet", die ook matchte op de
+                       ingebouwde categorie DATASHEET. Vervangen door
+                       een unieke URL en zoekterm zodat alleen de
+                       URL-import matcht.
 ================================================================================
 """
 
@@ -87,6 +101,18 @@ def _basis_source(
     }
     bron.update(extra)
     return bron
+
+
+def _service_met_imports(tmp_path: Path, sources: list[dict]) -> DocumentationService:
+    ingebouwd = _maak_ingebouwde_catalogus(tmp_path / "catalog.json")
+    gebruikers = _schrijf_gebruikerscatalogus(
+        tmp_path / "imported.json",
+        sources,
+    )
+    return DocumentationService(
+        catalog_path=ingebouwd,
+        user_catalog_path=gebruikers,
+    )
 
 
 # ============================================================================
@@ -316,3 +342,218 @@ def test_import_status_wordt_doorgegeven_aan_documentmetadata(tmp_path):
 
     doc_b = service.get_document("import-b")
     assert doc_b.import_status == "gearchiveerd"
+
+
+# ============================================================================
+# Metadata doorzoekbaar via search_text — sinds 5D'.1b
+# ============================================================================
+
+def test_search_text_vindt_manufacturer(tmp_path):
+    service = _service_met_imports(
+        tmp_path,
+        [_basis_source(manufacturer="CHONG")],
+    )
+
+    result = service.list_documents(search_text="CHONG")
+    assert {d.document_id for d in result} == {"import-1"}
+
+
+def test_search_text_vindt_series(tmp_path):
+    service = _service_met_imports(
+        tmp_path,
+        [_basis_source(series="CDX")],
+    )
+
+    result = service.list_documents(search_text="CDX")
+    assert {d.document_id for d in result} == {"import-1"}
+
+
+def test_search_text_vindt_part_number(tmp_path):
+    service = _service_met_imports(
+        tmp_path,
+        [_basis_source(part_number="CDX-1")],
+    )
+
+    result = service.list_documents(search_text="CDX-1")
+    assert {d.document_id for d in result} == {"import-1"}
+
+
+def test_search_text_vindt_document_version(tmp_path):
+    service = _service_met_imports(
+        tmp_path,
+        [_basis_source(document_version="V1.1")],
+    )
+
+    result = service.list_documents(search_text="V1.1")
+    assert {d.document_id for d in result} == {"import-1"}
+
+
+def test_search_text_vindt_document_date(tmp_path):
+    service = _service_met_imports(
+        tmp_path,
+        [_basis_source(document_date="2026-10-08")],
+    )
+
+    result = service.list_documents(search_text="2026-10-08")
+    assert {d.document_id for d in result} == {"import-1"}
+
+
+def test_search_text_vindt_notes(tmp_path):
+    service = _service_met_imports(
+        tmp_path,
+        [_basis_source(notes="Testnotitie")],
+    )
+
+    result = service.list_documents(search_text="Testnotitie")
+    assert {d.document_id for d in result} == {"import-1"}
+
+
+def test_search_text_vindt_category(tmp_path):
+    service = _service_met_imports(
+        tmp_path,
+        [_basis_source(category="MANUAL")],
+    )
+
+    result = service.list_documents(search_text="MANUAL")
+    assert {d.document_id for d in result} == {"import-1"}
+
+
+def test_search_text_vindt_source_url(tmp_path):
+    """De URL van een URL-import is doorzoekbaar.
+
+    Let op: de zoekterm moet uniek zijn. "datasheet" zou ook matchen op
+    de ingebouwde categorie DATASHEET, waardoor builtin-1 ten onrechte
+    in het resultaat zou komen.
+    """
+    service = _service_met_imports(
+        tmp_path,
+        [
+            {
+                "source_id": "import-url",
+                "source_type": "url",
+                "title": "URL import",
+                "imported_at": 1_700_000_000_000,
+                "imported_by": "tester",
+                "status": "concept",
+                "source_url": "https://example.com/uniekpad123",
+            }
+        ],
+    )
+
+    result = service.list_documents(search_text="uniekpad123")
+    assert {d.document_id for d in result} == {"import-url"}
+
+
+def test_search_text_vindt_titel(tmp_path):
+    service = _service_met_imports(
+        tmp_path,
+        [_basis_source(title="Eigen import")],
+    )
+
+    result = service.list_documents(search_text="Eigen")
+    assert {d.document_id for d in result} == {"import-1"}
+
+
+def test_search_text_negeert_document_id(tmp_path):
+    """document_id is technische identificatie en wordt niet doorzocht."""
+    service = _service_met_imports(
+        tmp_path,
+        [_basis_source(source_id="unieke-technische-id")],
+    )
+
+    result = service.list_documents(search_text="unieke-technische-id")
+    # Alleen builtin-1 heeft geen match; import-1 heeft de id niet in
+    # _search_blob. Resultaat: geen enkel document.
+    assert result == []
+
+
+def test_search_text_negeert_source_path(tmp_path):
+    """source_path is technische identificatie en wordt niet doorzocht."""
+    service = _service_met_imports(
+        tmp_path,
+        [_basis_source(source_id="import-pad")],
+    )
+
+    # source_path wordt afgeleid als "sources/import-pad.pdf".
+    result = service.list_documents(search_text="sources/import-pad.pdf")
+    assert result == []
+
+
+def test_search_text_combineert_metadata_en_titel(tmp_path):
+    """Meerdere termen moeten allemaal matchen (EN-semantiek)."""
+    service = _service_met_imports(
+        tmp_path,
+        [
+            _basis_source(
+                source_id="import-a",
+                title="Handleiding CDX",
+                manufacturer="CHONG",
+            ),
+            _basis_source(
+                source_id="import-b",
+                title="Handleiding CDX",
+                manufacturer="PANASONIC",
+            ),
+        ],
+    )
+
+    result = service.list_documents(search_text="Handleiding CHONG")
+    assert {d.document_id for d in result} == {"import-a"}
+
+
+def test_search_text_metadata_gearchiveerd_met_include_archived(tmp_path):
+    """Gearchiveerde imports blijven doorzoekbaar met include_archived=True."""
+    service = _service_met_imports(
+        tmp_path,
+        [
+            _basis_source(
+                source_id="import-arch",
+                status="gearchiveerd",
+                manufacturer="CHONG",
+            ),
+        ],
+    )
+
+    zonder = service.list_documents(search_text="CHONG")
+    assert zonder == []
+
+    met = service.list_documents(
+        search_text="CHONG",
+        include_archived=True,
+    )
+    assert {d.document_id for d in met} == {"import-arch"}
+
+
+def test_search_text_metadata_gearchiveerd_zonder_include_archived(tmp_path):
+    """Zonder include_archived blijven gearchiveerde imports verborgen,
+    ook als hun metadata zou matchen."""
+    service = _service_met_imports(
+        tmp_path,
+        [
+            _basis_source(
+                source_id="import-arch",
+                status="gearchiveerd",
+                manufacturer="CHONG",
+            ),
+        ],
+    )
+
+    result = service.list_documents(search_text="CHONG")
+    assert result == []
+
+
+def test_search_text_lege_metadata_matcht_niet(tmp_path):
+    """Imports zonder metadata mogen niet per ongeluk matchen op lege
+    strings."""
+    service = _service_met_imports(
+        tmp_path,
+        [_basis_source()],
+    )
+
+    # Lege search_text toont alles; dat is bestaand gedrag.
+    alles = service.list_documents(search_text="")
+    assert {d.document_id for d in alles} == {"builtin-1", "import-1"}
+
+    # Een term die nergens voorkomt levert niets op.
+    niets = service.list_documents(search_text="bestaat-niet-xyz")
+    assert niets == []

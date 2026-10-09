@@ -1,7 +1,7 @@
 # Documentatie-import — ontwikkelaarsreferentie
 
-**Versie:** 1.1.0
-**Datum:** 2026-10-08
+**Versie:** 1.2.0
+**Datum:** 2026-10-09
 **Auteur:** Bart Bossuyt
 **Doel:** technische referentie voor de documentatie-import-laag.
 Bevat architectuur, datamodel, opslaglocaties, foutafhandeling en
@@ -18,6 +18,9 @@ Wijzigingen:
                        statusmachine, statuswijzigen in de viewer,
                        Toon gearchiveerde-filter en Status-kolom.
                        Robuustheid op Windows (_atomic_replace) beschreven.
+  v1.2.0 (2026-10-09)  Sectie toegevoegd over doorzoekbare metadata van
+                       imports (5D'.1b): welke velden in _search_blob
+                       zitten, welke niet, en de formele regressietests.
 
 ---
 
