@@ -15,7 +15,8 @@
     "over": "About",
     "afsluiten": "Exit",
     "documentatie_zoeken": "Search documentation…",
-    "document_importeren": "Import document…"
+    "document_importeren": "Import document…",
+    "rapport": "Create report…"
   },
   "tool": {
     "diagnose": "Diagnostics",

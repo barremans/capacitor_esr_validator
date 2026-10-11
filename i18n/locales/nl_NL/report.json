@@ -1,0 +1,63 @@
+{
+  "_comment": "Brontaal Nederlands — module report.",
+  "report": {
+    "titel": "Meetrapport",
+    "knop": "Rapport…",
+    "knop_tabel": "Rapport",
+    "kop": {
+      "app_titel": "Electronics Diagnostic Tool Hub",
+      "rapportdatum": "Rapportdatum",
+      "app_versie": "Applicatieversie",
+      "taal": "Rapporttaal",
+      "werkplaats": "Werkplaats / bedrijf",
+      "scope": "Scope"
+    },
+    "meerdere_metingen": "{aantal} metingen in dit rapport",
+    "meting_kop": "Meting {measurement_id}",
+    "sectie": {
+      "component": "Componentidentificatie",
+      "meetcontext": "Meetcontext",
+      "meetwaarden": "Ruwe meetwaarden",
+      "assessment": "Assessment-snapshot {nummer}",
+      "referentie": "Referentie-snapshot {nummer}",
+      "grafiek": "Grafiek",
+      "geen_assessment": "Geen assessment-snapshot opgeslagen voor deze meting.",
+      "geen_referenties": "Geen referentie-snapshots opgeslagen voor deze assessment."
+    },
+    "detail": {
+      "redenen": "Redenen",
+      "waarschuwingen": "Waarschuwingen",
+      "advies": "Advies"
+    },
+    "geen_renderer": "Voor dit tooltype is nog geen gespecialiseerde rapportweergave beschikbaar.",
+    "scope": {
+      "enkel": "Eén meting",
+      "selectie": "Selectie",
+      "filters": "Huidige filters"
+    },
+    "pdf": {
+      "auteur": "Electronics Diagnostic Tool Hub",
+      "maker": "Electronics Diagnostic Tool Hub / ESR Tester"
+    },
+    "dialoog": {
+      "titel": "Meetrapport",
+      "preview_titel": "Voorbeeld",
+      "grafiek_checkbox": "Grafiek opnemen",
+      "grafiek_niet_beschikbaar": "Geen grafiek beschikbaar voor deze meting.",
+      "opslaan_html": "Opslaan als HTML…",
+      "opslaan_pdf": "Opslaan als PDF…",
+      "sluiten": "Sluiten",
+      "opslaan_titel": "Rapport opslaan",
+      "html_filter": "HTML-bestanden (*.html)",
+      "pdf_filter": "PDF-bestanden (*.pdf)",
+      "geslaagd_html": "Rapport opgeslagen als HTML: {pad}",
+      "geslaagd_pdf": "Rapport opgeslagen als PDF: {pad}",
+      "fout": "Rapport kon niet worden opgeslagen: {bericht}",
+      "geen_selectie": "Selecteer eerst een meting in de historiek."
+    },
+    "voetnoot": {
+      "opgeslagen_waarden": "Getoond worden de waarden zoals ze zijn opgeslagen. Oorspronkelijke invoereenheden van gemeten C/ESR worden niet afzonderlijk bewaard en worden daarom niet gereconstrueerd.",
+      "read_only": "Dit rapport is read-only. Er zijn geen historische metingen of beoordelingen opnieuw berekend of gewijzigd."
+    }
+  }
+}

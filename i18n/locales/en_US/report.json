@@ -1,0 +1,63 @@
+{
+  "_comment": "English translation — module report.",
+  "report": {
+    "titel": "Measurement report",
+    "knop": "Report…",
+    "knop_tabel": "Report",
+    "kop": {
+      "app_titel": "Electronics Diagnostic Tool Hub",
+      "rapportdatum": "Report date",
+      "app_versie": "Application version",
+      "taal": "Report language",
+      "werkplaats": "Workshop / company",
+      "scope": "Scope"
+    },
+    "meerdere_metingen": "{aantal} measurements in this report",
+    "meting_kop": "Measurement {measurement_id}",
+    "sectie": {
+      "component": "Component identification",
+      "meetcontext": "Measurement context",
+      "meetwaarden": "Raw measurement values",
+      "assessment": "Assessment snapshot {nummer}",
+      "referentie": "Reference snapshot {nummer}",
+      "grafiek": "Chart",
+      "geen_assessment": "No assessment snapshot is stored for this measurement.",
+      "geen_referenties": "No reference snapshots are stored for this assessment."
+    },
+    "detail": {
+      "redenen": "Reasons",
+      "waarschuwingen": "Warnings",
+      "advies": "Advice"
+    },
+    "geen_renderer": "No specialised report view is available for this tool type yet.",
+    "scope": {
+      "enkel": "Single measurement",
+      "selectie": "Selection",
+      "filters": "Current filters"
+    },
+    "pdf": {
+      "auteur": "Electronics Diagnostic Tool Hub",
+      "maker": "Electronics Diagnostic Tool Hub / ESR Tester"
+    },
+    "dialoog": {
+      "titel": "Measurement report",
+      "preview_titel": "Preview",
+      "grafiek_checkbox": "Include chart",
+      "grafiek_niet_beschikbaar": "No chart available for this measurement.",
+      "opslaan_html": "Save as HTML…",
+      "opslaan_pdf": "Save as PDF…",
+      "sluiten": "Close",
+      "opslaan_titel": "Save report",
+      "html_filter": "HTML files (*.html)",
+      "pdf_filter": "PDF files (*.pdf)",
+      "geslaagd_html": "Report saved as HTML: {pad}",
+      "geslaagd_pdf": "Report saved as PDF: {pad}",
+      "fout": "Report could not be saved: {bericht}",
+      "geen_selectie": "Select a measurement in the history first."
+    },
+    "voetnoot": {
+      "opgeslagen_waarden": "Values are shown exactly as stored. The original input units for measured C/ESR are not stored separately and are therefore not reconstructed.",
+      "read_only": "This report is read-only. No historical measurements or assessments have been recalculated or modified."
+    }
+  }
+}

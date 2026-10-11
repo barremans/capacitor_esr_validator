@@ -278,6 +278,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Versie: 1.7.0
           # Datum: 2026-10-09
           ```
+        - 📄 **/app/gui/dialogs/report_dialog.py**
+          ```text
+          # Bestandsnaam: app/gui/dialogs/report_dialog.py
+          # Beschrijving: Modale dialoog voor het maken en opslaan van meetrapporten.
+          # Auteur: Bart Bossuyt
+          # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+          # Versie: 1.0.1
+          # Datum: 2026-10-10
+          ```
         - 📄 **/app/gui/dialogs/search_help_dialog.py**
           ```text
           # Bestandsnaam: app/gui/dialogs/search_help_dialog.py
@@ -303,6 +312,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Applicatie: GEEN APPLICATIE
         # Versie: V1.0.0
         ```
+      - 📄 **/app/gui/analysis_screen.py**
+        ```text
+        # Bestandsnaam: app/gui/analysis_screen.py
+        # Beschrijving: Read-only Analyse-pagina binnen het hoofdvenster.
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.6
+        # Datum: 2026-10-10
+        ```
       - 📄 **/app/gui/documentation_screen.py**
         ```text
         # Bestandsnaam: app/gui/documentation_screen.py
@@ -327,8 +345,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Compacte centrale read-only weergave van opgeslagen meethistoriek.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.13.0
-        # Datum: 2026-10-07
+        # Versie: 1.14.0
+        # Datum: 2026-10-10
         ```
       - 📄 **/app/gui/main_window.py**
         ```text
@@ -336,8 +354,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Hoofdvenster van de Tool Hub met één-venster-navigatie.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 2.9.0
-        # Datum: 2026-10-06
+        # Versie: 2.11.3
+        # Datum: 2026-10-10
         ```
       - 📄 **/app/gui/styles.py**
         ```text
@@ -355,6 +373,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Auteur: GEEN AUTEUR
         # Applicatie: GEEN APPLICATIE
         # Versie: V1.0.0
+        ```
+      - 📄 **/app/helpers/analysis_series.py**
+        ```text
+        # Bestandsnaam: app/helpers/analysis_series.py
+        # Beschrijving: Pure, GUI- en storage-onafhankelijke functies voor het bouwen van
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.1
+        # Datum: 2026-10-09
         ```
       - 📄 **/app/helpers/document_source_paths.py**
         ```text
@@ -419,6 +446,33 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Versie: 2.0.0
         # Datum: 2026-10-03
         ```
+      - 📄 **/app/helpers/report_chart.py**
+        ```text
+        # Bestandsnaam: app/helpers/report_chart.py
+        # Beschrijving: Qt-specifieke grafiek-helper voor meetrapporten.
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.3
+        # Datum: 2026-10-10
+        ```
+      - 📄 **/app/helpers/report_pdf.py**
+        ```text
+        # Bestandsnaam: app/helpers/report_pdf.py
+        # Beschrijving: Qt-specifieke PDF-export voor meetrapporten.
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.0
+        # Datum: 2026-10-10
+        ```
+      - 📄 **/app/helpers/report_render.py**
+        ```text
+        # Bestandsnaam: app/helpers/report_render.py
+        # Beschrijving: Pure, GUI- en database-onafhankelijke HTML-renderer voor
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.1.0
+        # Datum: 2026-10-10
+        ```
       - 📄 **/app/helpers/units.py**
         ```text
         # Bestandsnaam: app/helpers/units.py
@@ -435,6 +489,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Auteur: GEEN AUTEUR
         # Applicatie: GEEN APPLICATIE
         # Versie: V1.0.0
+        ```
+      - 📄 **/app/services/analysis_service.py**
+        ```text
+        # Bestandsnaam: app/services/analysis_service.py
+        # Beschrijving: Read-only applicatieservice voor grafieken en trends.
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.0
+        # Datum: 2026-10-09
         ```
       - 📄 **/app/services/assessment_service.py**
         ```text
@@ -471,6 +534,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
         # Versie: 1.1.0
         # Datum: 2026-10-01
+        ```
+      - 📄 **/app/services/report_service.py**
+        ```text
+        # Bestandsnaam: app/services/report_service.py
+        # Beschrijving: Read-only applicatieservice voor meetrapporten.
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.1.0
+        # Datum: 2026-10-10
         ```
     - 📁 **storage/**
       - 📄 **/app/storage/__init__.py**
@@ -581,21 +653,26 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     - 📄 **/docs/search_syntax.md**
     - 📄 **/docs/testgevallen_analyse.md**
     - 📄 **/docs/validation_rules.md**
+    - 📄 **/docs/WatNu.md**
   - 📁 **i18n/**
     - 📁 **locales/**
       - 📁 **en_US/**
+        - 📄 **/i18n/locales/en_US/analysis.json**
         - 📄 **/i18n/locales/en_US/app.json**
         - 📄 **/i18n/locales/en_US/documentation.json**
         - 📄 **/i18n/locales/en_US/esr.json**
         - 📄 **/i18n/locales/en_US/history.json**
         - 📄 **/i18n/locales/en_US/language.json**
+        - 📄 **/i18n/locales/en_US/report.json**
         - 📄 **/i18n/locales/en_US/settings.json**
       - 📁 **nl_NL/**
+        - 📄 **/i18n/locales/nl_NL/analysis.json**
         - 📄 **/i18n/locales/nl_NL/app.json**
         - 📄 **/i18n/locales/nl_NL/documentation.json**
         - 📄 **/i18n/locales/nl_NL/esr.json**
         - 📄 **/i18n/locales/nl_NL/history.json**
         - 📄 **/i18n/locales/nl_NL/language.json**
+        - 📄 **/i18n/locales/nl_NL/report.json**
         - 📄 **/i18n/locales/nl_NL/settings.json**
       - 📄 **/i18n/locales/en_US.json**
       - 📄 **/i18n/locales/nl_NL.json**
@@ -609,6 +686,42 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Auteur: GEEN AUTEUR
       # Applicatie: GEEN APPLICATIE
       # Versie: V1.0.0
+      ```
+    - 📄 **/tests/test_analysis_screen.py**
+      ```text
+      # Bestandsnaam: tests/test_analysis_screen.py
+      # Beschrijving: GUI-regressietests voor AnalysisScreen (Fase 7B).
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.2
+      # Datum: 2026-10-09
+      ```
+    - 📄 **/tests/test_analysis_screen_nan.py**
+      ```text
+      # Bestandsnaam: tests/test_analysis_screen_nan.py
+      # Beschrijving: Regressietests voor de NaN/Inf-verdediging in AnalysisScreen
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.2
+      # Datum: 2026-10-10
+      ```
+    - 📄 **/tests/test_analysis_series.py**
+      ```text
+      # Bestandsnaam: tests/test_analysis_series.py
+      # Beschrijving: Regressietests voor de pure analyse-reeksfuncties.
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-09
+      ```
+    - 📄 **/tests/test_analysis_service.py**
+      ```text
+      # Bestandsnaam: tests/test_analysis_service.py
+      # Beschrijving: Regressietests voor AnalysisService.
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-09
       ```
     - 📄 **/tests/test_assessment.py**
       ```text
@@ -841,7 +954,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor live taalwissel in Hoofdmenu/Diagnose, ESR en
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.1.0
+      # Versie: 1.1.1
       # Datum: 2026-10-01
       ```
     - 📄 **/tests/test_gui_regressions.py**
@@ -933,6 +1046,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
       # Versie: 1.0.0
       # Datum: 2026-10-01
+      ```
+    - 📄 **/tests/test_history_screen_report_button.py**
+      ```text
+      # Bestandsnaam: tests/test_history_screen_report_button.py
+      # Beschrijving: Regressietests voor de "Rapport"-knop in HistoryScreen (Fase 8C).
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-10
       ```
     - 📄 **/tests/test_history_service.py**
       ```text
@@ -1069,6 +1191,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.0.2
       # Datum: 2026-10-05
       ```
+    - 📄 **/tests/test_main_window_report_menu.py**
+      ```text
+      # Bestandsnaam: tests/test_main_window_report_menu.py
+      # Beschrijving: Regressietests voor het menu-item "Rapport maken…" (Fase 8C).
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.4
+      # Datum: 2026-10-10
+      ```
     - 📄 **/tests/test_measurement_methods.py**
       ```text
       # Bestandsnaam: tests/test_measurement_methods.py
@@ -1104,6 +1235,51 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
       # Versie: 1.0.0
       # Datum: 2026-10-01
+      ```
+    - 📄 **/tests/test_report_chart.py**
+      ```text
+      # Bestandsnaam: tests/test_report_chart.py
+      # Beschrijving: Regressietests voor de Qt-specifieke grafiek-helper.
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-10
+      ```
+    - 📄 **/tests/test_report_dialog.py**
+      ```text
+      # Bestandsnaam: tests/test_report_dialog.py
+      # Beschrijving: GUI-regressietests voor ReportDialog.
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-10
+      ```
+    - 📄 **/tests/test_report_pdf.py**
+      ```text
+      # Bestandsnaam: tests/test_report_pdf.py
+      # Beschrijving: Regressietests voor de Qt-specifieke PDF-export.
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-10
+      ```
+    - 📄 **/tests/test_report_render.py**
+      ```text
+      # Bestandsnaam: tests/test_report_render.py
+      # Beschrijving: Regressietests voor de pure HTML-renderer. Geen Qt, geen
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.2.1
+      # Datum: 2026-10-10
+      ```
+    - 📄 **/tests/test_report_service.py**
+      ```text
+      # Bestandsnaam: tests/test_report_service.py
+      # Beschrijving: Regressietests voor ReportService: read-only gedrag, validatie
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.2.0
+      # Datum: 2026-10-10
       ```
     - 📄 **/tests/test_search_help_dialog.py**
       ```text
@@ -1231,6 +1407,13 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       ```
   - 📄 **/.gitattributes**
   - 📄 **/.gitignore**
+  - 📄 **/debug_menu.py**
+    ```text
+    # Beschrijving: GEEN BESCHRIJVING
+    # Auteur: GEEN AUTEUR
+    # Applicatie: GEEN APPLICATIE
+    # Versie: V1.0.0
+    ```
   - 📄 **/LICENSE**
   - 📄 **/main.py**
     ```text

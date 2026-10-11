@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/analysis_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.2
-Datum:      2026-10-09
+Versie:     1.0.6
+Datum:      2026-10-10
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only Analyse-pagina binnen het hoofdvenster.
@@ -28,11 +28,39 @@ Wijzigingen:
                         ToolHubWindow._show_analysis() of de refresh-knop.
                         Dat houdt het aantal service-aanroepen minimaal en
                         maakt de volgorde van stub-calls voorspelbaar.
+  v1.0.3 (2026-10-10)  Fix: NaN/Inf in meetwaarden veroorzaakte Qt-
+                        waarschuwingen ("Ignored NaN, Inf, or -Inf value"
+                        en "Attempting to set invalid range for value
+                        axis"). _finite_filter() haalt niet-eindige
+                        waarden uit de reeks voordat min/max/setRange
+                        worden berekend. Lege reeks na filter valt
+                        terug op de "geen gegevens"-staat.
+  v1.0.4 (2026-10-10)  Fix: _is_finite accepteert nu uitsluitend int en
+                        float. Strings worden geweigerd, zodat een
+                        onverwachte string uit de storage zichtbaar wordt
+                        in plaats van stil te worden geaccepteerd.
+                        Consistent met analysis_series._as_float.
+  v1.0.5 (2026-10-10)  Fix: scatter schaalt nu vóór het filteren. Een
+                        eindige p.x of p.y kon door de vermenigvuldiging
+                        met 1e6 resp. 1000.0 alsnog ±Inf worden, waarna
+                        QValueAxis.setRange een Qt-waarschuwing gaf.
+                        Bovendien doet apply_language() geen refresh meer;
+                        de refresh komt via _show_analysis() of de knop.
+  v1.0.6 (2026-10-10)  Fix: applyNiceNumbers() verwijderd uit _draw_time_series
+                        en _draw_scatter. QValueAxis.applyNiceNumbers() roept
+                        intern setRange() aan op basis van de huidige reeks;
+                        bij een lege of nog niet geattache reeks gaf dat
+                        "Attempting to set invalid range for value axis:
+                        [nan - nan]". Expliciete setRange(min, max) is
+                        deterministisch en voldoende. Bovendien klemt
+                        _draw_time_series de x-as op [1970-01-01, 2100-01-01]
+                        zodat een absurde x_ms QDateTime niet laat overlopen.
 ================================================================================
 """
 
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from typing import Any
 
@@ -89,6 +117,36 @@ _UNKNOWN_STATUS_COLOR = "#9E9E9E"
 _LINE_COLOR = "#4AA3FF"
 _SCATTER_NEUTRAL_COLOR = "#B0B0B0"
 
+# Veilige grenzen voor QDateTime.fromMSecsSinceEpoch.
+_MIN_MS = 0                # 1970-01-01
+_MAX_MS = 4_102_444_800_000  # 2100-01-01 in epoch-ms
+
+
+def _is_finite(value: Any) -> bool:
+    """True als value een eindig getal is (geen NaN, geen ±Inf).
+
+    Accepteert uitsluitend int en float (geen bool, geen string).
+    Strings worden bewust geweigerd: als de storage een string teruggeeft
+    waar een getal hoort, is dat een bug die we willen zien, niet verbergen.
+    """
+    if value is None or isinstance(value, bool):
+        return False
+    if not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
+
+
+def _veilige_x_ms(value: int) -> int:
+    """Klem een epoch-ms waarde op het veilige bereik voor QDateTime."""
+    if value < _MIN_MS:
+        return _MIN_MS
+    if value > _MAX_MS:
+        return _MAX_MS
+    return int(value)
+
 
 class AnalysisScreen(QWidget):
     """Read-only analyse-pagina met QtCharts-visualisaties."""
@@ -107,11 +165,10 @@ class AnalysisScreen(QWidget):
         self._analysis_service = analysis_service or AnalysisService()
         self._build_ui()
         self._install_shortcuts()
-        # v1.0.1/v1.0.2: labels en combo-items initialiseren in de actieve
-        # taal, maar zonder refresh. De pagina is bij constructie nog niet
-        # zichtbaar; de eerste refresh komt via _show_analysis() of de
-        # refresh-knop. Dat houdt het aantal service-aanroepen minimaal en
-        # maakt de volgorde van stub-calls voorspelbaar.
+        # v1.0.1/v1.0.2/v1.0.5: labels en combo-items initialiseren in de
+        # actieve taal, maar zonder refresh. De pagina is bij constructie
+        # nog niet zichtbaar; de eerste refresh komt via _show_analysis()
+        # of de refresh-knop.
         self._apply_static_labels(self.taal)
 
     # ------------------------------------------------------------------
@@ -421,14 +478,14 @@ class AnalysisScreen(QWidget):
         self._apply_combo_labels()
 
     def apply_language(self, taal: str) -> None:
-        """Publieke taalwissel: statische labels én een refresh.
+        """Publieke taalwissel: alleen statische labels, geen refresh.
 
-        Wordt door ToolHubWindow aangeroepen bij een taalwissel, wanneer
-        de pagina in gebruik is. Voor de initiële constructie gebruiken
-        we _apply_static_labels() (geen refresh).
+        Sinds v1.0.5 doet deze methode géén data-refresh meer. De refresh
+        gebeurt via _show_analysis() in ToolHubWindow (bij openen van de
+        pagina) of via de refresh-knop. Dat voorkomt onnodige service-
+        aanroepen bij elke taalwissel en bij het opstarten.
         """
         self._apply_static_labels(taal)
-        self.refresh()
 
     # ------------------------------------------------------------------
     # Filters
@@ -534,6 +591,26 @@ class AnalysisScreen(QWidget):
     # Tijdreeksen
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _finite_filter(
+        punten: list[tuple[int, float]],
+    ) -> list[tuple[int, float]]:
+        """Haal niet-eindige y-waarden (NaN, Inf) uit de reeks.
+
+        QtCharts weigert een as-range met NaN en schrijft dan een
+        waarschuwing naar stderr. Door vóór min/max/setRange te filteren
+        vermijden we dat. De x-waarde moet ook eindig en niet-negatief
+        zijn.
+        """
+        resultaat: list[tuple[int, float]] = []
+        for x_ms, y in punten:
+            if not _is_finite(y):
+                continue
+            if not _is_finite(x_ms):
+                continue
+            resultaat.append((int(x_ms), float(y)))
+        return resultaat
+
     def _draw_time_series(
         self,
         points: list[TimeSeriesPoint],
@@ -548,8 +625,16 @@ class AnalysisScreen(QWidget):
             return
 
         # Bepaal schaal en y-label op basis van het grafiektype.
+        # v1.0.3/v1.0.5: schaal eerst, filter daarna, zodat een waarde
+        # die door de schaling ±Inf wordt, ook wordt weggefilterd.
         scale, y_label = self._scale_for(chart_type)
-        scaled = [(p.x_ms, p.y * scale) for p in points]
+        ruwe_punten = [(p.x_ms, p.y * scale) for p in points]
+        scaled = self._finite_filter(ruwe_punten)
+
+        if not scaled:
+            self._replace_chart_empty(self._t("analyse.geen_gegevens"))
+            self.state_label.setText(self._t("analyse.leeg"))
+            return
 
         series = QLineSeries()
         series.setName(y_label)
@@ -574,19 +659,24 @@ class AnalysisScreen(QWidget):
         axis_y.setLabelsColor(QColor("#F0F0F0"))
         axis_y.setTitleBrush(QColor("#F0F0F0"))
         axis_y.setGridLineColor(QColor("#3A3A3A"))
-        axis_y.applyNiceNumbers()
+        # v1.0.6: applyNiceNumbers() verwijderd. Die roept intern setRange()
+        # aan op basis van de huidige (nog niet geattache) reeks en gaf
+        # "Attempting to set invalid range for value axis: [nan - nan]".
+        # Expliciete setRange(min, max) hieronder is deterministisch.
 
         self.chart.addAxis(axis_x, Qt.AlignmentFlag.AlignBottom)
         self.chart.addAxis(axis_y, Qt.AlignmentFlag.AlignLeft)
         series.attachAxis(axis_x)
         series.attachAxis(axis_y)
 
-        first_ms = scaled[0][0]
-        last_ms = scaled[-1][0]
+        first_ms = _veilige_x_ms(scaled[0][0])
+        last_ms = _veilige_x_ms(scaled[-1][0])
         if first_ms == last_ms:
             # Eén punt: geef een minuut marge zodat de as iets toont.
-            first_ms -= 60_000
-            last_ms += 60_000
+            first_ms = _veilige_x_ms(first_ms - 60_000)
+            last_ms = _veilige_x_ms(last_ms + 60_000)
+        if first_ms >= last_ms:
+            last_ms = first_ms + 60_000
         axis_x.setRange(
             QDateTime.fromMSecsSinceEpoch(first_ms),
             QDateTime.fromMSecsSinceEpoch(last_ms),
@@ -602,7 +692,7 @@ class AnalysisScreen(QWidget):
         axis_y.setRange(y_min, y_max)
 
         self.state_label.setText(
-            self._t("analyse.aantal", aantal=len(points))
+            self._t("analyse.aantal", aantal=len(scaled))
         )
 
     def _scale_for(self, chart_type: str) -> tuple[float, str]:
@@ -628,9 +718,32 @@ class AnalysisScreen(QWidget):
             self.state_label.setText(self._t("analyse.leeg"))
             return
 
+        # v1.0.5: schaal eerst (µF, mΩ), filter daarna. Een eindige p.x
+        # of p.y kon door de vermenigvuldiging met 1e6 resp. 1000.0 alsnog
+        # ±Inf worden, waarna QValueAxis.setRange een Qt-waarschuwing gaf
+        # ("Attempting to set invalid range for value axis").
+        geschaald: list[tuple[ScatterPoint, float, float]] = []
+        for p in points:
+            if not _is_finite(p.x) or not _is_finite(p.y):
+                continue
+            x_scaled = p.x * 1e6
+            y_scaled = p.y * 1000.0
+            if not _is_finite(x_scaled) or not _is_finite(y_scaled):
+                continue
+            geschaald.append((p, x_scaled, y_scaled))
+
+        if not geschaald:
+            self._replace_chart_empty(self._t("analyse.geen_gegevens"))
+            self.state_label.setText(self._t("analyse.leeg"))
+            return
+
+        geldige_punten = [p for p, _, _ in geschaald]
+        x_geschaald = [x for _, x, _ in geschaald]
+        y_geschaald = [y for _, _, y in geschaald]
+
         # Groepeer per categorie zodat elke status een eigen kleur krijgt.
         per_categorie: dict[str | None, list[ScatterPoint]] = {}
-        for point in points:
+        for point in geldige_punten:
             per_categorie.setdefault(point.category, []).append(point)
 
         # Sorteer zodat "geen status" als laatste getekend wordt.
@@ -643,12 +756,8 @@ class AnalysisScreen(QWidget):
             group = per_categorie[category]
             series = QScatterSeries()
             series.setMarkerSize(11.0)
-            series.setName(
-                self._category_label(category)
-            )
-            series.setColor(
-                QColor(self._category_color(category))
-            )
+            series.setName(self._category_label(category))
+            series.setColor(QColor(self._category_color(category)))
             series.setBorderColor(QColor("#1E1E1E"))
             for point in group:
                 series.append(point.x * 1e6, point.y * 1000.0)  # µF, mΩ
@@ -659,14 +768,13 @@ class AnalysisScreen(QWidget):
         axis_x.setLabelsColor(QColor("#F0F0F0"))
         axis_x.setTitleBrush(QColor("#F0F0F0"))
         axis_x.setGridLineColor(QColor("#3A3A3A"))
-        axis_x.applyNiceNumbers()
+        # v1.0.6: applyNiceNumbers() verwijderd (zie _draw_time_series).
 
         axis_y = QValueAxis()
         axis_y.setTitleText(self._t("analyse.as.esr_mohm"))
         axis_y.setLabelsColor(QColor("#F0F0F0"))
         axis_y.setTitleBrush(QColor("#F0F0F0"))
         axis_y.setGridLineColor(QColor("#3A3A3A"))
-        axis_y.applyNiceNumbers()
 
         self.chart.addAxis(axis_x, Qt.AlignmentFlag.AlignBottom)
         self.chart.addAxis(axis_y, Qt.AlignmentFlag.AlignLeft)
@@ -674,13 +782,11 @@ class AnalysisScreen(QWidget):
             series.attachAxis(axis_x)
             series.attachAxis(axis_y)
 
-        x_values = [p.x * 1e6 for p in points]
-        y_values = [p.y * 1000.0 for p in points]
-        axis_x.setRange(min(x_values), max(x_values))
-        axis_y.setRange(min(y_values), max(y_values))
+        axis_x.setRange(min(x_geschaald), max(x_geschaald))
+        axis_y.setRange(min(y_geschaald), max(y_geschaald))
 
         self.state_label.setText(
-            self._t("analyse.aantal", aantal=len(points))
+            self._t("analyse.aantal", aantal=len(geldige_punten))
         )
 
     def _category_label(self, category: str | None) -> str:

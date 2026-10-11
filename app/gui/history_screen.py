@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/history_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.13.0
-Datum:      2026-10-07
+Versie:     1.14.0
+Datum:      2026-10-10
 Auteur:     Bart Bossuyt
 
 Doel:       Compacte centrale read-only weergave van opgeslagen meethistoriek.
@@ -38,6 +38,10 @@ Wijzigingen:
                         (indien geldig), anders standaard_exportmap. Na een
                         geslaagde export wordt laatste_exportmap bijgewerkt
                         en opgeslagen.
+  v1.14.0 (2026-10-10) Fase 8C: knop "Rapport…" in de detaildialoog en knop
+                        "Rapport" in de tabel-bottom-row. Opent ReportDialog
+                        voor de geselecteerde meting. Geen schrijfacties aan
+                        de historiek; alleen een rapportbestand op verzoek.
 ================================================================================
 """
 
@@ -325,6 +329,12 @@ class HistoryScreen(QWidget):
 
         bottom.addStretch(1)
 
+        # Nieuw in 8C: "Rapport…" naast Herhaal meting en Details.
+        self.report_btn = QPushButton(self._t("report.knop_tabel"))
+        self.report_btn.setEnabled(False)
+        self.report_btn.clicked.connect(self._show_report_for_selected)
+        bottom.addWidget(self.report_btn)
+
         self.repeat_btn = QPushButton(self._t("knop.herhaal_meting"))
         self.repeat_btn.setEnabled(False)
         self.repeat_btn.clicked.connect(self._repeat_selected_measurement)
@@ -522,6 +532,7 @@ class HistoryScreen(QWidget):
         self.export_btn.setText(self._t("historiek.export.knop"))
         self.detail_btn.setText(self._t("knop.details"))
         self.repeat_btn.setText(self._t("knop.herhaal_meting"))
+        self.report_btn.setText(self._t("report.knop_tabel"))
         self.previous_page_btn.setText(self._t("historiek.paging.vorige"))
         self.next_page_btn.setText(self._t("historiek.paging.volgende"))
         self.filter_group.setTitle(self._t("historiek.filter.titel"))
@@ -1098,6 +1109,7 @@ class HistoryScreen(QWidget):
     def _update_detail_button(self) -> None:
         has_selection = self._selected_measurement_id() is not None
         self.detail_btn.setEnabled(has_selection)
+        self.report_btn.setEnabled(has_selection)
         self.repeat_btn.setEnabled(
             has_selection and self._selected_tool_key() == "ESR_CAPACITOR"
         )
@@ -1137,6 +1149,32 @@ class HistoryScreen(QWidget):
             return
         self.repeat_requested.emit(preset)
 
+    def _show_report_for_selected(self) -> None:
+        """Open ReportDialog voor de geselecteerde meting (Fase 8C)."""
+        measurement_id = self._selected_measurement_id()
+        if measurement_id is None:
+            return
+        self._open_report_dialog(measurement_id)
+
+    def _open_report_dialog(self, measurement_id: int) -> None:
+        """Open ReportDialog voor één meting, met de actieve taal."""
+        from app.gui.dialogs.report_dialog import ReportDialog
+
+        werkplaats = ""
+        try:
+            instellingen = laad_instellingen()
+            werkplaats = instellingen.rapportage.werkplaats_bedrijf
+        except (OSError, ValueError):
+            pass
+
+        dialog = ReportDialog(
+            measurement_id,
+            taal=self.taal,
+            werkplaats=werkplaats,
+            parent=self,
+        )
+        dialog.exec()
+
     def _show_selected_detail(self) -> None:
         measurement_id = self._selected_measurement_id()
         if measurement_id is None:
@@ -1170,9 +1208,18 @@ class HistoryScreen(QWidget):
         browser.setHtml(self._build_detail_html(detail))
         layout.addWidget(browser)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
+        # Nieuw in 8C: knop "Rapport…" in de detaildialoog.
+        knoppen = QDialogButtonBox()
+        self._rapport_knop = knoppen.addButton(
+            self._t("report.knop"),
+            QDialogButtonBox.ButtonRole.ActionRole,
+        )
+        self._rapport_knop.clicked.connect(
+            lambda: self._open_report_dialog(measurement.id)
+        )
+        sluit_knop = knoppen.addButton(QDialogButtonBox.StandardButton.Close)
+        sluit_knop.clicked.connect(dialog.reject)
+        layout.addWidget(knoppen)
         dialog.exec()
 
     def _build_detail_html(self, detail: dict[str, Any]) -> str:
