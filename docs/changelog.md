@@ -4,6 +4,72 @@ Overzicht van wat er nieuw of verbeterd is in de Electronics Diagnostic
 Tool Hub. Voor technische details en architectuurkeuzes verwijzen we naar
 `docs/context.md`.
 
+## Versie 1.8 — Meetrapporten en uitgebreidere instellingen (12 oktober 2026)
+
+**Meetrapporten maken**
+
+Je kunt nu van elke opgeslagen meting een **meetrapport** maken. Open een
+meting in de historiek, klik op **Rapport** (of gebruik **Ctrl+P** in het
+Bestand-menu), en je krijgt een overzichtelijke preview. Je kunt het
+rapport opslaan als **HTML** of als **PDF**.
+
+Het rapport bevat:
+
+- **Componentidentificatie** — fabrikant, serie, partnummer, technologie,
+  nominale capaciteit, nominale spanning, tolerantie.
+- **Meetcontext** — meetmethode, instrument, frequentie, testspanning,
+  temperatuur, veiligheidsbevestigingen.
+- **Ruwe meetwaarden** — capaciteit, ESR, D, out-of-range-vlaggen.
+- **Assessment-snapshots** — de opgeslagen beoordelingen met redenen,
+  waarschuwingen en advies.
+- **Referentie-snapshots** — de gebruikte referenties per beoordeling.
+- **Optionele grafiek** — een grafieksectie met ESR-verloop (alleen voor
+  ESR_CAPACITOR).
+
+**Nieuw in de Rapportage-instellingen**
+
+De Settings-dialoog heeft nu een uitgebreidere **Rapportage-tab**:
+
+- **Auteur** — optioneel vrij veld dat in de rapportkop wordt getoond.
+- **Standaard rapportmap** — de map waarin de opslaandialoog standaard
+  start. Wordt automatisch bijgewerkt na elke geslaagde opslag.
+
+De **grafiek-checkbox** in het rapportdialoog start voortaan met de
+waarde van **Grafiek standaard opnemen** uit de instellingen.
+
+**Automatisch de map openen**
+
+Als **Exportmap openen na succesvolle export** aan staat, wordt na het
+opslaan van een rapport automatisch de map geopend — net als bij de
+CSV-export van de historiek.
+
+**Read-only**
+
+Het rapport wordt opgebouwd uit de **opgeslagen snapshots**. Historische
+metingen en beoordelingen worden nooit opnieuw berekend of gewijzigd.
+Het rapport is puur een weergave.
+
+**Opgelost**
+
+- In de rapport-HTML en -PDF verschenen de onvertaalde keys
+  `algemeen.ja` en `algemeen.nee` in plaats van "Ja"/"Nee". Dat is nu
+  opgelost door `app.ja` en `app.nee` te gebruiken.
+- De **statuslabels** in het rapport (`Capacitance status`,
+  `ESR status`, `Consistency status`) werden als ruwe codes getoond
+  (`binnen_tolerantie`, `niet_beoordeeld`). Ze worden nu vertaald,
+  net als in de GUI.
+
+**Tip voor leesbare PDF's**
+
+Als je een PDF opent en ziet alleen maar zwarte blokken in plaats van
+tekst, dan kan Qt de systeemfonts niet vinden. Start de applicatie dan
+zo:
+
+```powershell
+$env:QT_QPA_FONTDIR = "C:\Windows\Fonts"
+python main.py
+```
+
 ## Versie 1.7 — Grafieken en trends (9 oktober 2026)
 
 **Nieuwe pagina "Analyse"**

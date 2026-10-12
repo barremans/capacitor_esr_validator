@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/dialogs/report_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.1
-Datum:      2026-10-10
+Versie:     1.2.0
+Datum:      2026-10-11
 Auteur:     Bart Bossuyt
 
 Doel:       Modale dialoog voor het maken en opslaan van meetrapporten.
@@ -24,11 +24,30 @@ Wijzigingen:
                         instelling bestaat pas vanaf 8D; in 8C werkt de
                         dialoog zonder die instelling en valt terug op
                         standaard_exportmap.
+  v1.1.0 (2026-10-11)  Fase 8D: laatste_rapportmap bestaat nu; defensieve
+                        getattr() vervangen door directe toegang. Nieuwe
+                        parameter auteur voor de rapportkop. De
+                        grafiek-checkbox start met de instelling
+                        rapportage.grafiek_opnemen. Na een geslaagde
+                        opslag wordt de map geopend als
+                        exportmap_openen_na_export True is.
+  v1.2.0 (2026-10-11)  Fase 8D (vervolg): de startwaarde van de
+                        grafiek-checkbox komt niet langer uit een globale
+                        laad_instellingen() maar uit een expliciete
+                        parameter grafiek_default. Daardoor is de dialoog
+                        deterministisch en niet afhankelijk van de
+                        settings.json in de actieve map. De aanroeper
+                        (MainWindow) bepaalt de default. Backward-
+                        compatible: default blijft False.
 ================================================================================
 """
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+from dataclasses import replace
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -46,18 +65,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.config.settings import laad_instellingen
+from app.config.settings import laad_instellingen, sla_instellingen_op
 from app.helpers.i18n import vertaal
 from app.helpers.report_chart import render_chart_voor_detail
 from app.helpers.report_pdf import write_html_to_pdf
 from app.helpers.report_render import render_measurement_report_html
 from app.services.analysis_service import AnalysisService
 from app.services.report_service import ReportBundle, ReportService
-
-
-def _laatste_rapportmap(instellingen) -> str:
-    """Lees laatste_rapportmap defensief; de instelling bestaat pas vanaf 8D."""
-    return getattr(instellingen.algemeen, "laatste_rapportmap", "") or ""
 
 
 class ReportDialog(QDialog):
@@ -71,6 +85,8 @@ class ReportDialog(QDialog):
         report_service: ReportService | None = None,
         analysis_service: AnalysisService | None = None,
         werkplaats: str = "",
+        auteur: str = "",
+        grafiek_default: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -79,11 +95,22 @@ class ReportDialog(QDialog):
         self._report_service = report_service or ReportService()
         self._analysis_service = analysis_service or AnalysisService()
         self._werkplaats = werkplaats
+        self._auteur = auteur
+        self._grafiek_default = bool(grafiek_default)
 
         self._bundle: ReportBundle | None = None
         self._html: str = ""
         self._chart_png_base64: str | None = None
         self._grafiek_beschikbaar: bool = False
+
+        # Sinds 8D: lees de rapportage-instellingen één keer in voor
+        # laatste_rapportmap en exportmap_openen_na_export. De
+        # grafiek_default komt NIET uit deze instellingen — die komt
+        # uit de parameter, zodat de dialoog deterministisch is.
+        try:
+            self._instellingen = laad_instellingen()
+        except (OSError, ValueError):
+            self._instellingen = None
 
         self.setWindowTitle(self._t("report.dialoog.titel"))
         self.setModal(True)
@@ -129,9 +156,9 @@ class ReportDialog(QDialog):
         )
         root.addWidget(self.preview, 1)
 
-        # Grafiek-checkbox
+        # Grafiek-checkbox — startwaarde komt uit de parameter.
         self.grafiek_checkbox = QCheckBox(self._t("report.dialoog.grafiek_checkbox"))
-        self.grafiek_checkbox.setChecked(False)
+        self.grafiek_checkbox.setChecked(self._grafiek_default)
         self.grafiek_checkbox.stateChanged.connect(self._on_grafiek_toggled)
         root.addWidget(self.grafiek_checkbox)
 
@@ -249,18 +276,16 @@ class ReportDialog(QDialog):
     def _start_directory(self) -> str:
         """Beste startmap voor de opslaandialoog.
 
-        Leest laatste_rapportmap defensief: die instelling bestaat pas
-        vanaf 8D. Zonder die instelling valt de dialoog terug op
-        standaard_exportmap, en anders op niets.
+        Sinds 8D bestaat laatste_rapportmap. We lezen hem direct uit de
+        instellingen (geen getattr meer nodig) en vallen terug op
+        standaard_exportmap als hij leeg is.
         """
-        try:
-            instellingen = laad_instellingen()
-        except (OSError, ValueError):
+        if self._instellingen is None:
             return ""
 
         kandidaten = [
-            _laatste_rapportmap(instellingen),
-            instellingen.algemeen.standaard_exportmap,
+            self._instellingen.algemeen.laatste_rapportmap,
+            self._instellingen.algemeen.standaard_exportmap,
         ]
         for kandidaat in kandidaten:
             if not kandidaat:
@@ -276,30 +301,39 @@ class ReportDialog(QDialog):
     def _onthoud_map(self, bestand: Path) -> None:
         """Werk laatste_rapportmap bij na een geslaagde opslag.
 
-        De instelling bestaat pas vanaf 8D. Faalt stil als ze nog niet
-        bestaat: het onthouden van de map is een gemaksfunctie.
+        Sinds 8D bestaat de instelling; we schrijven hem rechtstreeks.
         """
         try:
-            from dataclasses import replace as _dc_replace
-            from app.config.settings import sla_instellingen_op
-
             nieuwe_map = str(bestand.parent)
             instellingen = laad_instellingen()
-
-            if not hasattr(instellingen.algemeen, "laatste_rapportmap"):
+            if instellingen.algemeen.laatste_rapportmap == nieuwe_map:
                 return
-            if _laatste_rapportmap(instellingen) == nieuwe_map:
-                return
-
-            bijgewerkt = _dc_replace(
+            bijgewerkt = replace(
                 instellingen,
-                algemeen=_dc_replace(
+                algemeen=replace(
                     instellingen.algemeen,
                     laatste_rapportmap=nieuwe_map,
                 ),
             )
             sla_instellingen_op(bijgewerkt)
         except (OSError, ValueError):
+            pass
+
+    def _open_map_indien_gewenst(self, bestand: Path) -> None:
+        """Open de map van het opgeslagen rapport als de instelling dat vraagt."""
+        if self._instellingen is None:
+            return
+        if not self._instellingen.algemeen.exportmap_openen_na_export:
+            return
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(str(bestand.parent))  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", str(bestand.parent)])
+            else:
+                subprocess.Popen(["xdg-open", str(bestand.parent)])
+        except OSError:
+            # Map openen is gemak, geen must. Stil falen.
             pass
 
     def _opslaan_html(self) -> None:
@@ -325,6 +359,7 @@ class ReportDialog(QDialog):
             return
 
         self._onthoud_map(Path(file_path))
+        self._open_map_indien_gewenst(Path(file_path))
         self._toon_succes(self._t("report.dialoog.geslaagd_html", pad=file_path))
 
     def _opslaan_pdf(self) -> None:
@@ -354,6 +389,7 @@ class ReportDialog(QDialog):
             return
 
         self._onthoud_map(Path(file_path))
+        self._open_map_indien_gewenst(Path(file_path))
         self._toon_succes(self._t("report.dialoog.geslaagd_pdf", pad=file_path))
 
     # ------------------------------------------------------------------

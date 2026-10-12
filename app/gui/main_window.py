@@ -56,6 +56,17 @@ Wijzigingen:
                         voorrang; valt terug op settings.json als hij leeg
                         is. main.py roept zonder argument aan en behoudt
                         dus het bestaande gedrag.
+  v2.11.4 (2026-10-11) Fase 8D: auteur wordt uit de rapportage-instellingen
+                        gelezen en meegegeven aan ReportDialog. Backward-
+                        compatible: leeg laten betekent geen auteur in het
+                        rapport.
+  v2.11.5 (2026-10-11) Fase 8D (vervolg): grafiek_default-parameter wordt
+                        uit de rapportage-instellingen gelezen en meegegeven
+                        aan ReportDialog. De dialoog hoeft zo niet zelf
+                        laad_instellingen() aan te roepen voor de
+                        grafiek-checkbox. Versie-header gecorrigeerd: de
+                        auteur-parameter (v2.11.4) stond al in de code maar
+                        niet in de header.
 ================================================================================
 """
 
@@ -560,6 +571,8 @@ class ToolHubWindow(QMainWindow):
             measurement_id,
             taal=self.taal,
             werkplaats=self.instellingen.rapportage.werkplaats_bedrijf,
+            auteur=self.instellingen.rapportage.auteur,
+            grafiek_default=self.instellingen.rapportage.grafiek_opnemen,
             parent=self,
         )
         dialog.exec()

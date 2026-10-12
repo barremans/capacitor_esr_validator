@@ -10,6 +10,7 @@
       "app_versie": "Application version",
       "taal": "Report language",
       "werkplaats": "Workshop / company",
+      "auteur": "Author",
       "scope": "Scope"
     },
     "meerdere_metingen": "{aantal} measurements in this report",

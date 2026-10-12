@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_report_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-10
+Versie:     1.1.0
+Datum:      2026-10-11
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor ReportDialog.
@@ -11,6 +11,11 @@ Doel:       GUI-regressietests voor ReportDialog.
 Wijzigingen:
   v1.0.0 (2026-10-10)  Eerste versie: preview, grafiek-checkbox,
                         opslaan-HTML, opslaan-PDF, foutafhandeling.
+  v1.1.0 (2026-10-11)  Fase 8D: test voor grafiek_default-parameter.
+                        De grafiek-test roept _on_grafiek_toggled direct
+                        aan, zodat hij niet afhankelijk is van de
+                        startwaarde van de checkbox of van de globale
+                        settings.json.
 ================================================================================
 """
 
@@ -174,21 +179,63 @@ def test_dialog_toont_geen_grafiek_bij_niet_esr():
     assert not dialog.grafiek_checkbox.isEnabled()
 
 
-def test_dialog_grafiek_checkbox_laadt_chart():
+# ============================================================================
+# v1.1.0 — grafiek_default (fase 8D)
+# ============================================================================
+
+def test_dialog_grafiek_checkbox_start_uit_default():
+    """Met grafiek_default=False start de checkbox uit."""
     dialog = ReportDialog(
         42,
         taal="nl_NL",
         report_service=_StubReportService(),
         analysis_service=_StubAnalysisService(),
+        grafiek_default=False,
+    )
+    assert dialog.grafiek_checkbox.isChecked() is False
+    assert dialog._chart_png_base64 is None
+
+
+def test_dialog_grafiek_checkbox_start_aan_met_default():
+    """Met grafiek_default=True start de checkbox aan."""
+    dialog = ReportDialog(
+        42,
+        taal="nl_NL",
+        report_service=_StubReportService(),
+        analysis_service=_StubAnalysisService(),
+        grafiek_default=True,
+    )
+    assert dialog.grafiek_checkbox.isChecked() is True
+
+
+def test_dialog_grafiek_checkbox_laadt_chart():
+    """De grafiek wordt geladen als de checkbox aangezet wordt.
+
+    We roepen _on_grafiek_toggled direct aan, zodat de test niet
+    afhankelijk is van de startwaarde van de checkbox of van de globale
+    settings.json. Dat test de logica, niet het Qt-signaal.
+    """
+    dialog = ReportDialog(
+        42,
+        taal="nl_NL",
+        report_service=_StubReportService(),
+        analysis_service=_StubAnalysisService(),
+        grafiek_default=False,
     )
     assert dialog._grafiek_beschikbaar is True
     assert dialog._chart_png_base64 is None
 
     dialog.grafiek_checkbox.setChecked(True)
+    # Qt.CheckState.Checked == 2; expliciet aanroepen voor determinisme.
+    dialog._on_grafiek_toggled(2)
 
     assert dialog._chart_png_base64 is not None
     assert "data:image/png;base64," in dialog._html
 
+
+# ============================================================================
+# Opslaan
+# ============================================================================
 
 def test_dialog_opslaan_html(tmp_path, monkeypatch):
     dialog = ReportDialog(

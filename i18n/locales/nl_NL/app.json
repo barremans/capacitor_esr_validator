@@ -1,7 +1,9 @@
 {
   "app": {
     "titel": "Electronics Diagnostic Tool Hub",
-    "hoofdmenu": "Hoofdmenu"
+    "hoofdmenu": "Hoofdmenu",
+    "ja": "Ja",
+    "nee": "Nee"
   },
   "menu": {
     "bestand": "Bestand",

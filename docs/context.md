@@ -906,3 +906,28 @@ Belangrijk:
 - Gemeten capaciteit en gemeten ESR worden rechtstreeks in de samenvatting getoond.
 - Geen wijziging aan assessment-logica of ESR-referentiedata.
 - Na visuele bevestiging is de GUI-fase afgesloten; volgende fase is data/logica-audit.
+
+## 10. Qt-specifieke eigenaardigheden
+
+- **`QApplication.setStyle("Fusion")`** moet voor
+  `apply_dark_theme(app)` — anders negeert Qt CSS op
+  `QRadioButton::indicator` en `QCheckBox::indicator`.
+- **`QValueAxis.applyNiceNumbers()`** op een nog niet geattache
+  reeks geeft `[nan - nan]`. Vermijd deze aanroep.
+- **`QDateTime.fromMSecsSinceEpoch()`** accepteert een `qint64`.
+  Klem absurde waarden op een veilig bereik.
+- **`deleteLater()`** wordt niet verwerkt in tests zonder event loop.
+  Gebruik `QApplication.processEvents()` in GUI-testfixtures.
+- **QAction-parent:** een QAction hoort het menu als parent te hebben,
+  niet het venster. Dan ruimt `deleteLater()` op het menu automatisch
+  de acties op.
+- **`QT_QPA_FONTDIR` op Windows:** Qt in een PySide6-venv kan de
+  systeemfonts niet vinden zonder `QT_QPA_FONTDIR=C:\Windows\Fonts`.
+  Zonder deze variabele rendert `QPrinter` PDF-rapporten met zwarte
+  blokken in plaats van tekst. De HTML-viewer gebruikt de OS-fontstack
+  en heeft dit probleem niet.
+- **`QPrinter` en `QTextDocument`** zitten standaard bij PySide6; het
+  zijn **geen** aparte dependencies. Idem voor `PySide6.QtCharts`.
+- **`QChartView.grab()`** is de juiste manier om een grafiek als
+  afbeelding te exporteren (voor het rapport). Werkt zonder extra
+  dependency.

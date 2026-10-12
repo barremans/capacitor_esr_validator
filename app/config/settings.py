@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/config/settings.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.4.0
-Datum:      2026-10-07
+Versie:     1.5.0
+Datum:      2026-10-11
 Auteur:     Bart Bossuyt
 
 Doel:       Centrale, aanpasbare instellingen voor de app.
@@ -21,6 +21,11 @@ Wijzigingen:
                        succesvolle export. Condensatortypes gecentraliseerd.
   v1.4.0 (2026-10-07)  laatste_importmap en laatste_exportmap toegevoegd
                        voor 5D'.3 (Wizard UX). Backward-compatible: oude
+                       settings.json blijft geldig, ontbrekende keys worden
+                       leeg.
+  v1.5.0 (2026-10-11)  Fase 8D: laatste_rapportmap toegevoegd aan
+                       AlgemeneInstellingen; auteur toegevoegd aan
+                       RapportageInstellingen. Backward-compatible: oude
                        settings.json blijft geldig, ontbrekende keys worden
                        leeg.
 
@@ -110,6 +115,9 @@ class AlgemeneInstellingen:
     ingestelde startmappen. ``laatste_importmap`` en ``laatste_exportmap``
     worden automatisch bijgehouden door de wizard en het exportdialoog, zodat
     de volgende keer in dezelfde map wordt gestart (fase 5D'.3).
+
+    ``laatste_rapportmap`` wordt sinds fase 8D automatisch bijgehouden door
+    het rapportdialoog, analoog aan laatste_exportmap.
     """
 
     thema: str = "dark"
@@ -118,6 +126,7 @@ class AlgemeneInstellingen:
     standaard_importmap: str = ""
     laatste_exportmap: str = ""
     laatste_importmap: str = ""
+    laatste_rapportmap: str = ""
     exportmap_openen_na_export: bool = False
 
 
@@ -141,13 +150,22 @@ class EsrCondensatorInstellingen:
 
 @dataclass(frozen=True)
 class RapportageInstellingen:
-    """Voorkeuren voor latere rapportage; nog geen report-engine."""
+    """Voorkeuren voor meetrapporten (fase 8).
+
+    ``grafiek_opnemen`` bepaalt de startwaarde van de grafiek-checkbox in
+    het rapportdialoog. De dialoog schrijft niet terug, dus de instelling
+    blijft de persoonlijke default.
+
+    ``auteur`` (sinds 8D) is een optioneel vrij veld dat in de rapportkop
+    wordt getoond. Leeg laten betekent: geen auteur in het rapport.
+    """
 
     grafiek_opnemen: bool = False
     technische_details_opnemen: bool = True
     referentiebron_opnemen: bool = True
     datum_tijd_opnemen: bool = True
     werkplaats_bedrijf: str = ""
+    auteur: str = ""
 
 
 @dataclass(frozen=True)
@@ -191,8 +209,9 @@ def _dataclass_from_dict(cls: type[T], data: Any) -> T:
 def laad_instellingen() -> AppInstellingen:
     """Laadt settings.json, of veilige defaults wanneer laden niet lukt.
 
-    Oude bestanden zonder de nieuwe velden (laatste_importmap,
-    laatste_exportmap) blijven geldig; die velden worden dan leeg.
+    Oude bestanden zonder de nieuwste velden (laatste_importmap,
+    laatste_exportmap, laatste_rapportmap, auteur) blijven geldig; die
+    velden worden dan leeg.
     """
     if SETTINGS_PATH.exists():
         try:

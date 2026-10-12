@@ -10,6 +10,7 @@
       "app_versie": "Applicatieversie",
       "taal": "Rapporttaal",
       "werkplaats": "Werkplaats / bedrijf",
+      "auteur": "Auteur",
       "scope": "Scope"
     },
     "meerdere_metingen": "{aantal} metingen in dit rapport",

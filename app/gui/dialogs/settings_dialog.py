@@ -2,9 +2,9 @@
 ================================================================================
 Module:     app/gui/dialogs/settings_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.2.0
-Datum:      2026-09-27
-Auteur:     Ontwikkelaar
+Versie:     1.3.0
+Datum:      2026-10-11
+Auteur:     Bart Bossuyt
 
 Doel:       Modale Settings-dialoog met tabs Algemeen, ESR / Condensator en
             Rapportage. Bewerkt een lokale kopie; Toepassen/OK leveren een
@@ -20,6 +20,13 @@ Wijzigingen:
                        nu uit de centrale settings-constante.
   v1.2.0 (2026-10-03)  Taalkeuze wordt dynamisch opgebouwd uit language.json-
                        metadata; geen vaste NL/EN-lijst meer in de dialoog.
+  v1.3.0 (2026-10-11)  Fase 8D: Auteur-veld en Rapportmap-veld toegevoegd
+                       aan de Rapportage-tab. Beide velden zijn optioneel en
+                       backward-compatible met bestaande settings.json.
+                       laatste_exportmap en laatste_importmap worden niet
+                       meer overschreven bij Toepassen: ze worden
+                       uitsluitend automatisch bijgehouden door de wizard
+                       en het exportdialoog.
   v1.0.0 (2026-09-27)  Eerste implementatie van de drie Settings-tabs en
                        bediening Herstellen/Annuleren/Toepassen/OK.
 ================================================================================
@@ -278,9 +285,36 @@ class SettingsDialog(QDialog):
         form = QFormLayout()
         self.werkplaats_edit = QLineEdit()
         form.addRow(self._t("settings.rapportage.werkplaats"), self.werkplaats_edit)
+
+        # Sinds 8D: optionele auteur voor de rapportkop.
+        self.auteur_edit = QLineEdit()
+        form.addRow(self._t("settings.rapportage.auteur"), self.auteur_edit)
+
+        # Sinds 8D: standaardmap voor rapportopslag, met Bladeren-knop.
+        # Dit is de startmap voor de opslaandialoog. De daadwerkelijke
+        # "laatste_rapportmap" wordt bijgehouden door het rapportdialoog.
+        self.rapportmap_edit = QLineEdit()
+        self.rapportmap_bladeren_btn = QPushButton(
+            self._t("settings.algemeen.bladeren")
+        )
+        self.rapportmap_bladeren_btn.clicked.connect(self._kies_rapportmap)
+        rapportmap_row = QHBoxLayout()
+        rapportmap_row.addWidget(self.rapportmap_edit, 1)
+        rapportmap_row.addWidget(self.rapportmap_bladeren_btn)
+        form.addRow(self._t("settings.rapportage.rapportmap"), rapportmap_row)
+
         layout.addLayout(form)
         layout.addStretch()
         return tab
+
+    def _kies_rapportmap(self) -> None:
+        gekozen = QFileDialog.getExistingDirectory(
+            self,
+            self._t("settings.rapportage.rapportmap_kiezen"),
+            self.rapportmap_edit.text().strip(),
+        )
+        if gekozen:
+            self.rapportmap_edit.setText(gekozen)
 
     def _load_widgets(self, instellingen: AppInstellingen) -> None:
         self._select(self.taal_combo, instellingen.taal)
@@ -312,17 +346,21 @@ class SettingsDialog(QDialog):
         self.referentie_check.setChecked(rapport.referentiebron_opnemen)
         self.datum_check.setChecked(rapport.datum_tijd_opnemen)
         self.werkplaats_edit.setText(rapport.werkplaats_bedrijf)
+        self.auteur_edit.setText(rapport.auteur)
+        self.rapportmap_edit.setText(instellingen.algemeen.laatste_rapportmap)
 
     def _widgets_naar_instellingen(self) -> AppInstellingen:
         werkspanning = self.werkspanning_spin.value()
         if werkspanning == 0.0:
             werkspanning = None
 
-        algemeen = AlgemeneInstellingen(
+        algemeen = replace(
+            self._basis.algemeen,
             thema=self.thema_combo.currentData() or "dark",
             tooltips_ingeschakeld=self.tooltips_check.isChecked(),
             standaard_exportmap=self.exportmap_edit.text().strip(),
             standaard_importmap=self.importmap_edit.text().strip(),
+            laatste_rapportmap=self.rapportmap_edit.text().strip(),
             exportmap_openen_na_export=self.exportmap_openen_check.isChecked(),
         )
         esr = EsrCondensatorInstellingen(
@@ -345,6 +383,7 @@ class SettingsDialog(QDialog):
             referentiebron_opnemen=self.referentie_check.isChecked(),
             datum_tijd_opnemen=self.datum_check.isChecked(),
             werkplaats_bedrijf=self.werkplaats_edit.text().strip(),
+            auteur=self.auteur_edit.text().strip(),
         )
         return replace(
             self._toegepast,
@@ -378,7 +417,11 @@ class SettingsDialog(QDialog):
             standaard = replace(
                 self._widgets_naar_instellingen(),
                 taal=STANDAARD_TAAL,
-                algemeen=AlgemeneInstellingen(),
+                algemeen=AlgemeneInstellingen(
+                    # Behoud de automatisch bijgehouden mappen.
+                    laatste_exportmap=self._basis.algemeen.laatste_exportmap,
+                    laatste_importmap=self._basis.algemeen.laatste_importmap,
+                ),
             )
         elif index == 1:
             standaard = replace(

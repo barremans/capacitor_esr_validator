@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/services/report_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-10
+Versie:     1.2.0
+Datum:      2026-10-11
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only applicatieservice voor meetrapporten.
@@ -28,6 +28,10 @@ Wijzigingen:
                         blijft bestaan als dunne wrapper (backward-compatible).
                         ReportBundle.detail blijft als property bestaan voor
                         bestaande aanroepers en tests.
+  v1.2.0 (2026-10-11)  Fase 8D: auteur-veld toegevoegd aan ReportBundle en
+                        alle build-methoden. Wordt in de rapportkop getoond
+                        als het niet leeg is. Backward-compatible: default
+                        is lege string.
 ================================================================================
 """
 
@@ -57,6 +61,7 @@ class ReportBundle:
     - ``rapportdatum`` is een lokale timestamp-string (YYYY-MM-DD HH:MM:SS).
     - ``app_versie`` komt uit app/version.py.
     - ``werkplaats`` is optioneel (leeg = niet opnemen in de kop).
+    - ``auteur`` is optioneel (leeg = niet opnemen in de kop).
     - ``scope`` is een vrije label-string die de GUI kan gebruiken in de kop;
       leeg betekent "geen expliciete scope".
     """
@@ -66,6 +71,7 @@ class ReportBundle:
     rapportdatum: str
     app_versie: str
     werkplaats: str = ""
+    auteur: str = ""
     scope: str = ""
 
     @property
@@ -109,6 +115,7 @@ class ReportService:
         *,
         taal: str,
         werkplaats: str = "",
+        auteur: str = "",
         rapportdatum: str | None = None,
     ) -> ReportBundle:
         """Bundel één meting (backward-compatible dunne wrapper)."""
@@ -116,6 +123,7 @@ class ReportService:
             [measurement_id],
             taal=taal,
             werkplaats=werkplaats,
+            auteur=auteur,
             rapportdatum=rapportdatum,
         )
 
@@ -125,6 +133,7 @@ class ReportService:
         *,
         taal: str,
         werkplaats: str = "",
+        auteur: str = "",
         rapportdatum: str | None = None,
         scope: str = "",
     ) -> ReportBundle:
@@ -173,6 +182,7 @@ class ReportService:
             rapportdatum=rapportdatum or _nu_iso(),
             app_versie=_APP_VERSION,
             werkplaats=werkplaats.strip(),
+            auteur=auteur.strip(),
             scope=scope.strip(),
         )
 
@@ -182,6 +192,7 @@ class ReportService:
         *,
         taal: str,
         werkplaats: str = "",
+        auteur: str = "",
         rapportdatum: str | None = None,
         scope: str = "",
         max_metingen: int = 500,
@@ -219,6 +230,7 @@ class ReportService:
             measurement_ids,
             taal=taal,
             werkplaats=werkplaats,
+            auteur=auteur,
             rapportdatum=rapportdatum,
             scope=scope,
         )

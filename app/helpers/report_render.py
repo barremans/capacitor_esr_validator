@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/helpers/report_render.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-10
+Versie:     1.4.0
+Datum:      2026-10-12
 Auteur:     Bart Bossuyt
 
 Doel:       Pure, GUI- en database-onafhankelijke HTML-renderer voor
@@ -30,6 +30,23 @@ Wijzigingen:
                         zonder specifieke secties. Nieuwe optionele parameter
                         chart_png_base64_per_meting: dict[int, str] voor de
                         grafieksectie (8B.2 vult die).
+  v1.2.0 (2026-10-11)  Fase 8D: optionele auteur wordt in de rapportkop
+                        getoond als die niet leeg is. Backward-compatible:
+                        een ReportBundle zonder auteur-attribuut werkt nog
+                        (getattr met default "").
+  v1.3.0 (2026-10-11)  Bugfix: _bool() gebruikte de niet-bestaande keys
+                        'algemeen.ja' en 'algemeen.nee'. Vervangen door
+                        'app.ja' en 'app.nee', die in app.json bestaan.
+                        Zonder deze fix lekten de i18n-keys letterlijk in
+                        de rapport-HTML.
+  v1.4.0 (2026-10-12)  Bugfix: capacitance_status, esr_status en
+                        consistency_status werden als ruwe enum-codes
+                        getoond (bv. 'binnen_tolerantie' in plaats van
+                        'binnen tolerantie'). Nu vertaald via de nieuwe
+                        helper _status_code_label, met dezelfde keys als
+                        de GUI gebruikt (status.capaciteit.*, status.esr.*,
+                        status.consistentie.*). Backward-compatible:
+                        onbekende codes vallen terug op de ruwe waarde.
 ================================================================================
 """
 
@@ -75,8 +92,8 @@ def _row(taal: str, label_key: str, value: Any) -> str:
 def _bool(taal: str, value: bool | None) -> str:
     return format_bool(
         value,
-        yes=_t(taal, "algemeen.ja"),
-        no=_t(taal, "algemeen.nee"),
+        yes=_t(taal, "app.ja"),
+        no=_t(taal, "app.nee"),
     )
 
 
@@ -94,6 +111,26 @@ def _betrouwbaarheid_label(taal: str, value: Any) -> str:
     sleutel = f"status.betrouwbaarheid.{value}"
     vertaald = _t(taal, sleutel)
     return value if vertaald == sleutel else vertaald
+
+
+def _status_code_label(taal: str, namespace: str, value: Any) -> str:
+    """Vertaal een statuscode uit assessment_service naar het label.
+
+    Gebruikt dezelfde i18n-keys als de GUI (status.capaciteit.*,
+    status.esr.*, status.consistentie.*). Valt terug op de ruwe code als
+    de key niet bestaat, zodat het rapport ook werkt voor onbekende
+    statussen.
+
+    Werkt zowel voor een enum (met .value) als voor een string, zodat
+    het zowel met het live assessment-resultaat als met een opgeslagen
+    snapshot werkt.
+    """
+    if not value:
+        return "—"
+    code = str(getattr(value, "value", value))
+    sleutel = f"{namespace}.{code}"
+    vertaald = _t(taal, sleutel)
+    return code if vertaald == sleutel else vertaald
 
 
 def _tool_label(taal: str, tool_key: str | None) -> str:
@@ -199,6 +236,7 @@ def _render_kop(bundle: Any, taal: str) -> str:
     app_versie = getattr(bundle, "app_versie", "")
     rapportdatum = getattr(bundle, "rapportdatum", "")
     werkplaats = getattr(bundle, "werkplaats", "")
+    auteur = getattr(bundle, "auteur", "")
     scope = getattr(bundle, "scope", "")
     titel = _t(taal, "report.titel")
 
@@ -210,6 +248,10 @@ def _render_kop(bundle: Any, taal: str) -> str:
     if werkplaats:
         meta_parts.append(
             f"{escape(_t(taal, 'report.kop.werkplaats'))}: {escape(str(werkplaats))}"
+        )
+    if auteur:
+        meta_parts.append(
+            f"{escape(_t(taal, 'report.kop.auteur'))}: {escape(str(auteur))}"
         )
     if scope:
         meta_parts.append(
@@ -410,7 +452,13 @@ def _render_assessments(detail: dict[str, Any], taal: str) -> str:
             _row(taal, "historiek.detail.assessed_at", format_local_datetime(assessment.assessed_at_ms))
         )
         html.append(_row(taal, "historiek.detail.engine_version", assessment.engine_version))
-        html.append(_row(taal, "historiek.detail.capacitance_status", assessment.capacitance_status))
+        html.append(
+            _row(
+                taal,
+                "historiek.detail.capacitance_status",
+                _status_code_label(taal, "status.capaciteit", assessment.capacitance_status),
+            )
+        )
         html.append(
             _row(
                 taal,
@@ -418,7 +466,13 @@ def _render_assessments(detail: dict[str, Any], taal: str) -> str:
                 format_optional_number(assessment.capacitance_deviation_pct, suffix=" %"),
             )
         )
-        html.append(_row(taal, "historiek.detail.esr_status", assessment.esr_status))
+        html.append(
+            _row(
+                taal,
+                "historiek.detail.esr_status",
+                _status_code_label(taal, "status.esr", assessment.esr_status),
+            )
+        )
         html.append(
             _row(
                 taal,
@@ -426,7 +480,15 @@ def _render_assessments(detail: dict[str, Any], taal: str) -> str:
                 format_optional_number(assessment.esr_factor, suffix="×"),
             )
         )
-        html.append(_row(taal, "historiek.detail.consistency_status", assessment.consistency_status))
+        html.append(
+            _row(
+                taal,
+                "historiek.detail.consistency_status",
+                _status_code_label(
+                    taal, "status.consistentie", assessment.consistency_status
+                ),
+            )
+        )
         html.append(
             _row(
                 taal,

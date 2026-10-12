@@ -2,14 +2,15 @@
 ================================================================================
 Module:     tests/test_settings_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.1.0
-Datum:      2026-09-27
-Auteur:     Ontwikkelaar
+Versie:     1.2.0
+Datum:      2026-10-11
+Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor de Settings-dialoog.
 
 Wijzigingen:
   v1.1.0 (2026-10-02)  Algemene bestandsvoorkeuren en Browse-gedrag getest.
+  v1.2.0 (2026-10-11)  Fase 8D: Auteur-veld en Rapportmap-veld getest.
 ================================================================================
 """
 
@@ -97,3 +98,82 @@ def test_condensatortypes_komen_uit_centrale_settingsconstante():
     waarden = [dialog.type_combo.itemText(i) for i in range(dialog.type_combo.count())]
 
     assert tuple(waarden) == CONDENSATORTYPES
+
+
+# ============================================================================
+# v1.2.0 — Auteur-veld en Rapportmap-veld (fase 8D)
+# ============================================================================
+
+def test_auteur_veld_leeg_default():
+    _app()
+    dialog = SettingsDialog(AppInstellingen(), taal="nl_NL")
+    assert dialog.auteur_edit.text() == ""
+
+
+def test_rapportmap_veld_leeg_default():
+    _app()
+    dialog = SettingsDialog(AppInstellingen(), taal="nl_NL")
+    assert dialog.rapportmap_edit.text() == ""
+
+
+def test_auteur_wordt_opgenomen_in_nieuw_settingsobject():
+    _app()
+    dialog = SettingsDialog(AppInstellingen(), taal="nl_NL")
+    dialog.auteur_edit.setText("Bart Bossuyt")
+    dialog._toepassen()
+
+    assert dialog.toegepaste_instellingen.rapportage.auteur == "Bart Bossuyt"
+
+
+def test_rapportmap_wordt_opgenomen_in_laatste_rapportmap():
+    _app()
+    dialog = SettingsDialog(AppInstellingen(), taal="nl_NL")
+    dialog.rapportmap_edit.setText(r"C:\Rapporten")
+    dialog._toepassen()
+
+    assert (
+        dialog.toegepaste_instellingen.algemeen.laatste_rapportmap
+        == r"C:\Rapporten"
+    )
+
+
+def test_bestaande_laatste_exportmap_blijft_behouden_bij_toepassen():
+    """Belangrijk: Toepassen mag laatste_exportmap niet per ongeluk wissen."""
+    _app()
+    basis = AppInstellingen()
+    basis = type(basis)(
+        taal=basis.taal,
+        algemeen=type(basis.algemeen)(
+            thema=basis.algemeen.thema,
+            tooltips_ingeschakeld=basis.algemeen.tooltips_ingeschakeld,
+            standaard_exportmap=basis.algemeen.standaard_exportmap,
+            standaard_importmap=basis.algemeen.standaard_importmap,
+            laatste_exportmap=r"C:\CSV",
+            laatste_importmap=r"C:\PDFs",
+            laatste_rapportmap="",
+            exportmap_openen_na_export=basis.algemeen.exportmap_openen_na_export,
+        ),
+        esr_condensator=basis.esr_condensator,
+        rapportage=basis.rapportage,
+        beoordeling=basis.beoordeling,
+    )
+    dialog = SettingsDialog(basis, taal="nl_NL")
+    dialog._toepassen()
+
+    algemeen = dialog.toegepaste_instellingen.algemeen
+    assert algemeen.laatste_exportmap == r"C:\CSV"
+    assert algemeen.laatste_importmap == r"C:\PDFs"
+
+
+def test_bladeren_voor_rapportmap_vult_veld(monkeypatch):
+    _app()
+    dialog = SettingsDialog(AppInstellingen(), taal="nl_NL")
+
+    monkeypatch.setattr(
+        "app.gui.dialogs.settings_dialog.QFileDialog.getExistingDirectory",
+        lambda *args, **kwargs: r"C:\GekozenRapportmap",
+    )
+
+    dialog._kies_rapportmap()
+
+    assert dialog.rapportmap_edit.text() == r"C:\GekozenRapportmap"

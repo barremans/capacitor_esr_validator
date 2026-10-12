@@ -1,62 +1,95 @@
+# Wat nu? — Electronics Diagnostic Tool Hub
+
+**Versie:** 1.1.0
+**Datum:** 2026-10-12
+**Auteur:** Bart Bossuyt
+**Doel:** beknopte gids voor "wat is de volgende stap" na een
+afgeronde fase. Geen volledige overdracht — die staat in
+`overdracht.md`.
 
 ---
 
-## Wat nu?
+## Huidige staat
 
-**Samenvatting van deze levering:**
+- **Baseline tests:** 1144 passed.
+- **Laatste afgeronde fase:** 8D+ — Settings-uitbreiding en bugfixes.
+- **Volgende fase:** 8E — Documentatie bijwerken (of direct 9 / 11).
 
-1. **`docs/changelog.md`** — versie 1.6 toegevoegd.
-2. **`docs/documentation_import.md`** — v1.3.0 met Word/Excel-sectie.
-3. **`docs/openvragen.md`** — v1.4.0 met §2.8 (Word/Excel beantwoord) en §2.9 (nieuwe openstaande punten).
-4. **`overdracht.md`** — v3.5.0, klaar voor een nieuwe chat met fase 7 als volgende.
+Dit bestand wordt bijgewerkt na elke fase.
 
-**Verificatie:**
-- Geen codewijziging, dus geen nieuwe tests nodig.
-- De 999 passed blijft de baseline.
+---
 
-**Je kunt nu een nieuwe chat starten.** In die chat:
+## Waar te beginnen
 
-1. Plak de startprompt uit **sectie 1** van `overdracht.md` v3.5.0.
-2. De nieuwe chat vraagt om de bestanden uit **sectie 8**.
-3. De nieuwe chat stelt de vragen uit **sectie 6.2** (grafiekbibliotheek, locatie, types, etc.).
-4. Na jouw antwoorden begint fase 7.
+### Als je een nieuwe chat start
 
-**Belangrijke opmerking voor de nieuwe chat:** de eerste beslissing is de **grafiekbibliotheek**. `matplotlib` is zwaar, `pyqtgraph` is Qt-native en licht, `QtCharts` is Qt-native maar vereist de PySide6-Charts module (die standaard bij PySide6 zit). Mijn voorkeur zou **QtCharts** zijn, tenzij je interactieve zoom/pan echt nodig hebt — dan is **pyqtgraph** beter.
+1. Lees `overdracht.md` volledig.
+2. Lees `docs/openvragen.md` voor de openstaande punten.
+3. Vraag de bestanden op die de overdracht in **sectie 8** noemt.
+4. Wacht op instructie "start <fase>".
 
-Succes met fase 7.
+### Als je zelf verder werkt
 
-9. WERKAFSPRAKEN IN EEN NIEUWE SESSIE
-Vraag altijd om de huidige bestandsinhoud voordat je een bestaand
-bestand vervangt.
+1. Open `overdracht.md` en kijk naar **sectie 4 (stappenplan)** om
+   te zien wat de volgende fase is.
+2. Lees de bijbehorende sectie in **sectie 6 (openstaande vragen)**.
+3. Draai eerst `pytest -q` om te bevestigen dat de baseline klopt.
+4. Begin met een **kleine, controleerbare** deelfase.
 
-Uitzondering: als je het bestand in deze sessie al hebt geleverd
-of gezien en er is geen tegenspraak, mag je het direct hergebruiken.
+### Als je een bug hebt gevonden
 
-Lever altijd volledige bestanden, nooit secties met
-# ... ongewijzigd ....
+1. Voeg een test toe die de bug reproduceert (in `tests/`).
+2. Draai de test — die moet falen.
+3. Fix de bug.
+4. Draai de test — die moet slagen.
+5. Draai de volledige suite.
+6. Noteer de fix in de header van het gewijzigde bestand
+   (cumulatieve wijzigingshistoriek).
 
-Lever volledige JSON-bestanden, nooit fragmenten.
+### Als je een nieuwe functie wilt toevoegen
 
-Draai eerst gerichte tests, dan volledige pytest -q.
+1. Bepaal in welke **laag** de functie thuishoort:
+   - GUI: `app/gui/`
+   - Service: `app/services/`
+   - Helper: `app/helpers/`
+   - Storage: `app/storage/`
+   - Documentatie: `app/documentation/`
+2. Voeg nooit logica toe aan een laag die er niet voor bedoeld is.
+3. Voeg een **pure** test toe waar mogelijk (geen Qt).
+4. Voeg een **GUI**-test toe waar nodig (offscreen, geen `qtbot`).
+5. Werk de i18n bij (NL + EN) voor nieuwe GUI-teksten.
 
-Meld nieuwe i18n-keys expliciet, met de waarde voor NL én EN.
+---
 
-Python-headers zijn cumulatief. Nieuwe versies krijgen een nieuwe
-regel bovenaan de Wijzigingen:-lijst; oudere regels blijven staan.
+## Belangrijke afspraken
 
-Geen aannames over de eerstvolgende fase — vraag het na.
+- **Lever volledige bestanden**, nooit secties met
+  `# ... ongewijzigd ...`.
+- **JSON altijd volledig**, nooit fragmenten.
+- **Eerst gerichte tests, dan volledige `pytest -q`.**
+- **Een fase is pas afgerond als beide groen zijn.**
+- **Meld nieuwe i18n-keys expliciet**, met NL én EN.
+- **Python-headers zijn cumulatief.**
+- **Geen `qtbot`** — er is geen `pytest-qt`.
+- **Verwerk `deleteLater()` in GUI-tests** met
+  `QApplication.processEvents()`.
+- **De taalparameter van `ToolHubWindow` heeft voorrang op
+  `settings.json`.**
+- **Voor leesbare PDF's:** stel `QT_QPA_FONTDIR=C:\Windows\Fonts` in
+  vóór je `main.py` start.
 
-9.1 Specifieke afspraken voor fase 7
-Read-only. De analyse-laag leest, schrijft nooit.
+---
 
-Historische data niet herberekenen. Gebruik de assessment-
-snapshot, niet de huidige regels.
+## Snelle links
 
-Grafiekbibliotheek eerst afstemmen. Niet stil een dependency
-toevoegen.
-
-Kleine stappen. Eerst een simpele lijngrafiek met één filter,
-dan uitbreiden.
-
-Testbaar zonder GUI. De aggregaties horen in een GUI-onafhankelijke
-module, niet in de GUI-code.
+| Doel | Bestand |
+|---|---|
+| Actuele projectstaat | `overdracht.md` |
+| Architectuur | `docs/context.md` |
+| Versiegeschiedenis | `docs/changelog.md` |
+| Open vragen | `docs/openvragen.md` |
+| Header-standaard | `docs/python_header_standard.md` |
+| Zoektaal | `docs/search_syntax.md` |
+| Import-laag | `docs/documentation_import.md` |
+| Roadmap | `docs/future_tools.md` |
+| Eindgebruikershelp | `docs/help/nl_NL.md`, `docs/help/en_US.md` |

@@ -1,7 +1,7 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 1.5.0
-**Datum:** 2026-10-09
+**Versie:** 1.6.0
+**Datum:** 2026-10-12
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
 is. Geen bugs, geen beloftes — alleen vragen en observaties.
@@ -29,6 +29,13 @@ Wijzigingen:
                        refresh()-opsplitsing, automatische as-schaling,
                        QDateTimeAxis-tickformaat, scatterkleur bij
                        onbekende status, zoom/pan in QtCharts.
+  v1.6.0 (2026-10-12)  §2.12 toegevoegd: meetrapporten (fase 8) —
+                       beantwoord. §2.13 toegevoegd: settings-
+                       uitbreiding (fase 8D) — beantwoord. §2.14
+                       toegevoegd: nieuwe openstaande punten na 8D,
+                       inclusief GUI-scope "selectie"/"filters",
+                       menu-item disabled maken zonder selectie, en
+                       PDF-fontprobleem op Windows (QT_QPA_FONTDIR).
 
 ---
 
@@ -61,7 +68,7 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 
 ---
 
-## 2. Uit Fase 5, 6 en 7 — Import, metadata, statusbeheer en analyse
+## 2. Uit Fase 5, 6, 7 en 8 — Import, metadata, statusbeheer, analyse en rapportage
 
 ### 2.1 Scope — beantwoord
 
@@ -277,6 +284,81 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 - **Geen PNG/PDF-export van grafieken.** Bewust buiten fase 7 gehouden;
   hoort bij fase 8 (Rapportage).
 
+### 2.12 Meetrapporten — beantwoord (fase 8)
+
+- **Vraag:** kunnen we meetgegevens omzetten naar een rapport dat
+  gedeeld of afgedrukt kan worden?
+- **Antwoord:** ja, sinds fase 8. Nieuwe service `ReportService`, pure
+  HTML-renderer `report_render.py`, Qt-specifieke PDF-export via
+  `report_pdf.py` en grafiek-helper `report_chart.py`, plus een modale
+  `ReportDialog`.
+- **Formaat:** HTML primair, PDF via QPrinter. Geen nieuwe dependency.
+- **GUI-scope:** "één meting". De service ondersteunt ook meerdere
+  metingen via `build_bundle_for_measurements` en
+  `build_bundle_from_filters`, maar de GUI biedt die nog niet aan.
+- **Read-only bewijs:** `ReportService` leest via `MeasurementHistoryService`
+  en schrijft nooit. Historische assessments worden niet herberekend.
+- **Openen van rapport:** via `Bestand → Rapport maken…` (Ctrl+P) en
+  via de Rapport-knop in de historiek.
+- **Auteur:** optioneel veld in de Rapportage-tab; wordt in de
+  rapportkop getoond als het niet leeg is.
+- **Grafiek:** optioneel, standaard uit; de startwaarde komt uit
+  `rapportage.grafiek_opnemen`.
+- **Status:** afgerond voor fase 8C + 8D.
+
+### 2.13 Settings-uitbreiding — beantwoord (fase 8D)
+
+- **Vraag:** welke rapportage-instellingen zijn nodig?
+- **Antwoord:** de Rapportage-tab heeft nu `auteur` en
+  `laatste_rapportmap`. De `grafiek_opnemen`-instelling bepaalt de
+  startwaarde van de grafiek-checkbox in `ReportDialog`.
+- **Auteur:** optioneel vrij veld. Wordt in de rapportkop getoond als
+  het niet leeg is.
+- **Rapportmap:** startmap voor de opslaandialoog. Wordt na elke
+  geslaagde opslag automatisch bijgewerkt (`laatste_rapportmap`).
+- **Openen na opslaan:** hergebruikt `exportmap_openen_na_export`.
+- **Grafiek-default in de dialoog:** de `ReportDialog` krijgt een
+  expliciete parameter `grafiek_default` van `MainWindow`. De dialoog
+  leest de instelling niet meer rechtstreeks uit `settings.json`, wat
+  hem deterministisch maakt in tests.
+- **Backward-compat:** oude `settings.json` zonder `laatste_rapportmap`
+  en `auteur` blijft geldig; die velden worden leeg.
+- **Bugfix in `SettingsDialog`:** de vorige versie bouwde een nieuwe
+  `AlgemeneInstellingen` in plaats van `replace()`, waardoor
+  `laatste_exportmap` en `laatste_importmap` per ongeluk gewist werden
+  bij een `Toepassen`-klik. Nu gefixt.
+- **Status:** afgerond.
+
+### 2.14 Nieuwe openstaande punten (na fase 8D)
+
+- **GUI voor scope "selectie" en "filters".** De `ReportService`
+  ondersteunt `build_bundle_for_measurements` en
+  `build_bundle_from_filters`, maar de GUI biedt alleen "één meting"
+  aan. Een gebruiker kan nog geen rapport maken van meerdere
+  geselecteerde metingen of van een filter.
+  - **Restvraag:** in fase 11 toevoegen, of eerder?
+  - **Impact:** nieuw menu-item of knop in historiek, plus scope-selectie.
+  - **Status:** open; bewust uitgesteld.
+- **Menu-item "Rapport maken…" disabled maken zonder selectie.**
+  Nu wordt een melding getoond in plaats van het menu-item uit te
+  schakelen.
+  - **Restvraag:** is dat netter, of is de melding beter?
+  - **Impact:** `_huidige_meting_id()` in `main_window.py` moet ook
+    het menu-item kunnen enablen/disablen.
+  - **Status:** open; cosmetisch.
+- **PDF-fonts op Windows.** Qt kan in een PySide6-venv de systeemfonts
+  niet vinden zonder `QT_QPA_FONTDIR=C:\Windows\Fonts`. Zonder deze
+  variabele rendert Qt PDF-rapporten met **zwarte blokken** in plaats
+  van tekst.
+  - **Restvraag:** zetten we deze variabele automatisch in `main.py`?
+    Dan hoeft de gebruiker hem niet handmatig te zetten.
+  - **Impact:** enkele regels in `main.py` vóór `QApplication`.
+  - **Status:** open; overwegen in fase 11.
+- **Cosmetische opruiming i18n-keys.** Enkele i18n-keys worden
+  momenteel niet gebruikt of zijn dubbel. Geen functionele impact.
+  - **Restvraag:** opruimen in fase 11.
+  - **Status:** open; cosmetisch.
+
 ---
 
 ## 3. Uit vroegere contextdocumenten (nog steeds relevant)
@@ -320,12 +402,12 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 ### 3.5 Rapportage
 
 - **Vraag:** moeten resultaten als meetrapport kunnen worden
-  afgedrukt?
+  afgedrukt? (beantwoord in fase 8)
 - **Vraag:** moeten Frans en Engels later worden ondersteund?
 - **Vraag:** is een tweede LCR-meter beschikbaar voor vergelijking?
 - **Vraag:** welke foutmarge is aanvaardbaar voor de interne
   consistentiecontrole?
-- **Status:** Fase 8 — Rapportage.
+- **Status:** deels beantwoord in fase 8; resterende vragen blijven open.
 
 ### 3.6 Override van automatische beoordeling
 
@@ -394,6 +476,20 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 - **Restvraag:** willen we in een latere fase ook de **tri-state**
   checkbox (partially checked) stylen? Niet nodig vandaag.
 - **Impact:** klein.
+
+### 4.6 Aandachtspunt: `QT_QPA_FONTDIR` op Windows
+
+- Qt kan in een PySide6-venv de Windows-systeemfonts niet vinden zonder
+  de omgevingsvariabele `QT_QPA_FONTDIR=C:\Windows\Fonts`. Zonder deze
+  variabele worden PDF-rapporten gerenderd met **zwarte blokken** in
+  plaats van tekst.
+- **Observatie:** de HTML-viewer werkt wel (Qt gebruikt daar de
+  OS-fontstack). Alleen de PDF-renderer via `QPrinter` heeft het
+  probleem.
+- **Restvraag:** zetten we de variabele automatisch in `main.py`?
+  Dat zou de gebruiker één handmatige stap besparen.
+- **Impact:** enkele regels in `main.py` vóór `QApplication` aanmaken.
+- **Status:** open; overwegen in fase 11.
 
 ---
 
