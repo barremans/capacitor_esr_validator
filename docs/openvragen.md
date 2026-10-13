@@ -1,6 +1,6 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 1.8.0
+**Versie:** 1.9.0
 **Datum:** 2026-10-13
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
@@ -22,6 +22,10 @@ Wijzigingen:
                        openstaande punten: x64-deprecation, publish naar
                        GitHub, build_log.txt, verlopen certificaten,
                        Defender/Intune-testmatrix, WDAC/AppLocker-vraag.
+  v1.9.0 (2026-10-13)  §2.18 bijgewerkt: publicatie naar GitHub is
+                       uitgevoerd (9E, v1.0.3). Nieuwe openstaande
+                       punten: LF/CRLF-waarschuwing,
+                       `ESR_Tester.spec` in `.gitignore`.
 
 ---
 
@@ -134,19 +138,50 @@ Zie v1.7.0.
   flow. Geen eigen variant meer.
 - **Status:** afgerond voor 9C en 9D.
 
-### 2.18 Nieuwe openstaande punten (na fase 9C + 9D)
+### 2.18 Publiceren naar GitHub — beantwoord (fase 9E)
 
-- **Publiceren naar GitHub.** `publish.ps1` is klaar maar nog niet
-  uitgevoerd. `$Repo = "capacitor_esr_validator"` — controleer of dat
-  de echte repo-naam is.
-  - **Restvraag:** is de eerste release bedoeld als `v1.0.4` (patch
-    op `1.0.3`) of als een andere versie?
-  - **Status:** open; volgende fase (9E).
+- **Vraag:** publiceer de eerste release naar GitHub via `publish.ps1`.
+  Is `$Repo = "capacitor_esr_validator"` de echte repo-naam? En is de
+  eerste release `v1.0.4` of een andere versie?
+- **Antwoord:**
+  - Repo is bevestigd: `https://github.com/barremans/capacitor_esr_validator`.
+  - De eerste release is **`v1.0.3`** (geen bump vooraf).
+  - Publicatie is uitgevoerd op **2026-10-13**.
+  - Release-gate werkte: `Get-AuthenticodeSignature` gaf `Valid` met
+    `CN=CGK Local Signing`.
+  - Asset `ESR_TesterSetup_1.0.3.exe` (≈63 MB) is geüpload.
+  - `releases/latest/version.txt` is aangemaakt en gepusht
+    (2 regels: versie + URL).
+  - `app/version.py` + `version.txt` zijn gecommit en gepusht
+    (commit `1614c9e`).
+  - De raw "latest"-pointer
+    `https://raw.githubusercontent.com/barremans/capacitor_esr_validator/main/releases/latest/version.txt`
+    geeft correct `1.0.3` + de download-URL.
+- **Status:** afgerond voor 9E.
+
+### 2.19 Nieuwe openstaande punten (na fase 9E)
+
+- **LF/CRLF-waarschuwing** bij `git add releases/latest/version.txt`.
+  - **Wat:** Git meldt `LF will be replaced by CRLF the next time Git
+    touches it`. Inhoudelijk geen probleem — de raw URL geeft exact de
+    twee verwachte regels.
+  - **Restvraag:** `.gitattributes` uitbreiden met
+    `releases/latest/version.txt text eol=lf`, of accepteren?
+  - **Impact:** één regel in `.gitattributes`.
+  - **Status:** open; cosmetisch (fase 11).
 - **`Architecture identifier "x64" is deprecated`** tijdens ISCC.
   - **Restvraag:** aanpassen naar `x64compatible` in
     `build_installer.bat`?
   - **Impact:** één regel in de `.iss`-generatie.
   - **Status:** open; cosmetisch.
+- **`ESR_Tester.spec` staat in `.gitignore`** (regel `*.spec`).
+  - **Wat:** de `.spec` staat in de root en wordt door PyInstaller
+    gebruikt, maar wordt niet meegecommit. Op een andere machine is
+    de `.spec` dan niet beschikbaar na `git clone`.
+  - **Restvraag:** de `*.spec`-regel in `.gitignore` vervangen door
+    een uitzondering `!ESR_Tester.spec`, of accepteren?
+  - **Impact:** één regel in `.gitignore`.
+  - **Status:** open; relevant voor 9F of 11.
 - **`[rename] Fallback via robocopy...`-melding** in `build_installer.bat`.
   - **Restvraag:** oude `dist\<BUILD_FOLDER>` altijd eerst volledig
     verwijderen vóór de rename?
@@ -243,7 +278,14 @@ Zie v1.7.0.
   bewezen op 2026-10-13.
 - **Besluit:** geen eigen variant meer. De ArticleSearch-flow is
   bindend voor de buildstraat.
-- **Status:** afgerond in 9C+9D.
+- **Status:** afgerond in 9C+9D; publicatie in 9E.
+
+### 4.9 Eerste echte publicatie
+- **Observatie:** op 2026-10-13 is de eerste GitHub-release
+  gepubliceerd. De volledige keten `build_installer.bat` →
+  `publish.ps1` is nu eind-to-eind bewezen, inclusief de release-gate
+  op de Authenticode-handtekening.
+- **Status:** afgerond in 9E.
 
 ---
 

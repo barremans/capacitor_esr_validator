@@ -1,16 +1,16 @@
 # OVERDRACHT — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie overdracht:** 4.0.0
+**Versie overdracht:** 4.1.0
 **Datum:** 2026-10-13
 **Auteur:** Bart Bossuyt
-**Vorige versie:** 3.8.0 (2026-10-13)
+**Vorige versie:** 4.0.0 (2026-10-13)
 **Doel:** volledig overdrachtsdocument voor een nieuwe ChatGPT-sessie of
 nieuwe ontwikkelaar. Bevat projectstaat, architectuur, regels, changelog,
 teststructuur en startprompt. Alles in één bestand.
 
 **Huidige baseline:** 1150 passed
-**Laatste afgeronde fase:** 9D — Signing (`signtool`, certificaatpreflight, verify)
-**Volgende fase:** 9E — GitHub Release (`publish.ps1`, `build_and_publish.ps1`)
+**Laatste afgeronde fase:** 9E — GitHub Release (eerste publicatie `v1.0.3`)
+**Volgende fase:** 9F — Intune/Defender/CFA-testmatrix + `docs/packaging.md`
 
 ---
 
@@ -20,7 +20,7 @@ teststructuur en startprompt. Alles in één bestand.
 2. Context — projectstaat en architectuur
 3. Kernregels — bindende afspraken
 4. Stappenplan — chronologisch overzicht
-5. Wat is nieuw sinds versie 3.8.0
+5. Wat is nieuw sinds versie 4.0.0
 6. Openstaande vragen voor de nieuwe chat
 7. Teststatus — baseline en teststructuur
 8. Bestanden die de nieuwe chat moet opvragen
@@ -41,8 +41,10 @@ iets doet.
 - Projectmap: `C:\PY\capacitor_esr_validator`.
 - Technologie: Python 3.12 + PySide6 (Qt6, Fusion-stijl), volledig offline.
 - Baseline: **1150 passed**.
-- Laatste afgeronde fase: **9D — Signing** (`signtool`, certificaatpreflight, verify).
-- Volgende fase: **9E — GitHub Release** (`publish.ps1`, `build_and_publish.ps1`).
+- Laatste afgeronde fase: **9E — GitHub Release** (eerste publicatie
+  `v1.0.3` op 2026-10-13).
+- Volgende fase: **9F — Intune/Defender/CFA-testmatrix +
+  `docs/packaging.md`**.
 
 **Werkafspraken die je strikt volgt:**
 
@@ -125,9 +127,11 @@ eerst. Geen aannames.
 | Taal GUI | Nederlands + Engels (via i18n) |
 | Werkmodus | Volledig offline, lokale opslag |
 | Database | SQLite op `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\measurements.sqlite3` |
+| GitHub-repo | `https://github.com/barremans/capacitor_esr_validator` |
+| Huidige versie | `1.0.3` (gepubliceerd als GitHub-release `v1.0.3`) |
 | Huidige baseline | **1150 passed** |
-| Laatste afgeronde fase | 9D — Signing |
-| Volgende fase | 9E — GitHub Release |
+| Laatste afgeronde fase | 9E — GitHub Release |
+| Volgende fase | 9F — Intune/Defender/CFA-testmatrix |
 
 ### 2.2 Huidige applicatiearchitectuur
 
@@ -241,7 +245,7 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - `PySide6.QtCharts` wordt gebruikt in `app/gui/analysis_screen.py` en
   `app/helpers/report_chart.py`. Geen aparte dependency.
 
-**Buildstraat (fase 9A–9D):**
+**Buildstraat (fase 9A–9E):**
 
 - `app/version.py` — centrale versie, momenteel `1.0.3`.
 - `main.py` — `QT_QPA_FONTDIR` automatisch, `setApplicationVersion`.
@@ -291,11 +295,8 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
   Twee oudere/verlopen certs staan nog in de store
   (`4DA652...`, `13B90D...`); de preflight slaat ze automatisch over
   (`NotAfter -gt now`).
-- **Bewezen werkend op 2026-10-13:** build `1.0.3` geproduceerd,
-  `ESR_Tester.exe` + `ESR_TesterSetup_1.0.3.exe` beide gesigned en
-  geverifieerd; installer op gewone Windows-pc getest en geslaagd.
 
-### 2.3 Belangrijke recente bugfixes (8D+, 9A–9D)
+### 2.3 Belangrijke recente bugfixes (8D+, 9A–9E)
 
 - **`algemeen.ja` / `algemeen.nee` lekten in rapport-HTML** (v1.3.0 van
   `report_render.py`): keys bestonden niet; vervangen door
@@ -344,19 +345,23 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
   `dist\...\ESR_Tester.exe` is de werkende applicatie.
 - **`[rename] Fallback via robocopy...`-melding** in de batch: komt
   doordat de vorige `dist\<BUILD_FOLDER>` nog bestaat. Cosmetisch.
+- **LF/CRLF-waarschuwing bij `git add releases/latest/version.txt`**:
+  Git meldt "LF will be replaced by CRLF the next time Git touches it".
+  Inhoudelijk geen probleem; de raw URL geeft exact de twee regels.
+  Bewust nog niet aangepast; zie openvragen.
 
 ### 2.4 Openstaande werkpunten
 
 Volgens het stappenplan:
 
-- **9E** — GitHub Release (`publish.ps1`, `build_and_publish.ps1`).
-  De scripts bestaan al; de eerste echte publicatie moet nog gebeuren.
-  **Volgende fase.**
 - **9F** — Intune/Defender/CFA-testmatrix + `docs/packaging.md`.
+  **Volgende fase.**
 - **9G** — Icoon in `.spec` en `.iss` — **al gedaan in 9C+9D**; 9G
   kan vervallen of beperkt blijven tot het verifiëren van de
   installer-iconen op meerdere Windows-versies.
-- **9H** — Update-check bij opstarten + via Help.
+- **9H** — Update-check bij opstarten + via Help. De "latest"-pointer
+  op `releases/latest/version.txt` is sinds 9E beschikbaar en kan
+  direct gebruikt worden.
 - **10** — Praktische ESR-validatie.
 - **11** — Laatste UX/documentatie-afwerking (incl. light theme,
   async URL-fetch, cosmetische scrollbar in Word-samenvatting,
@@ -444,7 +449,9 @@ Volgens het stappenplan:
   `build_and_publish.ps1`, `publish.ps1` en
   `Export-SigningCertificate.ps1` staan in de root en worden niet
   meegebundeld in de EXE. De `.iss` wordt in de batch gegenereerd in
-  `dist\` en is geen bronbestand.
+  `dist\` en is geen bronbestand. `publish.ps1` schrijft
+  `releases\latest\version.txt` als stabiele "latest"-pointer voor de
+  toekomstige update-check.
 
 ### 3.3 ESR-technische kernregels
 
@@ -543,8 +550,8 @@ Volgens het stappenplan:
 | 9B.2 | `ESR_Tester.spec` + `build_installer.bat` | ✅ |
 | 9C | Inno Setup installer (`installer.iss` gegenereerd in batch) | ✅ |
 | 9D | Signing (`signtool`, certificaatpreflight, verify) | ✅ |
-| **9E** | **GitHub Release (`publish.ps1`, `build_and_publish.ps1`)** | **Volgende** |
-| 9F | Intune/Defender/CFA-testmatrix + `docs/packaging.md` | Gepland |
+| 9E | **GitHub Release (`publish.ps1`, `build_and_publish.ps1`)** | **✅** |
+| **9F** | **Intune/Defender/CFA-testmatrix + `docs/packaging.md`** | **Volgende** |
 | 9G | Icoon in `.spec` en `.iss` — **al gedaan in 9C+9D** | ✅ (kan vervallen) |
 | 9H | Update-check bij opstarten + via Help | Gepland |
 | 10 | Praktische ESR-validatie | Gepland |
@@ -556,71 +563,48 @@ Volgens het stappenplan:
 
 ---
 
-## 5. WAT IS NIEUW SINDS VERSIE 3.8.0
+## 5. WAT IS NIEUW SINDS VERSIE 4.0.0
 
-### 5.1 Fase 9C — Inno Setup installer (ArticleSearch-flow)
+### 5.1 Fase 9E — GitHub Release
 
-- **Overstap naar de bewezen ArticleSearch-flow.** De eerdere
-  aanpak (vaste `installer.iss` in de root, door de batch gegenereerd
-  met `/DVersie=`) is verlaten. In plaats daarvan genereert
-  `build_installer.bat` het `.iss`-bestand in `dist\installer.iss`
-  via `>>`-regels, exact zoals `build_installer15.bat` v1.4.0 dat doet.
-- **`installer.iss` in de root bestaat niet meer.** Verwijderen.
-- **AppId:** `{B7E4F2A1-9C3D-4E5F-8A6B-1D2E3F4A5B6C}`.
-  In het `.iss` met dubbele openingsaccolade:
-  `AppId={{B7E4F2A1-9C3D-4E5F-8A6B-1D2E3F4A5B6C}`.
-  In de batch via `%APPGUID:~0,1%{%APPGUID:~1%`.
-- **`DefaultDirName={autopf}\Electronics Diagnostic Tool Hub\ESR Tester`.**
-- **`OutputBaseFilename=ESR_TesterSetup_<versie>`.**
-- **`DisableDirPage=no`** (gebruiker kiest map).
-- **`CloseApplications=force`**, `CloseApplicationsFilter=ESR_Tester.exe`,
-  `RestartApplications=no`.
-- **`[Run]` met `runascurrentuser`** — de app start na installatie met
-  gebruikersrechten.
-- **`[Code]`-sectie** met `IsUpgrade` + `InitializeWizard` voor
-  "bijwerken naar versie X"-tekst.
-- **Icoon actief** in zowel `ESR_Tester.spec` (`icon=`) als het
-  gegenereerde `.iss` (`SetupIconFile` + `IconFilename`), pad
-  `assets\icons\logo.ico`.
-- **`build_installer.bat` v2.0.1** — `set /p` met haakjes vervangen
-  door `if defined`-check in blok `[6]`. Dat loste de
-  `: was unexpected at this time.`-fout op.
-- **`bump_version.py` v2.0.0** — leest `app/version.py` (niet
-  `version.py` in de root).
-- **`ESR_Tester.spec` v2.0.0** — `icon=r"assets\icons\logo.ico"`
-  toegevoegd.
+- **Eerste publieke release.** Op **2026-10-13** is de GitHub-release
+  `v1.0.3` aangemaakt in de repo `barremans/capacitor_esr_validator`.
+  Dit is de eerste release van het project; er waren tot dan 0 tags.
+- **Asset:** `dist\ESR_TesterSetup_1.0.3.exe` (≈63 MB),
+  gesigned met `CN=CGK Local Signing`
+  (`BD1DC390D56E3392836FD6E39470D5F766346509`, geldig tot 2028-09-17).
+- **Download-URL:**
+  `https://github.com/barremans/capacitor_esr_validator/releases/download/v1.0.3/ESR_TesterSetup_1.0.3.exe`
+- **Stabiele "latest"-pointer:**
+  `https://raw.githubusercontent.com/barremans/capacitor_esr_validator/main/releases/latest/version.txt`
+  (twee regels: versie + download-URL). Deze URL is de basis voor de
+  update-check in 9H.
+- **`releases/latest/version.txt`** is nieuw in de repo en wordt door
+  `publish.ps1` bij elke publicatie overschreven.
+- **Release-gate bleef actief:** `publish.ps1` publiceert alleen als
+  `Get-AuthenticodeSignature` op de installer `Valid` is met een
+  `SignerCertificate`. Dat was ook zo.
+- **Geen Python-code gewijzigd.** Baseline blijft 1150 passed.
+- **Cosmetische waarschuwing:** Git meldde
+  `LF will be replaced by CRLF the next time Git touches it` voor
+  `releases/latest/version.txt`. Inhoudelijk geen probleem; staat in
+  openvragen voor fase 11.
 
-### 5.2 Fase 9D — Signing
+### 5.2 Bewezen eind-to-eind op 2026-10-13
 
-- **`build_and_publish.ps1` v1.0.0** — orchestrator met
-  signing-preflight. Kiest automatisch het juiste certificaat op basis
-  van `NotAfter` (verste geldige). Subject `CN=CGK Local Signing`.
-- **`publish.ps1` v1.0.0** — GitHub-release met release-gate:
-  publiceert alleen een installer met geldige Authenticode-handtekening.
-  Default `$Repo = "capacitor_esr_validator"`, `$Owner = "barremans"`.
-- **`Export-SigningCertificate.ps1` v1.0.1** — exporteert het
-  signing-certificaat naar `.cer` voor de Defender-indicator. Waarschuwt
-  bij verlopen certificaat.
-- **Actief certificaat:** `BD1DC390D56E3392836FD6E39470D5F766346509`,
-  geldig tot 2028-09-17. Twee oudere certs in de store
-  (`4DA652...`, `13B90D...`) worden overgeslagen door de preflight.
-- **`signtool sign`-commando**:
-  `signtool sign /fd SHA256 /td SHA256 /tr http://timestamp.sectigo.com /sha1 <thumbprint> <bestand>`.
-  Verify met `signtool verify /pa /v`.
-- **Twee bestanden worden gesigned:** de app-EXE (blok `[5b]`) en de
-  installer (blok `[7b]`). Beide met `verify` na het signeren.
-
-### 5.3 Bewezen build op 2026-10-13
-
-Eerste volledig werkende build in deze flow:
+Eerste volledig werkende publicatie in deze flow:
 
 - Versie: `1.0.3`
 - `dist\ESR_Tester_1.0.3\ESR_Tester.exe` — gesigned, geverifieerd
 - `dist\ESR_TesterSetup_1.0.3.exe` — gesigned, geverifieerd
 - Installer getest op gewone Windows-pc: geslaagd
 - Icoon zichtbaar in wizard en snelkoppelingen
+- **Release `v1.0.3` gepubliceerd op GitHub** (via `publish.ps1`)
+- **`app/version.py` en `releases/latest/version.txt` gepusht** naar
+  `origin/main` (commit `1614c9e`, "Release 1.0.3 - sync app/version.py
+  and version.txt")
 
-### 5.4 Bekende cosmetische punten
+### 5.3 Bekende cosmetische punten
 
 - **`Architecture identifier "x64" is deprecated`** tijdens ISCC.
   Oplossing: in `build_installer.bat` `ArchitecturesInstallIn64BitMode=x64compatible`
@@ -629,26 +613,27 @@ Eerste volledig werkende build in deze flow:
   vorige `dist\<BUILD_FOLDER>` nog bestaat. Cosmetisch.
 - **`build_log.txt`** bevat alleen een starttijd, niet de volledige
   PyInstaller- of Inno-output. Cosmetisch.
+- **LF/CRLF-waarschuwing** bij het committen van
+  `releases/latest/version.txt`. Cosmetisch; inhoud klopt.
 
-### 5.5 Gewijzigde bestanden sinds 3.8.0
+### 5.4 Gewijzigde bestanden sinds 4.0.0
 
-| Bestand | Versie |
+| Bestand | Versie / status |
 |---|---|
-| `build_installer.bat` | 2.0.1 |
-| `bump_version.py` | 2.0.0 |
-| `ESR_Tester.spec` | 2.0.0 |
-| `build_and_publish.ps1` | 1.0.0 |
-| `publish.ps1` | 1.0.0 |
-| `Export-SigningCertificate.ps1` | 1.0.1 |
-| `app/version.py` | 1.0.3 |
-| `installer.iss` | **verwijderd** (wordt gegenereerd in `dist\`) |
+| `app/version.py` | 1.0.3 (gecommit via `publish.ps1`) |
+| `releases/latest/version.txt` | **nieuw** — 2 regels (versie + URL) |
+| Git-tag `v1.0.3` | **nieuw** op GitHub |
+| GitHub-release `v1.0.3` | **nieuw** op GitHub (met asset) |
 
-### 5.6 Teststatus
+Geen wijzigingen aan Python-code. Geen wijzigingen aan de buildstraat.
 
-**Baseline: 1150 passed** (ongewijzigd t.o.v. 3.8.0). De buildstraat
-is geen Python-code; er zijn geen nieuwe tests toegevoegd.
+### 5.5 Teststatus
 
-### 5.7 Bekende beperkingen
+**Baseline: 1150 passed** (ongewijzigd t.o.v. 4.0.0). De publicatie is
+geen Python-code; er zijn geen nieuwe tests toegevoegd. `pytest -q` na
+de publicatie: **1150 passed in 39.30s**.
+
+### 5.6 Bekende beperkingen
 
 - **Geen OCR** voor gescande PDF's.
 - **`.doc` en `.xls` worden geweigerd.**
@@ -665,7 +650,8 @@ is geen Python-code; er zijn geen nieuwe tests toegevoegd.
   ondersteunt meerdere metingen, maar er is nog geen GUI voor de
   scopes "selectie" en "filters".
 - **Geen Intune/Defender-testmatrix** — volgt in 9F.
-- **Geen update-check** — volgt in 9H.
+- **Geen update-check** — volgt in 9H. De "latest"-pointer is sinds
+  9E beschikbaar.
 - **Pandas-pin `<3`** — bewust conservatief vanwege ABI-conflict.
 - **Numpy als directe dependency** — bewust expliciet voor PyInstaller.
 - **Defender-indicator op Intune-pc's** — vereist eenmalige
@@ -675,7 +661,7 @@ is geen Python-code; er zijn geen nieuwe tests toegevoegd.
 - **WDAC/AppLocker** — als dat actief is op de doel-pc's, is de
   Defender-indicator niet voldoende; dan is uitrol van het certificaat
   naar `Trusted Publishers` of een publiek vertrouwd certificaat nodig.
-  Open vraag bij IT.
+  Open vraag bij IT; relevant voor 9F.
 
 ---
 
@@ -683,11 +669,10 @@ is geen Python-code; er zijn geen nieuwe tests toegevoegd.
 
 ### 6.1 Overige openstaande punten
 
-- **Publiceren naar GitHub** — eerste echte release. `publish.ps1`
-  gebruikt `$Repo = "capacitor_esr_validator"`; controleer of dat de
-  echte repo-naam is.
 - **`Architecture identifier "x64" is deprecated`** — oplossen door
   `x64compatible` in de batch te schrijven.
+- **LF/CRLF-waarschuwing** voor `releases/latest/version.txt` —
+  oplossen via `.gitattributes`-regel `releases/latest/version.txt text eol=lf`.
 - **Reden opgeven bij archiveren.**
 - **Filter voor alleen gearchiveerde documenten.**
 - **Bulk-edit en bulk-statuswijziging.**
@@ -708,6 +693,10 @@ is geen Python-code; er zijn geen nieuwe tests toegevoegd.
 - **Twee verlopen certificaten in `CurrentUser\My`** — storen de
   build niet, maar kunnen opgeruimd worden:
   `4DA652...`, `13B90D...`.
+- **`ESR_Tester.spec` staat in `.gitignore`** (`*.spec`). Voor fase 9F
+  of 11 nagaan of dat gewenst blijft: op een andere machine kan de
+  `.spec` niet gecloned worden zonder manuele ingreep. In de
+  ArticleSearch-flow werd de `.spec` wél meegecommit.
 
 ---
 
@@ -780,6 +769,21 @@ $v = (Select-String -Path "app\version.py" -Pattern '__version__\s*=\s*"(\d+\.\d
 & "C:\Program Files (x86)\Windows Kits\10\bin\x64\signtool.exe" verify /pa /v "dist\ESR_TesterSetup_$v.exe"
 ```
 
+### 7.5 Publiceren (fase 9E)
+
+```powershell
+# Publiceert de installer uit dist\ naar GitHub.
+# Leest de versie uit app/version.py, doet de release-gate,
+# maakt de release, uploadt de asset, schrijft version.txt en pusht.
+.\publish.ps1
+```
+
+Resultaat:
+
+- GitHub-release `v<versie>` met asset `ESR_TesterSetup_<versie>.exe`
+- `releases/latest/version.txt` met 2 regels (versie + URL)
+- `app/version.py` en `releases/latest/version.txt` gepusht
+
 ---
 
 ## 8. BESTANDEN DIE DE NIEUWE CHAT MOET OPVRAGEN
@@ -794,19 +798,16 @@ Voor een nieuwe sessie heeft de chat meestal nodig:
 
 Bij een specifieke fase vraagt de chat om de bestanden die de fase raakt.
 
-Voor fase 9E (GitHub Release):
-
-- `publish.ps1` — huidige versie (v1.0.0)
-- `build_and_publish.ps1` — huidige versie (v1.0.0)
-- `build_installer.bat` — huidige versie (v2.0.1)
-- `app/version.py` — huidige versie
-- `.gitignore` — om te controleren of `dist/` en `build/` uitgesloten zijn
-
-Voor fase 9F (Intune/Defender-testmatrix):
+Voor fase 9F (Intune/Defender/CFA-testmatrix + `docs/packaging.md`):
 
 - `signingContext.md` — SmartScreen/Defender-uitzondering
 - `05-signing-build-context.md` — signing-flow
 - `Export-SigningCertificate.ps1` — huidige versie (v1.0.1)
+- `docs/openvragen.md` — §2.18 met de Defender/WDAC-vraag
+- `publish.ps1` — huidige versie (v1.0.0) — bevat de release-gate
+- `build_and_publish.ps1` — huidige versie (v1.0.0)
+- `build_installer.bat` — huidige versie (v2.0.1)
+- `.gitattributes` — om de LF/CRLF-afspraak te kunnen toevoegen
 
 ---
 

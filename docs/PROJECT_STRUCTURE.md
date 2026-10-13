@@ -682,6 +682,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       - 📄 **/i18n/locales/nl_NL.json**
   - 📁 **installer/**
     - 📄 **/installer/.gitkeep**
+  - 📁 **releases/**
+    - 📁 **latest/**
+      - 📄 **/releases/latest/version.txt**
+        ```text
+        # Beschrijving: GEEN BESCHRIJVING
+        # Auteur: GEEN AUTEUR
+        # Applicatie: GEEN APPLICATIE
+        # Versie: V1.0.0
+        ```
   - 📁 **tests/**
     - 📁 **tests/**
     - 📄 **/tests/__init__.py**

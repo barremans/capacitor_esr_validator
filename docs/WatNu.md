@@ -1,6 +1,6 @@
 # Wat nu? — Electronics Diagnostic Tool Hub
 
-**Versie:** 1.2.0
+**Versie:** 1.3.0
 **Datum:** 2026-10-13
 **Auteur:** Bart Bossuyt
 **Doel:** beknopte gids voor "wat is de volgende stap" na een
@@ -12,10 +12,11 @@ afgeronde fase. Geen volledige overdracht — die staat in
 ## Huidige staat
 
 - **Baseline tests:** 1150 passed.
-- **Laatste afgeronde fase:** 9D — Signing (`signtool`,
-  certificaatpreflight, verify).
-- **Volgende fase:** 9E — GitHub Release (`publish.ps1`,
-  `build_and_publish.ps1`).
+- **Huidige versie:** `1.0.3`, gepubliceerd als GitHub-release
+  `v1.0.3` op 2026-10-13.
+- **Laatste afgeronde fase:** 9E — GitHub Release.
+- **Volgende fase:** 9F — Intune/Defender/CFA-testmatrix +
+  `docs/packaging.md`.
 
 Dit bestand wordt bijgewerkt na elke fase.
 
@@ -85,6 +86,10 @@ Dit bestand wordt bijgewerkt na elke fase.
   - `build_and_publish.ps1` orkestreert de hele keten.
   - `publish.ps1` doet de GitHub-release met release-gate op
     Authenticode-handtekening.
+- **Publiceren naar GitHub** gaat via `.\publish.ps1` vanuit de
+  repo-root. De release-gate weigert ongesigneerde installers.
+  `publish.ps1` werkt `releases/latest/version.txt` bij en pusht
+  `app/version.py` + `version.txt` naar `origin/main`.
 
 ---
 
@@ -103,3 +108,6 @@ Dit bestand wordt bijgewerkt na elke fase.
 | Eindgebruikershelp | `docs/help/nl_NL.md`, `docs/help/en_US.md` |
 | Signing-flow (CGK) | `05-signing-build-context.md` |
 | Defender-indicator | `signingContext.md` |
+| GitHub-repo | `https://github.com/barremans/capacitor_esr_validator` |
+| Laatste release | `https://github.com/barremans/capacitor_esr_validator/releases/tag/v1.0.3` |
+| Update-check pointer | `https://raw.githubusercontent.com/barremans/capacitor_esr_validator/main/releases/latest/version.txt` |
