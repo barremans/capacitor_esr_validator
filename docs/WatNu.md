@@ -1,7 +1,7 @@
 # Wat nu? — Electronics Diagnostic Tool Hub
 
-**Versie:** 1.1.0
-**Datum:** 2026-10-12
+**Versie:** 1.2.0
+**Datum:** 2026-10-13
 **Auteur:** Bart Bossuyt
 **Doel:** beknopte gids voor "wat is de volgende stap" na een
 afgeronde fase. Geen volledige overdracht — die staat in
@@ -11,9 +11,11 @@ afgeronde fase. Geen volledige overdracht — die staat in
 
 ## Huidige staat
 
-- **Baseline tests:** 1144 passed.
-- **Laatste afgeronde fase:** 8D+ — Settings-uitbreiding en bugfixes.
-- **Volgende fase:** 8E — Documentatie bijwerken (of direct 9 / 11).
+- **Baseline tests:** 1150 passed.
+- **Laatste afgeronde fase:** 9D — Signing (`signtool`,
+  certificaatpreflight, verify).
+- **Volgende fase:** 9E — GitHub Release (`publish.ps1`,
+  `build_and_publish.ps1`).
 
 Dit bestand wordt bijgewerkt na elke fase.
 
@@ -75,8 +77,14 @@ Dit bestand wordt bijgewerkt na elke fase.
   `QApplication.processEvents()`.
 - **De taalparameter van `ToolHubWindow` heeft voorrang op
   `settings.json`.**
-- **Voor leesbare PDF's:** stel `QT_QPA_FONTDIR=C:\Windows\Fonts` in
-  vóór je `main.py` start.
+- **Voor leesbare PDF's:** `QT_QPA_FONTDIR` wordt sinds 9A automatisch
+  gezet in `main.py`.
+- **De ArticleSearch-flow is de bewezen build-flow.** Wijk daar niet
+  meer van af. Concreet:
+  - `build_installer.bat` genereert `dist\installer.iss`.
+  - `build_and_publish.ps1` orkestreert de hele keten.
+  - `publish.ps1` doet de GitHub-release met release-gate op
+    Authenticode-handtekening.
 
 ---
 
@@ -93,3 +101,5 @@ Dit bestand wordt bijgewerkt na elke fase.
 | Import-laag | `docs/documentation_import.md` |
 | Roadmap | `docs/future_tools.md` |
 | Eindgebruikershelp | `docs/help/nl_NL.md`, `docs/help/en_US.md` |
+| Signing-flow (CGK) | `05-signing-build-context.md` |
+| Defender-indicator | `signingContext.md` |

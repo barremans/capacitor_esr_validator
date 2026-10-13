@@ -1,6 +1,6 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 1.7.0
+**Versie:** 1.8.0
 **Datum:** 2026-10-13
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
@@ -8,489 +8,207 @@ is. Geen bugs, geen beloftes — alleen vragen en observaties.
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
-  v1.1.0 (2026-10-07)  §2 bijgewerkt na fase 5. Beantwoorde vragen
-                       gemarkeerd. Nieuwe openstaande punten: Word-import,
-                       OCR voor gescande PDF's, async URL-fetch,
-                       catalogusmigratie bij meerdere versies.
-  v1.2.0 (2026-10-08)  §2.4 en §2.5 bijgewerkt na 5D'.2e (status
-                       wijzigen in viewer). Nieuwe openstaande punten:
-                       status-reden bij archiveren, filter voor
-                       gearchiveerd, statustransitie-beleid,
-                       catalogusmigratie bij statuswijzigingen.
+  v1.1.0 (2026-10-07)  §2 bijgewerkt na fase 5.
+  v1.2.0 (2026-10-08)  §2.4 en §2.5 bijgewerkt na 5D'.2e.
   v1.3.0 (2026-10-09)  §2.7 toegevoegd: metadata van imports
-                       doorzoekbaar maken (5D'.1b) — beantwoord met
-                       formele regressietests. Geen codewijziging.
-  v1.4.0 (2026-10-09)  §2.8 toegevoegd: Word- en Excel-import (fase 6)
-                       — beantwoord. Nieuwe openstaande punten: AI-
-                       tekstextractie uit docx/xlsx (fase 12),
-                       cosmetische scrollbar in Word-samenvatting.
-  v1.5.0 (2026-10-09)  §2.10 toegevoegd: Grafieken en trends (fase 7)
-                       — beantwoord. Nieuwe openstaande punten:
-                       refresh()-opsplitsing, automatische as-schaling,
-                       QDateTimeAxis-tickformaat, scatterkleur bij
-                       onbekende status, zoom/pan in QtCharts.
-  v1.6.0 (2026-10-12)  §2.12 toegevoegd: meetrapporten (fase 8) —
-                       beantwoord. §2.13 toegevoegd: settings-
-                       uitbreiding (fase 8D) — beantwoord. §2.14
-                       toegevoegd: nieuwe openstaande punten na 8D,
-                       inclusief GUI-scope "selectie"/"filters",
-                       menu-item disabled maken zonder selectie, en
-                       PDF-fontprobleem op Windows (QT_QPA_FONTDIR).
-  v1.7.0 (2026-10-13)  §2.15 toegevoegd: eerste Windows-build (fase 9A/9B)
-                       — beantwoord. Nieuwe openstaande punten: pandas-
-                       pin, numpy als directe dependency, cosmetische
-                       [rename]-melding in build_installer.bat, leeg
-                       build_log.txt, relatief icon_path in main_window.
+                       doorzoekbaar maken (5D'.1b).
+  v1.4.0 (2026-10-09)  §2.8 toegevoegd: Word- en Excel-import (fase 6).
+  v1.5.0 (2026-10-09)  §2.10 toegevoegd: Grafieken en trends (fase 7).
+  v1.6.0 (2026-10-12)  §2.12 en §2.13 toegevoegd: meetrapporten (8) en
+                       settings-uitbreiding (8D).
+  v1.7.0 (2026-10-13)  §2.15 toegevoegd: eerste Windows-build (9A/9B).
+  v1.8.0 (2026-10-13)  §2.17 toegevoegd: Inno Setup installer en
+                       signing (9C + 9D) — beantwoord. Nieuwe
+                       openstaande punten: x64-deprecation, publish naar
+                       GitHub, build_log.txt, verlopen certificaten,
+                       Defender/Intune-testmatrix, WDAC/AppLocker-vraag.
 
 ---
 
 ## 1. Uit Fase 4I — Zoektaal-observaties
 
-Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
-(vooral Fase 11 — Laatste UX/documentatie-afwerking).
-
 ### 1.1 `!` is substring-uitsluiting
-
-- **Status:** verduidelijkt in 4I.1.a (eindgebruikershelp).
-- **Restvraag:** blijft dit de gewenste semantiek, of moet er ooit een
-  exact-woord uitsluiting komen?
-- **Impact:** nieuwe operator of nieuwe prefix zou parser + AST + tests
-  raken.
+- **Status:** verduidelijkt in 4I.1.a.
+- **Restvraag:** blijft dit de gewenste semantiek?
 
 ### 1.2 `-%term` heeft geen eenduidige betekenis
-
-- **Status:** opgelost in 4I.1.b (stil genegeerd, optie A1).
-- **Restvraag:** moet er ooit een correcte interpretatie komen
-  (bv. exact-woord met wildcard)?
-- **Impact:** zou een nieuwe tak in `_term_matches` vragen.
+- **Status:** opgelost in 4I.1.b.
 
 ### 1.3 Geen haakjes, geen veldnamen, geen datums
-
 - **Status:** bewust gedocumenteerd in `docs/search_syntax.md` §8.1.
-- **Restvraag:** wordt dit een probleem zodra de catalogus groeit (50+
-  documenten, meerdere beheerders)?
-- **Impact:** zou een echte tokenizer en geneste AST vragen.
+- **Restvraag:** wordt dit een probleem zodra de catalogus groeit?
 
 ---
 
-## 2. Uit Fase 5, 6, 7, 8 en 9 — Import, metadata, statusbeheer, analyse, rapportage en packaging
+## 2. Uit Fase 5, 6, 7, 8 en 9
 
-### 2.1 Scope — beantwoord
+### 2.1 t/m 2.5 — beantwoord
 
-- **PDF-import:** lokaal bestand op schijf, gekopieerd naar
-  `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\documentation\sources\`.
-- **URL-import:** ruwe HTML-snapshot, lokaal bewaard in
-  `...\documentation\snapshots\`. De URL blijft als metadata bewaard.
-- **Geen scraping, geen JavaScript-uitvoering, geen OCR.**
-
-### 2.2 Provenance — beantwoord
-
-- Verplichte velden: `source_id`, `source_type`, `title`, `imported_at`,
-  `imported_by`, `status`.
-- Type-specifiek verplicht: `original_filename` (PDF/DOCX/XLSX) of
-  `source_url` (URL).
-- Optioneel: `file_hash` (PDF/DOCX/XLSX), `notes`.
-- Eén `ImportSource` = één document.
-
-### 2.3 Metadata — beantwoord (5D'.2b en 5D'.2d)
-
-- **Velden in de wizard:** categorie (verplicht, default DATASHEET),
-  fabrikant, serie, partnummer, documentversie, documentdatum, notities
-  (alle optioneel).
-- **Identificatievelden in uppercase:** fabrikant, serie, partnummer,
-  documentversie. Titel en notities blijven gemengd; documentdatum is
-  een kalenderveld.
-- **Documentdatum:** ISO-formaat `YYYY-MM-DD`, met "Datum onbekend"-
-  checkbox. Ctrl+D zet op vandaag.
-- **Bewerken in de viewer:** ja, sinds 5D'.2c. Alleen voor eigen imports
-  (`is_user_import=True`). Bronbestand, status en importdatum blijven
-  ongewijzigd.
-- **Ingebouwde catalogus:** blijft read-only, voor altijd.
-
-### 2.4 Statusbeheer — beantwoord (5D'.2e)
-
-- **Statusmachine:** `CONCEPT → ACTIEF → GEARCHIVEERD`, met `revoke`
-  terug naar `CONCEPT`.
-- **Wijzigen in de viewer:** ja, sinds 5D'.2e. Alleen voor eigen imports
-  (`is_user_import=True`). De dialoog toont alleen de toegelaten
-  overgangen (afgeleid van `_ALLOWED_TRANSITIONS` in `import_models`).
-- **Bevestigingsvraag:** bij archiveren en bij terug naar Concept.
-  Niet bij Concept → Actief.
-- **Filter:** checkbox "Toon gearchiveerde" naast de tool-dropdown.
-  Standaard uit.
-- **Status-kolom:** ja, sinds 5D'.2e. Tussen Categorie en Fabrikant.
-  Leeg voor ingebouwde documenten.
-- **Nieuwe import start altijd als `CONCEPT`.**
-- **Een bron verwijderen is niet mogelijk;** wel archiveren en
-  terugtrekken.
-
-### 2.5 Assessment-koppeling — beantwoord
-
-- De scheiding blijft gehandhaafd: `documentation_service` is read-only
-  en raakt `assessment_service` niet aan.
-- Een geïmporteerde bron wordt pas bruikbaar voor assessment nadat de
-  gebruiker die expliciet `ACTIEF` maakt, en nadat een latere fase (12–14)
-  de brug slaat.
+Zie de eerdere versies van dit document voor de volledige status van
+scope, provenance, metadata, statusbeheer en assessment-koppeling.
 
 ### 2.6 Nieuwe openstaande punten (na 5D'.2e)
 
-- **Reden opgeven bij archiveren.** In 5D'.2e is bewust gekozen voor
-  géén verplichte reden, om een nieuw modelveld + catalogusmigratie te
-  vermijden. De gebruiker kan een reden kwijt in de notities.
-  - **Restvraag:** willen we in een latere fase (6 of 11) een optioneel
-    `archive_reason`-veld toevoegen?
-  - **Impact:** nieuw veld in `ImportSource`, extra rij in de dialoog,
-    i18n-keys.
-  - **Status:** open; geen concrete vraag.
-- **Filter voor gearchiveerde documenten.** Sinds 5D'.2e is er een
-  checkbox "Toon gearchiveerde". Er is nog geen filter om **alleen**
-  gearchiveerde documenten te tonen (inverse filter).
-  - **Restvraag:** is dat nuttig, of volstaat de huidige aanpak?
-  - **Status:** open; klein.
-- **Statustransitie-beleid.** De toegelaten overgangen staan nu hard
-  gecodeerd in `_ALLOWED_TRANSITIONS`. Wat als een gebruiker ooit
-  `GEARCHIVEERD → ACTIEF` wil, of `CONCEPT → CONCEPT` (no-op)?
-  - **Restvraag:** blijft de huidige set definitief, of wordt dit
-    configureerbaar?
-  - **Status:** bewust beperkt gehouden; geen concrete vraag.
-- **Catalogusmigratie bij statuswijzigingen.** `imported_catalog.json`
-  heeft `schema_version=1`. Statuswijzigingen wijzigen alleen het
-  `status`-veld; ze vragen geen schemawijziging.
-  - **Restvraag:** wat als we ooit velden toevoegen (bv.
-    `archive_reason`)? Migratie-mechanisme ontbreekt nog.
-  - **Status:** nog niet nodig.
-- **OCR voor gescande PDF's.** `pypdf` kan geen tekst uit
-  afbeeldings-PDF's halen. Willen we ooit OCR?
-  - **Impact:** zware dependency, breekt "licht en lokaal".
-  - **Status:** uitstellen tot er concrete noodzaak is.
-- **Async URL-fetch.** De huidige fetch is synchroon en blokkeert de GUI
-  tot 10 seconden.
-  - **Status:** open; overwegen in fase 11.
-- **Datum-parsing bij bewerken.** De editor accepteert alleen ISO-datums
-  (`YYYY-MM-DD`). Een oudere vrije-tekstwaarde (bijv. `"2024-01"`) valt
-  terug op "Datum onbekend" bij openen, wat bij opslaan `document_date`
-  op `null` zet.
-  - **Impact:** gegevenswijziging zonder expliciete waarschuwing.
-  - **Status:** bewust geaccepteerd in 5D'.2c; mogelijk verfijnen in
-    fase 11.
-- **Bulk-edit van meerdere imports.** Nog niet ondersteund.
-  - **Status:** open; geen concrete vraag.
-- **Bulk-statuswijziging van meerdere imports.** Nog niet ondersteund.
-  - **Status:** open; geen concrete vraag.
+- Reden opgeven bij archiveren. **Open; klein.**
+- Filter voor alleen gearchiveerde documenten. **Open; klein.**
+- Statustransitie-beleid. **Bewust beperkt.**
+- Catalogusmigratie bij statuswijzigingen. **Nog niet nodig.**
+- OCR voor gescande PDF's. **Uitgesteld.**
+- Async URL-fetch. **Open; overwegen in fase 11.**
+- Datum-parsing bij bewerken. **Bewust geaccepteerd; verfijnen in 11.**
+- Bulk-edit van meerdere imports. **Open.**
+- Bulk-statuswijziging van meerdere imports. **Open.**
 
 ### 2.7 Metadata van imports doorzoekbaar — beantwoord (5D'.1b)
 
-- **Vraag:** is het vrije zoekveld in de documentatiebibliotheek van
-  toepassing op de metadata van imports?
-- **Antwoord:** ja. Sinds v1.7.0 van `service.py` neemt `_search_blob`
-  de menselijke metadata op: titel, categorie, fabrikant, serie,
-  partnummer, documentversie, documentdatum, notities en bron-URL.
-- **Formele regressietests:** toegevoegd in 5D'.1b aan
-  `tests/test_documentation_service_user_catalog.py`. Per veld één test,
-  plus negatieve tests voor `document_id` en `source_path`, plus
-  combinatietests met `include_archived`.
-- **Documentatie:** sectie 4 in `docs/documentation_import.md`.
-- **Geen codewijziging nodig.** `_search_blob` was al correct.
-- **Status:** afgerond.
+Zie v1.3.0.
 
 ### 2.8 Word- en Excel-import — beantwoord (fase 6)
 
-- **Vraag:** kunnen we naast PDF en URL ook Word- en Excel-bestanden
-  importeren als documentatiebron?
-- **Antwoord:** ja, sinds fase 6. Word `.docx` via `python-docx`,
-  Excel `.xlsx` via `openpyxl`. Oude formaten `.doc` en `.xls` worden
-  geweigerd.
-- **Metadata-extractie:** `paragraph_count` voor Word, `sheet_count`
-  en `sheet_names` voor Excel. Titel, auteur, aanmaakdatum zijn
-  optioneel (uit `core_properties` / `workbook.properties`).
-- **Bevestiging na import:** sinds fase 6C toont de wizard een
-  `QMessageBox.information` met "Import geslaagd — Het document '...'
-  is geïmporteerd als Concept."
-- **Viewer-dispatch:** de viewer herkent docx/xlsx via `source_kind()`
-  en opent ze extern in Word of Excel. `service.py` v1.10.0 vertaalt
-  `source_type_raw` "docx"/"xlsx" naar `DocumentSourceType.FILE` met
-  het juiste `source_path`.
-- **Nieuwe dependency:** `python-docx>=1.1`.
-- **Status:** afgerond.
+Zie v1.4.0.
 
 ### 2.9 Nieuwe openstaande punten (na fase 6)
 
-- **AI-tekstextractie uit docx/xlsx.** `extract_docx_text` en
-  `extract_xlsx_text` bestaan al, maar worden in fase 6 niet gebruikt.
-  Ze zijn bedoeld voor fase 12 (AI-extractie). Bij Excel krijgt elk
-  werkblad een header `# <bladnaam>`, ook als het blad leeg is, zodat
-  de structuur zichtbaar blijft voor een AI-model.
-  - **Restvraag:** is de tekstextractie geschikt voor AI-input, of moet
-    die eerst worden verfijnd (tabellen, formules, opmaak)?
-  - **Status:** voorbereiding voor fase 12.
-- **Cosmetische scrollbar in Word-samenvatting.** Voor een Word-bestand
-  met een lange documenttitel kan de samenvatting in de wizard een
-  scrollbar krijgen. Niet functioneel, wel cosmetisch.
-  - **Restvraag:** lost fase 11 dit op (bijv. scrollbar uitschakelen)?
-  - **Status:** open; klein.
+- AI-tekstextractie uit docx/xlsx. **Voorbereiding voor fase 12.**
+- Cosmetische scrollbar in Word-samenvatting. **Open; klein.**
 
 ### 2.10 Grafieken en trends — beantwoord (fase 7)
 
-- **Vraag:** kunnen we opgeslagen metingen visualiseren als grafiek of
-  trend?
-- **Antwoord:** ja, sinds fase 7. Nieuwe pagina "Analyse" in het
-  hoofdmenu met vier grafiektypes: ESR over tijd, capaciteit over tijd,
-  D over tijd, en scatter ESR vs. C.
-- **Grafiekbibliotheek:** `QtCharts`, dat standaard bij PySide6 zit.
-  Geen nieuwe dependency toegevoegd aan `requirements.txt`, in lijn met
-  het dependencybeleid in `docs/future_tools.md` §5.
-- **Aggregatie:** ruwe metingen (elke meting = één punt) of gemiddelde
-  per dag, week of maand via een dropdown. Aggregatie gebeurt in
-  `app/helpers/analysis_series.py`, GUI-onafhankelijk en getest zonder
-  Qt.
-- **Read-only bewijs:** `tests/test_analysis_service.py` bevat een
-  `_ReadOnlyHistoryStub` die elke `create_*`, `save_*`, `update_*` of
-  `delete_*`-aanroep laat falen. Als `AnalysisService` ooit per ongeluk
-  gaat schrijven, valt de test om.
-- **Historische data:** de analyse-laag leest de bestaande storage. Ze
-  gebruikt geen assessment-snapshots anders dan de `final_status` voor
-  de scatterkleur; er wordt niets herberekend.
-- **Status:** afgerond.
+Zie v1.5.0.
 
 ### 2.11 Nieuwe openstaande punten (na fase 7)
 
-- **Splitsen van `refresh()` in data-herberekening en label-update.**
-  `AnalysisScreen.apply_language()` roept `refresh()` aan, wat bij een
-  taalwissel alle reeksen opnieuw ophaalt uit de historiekservice.
-  Voor een redelijke historiek is dat onmerkbaar; bij duizenden
-  metingen zou dat even kunnen duren.
-  - **Restvraag:** splitsen in fase 11, of accepteren?
-  - **Impact:** kleine refactor van `AnalysisScreen`; geen
-    architectuurwijziging.
-  - **Status:** open; klein.
-- **Automatische as-schaling voor capaciteit.** De capaciteitsgrafiek
-  schaalt altijd naar µF. Een gebruiker met kleine condensatoren (pF/nF)
-  of juist grote (mF) zou een andere schaal willen.
-  - **Restvraag:** automatische schaal per bereik (pF/nF/µF/mF), of
-    vaste µF met een `QValueAxis`-label dat de gebruiker vertelt?
-  - **Impact:** kleine wijziging in `_scale_for` en het aslabel.
-  - **Status:** open; cosmetisch.
-- **`QDateTimeAxis` tick-formaat.** De x-as toont nu altijd
-  `dd-MM-yyyy`. Bij een korte periode (één dag, één uur) zou `HH:mm`
-  nuttiger zijn.
-  - **Restvraag:** dynamisch formaat op basis van de periode?
-  - **Impact:** kleine wijziging in `_draw_time_series`.
-  - **Status:** open; cosmetisch.
-- **Scatterkleur bij onbekende `final_status`.** Valt terug op een
-  neutrale grijstint (`#9E9E9E`).
-  - **Restvraag:** aparte kleur per onbekende status, of alle onbekende
-    samen grijs?
-  - **Status:** bewust grijs gehouden; geen concrete vraag.
-- **Geen zoom/pan.** QtCharts ondersteunt interactieve zoom via
-  `QChartView.setRubberBand()`, maar dat staat uit.
-  - **Restvraag:** in fase 7D toevoegen, of pas in fase 8?
-  - **Impact:** enkele regels in `AnalysisScreen._build_ui`.
-  - **Status:** open; wacht op gebruikersvraag.
-- **Geen PNG/PDF-export van grafieken.** Bewust buiten fase 7 gehouden;
-  hoort bij fase 8 (Rapportage).
+- Splitsen van `refresh()` in data-herberekening en label-update.
+  **Open; klein.**
+- Automatische as-schaling voor capaciteit. **Open; cosmetisch.**
+- `QDateTimeAxis` tick-formaat. **Open; cosmetisch.**
+- Scatterkleur bij onbekende `final_status`. **Bewust grijs.**
+- Geen zoom/pan. **Open.**
+- Geen PNG/PDF-export van grafieken. **Bewust buiten fase 7.**
 
 ### 2.12 Meetrapporten — beantwoord (fase 8)
 
-- **Vraag:** kunnen we meetgegevens omzetten naar een rapport dat
-  gedeeld of afgedrukt kan worden?
-- **Antwoord:** ja, sinds fase 8. Nieuwe service `ReportService`, pure
-  HTML-renderer `report_render.py`, Qt-specifieke PDF-export via
-  `report_pdf.py` en grafiek-helper `report_chart.py`, plus een modale
-  `ReportDialog`.
-- **Formaat:** HTML primair, PDF via QPrinter. Geen nieuwe dependency.
-- **GUI-scope:** "één meting". De service ondersteunt ook meerdere
-  metingen via `build_bundle_for_measurements` en
-  `build_bundle_from_filters`, maar de GUI biedt die nog niet aan.
-- **Read-only bewijs:** `ReportService` leest via `MeasurementHistoryService`
-  en schrijft nooit. Historische assessments worden niet herberekend.
-- **Openen van rapport:** via `Bestand → Rapport maken…` (Ctrl+P) en
-  via de Rapport-knop in de historiek.
-- **Auteur:** optioneel veld in de Rapportage-tab; wordt in de
-  rapportkop getoond als het niet leeg is.
-- **Grafiek:** optioneel, standaard uit; de startwaarde komt uit
-  `rapportage.grafiek_opnemen`.
-- **Status:** afgerond voor fase 8C + 8D.
+Zie v1.6.0.
 
 ### 2.13 Settings-uitbreiding — beantwoord (fase 8D)
 
-- **Vraag:** welke rapportage-instellingen zijn nodig?
-- **Antwoord:** de Rapportage-tab heeft nu `auteur` en
-  `laatste_rapportmap`. De `grafiek_opnemen`-instelling bepaalt de
-  startwaarde van de grafiek-checkbox in `ReportDialog`.
-- **Auteur:** optioneel vrij veld. Wordt in de rapportkop getoond als
-  het niet leeg is.
-- **Rapportmap:** startmap voor de opslaandialoog. Wordt na elke
-  geslaagde opslag automatisch bijgewerkt (`laatste_rapportmap`).
-- **Openen na opslaan:** hergebruikt `exportmap_openen_na_export`.
-- **Grafiek-default in de dialoog:** de `ReportDialog` krijgt een
-  expliciete parameter `grafiek_default` van `MainWindow`. De dialoog
-  leest de instelling niet meer rechtstreeks uit `settings.json`, wat
-  hem deterministisch maakt in tests.
-- **Backward-compat:** oude `settings.json` zonder `laatste_rapportmap`
-  en `auteur` blijft geldig; die velden worden leeg.
-- **Bugfix in `SettingsDialog`:** de vorige versie bouwde een nieuwe
-  `AlgemeneInstellingen` in plaats van `replace()`, waardoor
-  `laatste_exportmap` en `laatste_importmap` per ongeluk gewist werden
-  bij een `Toepassen`-klik. Nu gefixt.
-- **Status:** afgerond.
+Zie v1.6.0.
 
 ### 2.14 Nieuwe openstaande punten (na fase 8D)
 
-- **GUI voor scope "selectie" en "filters".** De `ReportService`
-  ondersteunt `build_bundle_for_measurements` en
-  `build_bundle_from_filters`, maar de GUI biedt alleen "één meting"
-  aan. Een gebruiker kan nog geen rapport maken van meerdere
-  geselecteerde metingen of van een filter.
-  - **Restvraag:** in fase 11 toevoegen, of eerder?
-  - **Impact:** nieuw menu-item of knop in historiek, plus scope-selectie.
-  - **Status:** open; bewust uitgesteld.
-- **Menu-item "Rapport maken…" disabled maken zonder selectie.**
-  Nu wordt een melding getoond in plaats van het menu-item uit te
-  schakelen.
-  - **Restvraag:** is dat netter, of is de melding beter?
-  - **Impact:** `_huidige_meting_id()` in `main_window.py` moet ook
-    het menu-item kunnen enablen/disablen.
-  - **Status:** open; cosmetisch.
-- **PDF-fonts op Windows.** Qt kan in een PySide6-venv de systeemfonts
-  niet vinden zonder `QT_QPA_FONTDIR=C:\Windows\Fonts`. Zonder deze
-  variabele rendert Qt PDF-rapporten met **zwarte blokken** in plaats
-  van tekst.
-  - **Restvraag:** zetten we deze variabele automatisch in `main.py`?
-    Dan hoeft de gebruiker hem niet handmatig te zetten.
-  - **Impact:** enkele regels in `main.py` vóór `QApplication`.
-  - **Status:** opgelost in 9A. De variabele wordt nu automatisch gezet
-    op Windows als hij nog niet bestaat en `C:\Windows\Fonts` aanwezig is.
-- **Cosmetische opruiming i18n-keys.** Enkele i18n-keys worden
-  momenteel niet gebruikt of zijn dubbel. Geen functionele impact.
-  - **Restvraag:** opruimen in fase 11.
-  - **Status:** open; cosmetisch.
+- GUI voor scope "selectie" en "filters". **Open; uitgesteld.**
+- Menu-item "Rapport maken…" disabled maken zonder selectie. **Open; cosmetisch.**
+- PDF-fonts op Windows. **Opgelost in 9A.**
+- Cosmetische opruiming i18n-keys. **Open; cosmetisch.**
 
 ### 2.15 Eerste Windows-build — beantwoord (fase 9A en 9B)
 
-- **Vraag:** kunnen we de applicatie bouwen als een zelfstandige
-  Windows-applicatie?
-- **Antwoord:** ja. Sinds 9A/9B bestaat er een PyInstaller-buildstraat:
-  `ESR_Tester.spec`, `build_installer.bat` en `bump_version.py`. De EXE
-  komt in `dist\ESR_Tester_<versie>\`.
-- **Versie-informatie:** `app/version.py` is de centrale bron. De
-  applicatie geeft de versie door aan `QApplication` en toont die in de
-  Over-dialoog.
-- **`QT_QPA_FONTDIR`:** wordt nu automatisch gezet in `main.py` wanneer
-  op Windows de variabele nog niet bestaat en `C:\Windows\Fonts`
-  aanwezig is.
-- **`requirements.txt`:** `numpy` is toegevoegd als directe dependency
-  (`>=1.26,<3`); `pandas` kreeg een pin (`>=2.2,<3`). Reden: pandas 3.x
-  gaf een ABI-conflict met numpy 2.x in de build.
-- **Opgeloste bugs:** venstertitels van Help- en Wijzigingslog-vensters
-  gebruikten de verkeerde i18n-keys; ESR-knop toonde de ruwe key
-  `tool.esr`.
-- **Status:** afgerond voor 9A en 9B.
+Zie v1.7.0.
 
 ### 2.16 Nieuwe openstaande punten (na fase 9B)
 
-- **Pandas-pin `<3`.** Bewust gekozen omdat pandas 3.x een ABI-conflict
-  gaf met numpy 2.x in de build. Wanneer kunnen we die pin losser maken?
-  - **Restvraag:** herevalueren zodra pandas 3.x stabiel is met numpy
-    2.x, of pas wanneer numpy 3.x uitkomt?
-  - **Impact:** `requirements.txt` aanpassen, build opnieuw testen.
-  - **Status:** open; bewust conservatief.
-- **Numpy als directe dependency.** Numpy staat nu expliciet in
-  `requirements.txt`, ook al is het functioneel een transitieve
-  dependency van pandas. Reden: PyInstaller moet numpy direct kunnen
-  importeren om de pandas-submodules correct te bundelen.
-  - **Restvraag:** blijft dat zo, of laten we numpy weer transitief?
-  - **Impact:** `requirements.txt`; geen codewijziging.
-  - **Status:** bewust expliciet gehouden.
-- **Cosmetische `[rename] Fallback via robocopy...`-melding in
-  `build_installer.bat`.** De build werkt correct, maar de melding
-  verschijnt omdat de vorige dist-map nog bestaat. Puur cosmetisch.
-  - **Restvraag:** in 9F de `.bat` verfijnen om de oude map eerst
-    volledig te verwijderen?
+- Pandas-pin `<3`. **Open; bewust conservatief.**
+- Numpy als directe dependency. **Bewust expliciet.**
+- Cosmetische `[rename] Fallback via robocopy...`-melding. **Open; cosmetisch.**
+- `build_log.txt` blijft leeg. **Open; cosmetisch.**
+- Relatief `icon_path` in `main_window.py`. **Open; wacht op 9F.**
+
+### 2.17 Inno Setup installer en signing — beantwoord (fase 9C + 9D)
+
+- **Vraag:** kunnen we de applicatie als installer bouwen, met
+  code-signing, volgens de bewezen ArticleSearch-flow?
+- **Antwoord:** ja. Sinds 9C+9D bestaat er een volledige buildstraat:
+  - `build_installer.bat` (v2.0.1) genereert `dist\installer.iss` in
+    de batch, compileert met `ISCC.exe`, en signeert zowel de app-EXE
+    als de installer.
+  - `bump_version.py` (v2.0.0) leest `app/version.py`.
+  - `ESR_Tester.spec` (v2.0.0) heeft `icon=` actief.
+  - `build_and_publish.ps1` (v1.0.0) orkestreert de hele keten met
+    signing-preflight.
+  - `publish.ps1` (v1.0.0) doet de GitHub-release met release-gate.
+- **Certificaat:** subject `CN=CGK Local Signing`, actief thumbprint
+  `BD1DC390D56E3392836FD6E39470D5F766346509`, geldig tot 2028-09-17.
+- **Bewezen werkend:** build `1.0.3` geproduceerd, beide bestanden
+  gesigned en geverifieerd, installer getest op gewone Windows-pc.
+- **Belangrijke beslissing:** de ArticleSearch-flow is de bewezen
+  flow. Geen eigen variant meer.
+- **Status:** afgerond voor 9C en 9D.
+
+### 2.18 Nieuwe openstaande punten (na fase 9C + 9D)
+
+- **Publiceren naar GitHub.** `publish.ps1` is klaar maar nog niet
+  uitgevoerd. `$Repo = "capacitor_esr_validator"` — controleer of dat
+  de echte repo-naam is.
+  - **Restvraag:** is de eerste release bedoeld als `v1.0.4` (patch
+    op `1.0.3`) of als een andere versie?
+  - **Status:** open; volgende fase (9E).
+- **`Architecture identifier "x64" is deprecated`** tijdens ISCC.
+  - **Restvraag:** aanpassen naar `x64compatible` in
+    `build_installer.bat`?
+  - **Impact:** één regel in de `.iss`-generatie.
+  - **Status:** open; cosmetisch.
+- **`[rename] Fallback via robocopy...`-melding** in `build_installer.bat`.
+  - **Restvraag:** oude `dist\<BUILD_FOLDER>` altijd eerst volledig
+    verwijderen vóór de rename?
   - **Impact:** kleine wijziging in `build_installer.bat`.
   - **Status:** open; cosmetisch.
-- **`build_log.txt` blijft leeg.** De `.bat` schrijft alleen een
-  starttijd, niet de volledige PyInstaller-output.
+- **`build_log.txt` blijft leeg.** Alleen starttijd, geen volledige
+  PyInstaller- of Inno-output.
   - **Restvraag:** volledige output loggen (bijv. via `tee` of
-    `2>&1`-redirect), of accepteren dat de console de log is?
+    `2>&1`-redirect)?
   - **Impact:** kleine wijziging in `build_installer.bat`.
   - **Status:** open; cosmetisch.
-- **Relatief `icon_path` in `main_window.py`.** Het pad
+- **Relatief `icon_path` in `main_window.py`.** Pad
   `"assets/icons/esr.png"` werkt in de huidige build omdat de CWD de
   installatiemap is, maar breekt bij een andere CWD.
-  - **Restvraag:** in 9F verfijnen via `sys._MEIPASS` of
-    `Path(__file__).parent`?
+  - **Restvraag:** verfijnen via `sys._MEIPASS` of `Path(__file__).parent`?
   - **Impact:** kleine wijziging in `main_window.py`.
   - **Status:** open; wacht op 9F.
+- **Twee verlopen certificaten in `CurrentUser\My`.**
+  - `4DA652BFA8FA5917A8BC76F0AA674F9FED532EF7` (verlopen 2026-09-18)
+  - `13B90D29CCDE3779226958F7F4784C3FF741C70A` (verlopen 2026-09-18)
+  - **Restvraag:** opruimen, of laten staan? De preflight slaat ze
+    automatisch over.
+  - **Impact:** geen — alleen cosmetisch.
+  - **Status:** open; cosmetisch.
+- **Defender/Intune-testmatrix.** Nog niet opgesteld. Op gewone
+  Windows-pc's is er geen Defender-indicator; daar blijft SmartScreen
+  actief (gebruiker klikt door "More info → Run anyway"). Op
+  Intune-pc's is de Defender-indicator nodig (zie `signingContext.md`).
+  - **Restvraag:** is WDAC of AppLocker actief op de doel-pc's?
+    Als dat zo is, is de Defender-indicator niet voldoende; dan is
+    uitrol van het certificaat naar `Trusted Publishers` of een
+    publiek vertrouwd certificaat nodig.
+  - **Impact:** bepaalt of 9F een testmatrix of een groter traject
+    wordt.
+  - **Status:** open; blokkerend voor brede uitrol.
+- **`docs/packaging.md`** — nog niet geschreven. Moet de
+  build-flow, signing en testmatrix documenteren.
+  - **Status:** open; onderdeel van 9F.
 
 ---
 
 ## 3. Uit vroegere contextdocumenten (nog steeds relevant)
 
 ### 3.1 V-Loss
-
-- **Bron:** `Context_ESR.md` §6.
-- **Vraag:** wat toont het TEKCOPLUS-display exact bij een
-  condensatormeting?
-- **Vraag:** komt V-Loss van dit toestel of van een ander toestel?
-- **Vraag:** is een foto van het display beschikbaar?
-- **Status:** V-Loss blijft optioneel en ongedefinieerd; geen
-  automatische goed/afkeur op basis van V-Loss.
+- **Status:** V-Loss blijft optioneel en ongedefinieerd.
 
 ### 3.2 TEKCOPLUS-display en exportstructuur
-
-- **Vraag:** wat toont het display exact bij een condensatormeting?
-- **Vraag:** is er een officiële handleiding beschikbaar?
-- **Vraag:** is een voorbeeld van de Excel-export beschikbaar?
 - **Status:** handmatige invoer blijft de standaard.
 
 ### 3.3 Praktijkvalidatie
-
-- **Vraag:** hoe sterk verandert ESR tussen 100 Hz, 1 kHz en 10 kHz?
-- **Vraag:** hoe sterk verandert capaciteit?
-- **Vraag:** heeft 0,3 vs 0,6 Vrms praktische betekenis?
-- **Vraag:** hoe reproduceerbaar is de LCR-ST1?
-- **Vraag:** hoe groot is het verschil tussen EX_SITU, ONE_LEG en
-  IN_CIRCUIT?
-- **Vraag:** zijn de huidige app-drempels praktisch bruikbaar?
 - **Status:** Fase 10 — Praktische ESR-validatie.
 
 ### 3.4 Referentiedata
-
-- **Vraag:** welke condensatortypes komen in de praktijk het meest voor?
-- **Vraag:** is de eerste scope uitsluitend aluminium elektrolytisch?
-- **Vraag:** welke datasheetmerken en series worden vaak gebruikt?
-- **Vraag:** moet de gebruiker zelf referentietabellen kunnen toevoegen?
 - **Status:** open; relevant voor Fase 6 en later.
 
 ### 3.5 Rapportage
-
-- **Vraag:** moeten resultaten als meetrapport kunnen worden
-  afgedrukt? (beantwoord in fase 8)
-- **Vraag:** moeten Frans en Engels later worden ondersteund?
-- **Vraag:** is een tweede LCR-meter beschikbaar voor vergelijking?
-- **Vraag:** welke foutmarge is aanvaardbaar voor de interne
-  consistentiecontrole?
-- **Status:** deels beantwoord in fase 8; resterende vragen blijven open.
+- **Status:** deels beantwoord in fase 8.
 
 ### 3.6 Override van automatische beoordeling
-
-- **Vraag:** moet een gebruiker een automatische beoordeling manueel
-  kunnen overrulen?
-- **Vraag:** moet die override met reden worden gelogd?
-- **Status:** open; relevant voor Fase 11 — Laatste UX.
+- **Status:** open; relevant voor Fase 11.
 
 ### 3.7 Praktische meetgegevens
-
-- **Vraag:** hoe lang na ontlading kunnen grote elektrolyten spanning
-  opbouwen?
-- **Vraag:** is er een praktisch verschil gemeten tussen "één been los"
-  en "volledig uitgebouwd"?
-- **Vraag:** welke ontlademethode wordt gebruikt (weerstand, lamp,
-  kortsluiting)?
-- **Vraag:** wordt er een multimeter gebruikt voor restspanningscontrole
-  vóór LCR-meting?
-- **Vraag:** hoe vaak komt in-circuit meten voor in de praktijk vs
-  uitbouw?
 - **Status:** Fase 10 — Praktische ESR-validatie.
 
 ---
@@ -498,74 +216,34 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 ## 4. Uit eigen observaties tijdens recente fases
 
 ### 4.1 Help per taal — nog niet alle talen gedekt
-
 - Momenteel: `nl_NL.md` en `en_US.md`.
-- Toekomstige talen: bestand `docs/help/<taal>.md` plaatsen,
-  geen codewijziging.
-- **Vraag:** willen we een Nederlandstalige fallback voor alle talen,
-  of moet er ooit een Engelse fallback komen voor niet-EU-talentoekomst?
 
 ### 4.2 Testdekking van i18n-keys
-
-- Nieuwe keys moeten expliciet gemeld worden in de chat.
-- **Vraag:** willen we een geautomatiseerde check dat alle keys in
-  beide locales aanwezig zijn?
-- **Impact:** zou een nieuwe test in `tests/test_i18n_*` vragen.
-- **Status:** bewust nog niet toegevoegd; de huidige tests dekken de
-  meest gebruikte keys.
+- **Status:** bewust nog niet toegevoegd.
 
 ### 4.3 Projectstructuur-document
-
-- `docs/PROJECT_STRUCTURE.md` wordt "automatisch gegenereerd" volgens
-  de header.
-- **Vraag:** welk script genereert dit? Moet dat meegecommit worden?
-- **Impact:** klein, maar relevant voor nieuwe ontwikkelaars.
+- **Vraag:** welk script genereert `PROJECT_STRUCTURE.md`?
 
 ### 4.4 Thema-uitbreiding — light theme
-
-- Momenteel is alleen `apply_dark_theme()` aanwezig in
-  `app/gui/styles.py`.
-- **Vraag:** willen we een licht thema als alternatief?
-- **Impact:** zou een refactor van `styles.py` vragen naar
-  kleurconstanten (`PALET_DARK` / `PALET_LIGHT`) en een
-  `apply_theme(app, palet)`.
-- **Status:** uitgesteld; bewust nog niet gedaan in 5E om de
-  kleine-stappen-regel te respecteren.
+- **Status:** uitgesteld.
 
 ### 4.5 Checkbox- en radio-indicator in donker thema
-
-- **Status:** opgelost in 5D'.2f. De `QCheckBox::indicator` en
-  `QRadioButton::indicator` hebben nu expliciete styling.
-- **Restvraag:** willen we in een latere fase ook de **tri-state**
-  checkbox (partially checked) stylen? Niet nodig vandaag.
-- **Impact:** klein.
+- **Status:** opgelost in 5D'.2f.
 
 ### 4.6 Aandachtspunt: `QT_QPA_FONTDIR` op Windows
-
-- Qt kan in een PySide6-venv de Windows-systeemfonts niet vinden zonder
-  de omgevingsvariabele `QT_QPA_FONTDIR=C:\Windows\Fonts`. Zonder deze
-  variabele worden PDF-rapporten gerenderd met **zwarte blokken** in
-  plaats van tekst.
-- **Observatie:** de HTML-viewer werkt wel (Qt gebruikt daar de
-  OS-fontstack). Alleen de PDF-renderer via `QPrinter` heeft het
-  probleem.
-- **Restvraag:** zetten we de variabele automatisch in `main.py`?
-  Dat zou de gebruiker één handmatige stap besparen.
-- **Impact:** enkele regels in `main.py` vóór `QApplication` aanmaken.
-- **Status:** opgelost in 9A. De variabele wordt nu automatisch gezet
-  op Windows als hij nog niet bestaat en `C:\Windows\Fonts` aanwezig is.
+- **Status:** opgelost in 9A.
 
 ### 4.7 Build-omgeving en ABI-conflicten
+- **Status:** opgelost met pins; zie §2.16.
 
-- Tijdens 9B bleek dat pandas 3.0.6 een ABI-conflict gaf met numpy
-  2.5.x in de build (`ModuleNotFoundError: No module named
-  'pandas._libs.pandas_parser'`).
-- **Oorzaak:** de pandas C-extensies waren gecompileerd tegen een
-  specifieke numpy-ABI die niet meer klopte na een numpy-update.
-- **Oplossing:** `numpy>=1.26,<3` en `pandas>=2.2,<3` in
-  `requirements.txt`; numpy expliciet als directe dependency.
-- **Restvraag:** wanneer kunnen deze pins losser?
-- **Status:** open; zie §2.16.
+### 4.8 ArticleSearch-flow versus eigen variant
+- **Observatie:** de oorspronkelijke 9C-aanpak met een vaste
+  `installer.iss` in de root werkte niet betrouwbaar in deze omgeving.
+  De ArticleSearch-flow (`build_installer15.bat` v1.4.0) werkt wel,
+  bewezen op 2026-10-13.
+- **Besluit:** geen eigen variant meer. De ArticleSearch-flow is
+  bindend voor de buildstraat.
+- **Status:** afgerond in 9C+9D.
 
 ---
 

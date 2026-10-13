@@ -4,28 +4,62 @@ Overzicht van wat er nieuw of verbeterd is in de Electronics Diagnostic
 Tool Hub. Voor technische details en architectuurkeuzes verwijzen we naar
 `docs/context.md`.
 
-## Versie 1.9 — Eerste Windows-build en versie-informatie (13 oktober 2026)
+## Versie 1.9 — Eerste Windows-build, installer en signing (13 oktober 2026)
 
 **De applicatie heeft nu een echte versie**
 
 De applicatie heeft nu één centrale versie, op één plek: `app/version.py`.
-Bij deze release staat die op **1.0.0**. De versie wordt getoond in de
+Bij deze release staat die op **1.0.3**. De versie wordt getoond in de
 **Over**-dialoog (Help → Over) en is de basis voor de buildstraat en
 latere update-controle.
 
-**Eerste Windows-build**
+**Volledige Windows-buildstraat**
 
-Je kunt de applicatie nu bouwen als een zelfstandige Windows-applicatie:
+Je kunt de applicatie nu bouwen als een zelfstandige Windows-applicatie
+met installer. De flow volgt 1-op-1 de bewezen ArticleSearch-flow:
 
-- **`ESR_Tester.spec`** — PyInstaller-specificatie.
-- **`build_installer.bat`** — bouwt de EXE, kopieert `settings.json`, en
-  schrijft `version.txt` in de dist-map.
+- **`ESR_Tester.spec`** — PyInstaller-specificatie, met icoon actief.
+- **`build_installer.bat`** — bouwt de EXE, genereert `dist\installer.iss`,
+  compileert met Inno Setup 6, en tekent zowel de EXE als de installer.
 - **`bump_version.py`** — verhoogt patch, minor of major in
   `app/version.py`. Wordt aangeroepen door de buildstraat, kan ook
   handmatig: `python bump_version.py patch`.
+- **`build_and_publish.ps1`** — orchestrator met signing-preflight.
+  Vraagt de parameters, kiest automatisch het juiste certificaat, en
+  roept de batch aan.
+- **`publish.ps1`** — publiceert de installer naar GitHub, met een
+  release-gate op de Authenticode-handtekening.
 
-De EXE komt in `dist\ESR_Tester_<versie>\`. De installer volgt in een
-latere deelfase.
+**Code-signing**
+
+De EXE en de installer worden ondertekend met het CGK-certificaat
+(`CN=CGK Local Signing`, geldig tot 2028-09-17). Na het ondertekenen
+wordt de handtekening automatisch geverifieerd met `signtool verify`.
+
+**Installer met icoon**
+
+De installer heeft nu het ESR Tester-icoon in de wizard en in de
+snelkoppelingen (Startmenu en optioneel bureaublad). De app start na
+installatie met gebruikersrechten (`runascurrentuser`), niet als
+administrator.
+
+**Installatie**
+
+Standaard installatiemap: `C:\Program Files\Electronics Diagnostic
+Tool Hub\ESR Tester`. De gebruiker kan de map kiezen tijdens de
+installatie.
+
+**Opgelost**
+
+- De **venstertitels van het Help-venster en het Wijzigingslog-venster**
+  toonden de onvertaalde keys `dialog.help_titel` en
+  `dialog.changelog_titel`. Dat is nu opgelost.
+- De **ESR-testknop** in de Diagnose-pagina toonde de onvertaalde key
+  `tool.esr`. Dat is nu opgelost.
+- De **buildstraat** brak eerder af met
+  `: was unexpected at this time.` door een `set /p`-prompt met
+  haakjes. Dat is opgelost door de prompt te vervangen door een
+  `if defined`-check.
 
 **PDF's met leesbare tekst, zonder handmatige stap**
 
@@ -33,19 +67,7 @@ Qt kon in een PySide6-omgeving de Windows-systeemfonts niet vinden,
 waardoor PDF-rapporten zwarte blokken toonden in plaats van tekst. De
 applicatie stelt nu **automatisch** de omgevingsvariabele
 `QT_QPA_FONTDIR=C:\Windows\Fonts` in wanneer je op Windows start en de
-variabele nog niet gezet is. De eerdere tip (`$env:QT_QPA_FONTDIR = ...`)
-is daardoor niet meer nodig. Als je de variabele zelf zet, respecteert de
-applicatie jouw keuze.
-
-**Opgelost**
-
-- De venstertitels van het **Help**-venster en het
-  **Wijzigingslog**-venster toonden de onvertaalde keys
-  `dialog.help_titel` en `dialog.changelog_titel` in plaats van "Help"
-  en "Wijzigingslog". Dat is nu opgelost.
-- De **ESR-testknop** in de Diagnose-pagina toonde de onvertaalde key
-  `tool.esr` in plaats van "ESR-test" (NL) of "ESR test" (EN). Dat is
-  nu opgelost.
+variabele nog niet gezet is.
 
 **Voor ontwikkelaars**
 
@@ -54,6 +76,7 @@ applicatie jouw keuze.
   Reden: pandas 3.x gaf een ABI-conflict met numpy 2.x in de build.
 - `QT_QPA_FONTDIR` wordt nu in `main.py` gezet vóór `QApplication`
   aangemaakt wordt.
+- `app/version.py` is de centrale versiebron.
 
 ## Versie 1.8 — Meetrapporten en uitgebreidere instellingen (12 oktober 2026)
 
@@ -110,17 +133,6 @@ Het rapport is puur een weergave.
   (`binnen_tolerantie`, `niet_beoordeeld`). Ze worden nu vertaald,
   net als in de GUI.
 
-**Tip voor leesbare PDF's**
-
-Deze tip is sinds versie 1.9 niet meer nodig: de applicatie stelt de
-variabele nu automatisch in op Windows. Voor oudere versies blijft de
-workaround werken:
-
-```powershell
-$env:QT_QPA_FONTDIR = "C:\Windows\Fonts"
-python main.py
-```
-
 ## Versie 1.7 — Grafieken en trends (9 oktober 2026)
 
 **Nieuwe pagina "Analyse"**
@@ -138,27 +150,22 @@ Met een dropdown kies je welk type grafiek je wilt zien:
 - **Capaciteit over tijd** — het capaciteitsverloop.
 - **D over tijd** — het verloop van de dissipatiefactor.
 - **ESR vs. capaciteit** — een spreidingsdiagram waarin elke meting een
-  punt is. De kleur toont de eindstatus (goed, aandachtspunt,
-  twijfelachtig, defect, of geen status).
+  punt is. De kleur toont de eindstatus.
 
 **Filteren op precies dezelfde velden als de historiek**
 
 De filterbalk gebruikt dezelfde velden als de historiekpagina:
 fabrikant, serie, meetmethode, instrument, frequentie en een
-periode (van/tot datum). Zo zie je alleen de metingen die je wilt
-vergelijken. Met **Ctrl+F** open je het filterpaneel.
+periode (van/tot datum). Met **Ctrl+F** open je het filterpaneel.
 
 **Aggregatie per dag, week of maand**
 
 Standaard toont elke grafiek alle ruwe meetwaarden. Met een tweede
 dropdown kies je **gemiddelde per dag**, **per week** of **per maand**.
-Dat is handig als je veel metingen hebt en de grote lijn wilt zien.
 
 **Read-only**
 
 De Analyse-pagina leest je opgeslagen metingen en schrijft niets terug.
-Historische metingen worden nooit opnieuw beoordeeld of gewijzigd.
-Grafieken zijn puur visueel.
 
 **Sneltoetsen**
 
@@ -180,42 +187,15 @@ import-wizard heeft vier keuzes:
 - **Excel-werkmap**
 - **Vanaf URL**
 
-De wizard werkt voor alle vier de types hetzelfde: kies het bestand,
-controleer de samenvatting, vul eventueel metadata in, en bevestig.
-Duplicate-detectie op basis van SHA-256, de metadata-sectie, de
-documentdatum en de notities werken identiek aan de PDF-import.
-
-**Wat je in de samenvatting ziet**
-
-Voor Word: het aantal paragrafen. Voor Excel: het aantal werkbladen.
-In beide gevallen ook de bestandsnaam, de grootte in bytes en de
-documenttitel.
-
-**Bevestiging na import**
-
-Na een geslaagde import toont de applicatie een bevestigingsvenster:
-"Het document '...' is geïmporteerd als Concept." Zo weet je meteen
-dat de import gelukt is. Voorheen sloot de wizard zonder melding.
-
 **Oude formaten worden geweigerd**
 
 Het oude `.doc`-formaat (Word 97-2003) en `.xls`-formaat (Excel 97-2003)
-worden niet ondersteund. Converteer naar `.docx` of `.xlsx` en probeer
-opnieuw. De applicatie geeft een duidelijke melding als je zo'n bestand
-toch probeert te importeren.
+worden niet ondersteund.
 
 **Verbeterd: Word- en Excel-bestanden openen**
 
 Geïmporteerde Word- en Excel-bestanden worden geopend in de standaard
-Word- of Excel-applicatie, net zoals PDF's dat al deden. De metadata
-(categorie, fabrikant, serie, partnummer, versie, datum, notities)
-blijft zichtbaar in de documentatiebibliotheek en is doorzoekbaar.
-
-**Opgelost: foutmelding bij openen van Word- of Excel-import**
-
-Een eerdere versie gaf de melding "onbekend source_type" bij het openen
-van de documentatiebibliotheek nadat een Word- of Excel-bestand was
-geïmporteerd. Dat is nu opgelost.
+Word- of Excel-applicatie.
 
 ## Versie 1.5 — Status van eigen imports beheren (8 oktober 2026)
 
@@ -228,44 +208,14 @@ voor je eigen imports. Je kunt de levenscyclus van een import aanpassen:
 - **Actief** — expliciet door jou bevestigd als bruikbaar.
 - **Gearchiveerd** — niet meer in de standaardlijst, maar blijft bewaard.
 
-De toegelaten overgangen zijn:
-
-- Concept → Actief (geen bevestiging nodig)
-- Concept → Gearchiveerd (met bevestiging)
-- Actief → Concept (met bevestiging)
-- Actief → Gearchiveerd (met bevestiging)
-- Gearchiveerd → Concept (met bevestiging)
-
-Een bron wordt **nooit verwijderd**. Je kunt een gearchiveerde bron altijd
-terugzetten naar Concept. De bron en de metadata blijven ongewijzigd bij
-een statuswijziging; alleen de levenscyclus verandert.
-
-Documenten uit de ingebouwde bibliotheek zijn en blijven read-only. De
-Status wijzigen-knop is dan uitgeschakeld met een tooltip die uitlegt
-waarom.
-
-**Gearchiveerde imports zichtbaar maken**
-
-Naast de tool-dropdown staat nu een checkbox **Toon gearchiveerde**.
-Standaard staat die uit: gearchiveerde imports blijven verborgen. Vink
-je hem aan, dan verschijnen ze opnieuw in de lijst, zodat je ze kunt
-openen, bewerken of terugzetten naar Concept.
-
 **Nieuwe Status-kolom**
 
-De documentatietabel heeft nu een extra kolom **Status**, tussen
-Categorie en Fabrikant. Voor ingebouwde documenten is die kolom leeg.
-Voor eigen imports toont hij de huidige levenscyclusstatus (Concept,
-Actief of Gearchiveerd).
+De documentatietabel heeft nu een extra kolom **Status**.
 
 **Verbeterd: checkboxen en radio buttons in het donkere thema**
 
 De checkboxen en radio buttons in de hele applicatie zijn nu duidelijk
-zichtbaar in het donkere thema. Voorheen gebruikte Qt de standaard
-Fusion-stijl, waardoor de indicator (het vierkantje of rondje) bijna
-onzichtbaar was op de donkere achtergrond. De nieuwe stijl geeft een
-duidelijke rand, een blauwe checked-state en consistente hover- en
-disabled-styling.
+zichtbaar in het donkere thema.
 
 ## Versie 1.4 — Metadata bij import en bewerken in de viewer (7 oktober 2026)
 
@@ -273,234 +223,120 @@ disabled-styling.
 
 Bij het importeren van een document kun je nu meteen metadata invullen:
 categorie, fabrikant, serie, partnummer, documentversie, documentdatum
-en notities. De categorie is verplicht (default: fabrikantdatasheet);
-de andere velden zijn optioneel. Identificatievelden (fabrikant, serie,
-partnummer, documentversie) worden automatisch in hoofdletters gezet
-zodat ze consistent in de bibliotheek staan.
-
-De documentdatum is een kalenderveld met een knop "Datum onbekend" voor
-documenten zonder bekende datum. Met Ctrl+D zet je de datum op vandaag.
-
-Bestaande imports van vóór deze versie blijven geldig. Ze hebben geen
-metadata; die kun je later toevoegen door de import te bewerken.
+en notities.
 
 **Metadata bewerken in de documentatiebibliotheek**
 
 In de documentatiebibliotheek is er nu een knop **Bewerken…** voor je
-eigen imports. Je kunt de metadata (titel, categorie, fabrikant, serie,
-partnummer, documentversie, documentdatum, notities) achteraf aanpassen
-zonder het bronbestand opnieuw te importeren. Het bronbestand, de status
-en de importdatum blijven ongewijzigd.
-
-Documenten uit de ingebouwde bibliotheek (meegeleverd met de app) zijn
-en blijven read-only. De Bewerken-knop is dan uitgeschakeld met een
-tooltip die uitlegt waarom.
+eigen imports.
 
 **Verbeterd zoeken**
 
 Het zoekveld in de documentatiebibliotheek doorzoekt nu ook de metadata
-van geïmporteerde documenten (categorie, fabrikant, serie, partnummer,
-versie, datum, notities en bron-URL). Zoeken op fabrikant of serie werkt
-daardoor nu ook voor eigen imports.
+van geïmporteerde documenten.
 
 ## Versie 1.3 — Help per taal en duidelijkere zoekuitleg
 **Datum:** 6 oktober 2026
 
 **Nieuw**
-- **Help per taal.** De algemene help wordt nu per taal getoond. De
-  applicatie kiest automatisch de juiste versie op basis van je
-  taalkeuze. Ontbreekt een taalversie, dan valt de applicatie terug op
-  het Nederlands.
-- **Duidelijkere uitleg over uitsluiten in de zoekhulp.** In het
-  Help-venster van de zoektaal staat nu een extra uitleg: het
-  uitroepteken (`!`) sluit elk woord uit dat de gezochte tekst bevat,
-  niet enkel het losse woord. Zo weet je meteen waarom `!esr` ook
-  `mesr` uitsluit.
+- **Help per taal.** De algemene help wordt nu per taal getoond.
+- **Duidelijkere uitleg over uitsluiten in de zoekhulp.**
 
 **Verbeterd**
-- **Zoekterm met minteken én procentteken genegeerd.** Een zoekterm die
-  met een minteken begint én een procentteken bevat (bv. `-%meter`)
-  heeft geen eenduidige betekenis. De applicatie negeert zulke termen
-  nu stil, net zoals lege termen. De rest van je zoekopdracht blijft
-  gewoon werken: `esr,-%meter` gedraagt zich hetzelfde als `esr`.
+- **Zoekterm met minteken én procentteken genegeerd.**
 
 **Voor ontwikkelaars**
-- Nieuwe referentie `docs/search_syntax.md`: volledige beschrijving
-  van de zoektaal van de documentatiebibliotheek (operatoren,
-  semantiek, randgevallen, uitbreidingspunten).
+- Nieuwe referentie `docs/search_syntax.md`.
 
 ## Versie 1.2 — Sneltoetsen en veiliger afsluiten
 **Datum:** 5 oktober 2026
 
 **Nieuw**
-- Je kan nu door de hele applicatie met het toetsenbord werken:
-  - **ESR-test:** Esc (terug), Ctrl+Enter (beoordelen),
-    Ctrl+S (meting opslaan), Ctrl+W (wissen),
-    Ctrl+I (meetinstructies).
-  - **Historiek:** Esc (terug), Ctrl+R (verversen),
-    Ctrl+F (filterpaneel openen), Ctrl+D (details),
-    Ctrl+H (meting herhalen).
-  - **Hoofdmenu:** Ctrl+D (Diagnose), Ctrl+H (Historiek),
-    Ctrl+K (Documentatie).
-  - **Diagnose-pagina:** Esc (terug naar Hoofdmenu).
+- Je kan nu door de hele applicatie met het toetsenbord werken.
 
 **Verbeterd**
-- Esc op het Hoofdmenu vraagt nu een bevestiging voordat de applicatie
-  sluit. Zo sluit je de applicatie niet per ongeluk af.
-- De vensterknop X blijft de applicatie direct sluiten zoals voorheen.
+- Esc op het Hoofdmenu vraagt nu een bevestiging.
 
 ## Versie 1.1 — Slimmer zoeken en hulp in de documentatie
 **Datum:** 5 oktober 2026
 
 **Nieuw**
-- **Zoektaal voor documentatie.** Je kan nu gericht zoeken met
-  eenvoudige tekens:
-  - meerdere woorden of een komma = alle woorden moeten voorkomen;
-  - een verticale streep `|` = één van beide woorden;
-  - een minteken `-` = exact dit woord;
-  - een uitroepteken `!` = sluit dit woord uit;
-  - een procentteken `%` = vul zelf aan (wildcard).
-- **Help bij het zoeken.** Een vraagteken-knop naast het zoekveld en de
-  toets F1 openen een hulpvenster met uitleg en voorbeelden.
-- **Menu Help → Documentatie zoeken…** opent hetzelfde hulpvenster.
+- **Zoektaal voor documentatie.**
+- **Help bij het zoeken.**
 
 **Verbeterd**
 - Het venster voor zoekhulp is nu ook bereikbaar via het Help-menu.
-- Algemene stabiliteit van het menu bij het wisselen van taal.
 
 ## Versie 1.0 — Meerdere diagnosetools in één hub
 **Datum:** 3 oktober 2026
 
 **Nieuw**
 - Documenten kunnen nu aan meerdere diagnosetools gekoppeld worden.
-- Elk document heeft extra kenmerken: soort component, soort test,
-  meetmethode, meetinstrument en onderwerp. Zo vind je sneller het
-  juiste document.
-- De productcatalogus is voorzien van deze kenmerken.
 
 **Verbeterd**
-- Interne structuur klaar voor toekomstige diagnosetools
-  (zoals een weerstandstester) zonder de bestaande werking te wijzigen.
+- Interne structuur klaar voor toekomstige diagnosetools.
 
 ## Versie 0.9 — Documentatiebibliotheek
 **Datum:** 3 oktober 2026
 
 **Nieuw**
 - Een centrale, meertalige documentatiebibliotheek met 8 technische
-  documenten (veilig ontladen, meetmethoden, LCR-meter, ESR-meter,
-  frequentie en testspanning, dissipatiefactor,
-  C-ESR-D-plausibiliteit, beperkingen van in-circuit meten).
-- Elk document heeft een vaste ID en metadata (titel, categorie,
-  bron, herkomst).
-- De documentatie kan doorzocht en gefilterd worden op categorie
-  en tool.
-- Vanuit het ESR-scherm kan je rechtstreeks de meest relevante
-  meetinstructie openen.
-- Vanuit het ESR-scherm geeft de knop "Meetinstructies" een
-  contextuele aanbeveling op basis van meetmethode en instrument.
-
-**Verbeterd**
-- Documenten verschijnen in het Nederlands of Engels, afhankelijk
-  van de gekozen taal. Ontbreekt een taal, dan valt de applicatie
-  terug op het Nederlands.
+  documenten.
 
 ## Versie 0.8 — Historiek
 **Datum:** 1 oktober 2026
 
 **Nieuw**
-- Een overzichtelijke historiekpagina met alle opgeslagen metingen:
-  datum en tijd, tool, component, meetmethode, instrument, meetwaarden,
-  eindstatus en betrouwbaarheid.
-- Filteren op tool, fabrikant, serie, meetmethode, instrument,
-  frequentie, eindstatus, betrouwbaarheid en periode.
-- Een detailvenster per meting met alle opgeslagen informatie.
-- **Meting herhalen**: neem de component en meetcontext over als
-  startpunt voor een nieuwe meting. De oude meetwaarden worden niet
-  overgenomen.
-- Exporteren naar CSV: overzicht of volledig detail, van de volledige
-  filter of enkel de geselecteerde rijen.
+- Een overzichtelijke historiekpagina met alle opgeslagen metingen.
 
 ## Versie 0.7 — Lokale opslag
 **Datum:** 27 september 2026
 
 **Nieuw**
-- Beoordeelde metingen kunnen lokaal opgeslagen worden op de computer.
-- Alle ruwe meetdata, beoordelingen en referenties worden samen
-  bewaard.
-- Opgeslagen metingen worden nooit automatisch opnieuw beoordeeld
-  als regels later wijzigen.
+- Beoordeelde metingen kunnen lokaal opgeslagen worden.
 
 ## Versie 0.6 — Robuustere invoer en veiligere OL
 **Datum:** 29 september 2026
 
 **Nieuw**
-- Duidelijke behandeling van "buiten bereik" (OL) en van een
-  vermoedelijke open verbinding of kortsluiting.
-- Bij OL mag je één of beide meetwaarden leeg laten; de applicatie
-  geeft dan de status "niet te beoordelen".
-- Exacte tolerantiegrenzen worden gerespecteerd: net binnen of net
-  buiten.
-
-**Verbeterd**
-- Foutmeldingen bij ongeldige invoer zijn duidelijker.
-- Ongeldige tekst wordt ook bij OL geweigerd, zodat geen verkeerde
-  waarden worden opgeslagen.
+- Duidelijke behandeling van "buiten bereik" (OL).
 
 ## Versie 0.5 — Instellingen
 **Datum:** 27 september 2026
 
 **Nieuw**
-- Een instellingenvenster met drie tabbladen: Algemeen,
-  ESR/Condensator en Rapportage.
-- Voorkeuren worden bewaard tussen sessies.
-- Het ESR-scherm gebruikt jouw opgeslagen voorkeuren als startpunt.
-- Je kiest zelf of "Wissen" eerst om bevestiging vraagt.
+- Een instellingenvenster met drie tabbladen.
 
 ## Versie 0.4 — Compact ESR-scherm
 **Datum:** 26 september 2026
 
 **Nieuw**
-- Het ESR-scherm is compacter gemaakt: drie kolommen voor
-  condensator, meetopstelling en meting.
-- Geen storende scrollbar meer in het hoofdscherm.
-- Een aparte knop "Veiligheidsinstructies" opent meteen het juiste
-  document.
-- Frequenties verschijnen als 100 Hz, 1 kHz of 10 kHz.
-- Het resultaat wordt samengevat; de knop "Details" toont de volledige
-  uitleg met bron en grenzen.
+- Het ESR-scherm is compacter gemaakt.
 
 ## Versie 0.3 — Donker thema
 **Datum:** 27 september 2026
 
 **Verbeterd**
-- Uniform donker thema in alle schermen en dialoogvensters.
-- Betere leesbaarheid van tekst en knoppen in dialogen.
+- Uniform donker thema.
 
 ## Versie 0.2 — Eén venster met interne navigatie
 **Datum:** 13 augustus 2026
 
 **Nieuw**
-- Eén hoofdvenster met interne pagina's voor Hoofdmenu, Diagnose,
-  ESR-test, Historiek en Documentatie.
-- De knop X gedraagt zich contextueel: binnen een tool keer je terug
-  naar de vorige pagina; op het Hoofdmenu sluit je de applicatie.
+- Eén hoofdvenster met interne pagina's.
 
 ## Versie 0.1 — Eerste werkende versie
 **Datum:** 11 augustus 2026
 
 **Nieuw**
-- Eerste versie van de ESR-validator met basisberekeningen en
-  beoordeling.
-- Donker thema.
-- Nederlands en Engels.
-- Eerste validatieregels voor capaciteit, ESR en C-ESR-D-consistentie.
+- Eerste versie van de ESR-validator.
 
 ---
 
 ## Gepland voor volgende versies
-- **Versie 1.9** — Windows-installer (Inno Setup), code-ondertekening,
-  en publicatie op GitHub. *(De buildstraat staat; installer en signing
-  volgen in de volgende deelfasen.)*
+- **Versie 1.9** — Windows-installer, code-ondertekening, en publicatie
+  op GitHub. *(De installer en signing zijn klaar; de eerste publicatie
+  volgt in 9E.)*
 - **Versie 2.0** — Uitgebreide praktijkvalidatie van ESR-metingen.
 - **Versie 3.0** — Tweede diagnosetool: weerstandsmetingen.
 - **Versie 4.0** — AI-extractie uit fabrikantdocumenten met verplichte
