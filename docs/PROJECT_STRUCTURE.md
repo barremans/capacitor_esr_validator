@@ -650,8 +650,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     - 📄 **/docs/documentation_import.md**
     - 📄 **/docs/future_tools.md**
     - 📄 **/docs/help.md**
+    - 📄 **/docs/markdown_levering.md**
     - 📄 **/docs/openvragen.md**
-    - 📄 **/docs/overdracht.md**
     - 📄 **/docs/PROJECT_STRUCTURE.md**
     - 📄 **/docs/python_header_standard.md**
     - 📄 **/docs/search_syntax.md**
@@ -1420,6 +1420,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       ```
   - 📄 **/.gitattributes**
   - 📄 **/.gitignore**
+  - 📄 **/build_and_publish.ps1**
   - 📄 **/build_installer.bat**
   - 📄 **/build_log.txt**
     ```text
@@ -1431,13 +1432,13 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
   - 📄 **/bump_version.py**
     ```text
     # Bestandsnaam: bump_version.py
-    # Beschrijving: Verhoogt het patch-, minor- of major-deel van de centrale
+    # Beschrijving: Verhoogt het patch-, minor- of major-deel van de centrale versie
     # Auteur: Bart Bossuyt
-    # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-    # Versie: 1.0.0
-    # Datum: 2026-10-13
+    # Applicatie: GEEN APPLICATIE
+    # Versie: 2.0.0
     ```
   - 📄 **/ESR_Tester.spec**
+  - 📄 **/Export-SigningCertificate.ps1**
   - 📄 **/LICENSE**
   - 📄 **/main.py**
     ```text
@@ -1448,6 +1449,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     # Versie: 1.3.0
     # Datum: 2026-10-13
     ```
+  - 📄 **/overdracht.md**
+  - 📄 **/publish.ps1**
   - 📄 **/pyproject.toml**
   - 📄 **/README.md**
   - 📄 **/README_PATCH.md**
