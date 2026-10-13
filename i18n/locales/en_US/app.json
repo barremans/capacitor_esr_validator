@@ -23,7 +23,8 @@
   "tool": {
     "diagnose": "Diagnostics",
     "historiek": "History",
-    "documentatie": "Documentation"
+    "documentatie": "Documentation",
+    "esr": "ESR test"
   },
   "knop": {
     "terug": "Back",
@@ -39,7 +40,7 @@
   },
   "dialog": {
     "over_title": "About",
-    "over_tekst": "Electronics Diagnostic Tool Hub\\nCapacitor and ESR validator",
+    "over_tekst": "Electronics Diagnostic Tool Hub\nCapacitor and ESR validator\n\nVersion: {versie}",
     "changelog_title": "Changelog",
     "help_title": "Help",
     "afsluiten_titel": "Exit application",

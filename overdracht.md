@@ -1,16 +1,16 @@
 # OVERDRACHT — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie overdracht:** 3.7.0
-**Datum:** 2026-10-12
+**Versie overdracht:** 3.8.0
+**Datum:** 2026-10-13
 **Auteur:** Bart Bossuyt
-**Vorige versie:** 3.6.0 (2026-10-09)
+**Vorige versie:** 3.7.0 (2026-10-12)
 **Doel:** volledig overdrachtsdocument voor een nieuwe ChatGPT-sessie of
 nieuwe ontwikkelaar. Bevat projectstaat, architectuur, regels, changelog,
 teststructuur en startprompt. Alles in één bestand.
 
-**Huidige baseline:** 1144 passed
-**Laatste afgeronde fase:** 8D+ — Settings-uitbreiding en bugfixes
-**Volgende fase:** 8E — Documentatie bijwerken (of direct 9 / 11)
+**Huidige baseline:** 1150 passed
+**Laatste afgeronde fase:** 9B.2 — PyInstaller-buildstraat
+**Volgende fase:** 9C — Inno Setup installer
 
 ---
 
@@ -20,7 +20,7 @@ teststructuur en startprompt. Alles in één bestand.
 2. Context — projectstaat en architectuur
 3. Kernregels — bindende afspraken
 4. Stappenplan — chronologisch overzicht
-5. Wat is nieuw sinds versie 3.6.0
+5. Wat is nieuw sinds versie 3.7.0
 6. Openstaande vragen voor de nieuwe chat
 7. Teststatus — baseline en teststructuur
 8. Bestanden die de nieuwe chat moet opvragen
@@ -40,9 +40,9 @@ iets doet.
 
 - Projectmap: `C:\PY\capacitor_esr_validator`.
 - Technologie: Python 3.12 + PySide6 (Qt6, Fusion-stijl), volledig offline.
-- Baseline: **1144 passed**.
-- Laatste afgeronde fase: **8D+ — Settings-uitbreiding en bugfixes**.
-- Volgende fase: **8E — Documentatie bijwerken** (of direct 9 / 11).
+- Baseline: **1150 passed**.
+- Laatste afgeronde fase: **9B.2 — PyInstaller-buildstraat**.
+- Volgende fase: **9C — Inno Setup installer**.
 
 **Werkafspraken die je strikt volgt:**
 
@@ -77,10 +77,15 @@ iets doet.
   `settings.json`.** Sinds v2.11.3 respecteert de constructor de
   parameter `taal`; valt alleen terug op `settings.json` als de
   parameter leeg is.
-- **Voor leesbare PDF-rapporten:** stel `QT_QPA_FONTDIR=C:\Windows\Fonts`
-  in vóór je `main.py` start. Zonder deze variabele kan Qt op Windows de
-  systeemfonts niet vinden en rendert de PDF **zwarte blokken** in plaats
-  van tekst.
+- **Voor leesbare PDF-rapporten:** sinds fase 9A zet `main.py`
+  automatisch `QT_QPA_FONTDIR=C:\Windows\Fonts` op Windows als de
+  variabele nog niet gezet is. De handmatige stap is niet meer nodig,
+  maar blijft geldig als je de variabele zelf wilt zetten.
+- **Bij het leveren van `.md`-bestanden die zelf codeblokken bevatten:**
+  gebruik **viervoudige backticks** (````markdown ... ````) zodat de
+  driedubbele backticks binnenin het bestand het omhullende blok niet
+  voortijdig sluiten. Zonder deze regel valt het systeem halverwege
+  terug op gewone tekst.
 - Geen aannames over de volgende fase: vraag het na of verwijs naar
   sectie 4 van dit document.
 
@@ -115,9 +120,9 @@ eerst. Geen aannames.
 | Taal GUI | Nederlands + Engels (via i18n) |
 | Werkmodus | Volledig offline, lokale opslag |
 | Database | SQLite op `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\measurements.sqlite3` |
-| Huidige baseline | **1144 passed** |
-| Laatste afgeronde fase | 8D+ — Settings-uitbreiding en bugfixes |
-| Volgende fase | 8E — Documentatie bijwerken |
+| Huidige baseline | **1150 passed** |
+| Laatste afgeronde fase | 9B.2 — PyInstaller-buildstraat |
+| Volgende fase | 9C — Inno Setup installer |
 
 ### 2.2 Huidige applicatiearchitectuur
 
@@ -178,7 +183,8 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
   `meting_kop`. Statuscodes worden vertaald via `_status_code_label`.
 - `app/helpers/report_pdf.py` (v1.0.0) — Qt-specifiek. `QTextDocument`
   + `QPrinter` → PDF. A4-portret, 15 mm marges.
-  **Vereist `QT_QPA_FONTDIR=C:\Windows\Fonts` op Windows.**
+  **Vereist `QT_QPA_FONTDIR=C:\Windows\Fonts` op Windows.** Sinds 9A
+  zet `main.py` deze variabele automatisch.
 - `app/helpers/report_chart.py` (v1.0.3) — Qt-specifiek. `QChart` →
   base64-PNG voor `ESR_CAPACITOR`.
 - `app/gui/dialogs/report_dialog.py` (v1.2.0) — modale dialoog met
@@ -230,7 +236,19 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - `PySide6.QtCharts` wordt gebruikt in `app/gui/analysis_screen.py` en
   `app/helpers/report_chart.py`. Geen aparte dependency.
 
-### 2.3 Belangrijke recente bugfixes (8D+)
+**Buildstraat (fase 9A en 9B):**
+
+- `app/version.py` — centrale versie, momenteel `1.0.0`.
+- `main.py` — `QT_QPA_FONTDIR` automatisch, `setApplicationVersion`.
+- `bump_version.py` — verhoogt patch/minor/major in `app/version.py`.
+- `ESR_Tester.spec` — PyInstaller-specificatie.
+- `build_installer.bat` — bouwt de EXE, kopieert `settings.json`,
+  schrijft `version.txt`.
+- `assets/icons/` — `logo.ico` (nog niet in `.spec`), `ESR.png`
+  (gebruikt in GUI), `README.md`.
+- **Icoon in `.spec` en `.iss`:** uitgesteld naar fase 9G.
+
+### 2.3 Belangrijke recente bugfixes (8D+ en 9A)
 
 - **`algemeen.ja` / `algemeen.nee` lekten in rapport-HTML** (v1.3.0 van
   `report_render.py`): keys bestonden niet; vervangen door
@@ -255,17 +273,29 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - **`QT_QPA_FONTDIR` probleem op Windows:** Qt kan in een PySide6-venv
   de systeemfonts niet vinden zonder deze variabele. Zonder de variabele
   worden PDF-rapporten gerenderd met **zwarte blokken** in plaats van
-  tekst. Oplossing: zet `QT_QPA_FONTDIR=C:\Windows\Fonts` vóór het
-  starten van de app. Overweeg in een latere fase om dit in `main.py`
-  in te stellen.
+  tekst. Sinds 9A zet `main.py` deze variabele automatisch op Windows
+  als hij nog niet bestaat en `C:\Windows\Fonts` aanwezig is.
+- **Venstertitels van Help- en Wijzigingslog-vensters** gebruikten
+  `dialog.help_titel` en `dialog.changelog_titel`, die niet bestaan.
+  De juiste keys zijn `dialog.help_title` en `dialog.changelog_title`
+  (v2.11.6 van `main_window.py`).
+- **ESR-knop in Diagnose-pagina** toonde de ruwe key `tool.esr`.
+  Toegevoegd aan beide `app.json`-bestanden (v1.9).
+- **Pandas/numpy ABI-conflict** in de build: pandas 3.0.6 gaf
+  `ModuleNotFoundError: No module named 'pandas._libs.pandas_parser'`.
+  Opgelost door `numpy>=1.26,<3` en `pandas>=2.2,<3` in
+  `requirements.txt`, plus numpy als directe dependency.
 
 ### 2.4 Openstaande werkpunten
 
 Volgens het stappenplan:
 
-- **8E** — Documentatie bijwerken (changelog 1.8, openvragen,
-  overdracht). **Volgende fase.** (Wordt momenteel afgerond.)
-- **9** — Packaging / installer / signing.
+- **9C** — Inno Setup installer (`installer.iss`). **Volgende fase.**
+- **9D** — Signing (`signtool`, certificaatpreflight, verify).
+- **9E** — `publish.ps1` + `build_and_publish.ps1` + GitHub Release.
+- **9F** — Intune/Defender/CFA-testmatrix + `docs/packaging.md`.
+- **9G** — Icoon toevoegen aan `.spec` en `.iss`.
+- **9H** — Update-check bij opstarten + via Help.
 - **10** — Praktische ESR-validatie.
 - **11** — Laatste UX/documentatie-afwerking (incl. light theme,
   async URL-fetch, cosmetische scrollbar in Word-samenvatting,
@@ -293,6 +323,8 @@ Volgens het stappenplan:
   `QApplication.processEvents()`.
 - **De taalparameter van `ToolHubWindow` heeft voorrang op
   `settings.json`.**
+- **Bij het leveren van `.md`-bestanden die zelf codeblokken bevatten:**
+  gebruik viervoudige backticks.
 - **Geen aannames over de eerstvolgende fase** — vraag het na.
 
 ---
@@ -324,6 +356,8 @@ Volgens het stappenplan:
 19. **Grafieken en trends lezen bestaande data, ze wijzigen niets.**
 20. **Rapporten lezen bestaande data, ze wijzigen niets.** Ze gebruiken
     de opgeslagen snapshots; geen herberekening.
+21. **Bij het leveren van `.md`-bestanden met codeblokken: viervoudige
+    backticks.**
 
 ### 3.2 Architectuur
 
@@ -340,6 +374,9 @@ Volgens het stappenplan:
 - **Rapportage-laag** (fase 8) leest de storage en de analyse-laag
   read-only. `report_render` is puur; `report_pdf` en `report_chart`
   zijn Qt-specifiek; `report_dialog` is GUI.
+- **Buildstraat** (fase 9) is gescheiden van de applicatiecode.
+  `bump_version.py`, `ESR_Tester.spec` en `build_installer.bat` staan
+  in de root en worden niet meegebundeld in de EXE.
 
 ### 3.3 ESR-technische kernregels
 
@@ -365,6 +402,8 @@ Volgens het stappenplan:
   gebruikersbevestiging.
 - Een `# ... ongewijzigd ...`-sectie inleveren.
 - Een fase als "afgerond" bestempelen zonder groene testsuite.
+- Een `.md`-bestand met codeblokken leveren zonder viervoudige
+  backticks.
 
 ---
 
@@ -428,8 +467,17 @@ Volgens het stappenplan:
 | 8C | GUI: menu-item, knop in historiek, `ReportDialog` | ✅ |
 | 8D | Settings-uitbreiding (auteur, rapportmap, grafiek_default) | ✅ |
 | 8D+ | i18n-fix `app.ja`/`app.nee`, enum-vertaling in rapport, PDF-fonts | ✅ |
-| **8E** | **Documentatie bijwerken (changelog 1.8, openvragen, overdracht)** | **Volgende** |
-| 9 | Packaging / installer / signing | Gepland |
+| 8E | Documentatie bijwerken (changelog 1.8, openvragen, overdracht) | ✅ |
+| 9A | Versie, `QT_QPA_FONTDIR`, `setApplicationVersion`, icoonmap | ✅ |
+| 9A.1 | Over-dialoog met versie + bugfix help/changelog-titels | ✅ |
+| 9B.1 | `bump_version.py` | ✅ |
+| 9B.2 | `ESR_Tester.spec` + `build_installer.bat` | ✅ |
+| **9C** | **Inno Setup installer (`installer.iss`)** | **Volgende** |
+| 9D | Signing (`signtool`, certificaatpreflight, verify) | Gepland |
+| 9E | `publish.ps1` + `build_and_publish.ps1` + GitHub Release | Gepland |
+| 9F | Intune/Defender/CFA-testmatrix + `docs/packaging.md` | Gepland |
+| 9G | Icoon toevoegen aan `.spec` en `.iss` | Gepland |
+| 9H | Update-check bij opstarten + via Help | Gepland |
 | 10 | Praktische ESR-validatie | Gepland |
 | 11 | Laatste UX/documentatie-afwerking | Gepland |
 | 12 | AI-extractie uit fabrikantdocumenten | Gepland |
@@ -439,76 +487,74 @@ Volgens het stappenplan:
 
 ---
 
-## 5. WAT IS NIEUW SINDS VERSIE 3.6.0
+## 5. WAT IS NIEUW SINDS VERSIE 3.7.0
 
-### 5.1 Fase 8 — Rapportage
+### 5.1 Fase 9A — versie, `QT_QPA_FONTDIR`, icoonmap
 
-In zeven deelfasen (8A, 8B.1, 8B.2, 8B.2a, 8B.2b, 8C, 8D) is een
-read-only rapportage-laag toegevoegd met een GUI.
+- **`app/version.py`** op `1.0.0`. Eén centrale bron voor de versie.
+- **`main.py`** zet `QT_QPA_FONTDIR` automatisch op Windows als de
+  variabele nog niet bestaat en `C:\Windows\Fonts` aanwezig is.
+- **`main.py`** roept `app.setApplicationVersion(__version__)` aan.
+- **`assets/icons/`** aangemaakt met `logo.ico`, `ESR.png`, `README.md`.
+- **i18n:** `dialog.over_tekst` uitgebreid met `{versie}`-placeholder.
+- **Nieuwe test:** `tests/test_version.py` (5 tests).
+- **Bugfix:** `dialog.help_titel` en `dialog.changelog_titel` bestonden
+  niet; vervangen door `dialog.help_title` en `dialog.changelog_title`.
 
-**Nieuwe bestanden sinds 3.6.0:**
+### 5.2 Fase 9A.1 — Over-dialoog met versie
+
+- **`main_window.py`** vult `{versie}` in via `app.version.__version__`.
+- De Over-dialoog toont nu **"Versie: 1.0.0"**.
+
+### 5.3 Fase 9B.1 — `bump_version.py`
+
+- **`bump_version.py`** leest `app/version.py`, verhoogt patch/minor/major,
+  schrijft terug.
+- Niet-interactief: `python bump_version.py patch`.
+- Returncodes: 0 bij succes, 1 bij fout.
+
+### 5.4 Fase 9B.2 — PyInstaller-buildstraat
+
+- **`ESR_Tester.spec`** — PyInstaller-specificatie zonder `icon=`
+  (icoon volgt in 9G).
+- **`build_installer.bat`** — niet-interactieve build via
+  omgevingsvariabelen `AS_BUMP_PART`, `AS_MAKE_INSTALLER`, `AS_DO_SIGN`.
+- Output in `dist\ESR_Tester_<versie>\`.
+- `settings.json` en `version.txt` worden meegekopieerd.
+- **Eerste succesvolle build** met PyInstaller 6.11.1.
+- **Nieuwe i18n-key:** `tool.esr` (NL "ESR-test", EN "ESR test").
+- **Bugfix:** ESR-knop toonde de ruwe key `tool.esr`.
+- **`requirements.txt`:** `numpy>=1.26,<3` toegevoegd als directe
+  dependency; `pandas>=2.2,<3` gepind.
+
+### 5.5 Gewijzigde bestanden sinds 3.7.0
 
 | Bestand | Versie |
 |---|---|
-| `app/services/report_service.py` | 1.2.0 |
-| `app/helpers/report_render.py` | 1.4.0 |
-| `app/helpers/report_pdf.py` | 1.0.0 |
-| `app/helpers/report_chart.py` | 1.0.3 |
-| `app/gui/dialogs/report_dialog.py` | 1.2.0 |
-| `i18n/locales/nl_NL/report.json` | 1.3.0 |
-| `i18n/locales/en_US/report.json` | 1.3.0 |
-| `tests/test_report_service.py` | 1.2.0 |
-| `tests/test_report_render.py` | 1.2.1 |
-| `tests/test_report_pdf.py` | 1.0.0 |
-| `tests/test_report_chart.py` | 1.0.0 |
-| `tests/test_report_dialog.py` | 1.1.0 |
-| `tests/test_analysis_screen_nan.py` | 1.0.2 |
-| `tests/test_main_window_report_menu.py` | 1.0.4 |
-| `tests/test_history_screen_report_button.py` | 1.0.0 |
+| `app/version.py` | 1.0.0 |
+| `main.py` | 1.3.0 |
+| `app/gui/main_window.py` | 2.11.6 |
+| `i18n/locales/nl_NL/app.json` | 1.2.0 |
+| `i18n/locales/en_US/app.json` | 1.2.0 |
+| `requirements.txt` | — |
+| `assets/icons/README.md` | nieuw |
+| `ESR_Tester.spec` | 1.0.0 |
+| `build_installer.bat` | 1.0.1 |
+| `bump_version.py` | 1.0.0 |
+| `tests/test_version.py` | 1.0.0 |
+| `tests/test_i18n_app_translations.py` | 1.4.0 |
 
-**Gewijzigde bestanden sinds 3.6.0:**
+### 5.6 Teststatus
 
-| Bestand | Versie |
-|---|---|
-| `app/gui/main_window.py` | 2.11.5 |
-| `app/gui/history_screen.py` | 1.14.0 |
-| `app/gui/analysis_screen.py` | 1.0.6 |
-| `app/config/settings.py` | 1.5.0 |
-| `app/gui/dialogs/settings_dialog.py` | 1.3.0 |
-| `i18n/locales/nl_NL/app.json` | 1.1.1 |
-| `i18n/locales/en_US/app.json` | 1.1.1 |
-| `i18n/locales/nl_NL/settings.json` | 1.3.0 |
-| `i18n/locales/en_US/settings.json` | 1.3.0 |
-| `tests/test_settings.py` | 1.3.0 |
-| `tests/test_settings_dialog.py` | 1.2.0 |
-
-**Geen wijziging aan `requirements.txt`.** `QPrinter`, `QTextDocument`
-en `PySide6.QtCharts` zitten standaard bij PySide6.
-
-**Nieuwe i18n-module:** `report.json` in beide locales.
-
-**Nieuwe i18n-keys:**
-
-- `report.*` (titel, knop, knop_tabel, kop.*, meting_kop,
-  meerdere_metingen, sectie.*, detail.*, geen_renderer, scope.*, pdf.*,
-  dialoog.*, voetnoot.*)
-- `menu.rapport`
-- `app.ja`, `app.nee` (i18n-fix 8D+)
-- `report.kop.auteur` (8D)
-- `settings.rapportage.auteur`, `settings.rapportage.rapportmap`,
-  `settings.rapportage.rapportmap_kiezen` (8D)
-
-### 5.2 Teststatus
-
-**Baseline: 1144 passed.** Dat is +107 ten opzichte van v3.6.0 (1037).
+**Baseline: 1150 passed.** Dat is +6 ten opzichte van v3.7.0 (1144).
 
 Verdeling:
 
-- 8A–8C: ~93 tests.
-- 8D: ~14 tests.
-- 8D+: geen nieuwe tests (bugfixes).
+- 9A: 5 nieuwe tests in `test_version.py`.
+- 9A: 1 nieuwe test in `test_i18n_app_translations.py`.
+- 9B.1 en 9B.2: geen nieuwe tests.
 
-### 5.3 Bekende beperkingen
+### 5.7 Bekende beperkingen
 
 - **Geen OCR** voor gescande PDF's.
 - **`.doc` en `.xls` worden geweigerd.**
@@ -524,9 +570,12 @@ Verdeling:
   (`build_bundle_for_measurements`, `build_bundle_from_filters`)
   ondersteunt meerdere metingen, maar er is nog geen GUI voor de
   scopes "selectie" en "filters".
-- **`QT_QPA_FONTDIR` op Windows:** moet handmatig gezet worden vóór
-  het starten van de app, anders rendert PDF met zwarte blokken.
-  Overweeg in een latere fase om dit in `main.py` in te stellen.
+- **Geen Inno Setup installer** — volgt in 9C.
+- **Geen signing** — volgt in 9D.
+- **Geen icoon in `.spec` en `.iss`** — volgt in 9G.
+- **Geen update-check** — volgt in 9H.
+- **Pandas-pin `<3`** — bewust conservatief vanwege ABI-conflict.
+- **Numpy als directe dependency** — bewust expliciet voor PyInstaller.
 
 ---
 
@@ -546,14 +595,18 @@ Verdeling:
   `QDateTimeAxis`-tickformaat, zoom/pan.
 - **Rapportage:** GUI voor scope "selectie" en "filters".
 - **Rapportage:** menu-item disabled maken als er geen selectie is.
-- **PDF-fonts:** `QT_QPA_FONTDIR` automatisch zetten in `main.py`.
+- **Pandas-pin `<3`:** wanneer losser maken?
+- **Numpy als directe dependency:** blijft dat zo?
+- **`[rename] Fallback via robocopy...`-melding:** opruimen in 9F?
+- **`build_log.txt` blijft leeg:** volledige output loggen?
+- **Relatief `icon_path` in `main_window.py`:** verfijnen in 9F?
 
 ---
 
 ## 7. TESTSTATUS — BASELINE EN TESTSTRUCTUUR
 
-**Datum:** 2026-10-12
-**Baseline:** 1144 passed
+**Datum:** 2026-10-13
+**Baseline:** 1150 passed
 **Werkwijze:** eerst gerichte tests, dan volledige `pytest -q`.
 
 ### 7.1 Commando's
@@ -585,10 +638,23 @@ def _app():
 
 ### 7.3 Voor leesbare PDF's
 
+Sinds fase 9A zet `main.py` de variabele automatisch. De handmatige
+stap blijft geldig als je de variabele zelf wilt zetten:
+
 ```powershell
 $env:QT_QPA_FONTDIR = "C:\Windows\Fonts"
 python main.py
 ```
+
+### 7.4 Build testen
+
+```powershell
+.\build_installer.bat
+.\dist\ESR_Tester_1.0.0\ESR_Tester.exe
+```
+
+De EXE moet opstarten, de GUI moet werken, en de Over-dialoog moet
+"Versie: 1.0.0" tonen.
 
 ---
 
@@ -603,6 +669,14 @@ Voor een nieuwe sessie heeft de chat meestal nodig:
 - `PROJECT_STRUCTURE.md` — automatisch gegenereerde mappenstructuur
 
 Bij een specifieke fase vraagt de chat om de bestanden die de fase raakt.
+
+Voor fase 9C (Inno Setup installer):
+
+- `build_installer.bat` — huidige versie (om de Inno-stap toe te voegen)
+- `installer.iss` — als die al bestaat (nog niet)
+- `assets/icons/logo.ico` — voor `SetupIconFile` (in 9G)
+- De ArticleSearch `installer.iss` als referentie
+- De ArticleSearch `build_installer15.bat` als referentie
 
 ---
 
@@ -619,4 +693,6 @@ Bij een specifieke fase vraagt de chat om de bestanden die de fase raakt.
 - Meld nieuwe i18n-keys expliciet, met de waarde voor NL én EN.
 - Python-headers zijn cumulatief. Nieuwe versies krijgen een nieuwe
   regel bovenaan de `Wijzigingen:`-lijst; oudere regels blijven staan.
+- **Bij het leveren van `.md`-bestanden die zelf codeblokken bevatten:
+  gebruik viervoudige backticks.**
 - Geen aannames over de eerstvolgende fase — vraag het na.

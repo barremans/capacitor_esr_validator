@@ -354,8 +354,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Hoofdvenster van de Tool Hub met één-venster-navigatie.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 2.11.3
-        # Datum: 2026-10-10
+        # Versie: 2.11.6
+        # Datum: 2026-10-13
         ```
       - 📄 **/app/gui/styles.py**
         ```text
@@ -626,15 +626,19 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       ```
     - 📄 **/app/version.py**
       ```text
-      # Beschrijving: Centrale versie-informatie van de applicatie.
-      # Auteur: GEEN AUTEUR
-      # Applicatie: GEEN APPLICATIE
-      # Versie: V1.0.0
+      # Bestandsnaam: app/version.py
+      # Beschrijving: Centrale versie-informatie van de applicatie. Eén bron van
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-13
       ```
   - 📁 **assets/**
     - 📁 **icons/**
       - 📄 **/assets/icons/.gitkeep**
       - 📄 **/assets/icons/ESR.png**
+      - 📄 **/assets/icons/logo.ico**
+      - 📄 **/assets/icons/README.md**
   - 📁 **docs/**
     - 📁 **help/**
       - 📄 **/docs/help/en_US.md**
@@ -1068,11 +1072,11 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     - 📄 **/tests/test_i18n_app_translations.py**
       ```text
       # Bestandsnaam: tests/test_i18n_app_translations.py
-      # Beschrijving: Regressietests voor algemene app-, menu-, dialoog-, tool- en knopvertalingen.
+      # Beschrijving: Regressietests voor algemene app-, menu-, dialoog-, tool- en
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.3.0
-      # Datum: 2026-10-03
+      # Versie: 1.4.0
+      # Datum: 2026-10-13
       ```
     - 📄 **/tests/test_i18n_context_documentation.py**
       ```text
@@ -1405,15 +1409,35 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: GEEN APPLICATIE
       # Versie: V1.0.0
       ```
+    - 📄 **/tests/test_version.py**
+      ```text
+      # Bestandsnaam: tests/test_version.py
+      # Beschrijving: Regressietests voor de centrale versie-informatie (fase 9A):
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-13
+      ```
   - 📄 **/.gitattributes**
   - 📄 **/.gitignore**
-  - 📄 **/debug_menu.py**
+  - 📄 **/build_installer.bat**
+  - 📄 **/build_log.txt**
     ```text
     # Beschrijving: GEEN BESCHRIJVING
     # Auteur: GEEN AUTEUR
     # Applicatie: GEEN APPLICATIE
     # Versie: V1.0.0
     ```
+  - 📄 **/bump_version.py**
+    ```text
+    # Bestandsnaam: bump_version.py
+    # Beschrijving: Verhoogt het patch-, minor- of major-deel van de centrale
+    # Auteur: Bart Bossuyt
+    # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+    # Versie: 1.0.0
+    # Datum: 2026-10-13
+    ```
+  - 📄 **/ESR_Tester.spec**
   - 📄 **/LICENSE**
   - 📄 **/main.py**
     ```text
@@ -1421,8 +1445,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     # Beschrijving: Entry point. Start de Qt6 GUI met donker thema en ToolHubWindow.
     # Auteur: Bart Bossuyt
     # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-    # Versie: 1.2.0
-    # Datum: 2026-10-07
+    # Versie: 1.3.0
+    # Datum: 2026-10-13
     ```
   - 📄 **/pyproject.toml**
   - 📄 **/README.md**

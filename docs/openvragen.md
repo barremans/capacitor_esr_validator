@@ -1,7 +1,7 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 1.6.0
-**Datum:** 2026-10-12
+**Versie:** 1.7.0
+**Datum:** 2026-10-13
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
 is. Geen bugs, geen beloftes — alleen vragen en observaties.
@@ -36,6 +36,11 @@ Wijzigingen:
                        inclusief GUI-scope "selectie"/"filters",
                        menu-item disabled maken zonder selectie, en
                        PDF-fontprobleem op Windows (QT_QPA_FONTDIR).
+  v1.7.0 (2026-10-13)  §2.15 toegevoegd: eerste Windows-build (fase 9A/9B)
+                       — beantwoord. Nieuwe openstaande punten: pandas-
+                       pin, numpy als directe dependency, cosmetische
+                       [rename]-melding in build_installer.bat, leeg
+                       build_log.txt, relatief icon_path in main_window.
 
 ---
 
@@ -68,7 +73,7 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 
 ---
 
-## 2. Uit Fase 5, 6, 7 en 8 — Import, metadata, statusbeheer, analyse en rapportage
+## 2. Uit Fase 5, 6, 7, 8 en 9 — Import, metadata, statusbeheer, analyse, rapportage en packaging
 
 ### 2.1 Scope — beantwoord
 
@@ -353,11 +358,69 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
   - **Restvraag:** zetten we deze variabele automatisch in `main.py`?
     Dan hoeft de gebruiker hem niet handmatig te zetten.
   - **Impact:** enkele regels in `main.py` vóór `QApplication`.
-  - **Status:** open; overwegen in fase 11.
+  - **Status:** opgelost in 9A. De variabele wordt nu automatisch gezet
+    op Windows als hij nog niet bestaat en `C:\Windows\Fonts` aanwezig is.
 - **Cosmetische opruiming i18n-keys.** Enkele i18n-keys worden
   momenteel niet gebruikt of zijn dubbel. Geen functionele impact.
   - **Restvraag:** opruimen in fase 11.
   - **Status:** open; cosmetisch.
+
+### 2.15 Eerste Windows-build — beantwoord (fase 9A en 9B)
+
+- **Vraag:** kunnen we de applicatie bouwen als een zelfstandige
+  Windows-applicatie?
+- **Antwoord:** ja. Sinds 9A/9B bestaat er een PyInstaller-buildstraat:
+  `ESR_Tester.spec`, `build_installer.bat` en `bump_version.py`. De EXE
+  komt in `dist\ESR_Tester_<versie>\`.
+- **Versie-informatie:** `app/version.py` is de centrale bron. De
+  applicatie geeft de versie door aan `QApplication` en toont die in de
+  Over-dialoog.
+- **`QT_QPA_FONTDIR`:** wordt nu automatisch gezet in `main.py` wanneer
+  op Windows de variabele nog niet bestaat en `C:\Windows\Fonts`
+  aanwezig is.
+- **`requirements.txt`:** `numpy` is toegevoegd als directe dependency
+  (`>=1.26,<3`); `pandas` kreeg een pin (`>=2.2,<3`). Reden: pandas 3.x
+  gaf een ABI-conflict met numpy 2.x in de build.
+- **Opgeloste bugs:** venstertitels van Help- en Wijzigingslog-vensters
+  gebruikten de verkeerde i18n-keys; ESR-knop toonde de ruwe key
+  `tool.esr`.
+- **Status:** afgerond voor 9A en 9B.
+
+### 2.16 Nieuwe openstaande punten (na fase 9B)
+
+- **Pandas-pin `<3`.** Bewust gekozen omdat pandas 3.x een ABI-conflict
+  gaf met numpy 2.x in de build. Wanneer kunnen we die pin losser maken?
+  - **Restvraag:** herevalueren zodra pandas 3.x stabiel is met numpy
+    2.x, of pas wanneer numpy 3.x uitkomt?
+  - **Impact:** `requirements.txt` aanpassen, build opnieuw testen.
+  - **Status:** open; bewust conservatief.
+- **Numpy als directe dependency.** Numpy staat nu expliciet in
+  `requirements.txt`, ook al is het functioneel een transitieve
+  dependency van pandas. Reden: PyInstaller moet numpy direct kunnen
+  importeren om de pandas-submodules correct te bundelen.
+  - **Restvraag:** blijft dat zo, of laten we numpy weer transitief?
+  - **Impact:** `requirements.txt`; geen codewijziging.
+  - **Status:** bewust expliciet gehouden.
+- **Cosmetische `[rename] Fallback via robocopy...`-melding in
+  `build_installer.bat`.** De build werkt correct, maar de melding
+  verschijnt omdat de vorige dist-map nog bestaat. Puur cosmetisch.
+  - **Restvraag:** in 9F de `.bat` verfijnen om de oude map eerst
+    volledig te verwijderen?
+  - **Impact:** kleine wijziging in `build_installer.bat`.
+  - **Status:** open; cosmetisch.
+- **`build_log.txt` blijft leeg.** De `.bat` schrijft alleen een
+  starttijd, niet de volledige PyInstaller-output.
+  - **Restvraag:** volledige output loggen (bijv. via `tee` of
+    `2>&1`-redirect), of accepteren dat de console de log is?
+  - **Impact:** kleine wijziging in `build_installer.bat`.
+  - **Status:** open; cosmetisch.
+- **Relatief `icon_path` in `main_window.py`.** Het pad
+  `"assets/icons/esr.png"` werkt in de huidige build omdat de CWD de
+  installatiemap is, maar breekt bij een andere CWD.
+  - **Restvraag:** in 9F verfijnen via `sys._MEIPASS` of
+    `Path(__file__).parent`?
+  - **Impact:** kleine wijziging in `main_window.py`.
+  - **Status:** open; wacht op 9F.
 
 ---
 
@@ -489,7 +552,20 @@ Deze zijn in 4I.1 afgewerkt, maar blijven relevant voor latere fases
 - **Restvraag:** zetten we de variabele automatisch in `main.py`?
   Dat zou de gebruiker één handmatige stap besparen.
 - **Impact:** enkele regels in `main.py` vóór `QApplication` aanmaken.
-- **Status:** open; overwegen in fase 11.
+- **Status:** opgelost in 9A. De variabele wordt nu automatisch gezet
+  op Windows als hij nog niet bestaat en `C:\Windows\Fonts` aanwezig is.
+
+### 4.7 Build-omgeving en ABI-conflicten
+
+- Tijdens 9B bleek dat pandas 3.0.6 een ABI-conflict gaf met numpy
+  2.5.x in de build (`ModuleNotFoundError: No module named
+  'pandas._libs.pandas_parser'`).
+- **Oorzaak:** de pandas C-extensies waren gecompileerd tegen een
+  specifieke numpy-ABI die niet meer klopte na een numpy-update.
+- **Oplossing:** `numpy>=1.26,<3` en `pandas>=2.2,<3` in
+  `requirements.txt`; numpy expliciet als directe dependency.
+- **Restvraag:** wanneer kunnen deze pins losser?
+- **Status:** open; zie §2.16.
 
 ---
 

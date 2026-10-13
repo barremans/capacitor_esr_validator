@@ -4,6 +4,57 @@ Overzicht van wat er nieuw of verbeterd is in de Electronics Diagnostic
 Tool Hub. Voor technische details en architectuurkeuzes verwijzen we naar
 `docs/context.md`.
 
+## Versie 1.9 — Eerste Windows-build en versie-informatie (13 oktober 2026)
+
+**De applicatie heeft nu een echte versie**
+
+De applicatie heeft nu één centrale versie, op één plek: `app/version.py`.
+Bij deze release staat die op **1.0.0**. De versie wordt getoond in de
+**Over**-dialoog (Help → Over) en is de basis voor de buildstraat en
+latere update-controle.
+
+**Eerste Windows-build**
+
+Je kunt de applicatie nu bouwen als een zelfstandige Windows-applicatie:
+
+- **`ESR_Tester.spec`** — PyInstaller-specificatie.
+- **`build_installer.bat`** — bouwt de EXE, kopieert `settings.json`, en
+  schrijft `version.txt` in de dist-map.
+- **`bump_version.py`** — verhoogt patch, minor of major in
+  `app/version.py`. Wordt aangeroepen door de buildstraat, kan ook
+  handmatig: `python bump_version.py patch`.
+
+De EXE komt in `dist\ESR_Tester_<versie>\`. De installer volgt in een
+latere deelfase.
+
+**PDF's met leesbare tekst, zonder handmatige stap**
+
+Qt kon in een PySide6-omgeving de Windows-systeemfonts niet vinden,
+waardoor PDF-rapporten zwarte blokken toonden in plaats van tekst. De
+applicatie stelt nu **automatisch** de omgevingsvariabele
+`QT_QPA_FONTDIR=C:\Windows\Fonts` in wanneer je op Windows start en de
+variabele nog niet gezet is. De eerdere tip (`$env:QT_QPA_FONTDIR = ...`)
+is daardoor niet meer nodig. Als je de variabele zelf zet, respecteert de
+applicatie jouw keuze.
+
+**Opgelost**
+
+- De venstertitels van het **Help**-venster en het
+  **Wijzigingslog**-venster toonden de onvertaalde keys
+  `dialog.help_titel` en `dialog.changelog_titel` in plaats van "Help"
+  en "Wijzigingslog". Dat is nu opgelost.
+- De **ESR-testknop** in de Diagnose-pagina toonde de onvertaalde key
+  `tool.esr` in plaats van "ESR-test" (NL) of "ESR test" (EN). Dat is
+  nu opgelost.
+
+**Voor ontwikkelaars**
+
+- `numpy` is toegevoegd aan `requirements.txt` als directe dependency,
+  met een pin `>=1.26,<3`. `pandas` kreeg een pin `>=2.2,<3`.
+  Reden: pandas 3.x gaf een ABI-conflict met numpy 2.x in de build.
+- `QT_QPA_FONTDIR` wordt nu in `main.py` gezet vóór `QApplication`
+  aangemaakt wordt.
+
 ## Versie 1.8 — Meetrapporten en uitgebreidere instellingen (12 oktober 2026)
 
 **Meetrapporten maken**
@@ -61,9 +112,9 @@ Het rapport is puur een weergave.
 
 **Tip voor leesbare PDF's**
 
-Als je een PDF opent en ziet alleen maar zwarte blokken in plaats van
-tekst, dan kan Qt de systeemfonts niet vinden. Start de applicatie dan
-zo:
+Deze tip is sinds versie 1.9 niet meer nodig: de applicatie stelt de
+variabele nu automatisch in op Windows. Voor oudere versies blijft de
+workaround werken:
 
 ```powershell
 $env:QT_QPA_FONTDIR = "C:\Windows\Fonts"
@@ -447,13 +498,10 @@ daardoor nu ook voor eigen imports.
 ---
 
 ## Gepland voor volgende versies
-- **Versie 2.0** — Rapportage en export van bevindingen.
-  *(was voorheen gepland onder versie 2.1; de grafieken zijn in
-  versie 1.7 afgerond, dus rapportage schuift op naar de volgende
-  mijlpaal.)*
-- **Versie 3.0** — Installer en code-ondertekening voor eenvoudige
-  installatie op Windows.
-- **Versie 4.0** — Uitgebreide praktijkvalidatie van ESR-metingen.
-- **Versie 5.0** — Een tweede diagnosetool: weerstandsmetingen.
-- **Versie 6.0** — AI-extractie uit fabrikantdocumenten met verplichte
+- **Versie 1.9** — Windows-installer (Inno Setup), code-ondertekening,
+  en publicatie op GitHub. *(De buildstraat staat; installer en signing
+  volgen in de volgende deelfasen.)*
+- **Versie 2.0** — Uitgebreide praktijkvalidatie van ESR-metingen.
+- **Versie 3.0** — Tweede diagnosetool: weerstandsmetingen.
+- **Versie 4.0** — AI-extractie uit fabrikantdocumenten met verplichte
   menselijke goedkeuring.

@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.11.3
-Datum:      2026-10-10
+Versie:     2.11.6
+Datum:      2026-10-13
 Auteur:     Bart Bossuyt
 
 Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
@@ -67,6 +67,17 @@ Wijzigingen:
                         grafiek-checkbox. Versie-header gecorrigeerd: de
                         auteur-parameter (v2.11.4) stond al in de code maar
                         niet in de header.
+  v2.11.6 (2026-10-13) Fase 9A.1 (packaging):
+                        - _show_about() vult nu {versie} in via
+                          app.version.__version__. De Over-dialoog toont
+                          daardoor "Versie: 1.0.0" in plaats van
+                          "Version: {versie}".
+                        - Bugfix: _show_markdown_dialog gebruikte de keys
+                          dialog.help_titel en dialog.changelog_titel, die
+                          niet bestaan. De juiste keys zijn dialog.help_title
+                          en dialog.changelog_title. Zonder deze fix toonden
+                          de Help- en Wijzigingslog-vensters de ruwe key in
+                          hun titelbalk.
 ================================================================================
 """
 
@@ -86,6 +97,7 @@ from app.helpers.help_paths import help_pad_voor_taal
 from app.config.settings import laad_instellingen, sla_instellingen_op, AppInstellingen
 from app.gui.dialogs.settings_dialog import SettingsDialog
 from app.gui.dialogs.search_help_dialog import SearchHelpDialog
+from app.version import __version__
 
 
 class ToolHubWindow(QMainWindow):
@@ -632,14 +644,14 @@ class ToolHubWindow(QMainWindow):
 
     def _show_help(self):
         pad = help_pad_voor_taal(self.taal)
-        self._show_markdown_dialog(self._t("dialog.help_titel"), str(pad))
+        self._show_markdown_dialog(self._t("dialog.help_title"), str(pad))
 
     def _show_search_help(self):
         dialog = SearchHelpDialog(taal=self.taal, parent=self)
         dialog.exec()
 
     def _show_changelog(self):
-        self._show_markdown_dialog(self._t("dialog.changelog_titel"), "docs/changelog.md")
+        self._show_markdown_dialog(self._t("dialog.changelog_title"), "docs/changelog.md")
 
     def _show_markdown_dialog(self, title, filepath):
         dialog = QDialog(self)
@@ -680,4 +692,8 @@ class ToolHubWindow(QMainWindow):
         dialog.exec()
 
     def _show_about(self):
-        QMessageBox.about(self, self._t("dialog.over_titel"), self._t("dialog.over_tekst"))
+        QMessageBox.about(
+            self,
+            self._t("dialog.over_title"),
+            vertaal("dialog.over_tekst", taal=self.taal, versie=__version__),
+        )

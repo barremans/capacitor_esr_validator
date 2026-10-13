@@ -2,8 +2,8 @@
 ================================================================================
 Module:     main.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.0
-Datum:      2026-10-07
+Versie:     1.3.0
+Datum:      2026-10-13
 Auteur:     Bart Bossuyt
 
 Doel:       Entry point. Start de Qt6 GUI met donker thema en ToolHubWindow.
@@ -18,9 +18,20 @@ Wijzigingen:
                         bleven in het donkere thema. Fusion respecteert
                         de centrale stylesheet volledig en geeft een
                         consistent donker thema op alle Windows-versies.
+  v1.3.0 (2026-10-13)  Fase 9A (packaging):
+                        - QT_QPA_FONTDIR wordt nu automatisch gezet op
+                          Windows wanneer de variabele nog niet bestaat
+                          en C:\\Windows\\Fonts aanwezig is. Zonder deze
+                          variabele kan Qt in een PySide6-venv de
+                          systeemfonts niet vinden, waardoor PDF-rapporten
+                          zwarte blokken tonen in plaats van tekst.
+                        - app.setApplicationVersion(__version__) toegevoegd
+                          zodat de versie centraal beschikbaar is voor
+                          QApplication (o.a. voor de Over-dialoog).
 ================================================================================
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -28,11 +39,25 @@ project_root = Path(__file__).resolve().parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
+# Fase 9A: Qt kan op Windows in een PySide6-venv de systeemfonts niet
+# vinden zonder QT_QPA_FONTDIR. Dat uit zich in PDF-rapporten met zwarte
+# blokken in plaats van tekst. We zetten de variabele alleen als:
+#   - het platform Windows is, én
+#   - de variabele nog niet gezet is, én
+#   - C:\Windows\Fonts effectief bestaat.
+# Zo overschrijven we nooit een expliciete gebruikerskeuze en doen we op
+# andere platformen niets.
+if sys.platform == "win32" and "QT_QPA_FONTDIR" not in os.environ:
+    _windows_fonts = Path(r"C:\Windows\Fonts")
+    if _windows_fonts.is_dir():
+        os.environ["QT_QPA_FONTDIR"] = str(_windows_fonts)
+
 from PySide6.QtWidgets import QApplication
 
 from app.gui.main_window import ToolHubWindow
 from app.gui.styles import apply_dark_theme
 from app.config.settings import laad_instellingen
+from app.version import __version__
 
 
 def main():
@@ -44,6 +69,7 @@ def main():
 
     app.setApplicationName("Condensator- en ESR-validator")
     app.setApplicationDisplayName("Condensator- en ESR-validator")
+    app.setApplicationVersion(__version__)
 
     apply_dark_theme(app)
 
