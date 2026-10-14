@@ -1,6 +1,6 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 1.9.0
+**Versie:** 2.0.0
 **Datum:** 2026-10-13
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
@@ -26,6 +26,10 @@ Wijzigingen:
                        uitgevoerd (9E, v1.0.3). Nieuwe openstaande
                        punten: LF/CRLF-waarschuwing,
                        `ESR_Tester.spec` in `.gitignore`.
+  v2.0.0 (2026-10-13)  §2.19 bijgewerkt: WDAC/AppLocker-vraag is
+                       beantwoord (niet actief). §2.20 toegevoegd:
+                       fase 9F afgerond — testmatrix en packaging.md
+                       bestaan. Nieuwe status van openstaande punten.
 
 ---
 
@@ -159,46 +163,60 @@ Zie v1.7.0.
     geeft correct `1.0.3` + de download-URL.
 - **Status:** afgerond voor 9E.
 
-### 2.19 Nieuwe openstaande punten (na fase 9E)
+### 2.19 Defender/Intune/WDAC — beantwoord (fase 9F)
+
+- **Vraag:** is WDAC of AppLocker actief op de doel-pc's? Als dat zo
+  is, is de Defender-indicator niet voldoende; dan is uitrol van het
+  certificaat naar `Trusted Publishers` of een publiek vertrouwd
+  certificaat nodig.
+- **Antwoord:** **WDAC en AppLocker zijn niet actief** in de
+  doelomgeving (bevestigd 2026-10-13). De Defender-indicator volstaat.
+- **Bewezen:** de installer is op een **uitgerolde Intune-beheerde
+  Windows-machine** geïnstalleerd en werkt. Op een gewone Windows-pc
+  werkt de SmartScreen-omzeiling ("More info → Run anyway").
+- **Vervolg:** de testmatrix is vastgelegd in
+  `docs/testmatrix_defender_intune.md`. De build-, signing- en
+  distributieflow is vastgelegd in `docs/packaging.md`.
+- **Status:** afgerond voor 9F.
+
+### 2.20 Nieuwe openstaande punten (na fase 9F)
 
 - **LF/CRLF-waarschuwing** bij `git add releases/latest/version.txt`.
   - **Wat:** Git meldt `LF will be replaced by CRLF the next time Git
     touches it`. Inhoudelijk geen probleem — de raw URL geeft exact de
     twee verwachte regels.
-  - **Restvraag:** `.gitattributes` uitbreiden met
-    `releases/latest/version.txt text eol=lf`, of accepteren?
-  - **Impact:** één regel in `.gitattributes`.
-  - **Status:** open; cosmetisch (fase 11).
+  - **Opgelost in 9F:** `.gitattributes` uitgebreid met
+    `releases/latest/version.txt text eol=lf`.
+  - **Status:** opgelost.
 - **`Architecture identifier "x64" is deprecated`** tijdens ISCC.
   - **Restvraag:** aanpassen naar `x64compatible` in
     `build_installer.bat`?
   - **Impact:** één regel in de `.iss`-generatie.
-  - **Status:** open; cosmetisch.
+  - **Status:** open; cosmetisch (fase 11).
 - **`ESR_Tester.spec` staat in `.gitignore`** (regel `*.spec`).
   - **Wat:** de `.spec` staat in de root en wordt door PyInstaller
-    gebruikt, maar wordt niet meegecommit. Op een andere machine is
+    gebruikt, maar werd niet meegecommit. Op een andere machine is
     de `.spec` dan niet beschikbaar na `git clone`.
-  - **Restvraag:** de `*.spec`-regel in `.gitignore` vervangen door
-    een uitzondering `!ESR_Tester.spec`, of accepteren?
-  - **Impact:** één regel in `.gitignore`.
-  - **Status:** open; relevant voor 9F of 11.
+  - **Opgelost in 9F:** `.gitignore` uitgebreid met `!ESR_Tester.spec`.
+    De spec wordt nu meegecommit als bronbestand.
+  - **Status:** opgelost.
 - **`[rename] Fallback via robocopy...`-melding** in `build_installer.bat`.
   - **Restvraag:** oude `dist\<BUILD_FOLDER>` altijd eerst volledig
     verwijderen vóór de rename?
   - **Impact:** kleine wijziging in `build_installer.bat`.
-  - **Status:** open; cosmetisch.
+  - **Status:** open; cosmetisch (fase 11).
 - **`build_log.txt` blijft leeg.** Alleen starttijd, geen volledige
   PyInstaller- of Inno-output.
   - **Restvraag:** volledige output loggen (bijv. via `tee` of
     `2>&1`-redirect)?
   - **Impact:** kleine wijziging in `build_installer.bat`.
-  - **Status:** open; cosmetisch.
+  - **Status:** open; cosmetisch (fase 11).
 - **Relatief `icon_path` in `main_window.py`.** Pad
   `"assets/icons/esr.png"` werkt in de huidige build omdat de CWD de
   installatiemap is, maar breekt bij een andere CWD.
   - **Restvraag:** verfijnen via `sys._MEIPASS` of `Path(__file__).parent`?
   - **Impact:** kleine wijziging in `main_window.py`.
-  - **Status:** open; wacht op 9F.
+  - **Status:** open; fase 11.
 - **Twee verlopen certificaten in `CurrentUser\My`.**
   - `4DA652BFA8FA5917A8BC76F0AA674F9FED532EF7` (verlopen 2026-09-18)
   - `13B90D29CCDE3779226958F7F4784C3FF741C70A` (verlopen 2026-09-18)
@@ -206,20 +224,19 @@ Zie v1.7.0.
     automatisch over.
   - **Impact:** geen — alleen cosmetisch.
   - **Status:** open; cosmetisch.
-- **Defender/Intune-testmatrix.** Nog niet opgesteld. Op gewone
-  Windows-pc's is er geen Defender-indicator; daar blijft SmartScreen
-  actief (gebruiker klikt door "More info → Run anyway"). Op
-  Intune-pc's is de Defender-indicator nodig (zie `signingContext.md`).
-  - **Restvraag:** is WDAC of AppLocker actief op de doel-pc's?
-    Als dat zo is, is de Defender-indicator niet voldoende; dan is
-    uitrol van het certificaat naar `Trusted Publishers` of een
-    publiek vertrouwd certificaat nodig.
-  - **Impact:** bepaalt of 9F een testmatrix of een groter traject
-    wordt.
-  - **Status:** open; blokkerend voor brede uitrol.
-- **`docs/packaging.md`** — nog niet geschreven. Moet de
-  build-flow, signing en testmatrix documenteren.
-  - **Status:** open; onderdeel van 9F.
+- **Publiek vertrouwd (EV-)certificaat.** Structurele oplossing voor
+  SmartScreen zonder handmatig beheerde indicator-lijst.
+  - **Restvraag:** beslissing over kosten/aanvraag.
+  - **Impact:** groter traject.
+  - **Status:** open; lange termijn.
+- **Fallback timestamp-server.** Één server, over `http`.
+  - **Restvraag:** fallback overwegen?
+  - **Impact:** kleine wijziging in `build_installer.bat`.
+  - **Status:** open; cosmetisch.
+- **Testmatrix op andere Windows-versies** (Win10 vs Win11).
+  - **Restvraag:** uitbreiden indien nodig?
+  - **Impact:** geen code; alleen documentatie.
+  - **Status:** open; cosmetisch.
 
 ---
 
@@ -286,6 +303,13 @@ Zie v1.7.0.
   `publish.ps1` is nu eind-to-eind bewezen, inclusief de release-gate
   op de Authenticode-handtekening.
 - **Status:** afgerond in 9E.
+
+### 4.10 Eerste Intune-installatie
+- **Observatie:** op 2026-10-13 is de installer met succes
+  geïnstalleerd op een uitgerolde Intune-beheerde Windows-machine,
+  met de Defender-indicator actief. Geen SmartScreen-blokkade, geen
+  quarantaine, app start correct.
+- **Status:** afgerond in 9F.
 
 ---
 

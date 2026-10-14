@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# "Latest"-pointer moet exact twee regels met LF bevatten.
+# Voorkomt de "LF will be replaced by CRLF"-waarschuwing bij git add
+# en garandeert dat de raw URL de juiste inhoud teruggeeft.
+releases/latest/version.txt text eol=lf
