@@ -1,16 +1,16 @@
 # OVERDRACHT — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie overdracht:** 4.1.0
-**Datum:** 2026-10-13
+**Versie overdracht:** 4.2.0
+**Datum:** 2026-10-14
 **Auteur:** Bart Bossuyt
-**Vorige versie:** 4.0.0 (2026-10-13)
+**Vorige versie:** 4.1.0 (2026-10-13)
 **Doel:** volledig overdrachtsdocument voor een nieuwe ChatGPT-sessie of
 nieuwe ontwikkelaar. Bevat projectstaat, architectuur, regels, changelog,
 teststructuur en startprompt. Alles in één bestand.
 
 **Huidige baseline:** 1150 passed
-**Laatste afgeronde fase:** 9E — GitHub Release (eerste publicatie `v1.0.3`)
-**Volgende fase:** 9F — Intune/Defender/CFA-testmatrix + `docs/packaging.md`
+**Laatste afgeronde fase:** 9F — Intune/Defender/CFA-testmatrix + `docs/packaging.md`
+**Volgende fase:** 9G — Bug/feature-rapportage naar GitHub
 
 ---
 
@@ -20,7 +20,7 @@ teststructuur en startprompt. Alles in één bestand.
 2. Context — projectstaat en architectuur
 3. Kernregels — bindende afspraken
 4. Stappenplan — chronologisch overzicht
-5. Wat is nieuw sinds versie 4.0.0
+5. Wat is nieuw sinds versie 4.1.0
 6. Openstaande vragen voor de nieuwe chat
 7. Teststatus — baseline en teststructuur
 8. Bestanden die de nieuwe chat moet opvragen
@@ -41,10 +41,9 @@ iets doet.
 - Projectmap: `C:\PY\capacitor_esr_validator`.
 - Technologie: Python 3.12 + PySide6 (Qt6, Fusion-stijl), volledig offline.
 - Baseline: **1150 passed**.
-- Laatste afgeronde fase: **9E — GitHub Release** (eerste publicatie
-  `v1.0.3` op 2026-10-13).
-- Volgende fase: **9F — Intune/Defender/CFA-testmatrix +
-  `docs/packaging.md`**.
+- Laatste afgeronde fase: **9F — Intune/Defender/CFA-testmatrix +
+  `docs/packaging.md`** (2026-10-14).
+- Volgende fase: **9G — Bug/feature-rapportage naar GitHub**.
 
 **Werkafspraken die je strikt volgt:**
 
@@ -93,7 +92,7 @@ iets doet.
   `dist\installer.iss` in de batch (geen vaste `.iss` in de root),
   roept `ISCC.exe` aan, en `build_and_publish.ps1` orkestreert de
   hele keten. Zie sectie 5 voor de details.
-- Geen aannames over de volgende fase: vraag het na of verwijs naar
+- **Geen aannames over de volgende fase:** vraag het na of verwijs naar
   sectie 4 van dit document.
 
 **Wat ik nu van je vraag:**
@@ -130,8 +129,8 @@ eerst. Geen aannames.
 | GitHub-repo | `https://github.com/barremans/capacitor_esr_validator` |
 | Huidige versie | `1.0.3` (gepubliceerd als GitHub-release `v1.0.3`) |
 | Huidige baseline | **1150 passed** |
-| Laatste afgeronde fase | 9E — GitHub Release |
-| Volgende fase | 9F — Intune/Defender/CFA-testmatrix |
+| Laatste afgeronde fase | 9F — Intune/Defender/CFA-testmatrix + `docs/packaging.md` |
+| Volgende fase | 9G — Bug/feature-rapportage naar GitHub |
 
 ### 2.2 Huidige applicatiearchitectuur
 
@@ -245,13 +244,14 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - `PySide6.QtCharts` wordt gebruikt in `app/gui/analysis_screen.py` en
   `app/helpers/report_chart.py`. Geen aparte dependency.
 
-**Buildstraat (fase 9A–9E):**
+**Buildstraat (fase 9A–9F):**
 
 - `app/version.py` — centrale versie, momenteel `1.0.3`.
 - `main.py` — `QT_QPA_FONTDIR` automatisch, `setApplicationVersion`.
 - `bump_version.py` — verhoogt patch/minor/major in `app/version.py`.
 - `ESR_Tester.spec` (v2.0.0) — PyInstaller-specificatie met `icon=`
-  actief, `assets/icons/logo.ico`.
+  actief, `assets/icons/logo.ico`. **Wordt sinds 9F meegecommit**
+  (`!ESR_Tester.spec` in `.gitignore`).
 - `build_installer.bat` (v2.0.1) — volgt 1-op-1 de bewezen
   ArticleSearch-flow (`build_installer15.bat` v1.4.0):
   - genereert `dist\installer.iss` in de batch (geen vaste `.iss` in
@@ -296,7 +296,7 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
   (`4DA652...`, `13B90D...`); de preflight slaat ze automatisch over
   (`NotAfter -gt now`).
 
-### 2.3 Belangrijke recente bugfixes (8D+, 9A–9E)
+### 2.3 Belangrijke recente bugfixes (8D+, 9A–9F)
 
 - **`algemeen.ja` / `algemeen.nee` lekten in rapport-HTML** (v1.3.0 van
   `report_render.py`): keys bestonden niet; vervangen door
@@ -346,27 +346,28 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - **`[rename] Fallback via robocopy...`-melding** in de batch: komt
   doordat de vorige `dist\<BUILD_FOLDER>` nog bestaat. Cosmetisch.
 - **LF/CRLF-waarschuwing bij `git add releases/latest/version.txt`**:
-  Git meldt "LF will be replaced by CRLF the next time Git touches it".
-  Inhoudelijk geen probleem; de raw URL geeft exact de twee regels.
-  Bewust nog niet aangepast; zie openvragen.
+  **opgelost in 9F** via `.gitattributes`-regel
+  `releases/latest/version.txt text eol=lf`.
+- **`ESR_Tester.spec` in `.gitignore`**: **opgelost in 9F** via
+  `!ESR_Tester.spec`. De spec wordt nu meegecommit.
 
 ### 2.4 Openstaande werkpunten
 
 Volgens het stappenplan:
 
 - **9F** — Intune/Defender/CFA-testmatrix + `docs/packaging.md`.
-  **Volgende fase.**
-- **9G** — Icoon in `.spec` en `.iss` — **al gedaan in 9C+9D**; 9G
-  kan vervallen of beperkt blijven tot het verifiëren van de
-  installer-iconen op meerdere Windows-versies.
+  **Afgerond op 2026-10-14.**
+- **9G** — Bug/feature-rapportage naar GitHub. **Volgende fase.**
+  Volgt het pakket in `GITHUB_FEEDBACK_UITROL.md`.
 - **9H** — Update-check bij opstarten + via Help. De "latest"-pointer
   op `releases/latest/version.txt` is sinds 9E beschikbaar en kan
-  direct gebruikt worden.
+  direct gebruikt worden. **Na 9G.**
 - **10** — Praktische ESR-validatie.
 - **11** — Laatste UX/documentatie-afwerking (incl. light theme,
   async URL-fetch, cosmetische scrollbar in Word-samenvatting,
   refresh()-opsplitsing in AnalysisScreen, GUI-scope "selectie" en
-  "filters" voor rapporten).
+  "filters" voor rapporten, **visuele selectie in Analyse**, **checkbox-
+  zichtbaarheid in donker thema**, **i18n-menging in Diagnose/Result**).
 - **12** — AI-extractie uit fabrikantdocumenten.
 - **13** — Menselijke validatie van AI-output.
 - **14** — Goedgekeurde fabrikantdata koppelen aan assessment.
@@ -452,6 +453,12 @@ Volgens het stappenplan:
   `dist\` en is geen bronbestand. `publish.ps1` schrijft
   `releases\latest\version.txt` als stabiele "latest"-pointer voor de
   toekomstige update-check.
+- **GitHub-feedbacklaag** (fase 9G) wordt een aparte laag: vijf
+  identieke pakketbestanden in de projectroot, plus een
+  app-specifieke `github_feedback_config.py`, plus een niet-getrackte
+  `github_secret_local.py`. De meldschermen (`BugDialog`,
+  `show_github_cases`) zijn GUI; `github_feedback.py` is puur;
+  `check_github_secret.py` is een build-controle.
 
 ### 3.3 ESR-technische kernregels
 
@@ -480,6 +487,8 @@ Volgens het stappenplan:
 - Een `.md`-bestand met codeblokken leveren zonder viervoudige
   backticks.
 - De ArticleSearch-flow vervangen door een eigen variant.
+- Een GitHub-token in een getrackt bestand, chat, of context-document
+  zetten.
 
 ---
 
@@ -550,9 +559,9 @@ Volgens het stappenplan:
 | 9B.2 | `ESR_Tester.spec` + `build_installer.bat` | ✅ |
 | 9C | Inno Setup installer (`installer.iss` gegenereerd in batch) | ✅ |
 | 9D | Signing (`signtool`, certificaatpreflight, verify) | ✅ |
-| 9E | **GitHub Release (`publish.ps1`, `build_and_publish.ps1`)** | **✅** |
-| **9F** | **Intune/Defender/CFA-testmatrix + `docs/packaging.md`** | **Volgende** |
-| 9G | Icoon in `.spec` en `.iss` — **al gedaan in 9C+9D** | ✅ (kan vervallen) |
+| 9E | GitHub Release (`publish.ps1`, `build_and_publish.ps1`) | ✅ |
+| 9F | **Intune/Defender/CFA-testmatrix + `docs/packaging.md`** | **✅** |
+| 9G | **Bug/feature-rapportage naar GitHub** | **Volgende** |
 | 9H | Update-check bij opstarten + via Help | Gepland |
 | 10 | Praktische ESR-validatie | Gepland |
 | 11 | Laatste UX/documentatie-afwerking | Gepland |
@@ -561,107 +570,90 @@ Volgens het stappenplan:
 | 14 | Goedgekeurde fabrikantdata koppelen aan assessment | Gepland |
 | 15 | Tweede diagnosetool — Resistor | Gepland |
 
+**Vervallen:** het oorspronkelijke 9G ("Icoon in `.spec` en `.iss`") is
+al gedaan in 9C+9D. Het nummer 9G wordt hergebruikt voor de
+GitHub-feedbackfase.
+
 ---
 
-## 5. WAT IS NIEUW SINDS VERSIE 4.0.0
+## 5. WAT IS NIEUW SINDS VERSIE 4.1.0
 
-### 5.1 Fase 9E — GitHub Release
+### 5.1 Fase 9F — Intune/Defender/CFA-testmatrix + `docs/packaging.md`
 
-- **Eerste publieke release.** Op **2026-10-13** is de GitHub-release
-  `v1.0.3` aangemaakt in de repo `barremans/capacitor_esr_validator`.
-  Dit is de eerste release van het project; er waren tot dan 0 tags.
-- **Asset:** `dist\ESR_TesterSetup_1.0.3.exe` (≈63 MB),
-  gesigned met `CN=CGK Local Signing`
-  (`BD1DC390D56E3392836FD6E39470D5F766346509`, geldig tot 2028-09-17).
-- **Download-URL:**
-  `https://github.com/barremans/capacitor_esr_validator/releases/download/v1.0.3/ESR_TesterSetup_1.0.3.exe`
-- **Stabiele "latest"-pointer:**
-  `https://raw.githubusercontent.com/barremans/capacitor_esr_validator/main/releases/latest/version.txt`
-  (twee regels: versie + download-URL). Deze URL is de basis voor de
-  update-check in 9H.
-- **`releases/latest/version.txt`** is nieuw in de repo en wordt door
-  `publish.ps1` bij elke publicatie overschreven.
-- **Release-gate bleef actief:** `publish.ps1` publiceert alleen als
-  `Get-AuthenticodeSignature` op de installer `Valid` is met een
-  `SignerCertificate`. Dat was ook zo.
+- **Nieuwe bestanden:**
+  - `docs/testmatrix_defender_intune.md` (v1.0.0) — testmatrix voor
+    gewone Windows-pc en Intune-beheerde pc. Bewezen status 2026-10-13:
+    beide types werken. WDAC/AppLocker bevestigd **niet actief**.
+  - `docs/packaging.md` (v1.0.0) — build-flow, signing, distributie,
+    testmatrix, checklist. Project-eigen tegenhanger van
+    `05-signing-build-context.md` en `signingContext.md`.
+- **Gewijzigde bestanden:**
+  - `.gitattributes` — regel
+    `releases/latest/version.txt text eol=lf` toegevoegd. LF/CRLF-
+    waarschuwing opgelost.
+  - `.gitignore` — regel `!ESR_Tester.spec` toegevoegd. De spec wordt
+    nu meegecommit.
+  - `docs/openvragen.md` (v2.0.0) — §2.19 (WDAC/AppLocker beantwoord),
+    §2.20 (9F-status), §4.10 (eerste Intune-installatie).
 - **Geen Python-code gewijzigd.** Baseline blijft 1150 passed.
-- **Cosmetische waarschuwing:** Git meldde
-  `LF will be replaced by CRLF the next time Git touches it` voor
-  `releases/latest/version.txt`. Inhoudelijk geen probleem; staat in
-  openvragen voor fase 11.
+- **Bewezen op 2026-10-13:** installer met succes geïnstalleerd op een
+  uitgerolde Intune-beheerde Windows-machine, met de Defender-indicator
+  actief. Geen SmartScreen-blokkade, geen quarantaine, app start
+  correct. Op een gewone Windows-pc werkt de SmartScreen-omzeiling
+  ("More info → Run anyway").
 
-### 5.2 Bewezen eind-to-eind op 2026-10-13
-
-Eerste volledig werkende publicatie in deze flow:
-
-- Versie: `1.0.3`
-- `dist\ESR_Tester_1.0.3\ESR_Tester.exe` — gesigned, geverifieerd
-- `dist\ESR_TesterSetup_1.0.3.exe` — gesigned, geverifieerd
-- Installer getest op gewone Windows-pc: geslaagd
-- Icoon zichtbaar in wizard en snelkoppelingen
-- **Release `v1.0.3` gepubliceerd op GitHub** (via `publish.ps1`)
-- **`app/version.py` en `releases/latest/version.txt` gepusht** naar
-  `origin/main` (commit `1614c9e`, "Release 1.0.3 - sync app/version.py
-  and version.txt")
-
-### 5.3 Bekende cosmetische punten
-
-- **`Architecture identifier "x64" is deprecated`** tijdens ISCC.
-  Oplossing: in `build_installer.bat` `ArchitecturesInstallIn64BitMode=x64compatible`
-  i.p.v. `x64` schrijven. Niet blokkerend.
-- **`[rename] Fallback via robocopy...`-melding** verschijnt omdat de
-  vorige `dist\<BUILD_FOLDER>` nog bestaat. Cosmetisch.
-- **`build_log.txt`** bevat alleen een starttijd, niet de volledige
-  PyInstaller- of Inno-output. Cosmetisch.
-- **LF/CRLF-waarschuwing** bij het committen van
-  `releases/latest/version.txt`. Cosmetisch; inhoud klopt.
-
-### 5.4 Gewijzigde bestanden sinds 4.0.0
+### 5.2 Gewijzigde bestanden sinds 4.1.0
 
 | Bestand | Versie / status |
 |---|---|
-| `app/version.py` | 1.0.3 (gecommit via `publish.ps1`) |
-| `releases/latest/version.txt` | **nieuw** — 2 regels (versie + URL) |
-| Git-tag `v1.0.3` | **nieuw** op GitHub |
-| GitHub-release `v1.0.3` | **nieuw** op GitHub (met asset) |
+| `docs/testmatrix_defender_intune.md` | **nieuw** (v1.0.0) |
+| `docs/packaging.md` | **nieuw** (v1.0.0) |
+| `docs/openvragen.md` | v2.0.0 (was v1.9.0) |
+| `.gitattributes` | `eol=lf`-regel toegevoegd |
+| `.gitignore` | `!ESR_Tester.spec` toegevoegd |
 
 Geen wijzigingen aan Python-code. Geen wijzigingen aan de buildstraat.
 
-### 5.5 Teststatus
+### 5.3 Teststatus
 
-**Baseline: 1150 passed** (ongewijzigd t.o.v. 4.0.0). De publicatie is
-geen Python-code; er zijn geen nieuwe tests toegevoegd. `pytest -q` na
-de publicatie: **1150 passed in 39.30s**.
+**Baseline: 1150 passed** (ongewijzigd t.o.v. 4.1.0). 9F raakt geen
+Python-code; er zijn geen nieuwe tests toegevoegd. `pytest -q` na 9F:
+**1150 passed in 45.11s**.
 
-### 5.6 Bekende beperkingen
+### 5.4 Nieuwe openstaande punten (uit 9F-sessie)
 
-- **Geen OCR** voor gescande PDF's.
-- **`.doc` en `.xls` worden geweigerd.**
-- **Geen async URL-fetch.** Blokkeert de GUI tot 10s.
-- **Datum-parsing bij bewerken** accepteert alleen ISO-formaat.
-- **Geen bulk-edit** van meerdere imports.
-- **Geen bulk-statuswijziging** van meerdere imports.
-- **Geen reden bij archiveren.**
-- **Cosmetische scrollbar** in de Word-samenvatting.
-- **Analyse-pagina: geen zoom/pan, geen PNG/PDF-export.**
-- **Analyse-pagina: vaste as-schaling** (µF, mΩ).
-- **Rapportage: alleen "één meting" in de GUI.** De service
-  (`build_bundle_for_measurements`, `build_bundle_from_filters`)
-  ondersteunt meerdere metingen, maar er is nog geen GUI voor de
-  scopes "selectie" en "filters".
-- **Geen Intune/Defender-testmatrix** — volgt in 9F.
+De gebruiker heeft tijdens de 9F-sessie drie nieuwe punten
+aangebracht voor een latere opruimfase (fase 11):
+
+1. **Visuele selectie in Analyse** — nu alleen via filters, maar de
+   end user moet ook visueel (in de grafiek of een lijst) bepaalde
+   bewaarde testen kunnen selecteren.
+2. **Checkbox-zichtbaarheid in donker thema** — de filter-checkbox op
+   Analyse en History is onvoldoende zichtbaar. Checkboxen moeten
+   visueel duidelijk zijn op het donkere thema.
+3. **i18n-menging in Diagnose/Result** — het Result-venster en het
+   Resultaatdetails-venster mengen Engels en Nederlands. Vertalingen
+   lopen door elkaar. Moet consequent één taal tonen.
+
+Deze zijn opgenomen in `docs/openvragen.md` §2.21 en in de fase-11-lijst.
+
+### 5.5 Bekende beperkingen (ongewijzigd t.o.v. 4.1.0)
+
+- Geen OCR voor gescande PDF's.
+- `.doc` en `.xls` worden geweigerd.
+- Geen async URL-fetch.
+- Datum-parsing bij bewerken accepteert alleen ISO-formaat.
+- Geen bulk-edit / bulk-statuswijziging.
+- Geen reden bij archiveren.
+- Cosmetische scrollbar in Word-samenvatting.
+- Analyse-pagina: geen zoom/pan, geen PNG/PDF-export.
+- Rapportage: alleen "één meting" in de GUI.
+- **Geen bug/feature-rapportage** — volgt in 9G.
 - **Geen update-check** — volgt in 9H. De "latest"-pointer is sinds
   9E beschikbaar.
-- **Pandas-pin `<3`** — bewust conservatief vanwege ABI-conflict.
-- **Numpy als directe dependency** — bewust expliciet voor PyInstaller.
-- **Defender-indicator op Intune-pc's** — vereist eenmalige
-  `.cer`-upload in `security.microsoft.com` (zie `signingContext.md`).
-  Op gewone Windows-pc's is er geen Defender-indicator; daar blijft
-  SmartScreen actief. Zie ook `signingContext.md` §2 en §8.
-- **WDAC/AppLocker** — als dat actief is op de doel-pc's, is de
-  Defender-indicator niet voldoende; dan is uitrol van het certificaat
-  naar `Trusted Publishers` of een publiek vertrouwd certificaat nodig.
-  Open vraag bij IT; relevant voor 9F.
+- Pandas-pin `<3`, numpy als directe dependency.
+- Defender-indicator op Intune-pc's vereist eenmalige `.cer`-upload.
+- **WDAC/AppLocker:** bevestigd **niet actief** (2026-10-13).
 
 ---
 
@@ -671,8 +663,8 @@ de publicatie: **1150 passed in 39.30s**.
 
 - **`Architecture identifier "x64" is deprecated`** — oplossen door
   `x64compatible` in de batch te schrijven.
-- **LF/CRLF-waarschuwing** voor `releases/latest/version.txt` —
-  oplossen via `.gitattributes`-regel `releases/latest/version.txt text eol=lf`.
+- **LF/CRLF-waarschuwing** — **opgelost in 9F**.
+- **`ESR_Tester.spec` in `.gitignore`** — **opgelost in 9F**.
 - **Reden opgeven bij archiveren.**
 - **Filter voor alleen gearchiveerde documenten.**
 - **Bulk-edit en bulk-statuswijziging.**
@@ -682,27 +674,24 @@ de publicatie: **1150 passed in 39.30s**.
 - **AI-tekstextractie uit docx/xlsx.**
 - **Cosmetische scrollbar in Word-samenvatting.**
 - **Analyse-pagina:** automatische as-schaling,
-  `QDateTimeAxis`-tickformaat, zoom/pan.
+  `QDateTimeAxis`-tickformaat, zoom/pan, **visuele selectie**.
 - **Rapportage:** GUI voor scope "selectie" en "filters".
 - **Rapportage:** menu-item disabled maken als er geen selectie is.
 - **Pandas-pin `<3`:** wanneer losser maken?
 - **Numpy als directe dependency:** blijft dat zo?
-- **`[rename] Fallback via robocopy...`-melding:** opruimen in 9F?
+- **`[rename] Fallback via robocopy...`-melding:** opruimen.
 - **`build_log.txt` blijft leeg:** volledige output loggen?
-- **Relatief `icon_path` in `main_window.py`:** verfijnen in 9F?
-- **Twee verlopen certificaten in `CurrentUser\My`** — storen de
-  build niet, maar kunnen opgeruimd worden:
+- **Relatief `icon_path` in `main_window.py`:** verfijnen.
+- **Twee verlopen certificaten in `CurrentUser\My`** —
   `4DA652...`, `13B90D...`.
-- **`ESR_Tester.spec` staat in `.gitignore`** (`*.spec`). Voor fase 9F
-  of 11 nagaan of dat gewenst blijft: op een andere machine kan de
-  `.spec` niet gecloned worden zonder manuele ingreep. In de
-  ArticleSearch-flow werd de `.spec` wél meegecommit.
+- **Checkbox-zichtbaarheid in donker thema** (Analyse + History).
+- **i18n-menging in Diagnose/Result en Resultaatdetails.**
 
 ---
 
 ## 7. TESTSTATUS — BASELINE EN TESTSTRUCTUUR
 
-**Datum:** 2026-10-13
+**Datum:** 2026-10-14
 **Baseline:** 1150 passed
 **Werkwijze:** eerst gerichte tests, dan volledige `pytest -q`.
 
@@ -798,16 +787,32 @@ Voor een nieuwe sessie heeft de chat meestal nodig:
 
 Bij een specifieke fase vraagt de chat om de bestanden die de fase raakt.
 
-Voor fase 9F (Intune/Defender/CFA-testmatrix + `docs/packaging.md`):
+**Voor fase 9G (bug/feature-rapportage naar GitHub):**
 
-- `signingContext.md` — SmartScreen/Defender-uitzondering
-- `05-signing-build-context.md` — signing-flow
-- `Export-SigningCertificate.ps1` — huidige versie (v1.0.1)
-- `docs/openvragen.md` — §2.18 met de Defender/WDAC-vraag
-- `publish.ps1` — huidige versie (v1.0.0) — bevat de release-gate
-- `build_and_publish.ps1` — huidige versie (v1.0.0)
-- `build_installer.bat` — huidige versie (v2.0.1)
-- `.gitattributes` — om de LF/CRLF-afspraak te kunnen toevoegen
+- `GITHUB_FEEDBACK_UITROL.md` — het volledige uitrolpakket
+- `main.py` — entry point, om te zien waar het menu wordt opgebouwd
+- `app/gui/main_window.py` — huidige versie (v2.11.6) — hier komt het
+  menu "Rapporteren" bij
+- `requirements.txt` — om `requests` toe te voegen
+- `ESR_Tester.spec` — huidige versie (v2.0.0) — controleblok +
+  `hiddenimports`
+- `app/version.py` — huidige versie (1.0.3) — voor
+  `get_app_version()`
+- `i18n/locales/nl_NL/app.json` — huidige versie
+- `i18n/locales/en_US/app.json` — huidige versie
+- `.gitignore` — huidige versie (na 9F)
+- De vijf identieke pakketbestanden uit `C:\searcharticle_code`:
+  `github_feedback.py`, `bug_report_dialog.py`, `github_cases.py`,
+  `check_github_secret.py`, `github_secret_local.example.py`
+- `github_feedback_config.py` — sjabloon uit ArticleSearch
+
+**Voor fase 9H (update-check):**
+
+- `releases/latest/version.txt` — de "latest"-pointer
+- `publish.ps1` — om te zien welk formaat de pointer heeft
+- `main.py` — waar de check moet komen
+- `app/gui/main_window.py` — voor het Help-menu-item
+- `updater.py` — als die al bestaat in ArticleSearch, als voorbeeld
 
 ---
 
@@ -828,4 +833,6 @@ Voor fase 9F (Intune/Defender/CFA-testmatrix + `docs/packaging.md`):
   gebruik viervoudige backticks.**
 - **De ArticleSearch-flow is de bewezen build-flow.** Wijk daar niet
   meer van af.
+- **Nooit een GitHub-token in een getrackt bestand, chat of
+  context-document zetten.**
 - Geen aannames over de eerstvolgende fase — vraag het na.
