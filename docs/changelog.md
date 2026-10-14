@@ -4,6 +4,84 @@ Overzicht van wat er nieuw of verbeterd is in de Electronics Diagnostic
 Tool Hub. Voor technische details en architectuurkeuzes verwijzen we naar
 `docs/context.md`.
 
+## Versie 1.10 — Publicatie, testmatrix en bug/feature-meldingen (14 oktober 2026)
+
+**De applicatie is nu publiek beschikbaar op GitHub**
+
+Op 13 oktober 2026 is de eerste publieke release **v1.0.3** verschenen
+in de repo `barremans/capacitor_esr_validator`. De installer
+(`ESR_TesterSetup_1.0.3.exe`, ongeveer 63 MB) is ondertekend en
+gepubliceerd, samen met een **stabiele "latest"-pointer** in
+`releases/latest/version.txt`. Die pointer is de basis voor de
+toekomstige update-controle.
+
+**Buildstraat uitgebreid met `publish.ps1` en `build_and_publish.ps1`**
+
+- **`publish.ps1`** — publiceert de installer naar GitHub, met een
+  **release-gate** op de Authenticode-handtekening. Een ongesigneerde
+  installer wordt nooit gepubliceerd.
+- **`build_and_publish.ps1`** — orchestrator die de hele keten draait:
+  versie bumpen, builden, signeren, publiceren. Vraagt de parameters
+  vooraf.
+
+**Intune/Defender-testmatrix**
+
+De installer is bewezen op twee soorten Windows-pc's:
+
+- **Gewone Windows-pc** — SmartScreen toont een waarschuwing, maar
+  "More info → Run anyway" werkt.
+- **Intune-beheerde pc** — de installer start zonder blokkade, dank zij
+  een **Defender Certificate Indicator** (`Allow`) voor het
+  CGK-certificaat. De app installeert en werkt.
+
+WDAC en AppLocker zijn in de doelomgeving **niet actief**; de
+Defender-indicator volstaat.
+
+**Bug- en feature-meldingen vanuit de applicatie**
+
+Het hoofdmenu heeft nu een **Rapporteren**-menu met twee opties:
+
+- **🐞 Bug of feature melden…** — opent een meldscherm waarin je een
+  bug of feature-aanvraag beschrijft. De melding wordt automatisch
+  aangemaakt als **GitHub Issue** (label `bug` of `enhancement`). Je
+  naam wordt voorgevuld met je Windows-gebruikersnaam.
+- **Open cases tonen** — toont de open bugmeldingen en
+  feature-aanvragen uit de repo.
+
+De meldingen gaan rechtstreeks naar de GitHub-repo. Er is geen
+e-mailverkeer of externe dienst nodig: de applicatie leest en schrijft
+via de GitHub REST API.
+
+**Voor ontwikkelaars**
+
+- Het feedbackpakket (`github_feedback.py`, `bug_report_dialog.py`,
+  `github_cases.py`, `check_github_secret.py`) staat identiek in de
+  projectroot, met een app-specifieke `github_feedback_config.py`.
+- Het GitHub-token staat in `github_secret_local.py`, dat in
+  `.gitignore` staat (`*_secret_local.py`) en nooit naar GitHub gaat.
+  PyInstaller bundelt het wel mee in de exe.
+- `ESR_Tester.spec` roept vóór elke build `check_github_secret.py` aan.
+  Een build zonder geldig token stopt met een duidelijke melding, zodat
+  er nooit een installer verschijnt waarin "Bug of feature melden"
+  niet werkt.
+- Nieuwe i18n-keys: `menu.rapporteren`, `menu.bug_melden`,
+  `menu.open_cases` (NL + EN).
+
+**Opgelost**
+
+- De `LF/CRLF`-waarschuwing bij `git add releases/latest/version.txt`
+  is opgelost via een `.gitattributes`-regel
+  (`releases/latest/version.txt text eol=lf`).
+- `ESR_Tester.spec` staat niet langer in `.gitignore`. De spec wordt nu
+  meegecommit, zodat een verse clone op een andere machine direct kan
+  bouwen (`!ESR_Tester.spec`).
+
+**Documentatie**
+
+- `docs/packaging.md` — build-flow, signing, distributie, checklist.
+- `docs/testmatrix_defender_intune.md` — de volledige testmatrix met
+  bewezen status per pc-type.
+
 ## Versie 1.9 — Eerste Windows-build, installer en signing (13 oktober 2026)
 
 **De applicatie heeft nu een echte versie**
@@ -334,10 +412,14 @@ van geïmporteerde documenten.
 ---
 
 ## Gepland voor volgende versies
-- **Versie 1.9** — Windows-installer, code-ondertekening, en publicatie
-  op GitHub. *(De installer en signing zijn klaar; de eerste publicatie
-  volgt in 9E.)*
-- **Versie 2.0** — Uitgebreide praktijkvalidatie van ESR-metingen.
-- **Versie 3.0** — Tweede diagnosetool: weerstandsmetingen.
-- **Versie 4.0** — AI-extractie uit fabrikantdocumenten met verplichte
+- **Versie 1.11** — Update-controle: bij het opstarten en via het
+  Help-menu wordt gecontroleerd of er een nieuwere versie beschikbaar
+  is op GitHub. De "latest"-pointer in `releases/latest/version.txt`
+  is sinds versie 1.10 beschikbaar.
+- **Versie 1.12** — Praktische ESR-validatie met echte meetgegevens.
+- **Versie 1.13** — UX/documentatie-afwerking: visuele selectie in
+  Analyse, checkbox-zichtbaarheid in het donkere thema, en het
+  gelijktrekken van de taal in het Diagnose/Result-venster.
+- **Versie 2.0** — Tweede diagnosetool: weerstandsmetingen.
+- **Versie 3.0** — AI-extractie uit fabrikantdocumenten met verplichte
   menselijke goedkeuring.

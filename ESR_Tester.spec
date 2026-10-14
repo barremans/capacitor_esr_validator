@@ -7,8 +7,20 @@
 #
 #          Wordt aangeroepen via build_installer.bat.
 #
-# Version: 2.0.0
+# Version: 2.1.0
 # Author:  Bart Bossuyt
+# Changes: 2.1.0 (2026-10-14) - Fase 9G. Controleblok toegevoegd dat vóór
+#                               de build check_github_secret.py aanroept:
+#                               een build zonder geldig GitHub-token stopt
+#                               nu met een duidelijke melding, i.p.v. een
+#                               installer af te leveren waarin "Bug of
+#                               feature melden" niet werkt. Daarnaast twee
+#                               hiddenimports toegevoegd:
+#                               "github_feedback_config" en
+#                               "github_secret_local", zodat PyInstaller
+#                               beide bestanden in de bundel opneemt
+#                               (github_secret_local.py staat in .gitignore
+#                               maar moet wél in de exe terechtkomen).
 # Changes: 2.0.0 (2026-10-13) - Fase 9C+9D. icon= toegevoegd aan het EXE(...)-
 #                               blok, zodat het icoon in de app-EXE zelf
 #                               terechtkomt. Pad: assets\icons\logo.ico.
@@ -23,7 +35,25 @@
 # =============================================================================
 
 import os
+import subprocess
+import sys
+
 from PyInstaller.utils.hooks import collect_all, collect_data_files
+
+# --- GitHub-token: controle vóór de build ---------------------------------
+# SPECPATH = de map van dit .spec-bestand (door PyInstaller gezet).
+# check_github_secret.py staat in dezelfde map (projectroot) en controleert:
+#   1. staat er nergens een token in een bestand dat naar GitHub gaat?
+#   2. is github_secret_local.py aanwezig, genegeerd door git en gevuld met
+#      een token dat GitHub nog aanvaardt?
+# Faalt de controle, dan stopt de build hier — geen installer zonder
+# werkende bug-/feature-melding.
+_secret_check = os.path.join(SPECPATH, "check_github_secret.py")
+if subprocess.call([sys.executable, _secret_check]) != 0:
+    raise SystemExit(
+        "[FOUT] Build gestopt: de controle van het GitHub-token is mislukt "
+        "(zie hierboven)."
+    )
 
 # --- pandas zonder tests ---
 pandas_datas, pandas_binaries, pandas_hidden = collect_all("pandas")
@@ -59,6 +89,8 @@ a = Analysis(
         "docx",
         "openpyxl",
         "pypdf",
+        "github_feedback_config",
+        "github_secret_local",
     ],
     excludes=["pandas.tests", "tkinter", "matplotlib", "numpy.tests"],
     noarchive=False,

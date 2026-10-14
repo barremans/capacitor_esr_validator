@@ -8,6 +8,7 @@
   "menu": {
     "bestand": "File",
     "diagnose": "Diagnostics",
+    "rapporteren": "Report",
     "instellingen": "Settings",
     "help": "Help",
     "open_diagnose": "Open diagnostics",
@@ -18,7 +19,9 @@
     "afsluiten": "Exit",
     "documentatie_zoeken": "Search documentation…",
     "document_importeren": "Import document…",
-    "rapport": "Create report…"
+    "rapport": "Create report…",
+    "bug_melden": "🐞 Report a bug or feature…",
+    "open_cases": "Show open cases"
   },
   "tool": {
     "diagnose": "Diagnostics",

@@ -1,16 +1,16 @@
 # OVERDRACHT — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie overdracht:** 4.2.0
+**Versie overdracht:** 4.3.0
 **Datum:** 2026-10-14
 **Auteur:** Bart Bossuyt
-**Vorige versie:** 4.1.0 (2026-10-13)
+**Vorige versie:** 4.2.0 (2026-10-14)
 **Doel:** volledig overdrachtsdocument voor een nieuwe ChatGPT-sessie of
 nieuwe ontwikkelaar. Bevat projectstaat, architectuur, regels, changelog,
 teststructuur en startprompt. Alles in één bestand.
 
-**Huidige baseline:** 1150 passed
-**Laatste afgeronde fase:** 9F — Intune/Defender/CFA-testmatrix + `docs/packaging.md`
-**Volgende fase:** 9G — Bug/feature-rapportage naar GitHub
+**Huidige baseline:** 1203 passed
+**Laatste afgeronde fase:** 9G — Bug/feature-rapportage naar GitHub
+**Volgende fase:** 9H — Update-check bij opstarten + via Help
 
 ---
 
@@ -20,7 +20,7 @@ teststructuur en startprompt. Alles in één bestand.
 2. Context — projectstaat en architectuur
 3. Kernregels — bindende afspraken
 4. Stappenplan — chronologisch overzicht
-5. Wat is nieuw sinds versie 4.1.0
+5. Wat is nieuw sinds versie 4.2.0
 6. Openstaande vragen voor de nieuwe chat
 7. Teststatus — baseline en teststructuur
 8. Bestanden die de nieuwe chat moet opvragen
@@ -40,10 +40,10 @@ iets doet.
 
 - Projectmap: `C:\PY\capacitor_esr_validator`.
 - Technologie: Python 3.12 + PySide6 (Qt6, Fusion-stijl), volledig offline.
-- Baseline: **1150 passed**.
-- Laatste afgeronde fase: **9F — Intune/Defender/CFA-testmatrix +
-  `docs/packaging.md`** (2026-10-14).
-- Volgende fase: **9G — Bug/feature-rapportage naar GitHub**.
+- Baseline: **1203 passed**.
+- Laatste afgeronde fase: **9G — Bug/feature-rapportage naar GitHub**
+  (2026-10-14).
+- Volgende fase: **9H — Update-check bij opstarten + via Help**.
 
 **Werkafspraken die je strikt volgt:**
 
@@ -55,7 +55,7 @@ iets doet.
   zonder opnieuw op te vragen. Meld wel dat je dat doet.
 - Lever altijd **volledige bestanden**, nooit secties met
   `# ... ongewijzigd ...` of een `"import": {...}`-fragment in een
-  JSON-bestand. Dit is in een eerdere chat fout gelopen.
+  JSON-bestand.
 - **JSON-bestanden altijd volledig leveren**, nooit fragmenten.
 - Leg elke stap eerst kort uit, dan implementeren.
 - Draai altijd eerst **gerichte tests**, dan **volledige `pytest -q`**.
@@ -71,29 +71,19 @@ iets doet.
   Er is geen `conftest.py`. Gebruik geen `qtbot`-fixture.
 - **Verwerk `deleteLater()` in GUI-tests** met
   `QApplication.processEvents()` vóór je de menubar of andere
-  QObject-hiërarchieën inspecteert. Zonder event loop blijven
-  verwijderde QActions in half-opgeruimde toestand hangen en geeft
-  `.text()` een `RuntimeError`.
+  QObject-hiërarchieën inspecteert. **Bewaar nooit een QMenu- of
+  QAction-pointer tussen twee `processEvents()`-rondes**: die kan
+  ongeldig worden. Lees altijd alles in één keer uit.
 - **De taalparameter van `ToolHubWindow` heeft voorrang op
-  `settings.json`.** Sinds v2.11.3 respecteert de constructor de
-  parameter `taal`; valt alleen terug op `settings.json` als de
-  parameter leeg is.
+  `settings.json`.**
 - **Voor leesbare PDF-rapporten:** sinds fase 9A zet `main.py`
-  automatisch `QT_QPA_FONTDIR=C:\Windows\Fonts` op Windows als de
-  variabele nog niet gezet is. De handmatige stap is niet meer nodig,
-  maar blijft geldig als je de variabele zelf wilt zetten.
+  automatisch `QT_QPA_FONTDIR=C:\Windows\Fonts` op Windows.
 - **Bij het leveren van `.md`-bestanden die zelf codeblokken bevatten:**
-  gebruik **viervoudige backticks** (````markdown ... ````) zodat de
-  driedubbele backticks binnenin het bestand het omhullende blok niet
-  voortijdig sluiten. Zonder deze regel valt het systeem halverwege
-  terug op gewone tekst.
-- **De ArticleSearch-flow is de bewezen build-flow.** Wijk daar niet
-  meer van af. Concreet: `build_installer.bat` genereert
-  `dist\installer.iss` in de batch (geen vaste `.iss` in de root),
-  roept `ISCC.exe` aan, en `build_and_publish.ps1` orkestreert de
-  hele keten. Zie sectie 5 voor de details.
-- **Geen aannames over de volgende fase:** vraag het na of verwijs naar
-  sectie 4 van dit document.
+  gebruik **viervoudige backticks**.
+- **De ArticleSearch-flow is de bewezen build-flow.**
+- **Geen aannames over de volgende fase:** vraag het na.
+- **Nooit een GitHub-token in een getrackt bestand, chat of
+  context-document zetten.**
 
 **Wat ik nu van je vraag:**
 
@@ -128,9 +118,9 @@ eerst. Geen aannames.
 | Database | SQLite op `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\measurements.sqlite3` |
 | GitHub-repo | `https://github.com/barremans/capacitor_esr_validator` |
 | Huidige versie | `1.0.3` (gepubliceerd als GitHub-release `v1.0.3`) |
-| Huidige baseline | **1150 passed** |
-| Laatste afgeronde fase | 9F — Intune/Defender/CFA-testmatrix + `docs/packaging.md` |
-| Volgende fase | 9G — Bug/feature-rapportage naar GitHub |
+| Huidige baseline | **1203 passed** |
+| Laatste afgeronde fase | 9G — Bug/feature-rapportage naar GitHub |
+| Volgende fase | 9H — Update-check bij opstarten + via Help |
 
 ### 2.2 Huidige applicatiearchitectuur
 
@@ -140,11 +130,11 @@ eerst. Geen aannames.
   documentatie, **analyse** (sinds 7B).
 - Contextueel X-gedrag: binnen een pagina terug naar de bovenliggende
   pagina; op de hub sluit de applicatie.
-- Menu: Bestand, Diagnose (incl. Analyse), Instellingen (incl. Talen),
+- Menu: Bestand, Diagnose, **Rapporteren (sinds 9G)**, Instellingen,
   Help.
 - **Belangrijk (v2.11.3):** `ToolHubWindow.__init__(taal=None)`
   respecteert de parameter `taal`. Valt alleen terug op `settings.json`
-  als de parameter leeg is. `main.py` roept zonder argument aan.
+  als de parameter leeg is.
 
 **Sneltoetsen:**
 
@@ -166,63 +156,35 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - SQLite op `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\measurements.sqlite3`.
 - Schema v1: 7 tabellen. Schema v2: `measurements.tool_key`.
 - Migratieframework transactioneel en sequentieel.
-- Ruwe meetdata append-mostly; assessment en reference als snapshots.
 
 **Analyse-laag (fase 7):**
 
-- `app/helpers/analysis_series.py` — pure functies, geen Qt, geen
-  database. Bouwt `TimeSeriesPoint`- en `ScatterPoint`-lijsten en
-  aggregeert per dag/week/maand.
-- `app/services/analysis_service.py` — read-only service bovenop
-  `MeasurementHistoryService`. Leest in pagina's (default 500 per keer).
-- `app/gui/analysis_screen.py` (v1.0.6) — QtCharts-pagina. Roept alleen
-  de service aan. **NaN/Inf-verdediging** ingebouwd.
-- Read-only bewijs: `tests/test_analysis_service.py::_ReadOnlyHistoryStub`.
+- `app/helpers/analysis_series.py` — pure functies.
+- `app/services/analysis_service.py` — read-only service.
+- `app/gui/analysis_screen.py` (v1.0.6) — QtCharts-pagina.
 
 **Rapportage-laag (fase 8):**
 
-- `app/services/report_service.py` (v1.2.0) — read-only service. Bouwt
-  `ReportBundle` met één of meerdere details. Methoden:
-  `build_bundle(measurement_id)` (dunne wrapper),
-  `build_bundle_for_measurements(ids)`,
-  `build_bundle_from_filters(filters)`.
+- `app/services/report_service.py` (v1.2.0) — read-only service.
 - `app/helpers/report_render.py` (v1.4.0) — pure HTML-renderer.
-  Dispatcht per `tool_key`. Meerdere metingen in één rapport met
-  `meting_kop`. Statuscodes worden vertaald via `_status_code_label`.
-- `app/helpers/report_pdf.py` (v1.0.0) — Qt-specifiek. `QTextDocument`
-  + `QPrinter` → PDF. A4-portret, 15 mm marges.
-  **Vereist `QT_QPA_FONTDIR=C:\Windows\Fonts` op Windows.** Sinds 9A
-  zet `main.py` deze variabele automatisch.
-- `app/helpers/report_chart.py` (v1.0.3) — Qt-specifiek. `QChart` →
-  base64-PNG voor `ESR_CAPACITOR`.
-- `app/gui/dialogs/report_dialog.py` (v1.2.0) — modale dialoog met
-  preview, grafiek-checkbox, opslaan-HTML, opslaan-PDF.
-  Nieuwe parameter `grafiek_default` (sinds 8D).
-- **i18n-module:** `report.json` in beide locales.
-- **Nieuwe instellingen (sinds 8D):** `laatste_rapportmap` (in
-  `Algemeen`), `auteur` (in `Rapportage`).
+- `app/helpers/report_pdf.py` (v1.0.0) — Qt-specifiek.
+- `app/helpers/report_chart.py` (v1.0.3) — Qt-specifiek.
+- `app/gui/dialogs/report_dialog.py` (v1.2.0) — modale dialoog.
 
 **Documentatie (read-only viewer + editor):**
 
 - Service met 8 meertalige documenten in de ingebouwde catalogus.
-- `catalog.json` met `schema_version=1` en `data_version`.
 - Zoektaal met operatoren: `,` (AND), `|` (OR), `-` (exact),
   `!` (uitsluiten), `%` (wildcard).
-- Bewerken-knop voor eigen imports (5D'.2c). Ingebouwde documenten
-  blijven read-only.
+- Bewerken-knop voor eigen imports (5D'.2c).
 - Status wijzigen-knop voor eigen imports, Toon gearchiveerde-checkbox,
   Status-kolom (5D'.2e).
-- Checkbox- en radio-indicator zichtbaar in donker thema (5D'.2f).
-- Doorzoekbare metadata van imports (5D'.1b).
 
 **Documentatie-import (fase 5, 5D', 6):**
 
-- Wizard voor **PDF-, Word-, Excel- en URL-import**.
-- Twee cataloguslagen: ingebouwde
-  `app/data/documentation/catalog.json` en gebruikerscatalogus
-  `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\documentation\imported_catalog.json`.
-- Statusmachine: `CONCEPT → ACTIEF → GEARCHIVEERD`, met `revoke` terug
-  naar `CONCEPT`.
+- Wizard voor PDF-, Word-, Excel- en URL-import.
+- Twee cataloguslagen: ingebouwde en gebruikerscatalogus.
+- Statusmachine: `CONCEPT → ACTIEF → GEARCHIVEERD`, met `revoke`.
 
 **i18n:**
 
@@ -239,135 +201,90 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - `styles.py` bevat expliciete `QCheckBox::indicator` en
   `QRadioButton::indicator`.
 
-**QtCharts:**
-
-- `PySide6.QtCharts` wordt gebruikt in `app/gui/analysis_screen.py` en
-  `app/helpers/report_chart.py`. Geen aparte dependency.
-
 **Buildstraat (fase 9A–9F):**
 
 - `app/version.py` — centrale versie, momenteel `1.0.3`.
 - `main.py` — `QT_QPA_FONTDIR` automatisch, `setApplicationVersion`.
 - `bump_version.py` — verhoogt patch/minor/major in `app/version.py`.
-- `ESR_Tester.spec` (v2.0.0) — PyInstaller-specificatie met `icon=`
-  actief, `assets/icons/logo.ico`. **Wordt sinds 9F meegecommit**
-  (`!ESR_Tester.spec` in `.gitignore`).
-- `build_installer.bat` (v2.0.1) — volgt 1-op-1 de bewezen
-  ArticleSearch-flow (`build_installer15.bat` v1.4.0):
-  - genereert `dist\installer.iss` in de batch (geen vaste `.iss` in
-    de root);
-  - versie via `bump_version.py` → `app/version.py`;
-  - PyInstaller → rename/robocopy → `dist\ESR_Tester_<versie>\`;
-  - kopieert `assets` en `docs` via `xcopy`, `requirements.txt` en
-    `settings.json` via `copy`;
-  - schrijft `version.txt` met `> ... echo %NEW_VERSION%`;
-  - signing van de app-EXE vóór Inno (blok `[5b]`);
-  - `.iss` genereren via `>>`-regels (blok `[6b]`);
-  - `ISCC.exe` compileren (blok `[7]`);
-  - signing van de installer (blok `[7b]`);
-  - `AS_BUMP_PART`, `AS_MAKE_INSTALLER`, `AS_DO_SIGN`,
-    `AS_SIGN_THUMBPRINT` als env-vars.
-- `build_and_publish.ps1` (v1.0.0) — orchestrator:
-  - vraagt `bumpPart`, `makeInstaller`, `doSign`, `doPublish`;
-  - signing-preflight: kiest het geldige certificaat met de verste
-    `NotAfter` uit `Cert:\CurrentUser\My` + `Cert:\LocalMachine\My`
-    (subject `CN=CGK Local Signing`);
-  - blokkeert publiceren zonder signing;
-  - schrijft `_build_wrapper.bat` met `AS_*`-vars en roept
-    `build_installer.bat` aan;
-  - roept `publish.ps1` aan als `doPublish=J`.
-- `publish.ps1` (v1.0.0) — GitHub-release:
-  - leest versie uit `app/version.py`;
-  - **release-gate**: `Get-AuthenticodeSignature` op de installer, moet
-    `Valid` zijn met een `SignerCertificate`;
-  - maakt release via `gh release create` (tag `v<versie>`);
-  - uploadt `dist\ESR_TesterSetup_<versie>.exe` via
-    `gh release upload --clobber`;
-  - schrijft `releases\latest\version.txt` (2 regels: versie + URL);
-  - commit `app/version.py` + `version.txt` en pusht naar GitHub;
-  - default `$Repo = "capacitor_esr_validator"`, `$Owner = "barremans"`.
+- `ESR_Tester.spec` (v2.1.0) — PyInstaller-specificatie met `icon=`
+  actief. Sinds 9G: controleblok + `hiddenimports` voor
+  `github_feedback_config` en `github_secret_local`.
+- `build_installer.bat` (v2.0.1) — volgt de ArticleSearch-flow.
+- `build_and_publish.ps1` (v1.0.0) — orchestrator met signing-preflight.
+- `publish.ps1` (v1.0.0) — GitHub-release met release-gate.
 - `Export-SigningCertificate.ps1` (v1.0.1) — exporteert het
-  Authenticode-certificaat van één of meer `.exe`'s als `.cer` in
-  `.\signing-certs\`. Dedupliceert op thumbprint, waarschuwt bij
-  verlopen certificaat.
+  Authenticode-certificaat als `.cer`.
 - **Certificaat:** subject `CN=CGK Local Signing`, actief thumbprint
   `BD1DC390D56E3392836FD6E39470D5F766346509`, geldig tot 2028-09-17.
-  Twee oudere/verlopen certs staan nog in de store
-  (`4DA652...`, `13B90D...`); de preflight slaat ze automatisch over
-  (`NotAfter -gt now`).
 
-### 2.3 Belangrijke recente bugfixes (8D+, 9A–9F)
+**GitHub-feedbacklaag (fase 9G):**
+
+- Vijf identieke pakketbestanden in de projectroot:
+  `github_feedback.py` (v1.0.0), `bug_report_dialog.py` (v2.0.0),
+  `github_cases.py` (v2.0.0), `check_github_secret.py` (v1.0.0),
+  `github_secret_local.example.py` (v1.0.0).
+- Eén app-specifieke `github_feedback_config.py` (v1.0.0) met
+  `APP_NAME = "ESR Tester"`, `GITHUB_OWNER = "barremans"`,
+  `GITHUB_REPO = "capacitor_esr_validator"`, `get_reporter_name()` via
+  `getpass`, `get_app_version()` via `app.version`.
+- `github_secret_local.py` — het token, in `.gitignore` via
+  `*_secret_local.py`. **Nooit committen.**
+- Nieuw menu "Rapporteren" in `main_window.py` v2.12.0 met twee acties:
+  "🐞 Bug of feature melden…" en "Open cases tonen".
+- Nieuwe i18n-keys: `menu.rapporteren`, `menu.bug_melden`,
+  `menu.open_cases` (NL + EN).
+- De melding wordt een GitHub Issue met label `bug` of `enhancement`.
+  De kopregel van de Issue bevat de naam van de melder, de datum en de
+  app-versie.
+- `check_github_secret.py` controleert vóór elke build dat er geen
+  token in git staat, dat `github_secret_local.py` genegeerd wordt, en
+  dat het token nog door GitHub aanvaard wordt.
+
+### 2.3 Belangrijke recente bugfixes (8D+, 9A–9G)
 
 - **`algemeen.ja` / `algemeen.nee` lekten in rapport-HTML** (v1.3.0 van
-  `report_render.py`): keys bestonden niet; vervangen door
-  `app.ja` / `app.nee`.
+  `report_render.py`): vervangen door `app.ja` / `app.nee`.
 - **Enum-codes in rapport niet vertaald** (v1.4.0 van
-  `report_render.py`): `capacitance_status`, `esr_status` en
-  `consistency_status` werden als ruwe codes getoond
-  (`binnen_tolerantie`). Nu vertaald via `_status_code_label` met
-  dezelfde keys als de GUI.
-- **Grafiek-checkbox in `ReportDialog` niet deterministisch**
-  (v1.2.0 van `report_dialog.py`): startte met
-  `laad_instellingen().grafiek_opnemen` en was daardoor afhankelijk van
-  de globale `settings.json`. Vervangen door een expliciete
-  `grafiek_default`-parameter, doorgegeven door `MainWindow`.
-- **`laatste_rapportmap` en `auteur` bestonden nog niet** (v1.5.0 van
-  `settings.py`): toegevoegd, met backward-compat tests.
+  `report_render.py`): nu via `_status_code_label`.
+- **Grafiek-checkbox in `ReportDialog` niet deterministisch** (v1.2.0):
+  vervangen door een expliciete `grafiek_default`-parameter.
 - **`SettingsDialog` overschreef `laatste_exportmap` en
-  `laatste_importmap`** (v1.3.0 van `settings_dialog.py`): bouwde een
-  nieuwe `AlgemeneInstellingen` in plaats van `replace()`. Daardoor
-  werden de automatisch bijgehouden mappen per ongeluk gewist bij een
-  `Toepassen`-klik. Nu gefixt.
-- **`QT_QPA_FONTDIR` probleem op Windows:** Qt kan in een PySide6-venv
-  de systeemfonts niet vinden zonder deze variabele. Zonder de variabele
-  worden PDF-rapporten gerenderd met **zwarte blokken** in plaats van
-  tekst. Sinds 9A zet `main.py` deze variabele automatisch op Windows
-  als hij nog niet bestaat en `C:\Windows\Fonts` aanwezig is.
+  `laatste_importmap`** (v1.3.0): nu via `replace()`.
+- **`QT_QPA_FONTDIR` probleem op Windows:** sinds 9A zet `main.py` de
+  variabele automatisch.
 - **Venstertitels van Help- en Wijzigingslog-vensters** gebruikten
-  `dialog.help_titel` en `dialog.changelog_titel`, die niet bestaan.
-  De juiste keys zijn `dialog.help_title` en `dialog.changelog_title`
-  (v2.11.6 van `main_window.py`).
-- **ESR-knop in Diagnose-pagina** toonde de ruwe key `tool.esr`.
-  Toegevoegd aan beide `app.json`-bestanden (v1.9).
-- **Pandas/numpy ABI-conflict** in de build: pandas 3.0.6 gaf
-  `ModuleNotFoundError: No module named 'pandas._libs.pandas_parser'`.
-  Opgelost door `numpy>=1.26,<3` en `pandas>=2.2,<3` in
-  `requirements.txt`, plus numpy als directe dependency.
+  verkeerde keys (v2.11.6): nu `dialog.help_title` en
+  `dialog.changelog_title`.
+- **ESR-knop in Diagnose-pagina** toonde de ruwe key `tool.esr`: nu
+  vertaald.
+- **Pandas/numpy ABI-conflict** in de build: opgelost met pins.
 - **`: was unexpected at this time.`** in `build_installer.bat` blok
-  `[6]`: `set /p` met vierkante haken en ronde haken in de prompttekst
-  brak de cmd-parser. Vervangen door een simpele `if defined`-check
-  (v2.0.1).
-- **`PermissionError WinError 5` op `build\ESR_Tester\ESR_Tester.exe`**:
-  PyInstaller kon het bestand niet overschrijven omdat een eerdere
-  crash van de tussenproduct-EXE de handle vasthield. Oplossing:
-  `Get-Process ESR_Tester | Stop-Process -Force` en `build\` verwijderen.
-  **De EXE in `build\` is niet bedoeld om te draaien** — alleen
-  `dist\...\ESR_Tester.exe` is de werkende applicatie.
-- **`[rename] Fallback via robocopy...`-melding** in de batch: komt
-  doordat de vorige `dist\<BUILD_FOLDER>` nog bestaat. Cosmetisch.
-- **LF/CRLF-waarschuwing bij `git add releases/latest/version.txt`**:
-  **opgelost in 9F** via `.gitattributes`-regel
-  `releases/latest/version.txt text eol=lf`.
-- **`ESR_Tester.spec` in `.gitignore`**: **opgelost in 9F** via
-  `!ESR_Tester.spec`. De spec wordt nu meegecommit.
+  `[6]`: vervangen door een `if defined`-check (v2.0.1).
+- **LF/CRLF-waarschuwing** bij `git add releases/latest/version.txt`:
+  opgelost in 9F via `.gitattributes`.
+- **`ESR_Tester.spec` in `.gitignore`**: opgelost in 9F via
+  `!ESR_Tester.spec`.
+- **`RuntimeError: Internal C++ object (QMenu) already deleted`** in
+  GUI-tests (v1.0.1 van `test_main_window_reporting_menu.py`):
+  oorzaak was dat een `QMenu`-pointer tussen twee
+  `processEvents()`-rondes bewaard werd. `_apply_language()` ruimt de
+  menu's op met `menubar.clear()` + `deleteLater()`. Oplossing: alle
+  helpers lezen de menu-inhoud in één keer uit en geven strings terug,
+  nooit `QMenu`-objecten die bewaard worden.
 
 ### 2.4 Openstaande werkpunten
 
 Volgens het stappenplan:
 
-- **9F** — Intune/Defender/CFA-testmatrix + `docs/packaging.md`.
-  **Afgerond op 2026-10-14.**
-- **9G** — Bug/feature-rapportage naar GitHub. **Volgende fase.**
-  Volgt het pakket in `GITHUB_FEEDBACK_UITROL.md`.
-- **9H** — Update-check bij opstarten + via Help. De "latest"-pointer
-  op `releases/latest/version.txt` is sinds 9E beschikbaar en kan
-  direct gebruikt worden. **Na 9G.**
+- **9G** — Bug/feature-rapportage naar GitHub. **Afgerond 2026-10-14.**
+- **9H** — Update-check bij opstarten + via Help. **Volgende fase.**
+  De "latest"-pointer op `releases/latest/version.txt` is sinds 9E
+  beschikbaar. ArticleSearch heeft een `updater.py` (v1.3.0) als
+  voorbeeld.
 - **10** — Praktische ESR-validatie.
 - **11** — Laatste UX/documentatie-afwerking (incl. light theme,
-  async URL-fetch, cosmetische scrollbar in Word-samenvatting,
-  refresh()-opsplitsing in AnalysisScreen, GUI-scope "selectie" en
-  "filters" voor rapporten, **visuele selectie in Analyse**, **checkbox-
-  zichtbaarheid in donker thema**, **i18n-menging in Diagnose/Result**).
+  async URL-fetch, cosmetische punten, visuele selectie in Analyse,
+  checkbox-zichtbaarheid donker thema, i18n-menging in Diagnose/Result).
 - **12** — AI-extractie uit fabrikantdocumenten.
 - **13** — Menselijke validatie van AI-output.
 - **14** — Goedgekeurde fabrikantdata koppelen aan assessment.
@@ -375,26 +292,28 @@ Volgens het stappenplan:
 
 ### 2.5 Werkafspraken voor een nieuwe sessie
 
-- **Vraag altijd om de huidige bestandsinhoud** voordat je een bestaand
+- Vraag altijd om de huidige bestandsinhoud voordat je een bestaand
   bestand vervangt.
-- **Uitzondering:** als je het bestand in deze sessie al hebt geleverd
+- Uitzondering: als je het bestand in deze sessie al hebt geleverd
   of gezien en er is geen tegenspraak, mag je het direct hergebruiken.
-- **Lever altijd volledige bestanden**, nooit secties met
+- Lever altijd volledige bestanden, nooit secties met
   `# ... ongewijzigd ...`.
-- **Lever volledige JSON-bestanden**, nooit fragmenten.
-- **Draai eerst gerichte tests, dan volledige `pytest -q`.**
-- **Meld nieuwe i18n-keys expliciet**, met de waarde voor NL én EN.
-- **Python-headers zijn cumulatief.**
+- Lever volledige JSON-bestanden, nooit fragmenten.
+- Draai eerst gerichte tests, dan volledige `pytest -q`.
+- Meld nieuwe i18n-keys expliciet, met de waarde voor NL én EN.
+- Python-headers zijn cumulatief.
 - **Geen `qtbot` gebruiken in tests.** Er is geen `pytest-qt`.
 - **Verwerk `deleteLater()` in GUI-tests** met
-  `QApplication.processEvents()`.
-- **De taalparameter van `ToolHubWindow` heeft voorrang op
-  `settings.json`.**
-- **Bij het leveren van `.md`-bestanden die zelf codeblokken bevatten:**
-  gebruik viervoudige backticks.
-- **De ArticleSearch-flow is de bewezen build-flow.** Wijk daar niet
-  meer van af.
-- **Geen aannames over de eerstvolgende fase** — vraag het na.
+  `QApplication.processEvents()`. **Bewaar nooit een QMenu- of
+  QAction-pointer tussen twee `processEvents()`-rondes.**
+- De taalparameter van `ToolHubWindow` heeft voorrang op
+  `settings.json`.
+- Bij het leveren van `.md`-bestanden met codeblokken: viervoudige
+  backticks.
+- De ArticleSearch-flow is de bewezen build-flow.
+- **Nooit een GitHub-token in een getrackt bestand, chat of
+  context-document zetten.**
+- Geen aannames over de eerstvolgende fase — vraag het na.
 
 ---
 
@@ -423,12 +342,12 @@ Volgens het stappenplan:
     verantwoordelijkheden.**
 18. **AI-extractie staat laat in de roadmap.**
 19. **Grafieken en trends lezen bestaande data, ze wijzigen niets.**
-20. **Rapporten lezen bestaande data, ze wijzigen niets.** Ze gebruiken
-    de opgeslagen snapshots; geen herberekening.
+20. **Rapporten lezen bestaande data, ze wijzigen niets.**
 21. **Bij het leveren van `.md`-bestanden met codeblokken: viervoudige
     backticks.**
-22. **De ArticleSearch-flow is de bewezen build-flow.** Geen eigen
-    varianten meer.
+22. **De ArticleSearch-flow is de bewezen build-flow.**
+23. **Nooit een GitHub-token in een getrackt bestand, chat of
+    context-document zetten.**
 
 ### 3.2 Architectuur
 
@@ -436,29 +355,18 @@ Volgens het stappenplan:
 - **Storage-service** kent structurele validatie — geen beoordelingslogica.
 - **Documentatie-service** is read-only — geen import, geen AI,
   geen assessment.
-- **Import-service** schrijft alleen in de gebruikerscatalogus — geen
-  assessment, geen GUI, geen netwerk (behalve URL-fetch).
+- **Import-service** schrijft alleen in de gebruikerscatalogus.
 - **GUI** verzamelt invoer, roept services aan, toont resultaat.
-- **Editor** (5D'.2c) wijzigt alleen metadata.
-- **Status-editor** (5D'.2e) wijzigt alleen status.
 - **Analyse-laag** (fase 7) leest de storage read-only.
 - **Rapportage-laag** (fase 8) leest de storage en de analyse-laag
-  read-only. `report_render` is puur; `report_pdf` en `report_chart`
-  zijn Qt-specifiek; `report_dialog` is GUI.
+  read-only.
 - **Buildstraat** (fase 9) is gescheiden van de applicatiecode.
-  `bump_version.py`, `ESR_Tester.spec`, `build_installer.bat`,
-  `build_and_publish.ps1`, `publish.ps1` en
-  `Export-SigningCertificate.ps1` staan in de root en worden niet
-  meegebundeld in de EXE. De `.iss` wordt in de batch gegenereerd in
-  `dist\` en is geen bronbestand. `publish.ps1` schrijft
-  `releases\latest\version.txt` als stabiele "latest"-pointer voor de
-  toekomstige update-check.
-- **GitHub-feedbacklaag** (fase 9G) wordt een aparte laag: vijf
-  identieke pakketbestanden in de projectroot, plus een
-  app-specifieke `github_feedback_config.py`, plus een niet-getrackte
-  `github_secret_local.py`. De meldschermen (`BugDialog`,
-  `show_github_cases`) zijn GUI; `github_feedback.py` is puur;
-  `check_github_secret.py` is een build-controle.
+- **GitHub-feedbacklaag** (fase 9G) is eveneens gescheiden van de
+  applicatiecode: vijf identieke pakketbestanden in de projectroot,
+  plus een app-specifieke `github_feedback_config.py`, plus een
+  niet-getrackte `github_secret_local.py`. De meldschermen zijn GUI;
+  `github_feedback.py` is puur; `check_github_secret.py` is een
+  build-controle.
 
 ### 3.3 ESR-technische kernregels
 
@@ -487,8 +395,10 @@ Volgens het stappenplan:
 - Een `.md`-bestand met codeblokken leveren zonder viervoudige
   backticks.
 - De ArticleSearch-flow vervangen door een eigen variant.
-- Een GitHub-token in een getrackt bestand, chat, of context-document
-  zetten.
+- **Een GitHub-token in een getrackt bestand, chat, of
+  context-document zetten.**
+- **Een QMenu- of QAction-pointer bewaren tussen twee
+  `processEvents()`-rondes in een GUI-test.**
 
 ---
 
@@ -496,73 +406,17 @@ Volgens het stappenplan:
 
 | Fase | Onderwerp | Status |
 |---|---|---|
-| 0 | Structuur + regressiebaseline | ✅ |
-| 1 | Tool Hub / één-venster-navigatie | ✅ |
-| 2 | Donker thema + dialooggedrag | ✅ |
-| 3 | Compact ESR-hoofdscherm | ✅ |
-| 4 | Settings-architectuur | ✅ |
-| 5 | Validatie + OL/out-of-range | ✅ |
-| — | Storage/SQLite (schema v1, v2) | ✅ |
-| — | Historiek (read-only, herhaal meting) | ✅ |
-| — | Documentatiebasis (meertalig, 8 documenten) | ✅ |
-| 3A | Contextuele documentatie vanuit ESR | ✅ |
-| 3B | Slimme contextdocumentatie | ✅ |
-| 4A | `tool_keys` (multi-tool metadata) | ✅ |
-| 4B | Multi-contextvelden | ✅ |
-| 4C | Productcatalogus gelabeld | ✅ |
-| 4D | Zoektaal | ✅ |
-| 4E | Help-integratie | ✅ |
-| 4E.4 | Help-menu item "Documentatie zoeken…" | ✅ |
-| 4F | Sneltoetsen in ESR, Historiek, Hoofdmenu | ✅ |
-| 4F.1 | Esc op Diagnose-pagina | ✅ |
-| 4F.2 | Esc op Hoofdmenu met bevestiging | ✅ |
-| 4G | Changelog volledig bijwerken | ✅ |
-| 4H | Help splitsen per taal | ✅ |
-| 4I | `docs/search_syntax.md` | ✅ |
-| 4I.1 | Observaties uit 4I afwerken | ✅ |
-| 5A | Import-modellen + service | ✅ |
-| 5B | PDF-extractie via `pypdf` | ✅ |
-| 5C | Koppeling `pdf_extract` ↔ `ImportService` | ✅ |
-| 5D | URL-fetch + metadata + snapshot | ✅ |
-| 5E | Wizard-UI + i18n | ✅ |
-| 5D'.1 | `documentation_service` leest tweede cataloguslaag | ✅ |
-| 5E'.1 | Menu-vertaling fix | ✅ |
-| 5E'.2 | Radio button-styling fix (Fusion) | ✅ |
-| 5D'.2a | Bestaand-document-popup | ✅ |
-| 5D'.3 | Wizard UX: laatste mappen + titel-fix | ✅ |
-| 5D'.4 | Viewer fix: PDF extern openen | ✅ |
-| 5D'.2b | Metadata-uitbreiding in wizard | ✅ |
-| 5D'.2d | Wizard UX-verfijning (datum, uppercase) | ✅ |
-| 5D'.2c | Metadata bewerken in de viewer | ✅ |
-| 5D'.2e | Status wijzigen in de viewer | ✅ |
-| 5D'.2f | Checkbox-indicator in donker thema | ✅ |
-| 5D'.1b | Metadata van imports doorzoekbaar maken | ✅ |
-| 6A | Datamodel + service + extractie + orkestratie (Word/Excel) | ✅ |
-| 6B | Wizard-uitbreiding (Word/Excel) | ✅ |
-| 6C | Fix `service.py` + succesmelding + i18n-fix | ✅ |
-| 6F | Documentatie bijwerken (Word/Excel) | ✅ |
-| 7A | Analyse-laag: reeksen, aggregatie, read-only service | ✅ |
-| 7B | Analyse-pagina: QtCharts, filters, hub-knop, menu, i18n | ✅ |
-| 7C | Documentatie bijwerken (changelog, openvragen, overdracht) | ✅ |
-| 8A | Rapportdatamodel + service + pure HTML-renderer | ✅ |
-| 8B.1 | Multitool-neutraliteit in service + renderer | ✅ |
-| 8B.2 | PDF-export + optionele grafiek | ✅ |
-| 8B.2a | Scatter-schaling vóór filteren + `apply_language` split | ✅ |
-| 8B.2b | `applyNiceNumbers` weg + x-as-klem | ✅ |
-| 8C | GUI: menu-item, knop in historiek, `ReportDialog` | ✅ |
-| 8D | Settings-uitbreiding (auteur, rapportmap, grafiek_default) | ✅ |
-| 8D+ | i18n-fix `app.ja`/`app.nee`, enum-vertaling in rapport, PDF-fonts | ✅ |
-| 8E | Documentatie bijwerken (changelog 1.8, openvragen, overdracht) | ✅ |
+| 0 t/m 8E | (zie changelog en eerdere overdrachten) | ✅ |
 | 9A | Versie, `QT_QPA_FONTDIR`, `setApplicationVersion`, icoonmap | ✅ |
 | 9A.1 | Over-dialoog met versie + bugfix help/changelog-titels | ✅ |
 | 9B.1 | `bump_version.py` | ✅ |
 | 9B.2 | `ESR_Tester.spec` + `build_installer.bat` | ✅ |
-| 9C | Inno Setup installer (`installer.iss` gegenereerd in batch) | ✅ |
-| 9D | Signing (`signtool`, certificaatpreflight, verify) | ✅ |
-| 9E | GitHub Release (`publish.ps1`, `build_and_publish.ps1`) | ✅ |
-| 9F | **Intune/Defender/CFA-testmatrix + `docs/packaging.md`** | **✅** |
-| 9G | **Bug/feature-rapportage naar GitHub** | **Volgende** |
-| 9H | Update-check bij opstarten + via Help | Gepland |
+| 9C | Inno Setup installer | ✅ |
+| 9D | Signing | ✅ |
+| 9E | GitHub Release | ✅ |
+| 9F | Intune/Defender/CFA-testmatrix + `docs/packaging.md` | ✅ |
+| **9G** | **Bug/feature-rapportage naar GitHub** | **✅** |
+| **9H** | **Update-check bij opstarten + via Help** | **Volgende** |
 | 10 | Praktische ESR-validatie | Gepland |
 | 11 | Laatste UX/documentatie-afwerking | Gepland |
 | 12 | AI-extractie uit fabrikantdocumenten | Gepland |
@@ -570,74 +424,88 @@ Volgens het stappenplan:
 | 14 | Goedgekeurde fabrikantdata koppelen aan assessment | Gepland |
 | 15 | Tweede diagnosetool — Resistor | Gepland |
 
-**Vervallen:** het oorspronkelijke 9G ("Icoon in `.spec` en `.iss`") is
-al gedaan in 9C+9D. Het nummer 9G wordt hergebruikt voor de
-GitHub-feedbackfase.
-
 ---
 
-## 5. WAT IS NIEUW SINDS VERSIE 4.1.0
+## 5. WAT IS NIEUW SINDS VERSIE 4.2.0
 
-### 5.1 Fase 9F — Intune/Defender/CFA-testmatrix + `docs/packaging.md`
+### 5.1 Fase 9G — Bug/feature-rapportage naar GitHub
 
+- **Uniform pakket uitgerold** volgens `GITHUB_FEEDBACK_UITROL.md`:
+  vijf identieke bestanden in de projectroot, één app-specifieke
+  config, één niet-getrackt tokenbestand.
 - **Nieuwe bestanden:**
-  - `docs/testmatrix_defender_intune.md` (v1.0.0) — testmatrix voor
-    gewone Windows-pc en Intune-beheerde pc. Bewezen status 2026-10-13:
-    beide types werken. WDAC/AppLocker bevestigd **niet actief**.
-  - `docs/packaging.md` (v1.0.0) — build-flow, signing, distributie,
-    testmatrix, checklist. Project-eigen tegenhanger van
-    `05-signing-build-context.md` en `signingContext.md`.
+  - `github_feedback.py` (v1.0.0) — GitHubFeedbackClient, geen Qt,
+    geen token.
+  - `bug_report_dialog.py` (v2.0.0) — BugDialog.
+  - `github_cases.py` (v2.0.0) — show_github_cases.
+  - `check_github_secret.py` (v1.0.0) — build-controle.
+  - `github_secret_local.example.py` (v1.0.0) — sjabloon.
+  - `github_feedback_config.py` (v1.0.0) — app-specifiek.
+  - `tests/test_github_feedback_config.py` (v1.0.0) — 10 tests.
+  - `tests/test_github_feedback_client.py` (v1.0.0) — 22 tests.
+  - `tests/test_check_github_secret.py` (v1.0.1) — 11 tests.
+  - `tests/test_main_window_reporting_menu.py` (v1.0.1) — 10 tests.
 - **Gewijzigde bestanden:**
-  - `.gitattributes` — regel
-    `releases/latest/version.txt text eol=lf` toegevoegd. LF/CRLF-
-    waarschuwing opgelost.
-  - `.gitignore` — regel `!ESR_Tester.spec` toegevoegd. De spec wordt
-    nu meegecommit.
-  - `docs/openvragen.md` (v2.0.0) — §2.19 (WDAC/AppLocker beantwoord),
-    §2.20 (9F-status), §4.10 (eerste Intune-installatie).
-- **Geen Python-code gewijzigd.** Baseline blijft 1150 passed.
-- **Bewezen op 2026-10-13:** installer met succes geïnstalleerd op een
-  uitgerolde Intune-beheerde Windows-machine, met de Defender-indicator
-  actief. Geen SmartScreen-blokkade, geen quarantaine, app start
-  correct. Op een gewone Windows-pc werkt de SmartScreen-omzeiling
-  ("More info → Run anyway").
+  - `.gitignore` — `*_secret_local.py` toegevoegd.
+  - `app/gui/main_window.py` — v2.11.6 → v2.12.0. Nieuw menu
+    "Rapporteren" tussen Diagnose en Instellingen. Nieuwe methoden
+    `_show_bug_report_dialog()` en `_show_open_cases()`.
+  - `i18n/locales/nl_NL/app.json` — 3 nieuwe keys.
+  - `i18n/locales/en_US/app.json` — 3 nieuwe keys.
+  - `ESR_Tester.spec` — v2.0.0 → v2.1.0. Controleblok + twee
+    `hiddenimports`.
+- **Nieuwe i18n-keys:**
 
-### 5.2 Gewijzigde bestanden sinds 4.1.0
+  | Key | NL | EN |
+  |---|---|---|
+  | `menu.rapporteren` | `Rapporteren` | `Report` |
+  | `menu.bug_melden` | `🐞 Bug of feature melden…` | `🐞 Report a bug or feature…` |
+  | `menu.open_cases` | `Open cases tonen` | `Show open cases` |
+
+- **Bewezen op 2026-10-14:** een testbug en een testfeature zijn
+  succesvol aangemaakt als GitHub Issues met de juiste labels, en
+  worden correct getoond in het "Open cases"-scherm.
+- **Baseline:** van 1150 naar **1203 passed** (+53 tests).
+
+### 5.2 Gewijzigde bestanden sinds 4.2.0
 
 | Bestand | Versie / status |
 |---|---|
-| `docs/testmatrix_defender_intune.md` | **nieuw** (v1.0.0) |
-| `docs/packaging.md` | **nieuw** (v1.0.0) |
-| `docs/openvragen.md` | v2.0.0 (was v1.9.0) |
-| `.gitattributes` | `eol=lf`-regel toegevoegd |
-| `.gitignore` | `!ESR_Tester.spec` toegevoegd |
-
-Geen wijzigingen aan Python-code. Geen wijzigingen aan de buildstraat.
+| `.gitignore` | `*_secret_local.py` toegevoegd |
+| `app/gui/main_window.py` | v2.12.0 (was v2.11.6) |
+| `ESR_Tester.spec` | v2.1.0 (was v2.0.0) |
+| `i18n/locales/nl_NL/app.json` | 3 nieuwe keys |
+| `i18n/locales/en_US/app.json` | 3 nieuwe keys |
+| `github_feedback.py` | **nieuw** (v1.0.0) |
+| `bug_report_dialog.py` | **nieuw** (v2.0.0) |
+| `github_cases.py` | **nieuw** (v2.0.0) |
+| `check_github_secret.py` | **nieuw** (v1.0.0) |
+| `github_secret_local.example.py` | **nieuw** (v1.0.0) |
+| `github_feedback_config.py` | **nieuw** (v1.0.0) |
+| `github_secret_local.py` | **nieuw** (niet in git) |
+| `tests/test_github_feedback_config.py` | **nieuw** (v1.0.0) |
+| `tests/test_github_feedback_client.py` | **nieuw** (v1.0.0) |
+| `tests/test_check_github_secret.py` | **nieuw** (v1.0.1) |
+| `tests/test_main_window_reporting_menu.py` | **nieuw** (v1.0.1) |
+| `docs/changelog.md` | Versie 1.10 toegevoegd |
+| `docs/openvragen.md` | v2.2.0 (was v2.1.0) |
+| `overdracht.md` | v4.3.0 (dit bestand) |
 
 ### 5.3 Teststatus
 
-**Baseline: 1150 passed** (ongewijzigd t.o.v. 4.1.0). 9F raakt geen
-Python-code; er zijn geen nieuwe tests toegevoegd. `pytest -q` na 9F:
-**1150 passed in 45.11s**.
+**Baseline: 1203 passed.** Was 1150 in v4.2.0. De 53 nieuwe tests:
 
-### 5.4 Nieuwe openstaande punten (uit 9F-sessie)
+| Bestand | Aantal |
+|---|---|
+| `tests/test_github_feedback_config.py` | 10 |
+| `tests/test_github_feedback_client.py` | 22 |
+| `tests/test_check_github_secret.py` | 11 |
+| `tests/test_main_window_reporting_menu.py` | 10 |
+| **Totaal** | **53** |
 
-De gebruiker heeft tijdens de 9F-sessie drie nieuwe punten
-aangebracht voor een latere opruimfase (fase 11):
+Volledige suite: **1203 passed in 32.26s**.
 
-1. **Visuele selectie in Analyse** — nu alleen via filters, maar de
-   end user moet ook visueel (in de grafiek of een lijst) bepaalde
-   bewaarde testen kunnen selecteren.
-2. **Checkbox-zichtbaarheid in donker thema** — de filter-checkbox op
-   Analyse en History is onvoldoende zichtbaar. Checkboxen moeten
-   visueel duidelijk zijn op het donkere thema.
-3. **i18n-menging in Diagnose/Result** — het Result-venster en het
-   Resultaatdetails-venster mengen Engels en Nederlands. Vertalingen
-   lopen door elkaar. Moet consequent één taal tonen.
-
-Deze zijn opgenomen in `docs/openvragen.md` §2.21 en in de fase-11-lijst.
-
-### 5.5 Bekende beperkingen (ongewijzigd t.o.v. 4.1.0)
+### 5.4 Bekende beperkingen (ongewijzigd t.o.v. 4.2.0, plus nieuwe)
 
 - Geen OCR voor gescande PDF's.
 - `.doc` en `.xls` worden geweigerd.
@@ -646,14 +514,18 @@ Deze zijn opgenomen in `docs/openvragen.md` §2.21 en in de fase-11-lijst.
 - Geen bulk-edit / bulk-statuswijziging.
 - Geen reden bij archiveren.
 - Cosmetische scrollbar in Word-samenvatting.
-- Analyse-pagina: geen zoom/pan, geen PNG/PDF-export.
+- Analyse-pagina: geen zoom/pan, geen PNG/PDF-export, geen visuele
+  selectie.
 - Rapportage: alleen "één meting" in de GUI.
-- **Geen bug/feature-rapportage** — volgt in 9G.
 - **Geen update-check** — volgt in 9H. De "latest"-pointer is sinds
   9E beschikbaar.
 - Pandas-pin `<3`, numpy als directe dependency.
 - Defender-indicator op Intune-pc's vereist eenmalige `.cer`-upload.
-- **WDAC/AppLocker:** bevestigd **niet actief** (2026-10-13).
+- WDAC/AppLocker: bevestigd **niet actief** (2026-10-13).
+- **GitHub-token per app.** Elk token heeft alleen toegang tot één
+  repo (fine-grained). Eén token per app, niet delen.
+- **Meldingen zijn publiek leesbaar** — de repo is publiek. Houd
+  testtekst neutraal.
 
 ---
 
@@ -692,7 +564,7 @@ Deze zijn opgenomen in `docs/openvragen.md` §2.21 en in de fase-11-lijst.
 ## 7. TESTSTATUS — BASELINE EN TESTSTRUCTUUR
 
 **Datum:** 2026-10-14
-**Baseline:** 1150 passed
+**Baseline:** 1203 passed
 **Werkwijze:** eerst gerichte tests, dan volledige `pytest -q`.
 
 ### 7.1 Commando's
@@ -722,15 +594,14 @@ def _app():
 
 **Geen `pytest-qt`, geen `qtbot`.**
 
+**Belangrijk:** bewaar nooit een `QMenu`- of `QAction`-pointer tussen
+twee `processEvents()`-rondes. `_apply_language()` ruimt de menu's op
+met `menubar.clear()` + `deleteLater()`. Lees altijd alles in één keer
+uit en geef strings terug.
+
 ### 7.3 Voor leesbare PDF's
 
-Sinds fase 9A zet `main.py` de variabele automatisch. De handmatige
-stap blijft geldig als je de variabele zelf wilt zetten:
-
-```powershell
-$env:QT_QPA_FONTDIR = "C:\Windows\Fonts"
-python main.py
-```
+Sinds fase 9A zet `main.py` de variabele automatisch.
 
 ### 7.4 Build testen
 
@@ -750,28 +621,28 @@ Resultaat:
 - `dist\ESR_Tester_<versie>\ESR_Tester.exe` (gesigned)
 - `dist\ESR_TesterSetup_<versie>.exe` (gesigned)
 
-Verifieer:
-
-```powershell
-$v = (Select-String -Path "app\version.py" -Pattern '__version__\s*=\s*"(\d+\.\d+\.\d+)"').Matches.Groups[1].Value
-& "C:\Program Files (x86)\Windows Kits\10\bin\x64\signtool.exe" verify /pa /v "dist\ESR_Tester_$v\ESR_Tester.exe"
-& "C:\Program Files (x86)\Windows Kits\10\bin\x64\signtool.exe" verify /pa /v "dist\ESR_TesterSetup_$v.exe"
-```
+**Let op sinds 9G:** `ESR_Tester.spec` roept `check_github_secret.py`
+aan vóór de build. Zonder geldig token stopt de build. Zorg dus dat
+`github_secret_local.py` bestaat en gevuld is.
 
 ### 7.5 Publiceren (fase 9E)
 
 ```powershell
-# Publiceert de installer uit dist\ naar GitHub.
-# Leest de versie uit app/version.py, doet de release-gate,
-# maakt de release, uploadt de asset, schrijft version.txt en pusht.
 .\publish.ps1
 ```
 
-Resultaat:
+### 7.6 GitHub-token controleren (fase 9G)
 
-- GitHub-release `v<versie>` met asset `ESR_TesterSetup_<versie>.exe`
-- `releases/latest/version.txt` met 2 regels (versie + URL)
-- `app/version.py` en `releases/latest/version.txt` gepusht
+```powershell
+# Volledige controle
+python check_github_secret.py
+
+# Zonder token (enkel git-controles)
+python check_github_secret.py --skip-token
+
+# Zonder online test
+python check_github_secret.py --skip-online
+```
 
 ---
 
@@ -787,32 +658,18 @@ Voor een nieuwe sessie heeft de chat meestal nodig:
 
 Bij een specifieke fase vraagt de chat om de bestanden die de fase raakt.
 
-**Voor fase 9G (bug/feature-rapportage naar GitHub):**
-
-- `GITHUB_FEEDBACK_UITROL.md` — het volledige uitrolpakket
-- `main.py` — entry point, om te zien waar het menu wordt opgebouwd
-- `app/gui/main_window.py` — huidige versie (v2.11.6) — hier komt het
-  menu "Rapporteren" bij
-- `requirements.txt` — om `requests` toe te voegen
-- `ESR_Tester.spec` — huidige versie (v2.0.0) — controleblok +
-  `hiddenimports`
-- `app/version.py` — huidige versie (1.0.3) — voor
-  `get_app_version()`
-- `i18n/locales/nl_NL/app.json` — huidige versie
-- `i18n/locales/en_US/app.json` — huidige versie
-- `.gitignore` — huidige versie (na 9F)
-- De vijf identieke pakketbestanden uit `C:\searcharticle_code`:
-  `github_feedback.py`, `bug_report_dialog.py`, `github_cases.py`,
-  `check_github_secret.py`, `github_secret_local.example.py`
-- `github_feedback_config.py` — sjabloon uit ArticleSearch
-
-**Voor fase 9H (update-check):**
+**Voor fase 9H (update-check bij opstarten + via Help):**
 
 - `releases/latest/version.txt` — de "latest"-pointer
 - `publish.ps1` — om te zien welk formaat de pointer heeft
 - `main.py` — waar de check moet komen
-- `app/gui/main_window.py` — voor het Help-menu-item
-- `updater.py` — als die al bestaat in ArticleSearch, als voorbeeld
+- `app/gui/main_window.py` — huidige versie (v2.12.0) — voor het
+  Help-menu-item
+- `app/version.py` — huidige versie (1.0.3) — om te vergelijken
+- `updater.py` — als die bestaat in ArticleSearch (`C:\searcharticle_code`),
+  als voorbeeld (v1.3.0)
+- `i18n/locales/nl_NL/app.json` — voor nieuwe i18n-keys
+- `i18n/locales/en_US/app.json` — idem
 
 ---
 
@@ -827,12 +684,12 @@ Bij een specifieke fase vraagt de chat om de bestanden die de fase raakt.
 - Lever volledige JSON-bestanden, nooit fragmenten.
 - Draai eerst gerichte tests, dan volledige `pytest -q`.
 - Meld nieuwe i18n-keys expliciet, met de waarde voor NL én EN.
-- Python-headers zijn cumulatief. Nieuwe versies krijgen een nieuwe
-  regel bovenaan de `Wijzigingen:`-lijst; oudere regels blijven staan.
+- Python-headers zijn cumulatief.
 - **Bij het leveren van `.md`-bestanden die zelf codeblokken bevatten:
   gebruik viervoudige backticks.**
-- **De ArticleSearch-flow is de bewezen build-flow.** Wijk daar niet
-  meer van af.
+- **De ArticleSearch-flow is de bewezen build-flow.**
 - **Nooit een GitHub-token in een getrackt bestand, chat of
   context-document zetten.**
+- **Bewaar nooit een QMenu- of QAction-pointer tussen twee
+  `processEvents()`-rondes in een GUI-test.**
 - Geen aannames over de eerstvolgende fase — vraag het na.

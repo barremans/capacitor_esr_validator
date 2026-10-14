@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.11.6
-Datum:      2026-10-13
+Versie:     2.12.0
+Datum:      2026-10-14
 Auteur:     Bart Bossuyt
 
 Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
@@ -78,6 +78,22 @@ Wijzigingen:
                           en dialog.changelog_title. Zonder deze fix toonden
                           de Help- en Wijzigingslog-vensters de ruwe key in
                           hun titelbalk.
+  v2.12.0 (2026-10-14) Fase 9G: bug/feature-rapportage naar GitHub via het
+                        uniforme feedbackpakket (github_feedback.py,
+                        bug_report_dialog.py, github_cases.py). Nieuw menu
+                        "Rapporteren" tussen Diagnose en Instellingen met
+                        twee acties:
+                          - "Bug of feature melden…" opent BugDialog(self).
+                          - "Open cases tonen" opent show_github_cases(self).
+                        Nieuwe i18n-keys: menu.rapporteren, menu.bug_melden,
+                        menu.open_cases (NL + EN). De imports van
+                        bug_report_dialog en github_cases staan binnen de
+                        methoden, niet bovenaan: de pakketbestanden staan
+                        in de projectroot en worden pas geladen als de
+                        gebruiker het menu-item effectief aanklikt. Dat
+                        houdt de opstarttijd laag en vermijdt een harde
+                        afhankelijkheid bij het importeren van deze module
+                        in tests.
 ================================================================================
 """
 
@@ -375,6 +391,14 @@ class ToolHubWindow(QMainWindow):
         v2.11.2: elke QAction krijgt het menu als parent, niet het window.
         Daardoor worden de acties automatisch opgeruimd wanneer het menu
         wordt opgeruimd, ook zonder draaiende event loop.
+
+        v2.12.0 (9G): nieuw menu "Rapporteren" met bug-/feature-melding
+        en "Open cases tonen". De imports van de pakketbestanden staan
+        bewust binnen de methoden — de bestanden staan in de projectroot
+        en worden pas geladen als de gebruiker het menu-item effectief
+        aanklikt. Dat houdt de opstarttijd laag en vermijdt een harde
+        afhankelijkheid in tests die alleen de rest van het venster nodig
+        hebben.
         """
         menubar = self.menuBar()
 
@@ -410,6 +434,19 @@ class ToolHubWindow(QMainWindow):
         analysis_action.setShortcut(QKeySequence("Ctrl+A"))
         analysis_action.triggered.connect(self._show_analysis)
         diagnose_menu.addAction(analysis_action)
+
+        # v2.12.0 (9G): nieuw menu "Rapporteren" tussen Diagnose en
+        # Instellingen. Bevat twee acties: een bug-/feature-melding
+        # versturen, en de open meldingen tonen.
+        report_menu = menubar.addMenu(self._t("menu.rapporteren"))
+
+        bug_report_action = QAction(self._t("menu.bug_melden"), report_menu)
+        bug_report_action.triggered.connect(self._show_bug_report_dialog)
+        report_menu.addAction(bug_report_action)
+
+        open_cases_action = QAction(self._t("menu.open_cases"), report_menu)
+        open_cases_action.triggered.connect(self._show_open_cases)
+        report_menu.addAction(open_cases_action)
 
         settings_menu = menubar.addMenu(self._t("menu.instellingen"))
 
@@ -600,6 +637,24 @@ class ToolHubWindow(QMainWindow):
             return selector()
         except Exception:
             return None
+
+    def _show_bug_report_dialog(self) -> None:
+        """v2.12.0 (9G): opent het bug-/feature-meldscherm.
+
+        De import staat binnen de methode: de pakketbestanden staan in de
+        projectroot en worden pas geladen als de gebruiker het menu-item
+        effectief aanklikt. Dat houdt de opstarttijd laag en vermijdt een
+        harde afhankelijkheid bij het importeren van deze module in tests.
+        """
+        from bug_report_dialog import BugDialog
+
+        BugDialog(self).exec()
+
+    def _show_open_cases(self) -> None:
+        """v2.12.0 (9G): toont de open bugmeldingen en feature-aanvragen."""
+        from github_cases import show_github_cases
+
+        show_github_cases(self)
 
     def closeEvent(self, event):
         if hasattr(self, "stack"):
