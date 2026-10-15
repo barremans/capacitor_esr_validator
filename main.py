@@ -2,8 +2,8 @@
 ================================================================================
 Module:     main.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.3.0
-Datum:      2026-10-13
+Versie:     1.4.0
+Datum:      2026-10-14
 Auteur:     Bart Bossuyt
 
 Doel:       Entry point. Start de Qt6 GUI met donker thema en ToolHubWindow.
@@ -28,6 +28,12 @@ Wijzigingen:
                         - app.setApplicationVersion(__version__) toegevoegd
                           zodat de versie centraal beschikbaar is voor
                           QApplication (o.a. voor de Over-dialoog).
+  v1.4.0 (2026-10-14)  Fase 9H (update-check):
+                        - ToolHubWindow krijgt check_on_startup mee. De
+                          waarde komt uit settings.json
+                          (algemeen.controleer_updates_bij_opstarten,
+                          default True). main.py geeft de waarde door;
+                          de GUI plant daarna de niet-blokkerende check.
 ================================================================================
 """
 
@@ -74,7 +80,10 @@ def main():
     apply_dark_theme(app)
 
     instellingen = laad_instellingen()
-    window = ToolHubWindow(taal=instellingen.taal)
+    window = ToolHubWindow(
+        taal=instellingen.taal,
+        check_on_startup=instellingen.algemeen.controleer_updates_bij_opstarten,
+    )
     window.show()
 
     sys.exit(app.exec())

@@ -46,6 +46,18 @@ De zoektaal ondersteunt eenvoudige tekens:
 Druk op **F1** of gebruik de knop met het vraagteken naast het zoekveld
 voor een uitgebreide uitleg met voorbeelden.
 
+## Updates
+
+De applicatie controleert bij het opstarten eenmalig en niet-blokkerend
+of er een nieuwere versie beschikbaar is. Je kunt die controle ook
+handmatig uitvoeren via **Help → Controleren op updates…**.
+
+Als er een nieuwere versie is, verschijnt een melding met de knop
+**Downloaden**. Die opent de downloadpagina in je browser. Via
+**Instellingen → Algemeen** kun je de automatische controle bij het
+opstarten uitschakelen; de handmatige controle blijft altijd
+beschikbaar.
+
 ## Sneltoetsen
 
 - **Globaal:** Ctrl+Q (afsluiten), Ctrl+E (ESR-test), F1 (help).

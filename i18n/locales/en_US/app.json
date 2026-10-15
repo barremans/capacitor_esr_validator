@@ -21,7 +21,8 @@
     "document_importeren": "Import document…",
     "rapport": "Create report…",
     "bug_melden": "🐞 Report a bug or feature…",
-    "open_cases": "Show open cases"
+    "open_cases": "Show open cases",
+    "controleren_op_updates": "Check for updates…"
   },
   "tool": {
     "diagnose": "Diagnostics",
@@ -46,8 +47,22 @@
     "over_tekst": "Electronics Diagnostic Tool Hub\nCapacitor and ESR validator\n\nVersion: {versie}",
     "changelog_title": "Changelog",
     "help_title": "Help",
+    "sluiten": "Close",
     "afsluiten_titel": "Exit application",
     "afsluiten_tekst": "Do you really want to exit the application?"
+  },
+  "update": {
+    "titel": "Check for updates",
+    "nieuwer_bericht": "A newer version is available.\n\nCurrent version: {huidig}\nLatest version: {nieuw}\n\nDo you want to download the latest version?",
+    "geen_update": "You are using the latest version ({versie}).",
+    "downloaden": "Download",
+    "wat_is_er_nieuw": "What's new?",
+    "release_notes_titel": "What's new?",
+    "release_notes_fout": "Could not fetch the release notes. You can view them on GitHub.",
+    "open_op_github": "Open on GitHub",
+    "later": "Later",
+    "fout_titel": "Update check failed",
+    "fout_bericht": "Could not connect to check for updates. Check your internet connection and try again later."
   },
   "tool_type": {
     "ESR_CAPACITOR": "ESR / Capacitor"

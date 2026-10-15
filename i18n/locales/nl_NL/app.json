@@ -21,7 +21,8 @@
     "document_importeren": "Document importeren…",
     "rapport": "Rapport maken…",
     "bug_melden": "🐞 Bug of feature melden…",
-    "open_cases": "Open cases tonen"
+    "open_cases": "Open cases tonen",
+    "controleren_op_updates": "Controleren op updates…"
   },
   "tool": {
     "diagnose": "Diagnose",
@@ -46,8 +47,22 @@
     "over_tekst": "Electronics Diagnostic Tool Hub\nCondensator- en ESR-validator\n\nVersie: {versie}",
     "changelog_title": "Wijzigingslog",
     "help_title": "Help",
+    "sluiten": "Sluiten",
     "afsluiten_titel": "Applicatie afsluiten",
     "afsluiten_tekst": "Wil je de applicatie echt afsluiten?"
+  },
+  "update": {
+    "titel": "Update controleren",
+    "nieuwer_bericht": "Er is een nieuwere versie beschikbaar.\n\nHuidige versie: {huidig}\nNieuwste versie: {nieuw}\n\nWil je de nieuwste versie downloaden?",
+    "geen_update": "Je gebruikt de nieuwste versie ({versie}).",
+    "downloaden": "Downloaden",
+    "wat_is_er_nieuw": "Wat is er nieuw?",
+    "release_notes_titel": "Wat is er nieuw?",
+    "release_notes_fout": "Kon de release notes niet ophalen. Je kunt ze op GitHub bekijken.",
+    "open_op_github": "Open op GitHub",
+    "later": "Later",
+    "fout_titel": "Update controleren mislukt",
+    "fout_bericht": "Kon geen verbinding maken om te controleren op updates. Controleer je internetverbinding en probeer het later opnieuw."
   },
   "tool_type": {
     "ESR_CAPACITOR": "ESR / Condensator"

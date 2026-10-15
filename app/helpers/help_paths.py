@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/helpers/help_paths.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-06
+Versie:     1.1.0
+Datum:      2026-10-15
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-onafhankelijke resolutie van het juiste help-markdownbestand
@@ -19,8 +19,20 @@ Doel:       GUI-onafhankelijke resolutie van het juiste help-markdownbestand
             elke taalcode die in i18n/locales/ bestaat kan een eigen help-bestand
             krijgen zonder codewijziging.
 
+            Sinds v1.1.0 deelt dezelfde resolver ook de changelog: zie
+            changelog_pad_voor_taal(). Die gebruikt exact dezelfde fallback-
+            keten, maar met docs/changelog/ als submap en docs/changelog.md
+            als legacy. Zo blijft er één patroon voor alle meertalige
+            documenten in het project.
+
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie (Fase 4H).
+  v1.1.0 (2026-10-15)  Fase 9H-afronding: changelog_pad_voor_taal() en
+                        changelog_pad_bestaat_voor_taal() toegevoegd,
+                        dunne wrappers rond help_pad_voor_taal() met
+                        submaps="changelog" en
+                        legacy_bestandsnaam="changelog.md". Zo gebruikt de
+                        changelog exact dezelfde fallback-keten als Help.
 ================================================================================
 """
 
@@ -134,6 +146,53 @@ def help_pad_bestaat_voor_taal(
             fallback_taal=fallback_taal,
             legacy_bestandsnaam=legacy_bestandsnaam,
             submaps=submaps,
+        )
+    except FileNotFoundError:
+        return False
+    return True
+
+
+# ---------------------------------------------------------------------------
+# v1.1.0: changelog-resolutie — dezelfde fallback-keten als Help.
+# ---------------------------------------------------------------------------
+def changelog_pad_voor_taal(
+    taal: str,
+    *,
+    docs_root: Path | None = None,
+    fallback_taal: str = STANDAARD_FALLBACK_TAAL,
+) -> Path:
+    """Los het changelog-markdownbestand op voor de opgegeven taal.
+
+    Fallback-keten (identiek aan Help):
+      1. docs/changelog/<taal>.md
+      2. docs/changelog/<fallback>.md   (standaard nl_NL)
+      3. docs/changelog.md              (legacy)
+      4. FileNotFoundError
+
+    Dunne wrapper rond help_pad_voor_taal() met aangepaste submaps en
+    legacy_bestandsnaam, zodat de fallback-logica op één plek blijft.
+    """
+    return help_pad_voor_taal(
+        taal,
+        docs_root=docs_root,
+        fallback_taal=fallback_taal,
+        legacy_bestandsnaam="changelog.md",
+        submaps="changelog",
+    )
+
+
+def changelog_pad_bestaat_voor_taal(
+    taal: str,
+    *,
+    docs_root: Path | None = None,
+    fallback_taal: str = STANDAARD_FALLBACK_TAAL,
+) -> bool:
+    """True als er voor deze taal een bruikbare changelog bestaat."""
+    try:
+        changelog_pad_voor_taal(
+            taal,
+            docs_root=docs_root,
+            fallback_taal=fallback_taal,
         )
     except FileNotFoundError:
         return False

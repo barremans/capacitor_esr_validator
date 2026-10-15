@@ -2,13 +2,13 @@
 ================================================================================
 Module:     tests/test_main_window_help_menu.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.2
-Datum:      2026-10-05
+Versie:     1.1.0
+Datum:      2026-10-14
 Auteur:     Bart Bossuyt
 
-Doel:       Regressietests voor het Help-menu-item "Documentatie zoeken…"
-            (Fase 4E.4). Controleert aanwezigheid, positie, i18n-tekst,
-            afwezigheid van shortcut en dialooggedrag.
+Doel:       Regressietests voor het Help-menu in ToolHubWindow. Oorspronkelijk
+            (Fase 4E.4) alleen voor "Documentatie zoeken…". Sinds fase 9H
+            ook voor "Controleren op updates…".
 
 Wijzigingen:
   v1.0.2 (2026-10-05)  Taalonafhankelijk gemaakt. De applicatie start met de
@@ -17,6 +17,12 @@ Wijzigingen:
                        expliciet een taal waar de tekst zelf getest wordt.
   v1.0.1 (2026-10-05)  Robuuster zoeken op substring i.p.v. exacte match.
   v1.0.0 (2026-10-05)  Eerste versie.
+  v1.1.0 (2026-10-14)  Fase 9H: Help-menu heeft nu 5 niet-lege items
+                       (Help, Documentatie zoeken…, Changelog,
+                       Controleren op updates…, Over). Structuurtests
+                       aangepast; nieuwe tests voor het update-item.
+                       window wordt in elke test met check_on_startup=False
+                       gebouwd, zodat de opstartcheck niet interfereert.
 ================================================================================
 """
 
@@ -67,17 +73,31 @@ def _zoek_item(menu: QMenu) -> QAction:
     return acties[1]
 
 
+def _update_item(menu: QMenu) -> QAction:
+    """Het 'Controleren op updates…'-item, ongeacht taal.
+
+    Het staat tussen het Changelog-item en het Over-item, dus op
+    positie 3 (0-based) van de niet-lege acties.
+    """
+    acties = _niet_lege_acties(menu)
+    assert len(acties) >= 5, (
+        f"Help-menu heeft onverwachte structuur: "
+        f"{[a.text() for a in acties]}"
+    )
+    return acties[3]
+
+
 def test_help_menu_bevat_documentatie_zoeken_item():
     _app()
-    window = ToolHubWindow()
+    window = ToolHubWindow(check_on_startup=False)
     menu = _help_menu(window)
 
     acties = _niet_lege_acties(menu)
     teksten = [a.text() for a in acties]
 
-    assert len(acties) == 4, (
-        f"Verwacht 4 items (Help, Documentatie zoeken…, Changelog, About), "
-        f"kreeg: {teksten}"
+    assert len(acties) == 5, (
+        f"Verwacht 5 items (Help, Documentatie zoeken…, Changelog, "
+        f"Controleren op updates…, About), kreeg: {teksten}"
     )
 
     # Het tweede item is het nieuwe zoek-help-item. De tekst eindigt op een
@@ -91,7 +111,7 @@ def test_help_menu_bevat_documentatie_zoeken_item():
 
 def test_documentatie_zoeken_item_heeft_geen_shortcut():
     _app()
-    window = ToolHubWindow()
+    window = ToolHubWindow(check_on_startup=False)
     menu = _help_menu(window)
     action = _zoek_item(menu)
 
@@ -102,14 +122,14 @@ def test_documentatie_zoeken_item_heeft_geen_shortcut():
 
 def test_documentatie_zoeken_staat_tussen_help_en_changelog():
     _app()
-    window = ToolHubWindow()
+    window = ToolHubWindow(check_on_startup=False)
     menu = _help_menu(window)
 
     acties = _niet_lege_acties(menu)
     teksten = [a.text() for a in acties]
 
-    # Structuur: [Help, Documentatie zoeken…, Changelog, About]
-    assert len(acties) == 4, f"Onverwachte structuur: {teksten}"
+    # Structuur: [Help, Documentatie zoeken…, Changelog, Updates…, About]
+    assert len(acties) == 5, f"Onverwachte structuur: {teksten}"
 
     def _bevat(tekst: str, *fragmenten: str) -> bool:
         laag = tekst.lower()
@@ -118,12 +138,13 @@ def test_documentatie_zoeken_staat_tussen_help_en_changelog():
     assert _bevat(acties[0].text(), "help"), teksten
     assert _bevat(acties[1].text(), "documentation", "documentatie"), teksten
     assert _bevat(acties[2].text(), "changelog", "wijzigingslog"), teksten
-    assert _bevat(acties[3].text(), "about", "over"), teksten
+    assert _bevat(acties[3].text(), "update"), teksten
+    assert _bevat(acties[4].text(), "about", "over"), teksten
 
 
 def test_trigger_opent_search_help_dialog(monkeypatch):
     _app()
-    window = ToolHubWindow()
+    window = ToolHubWindow(check_on_startup=False)
     menu = _help_menu(window)
     action = _zoek_item(menu)
 
@@ -152,7 +173,7 @@ def test_trigger_opent_search_help_dialog(monkeypatch):
 def test_documentatie_zoeken_item_vertaalt_mee():
     """Forceer expliciet beide talen, ongeacht de opgeslagen gebruikersinstelling."""
     _app()
-    window = ToolHubWindow()
+    window = ToolHubWindow(check_on_startup=False)
 
     # Forceer NL
     window._set_language("nl_NL")
@@ -169,3 +190,79 @@ def test_documentatie_zoeken_item_vertaalt_mee():
     assert "documentation" in item_en.text().lower(), (
         f"EN-tekst onverwacht: '{item_en.text()}'"
     )
+
+
+# ============================================================================
+# v1.1.0 — Help-menu-item "Controleren op updates…" (fase 9H)
+# ============================================================================
+
+def test_help_menu_bevat_update_item():
+    _app()
+    window = ToolHubWindow(check_on_startup=False)
+    menu = _help_menu(window)
+
+    item = _update_item(menu)
+    tekst = item.text().lower()
+    assert "update" in tekst, f"Onverwachte tekst: '{item.text()}'"
+
+
+def test_update_item_staat_tussen_changelog_en_over():
+    _app()
+    window = ToolHubWindow(check_on_startup=False)
+    menu = _help_menu(window)
+
+    acties = _niet_lege_acties(menu)
+    teksten = [a.text().lower() for a in acties]
+
+    idx_changelog = next(
+        i for i, t in enumerate(teksten)
+        if "changelog" in t or "wijzigingslog" in t
+    )
+    idx_update = next(i for i, t in enumerate(teksten) if "update" in t)
+    idx_over = next(
+        i for i, t in enumerate(teksten)
+        if "about" in t or "over" in t
+    )
+    assert idx_changelog < idx_update < idx_over, teksten
+
+
+def test_update_item_heeft_geen_shortcut():
+    _app()
+    window = ToolHubWindow(check_on_startup=False)
+    menu = _help_menu(window)
+    action = _update_item(menu)
+
+    assert action.shortcut().isEmpty(), (
+        f"Onverwachte shortcut: {action.shortcut().toString()}"
+    )
+
+
+def test_update_item_vertaalt_mee():
+    _app()
+    window = ToolHubWindow(check_on_startup=False)
+
+    window._set_language("nl_NL")
+    menu_nl = _help_menu(window)
+    assert "update" in _update_item(menu_nl).text().lower()
+
+    window._set_language("en_US")
+    menu_en = _help_menu(window)
+    assert "update" in _update_item(menu_en).text().lower()
+
+
+def test_trigger_update_item_roept_handmatige_check_aan(monkeypatch):
+    _app()
+    window = ToolHubWindow(check_on_startup=False)
+    menu = _help_menu(window)
+    action = _update_item(menu)
+
+    aangeroepen = {"n": 0}
+
+    def _fake_check():
+        aangeroepen["n"] += 1
+
+    monkeypatch.setattr(window, "_check_for_updates_manually", _fake_check)
+
+    action.trigger()
+
+    assert aangeroepen["n"] == 1

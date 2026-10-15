@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_settings.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.3.0
-Datum:      2026-10-11
+Versie:     1.4.0
+Datum:      2026-10-14
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor laden, opslaan en achterwaartse compatibiliteit
@@ -17,6 +17,9 @@ Wijzigingen:
   v1.3.0 (2026-10-11)  Fase 8D: tests voor laatste_rapportmap (Algemeen) en
                         auteur (Rapportage). Backward-compat: oude settings.json
                         zonder deze velden blijft geldig.
+  v1.4.0 (2026-10-14)  Fase 9H: tests voor controleer_updates_bij_opstarten
+                        (default True). Backward-compat: oude settings.json
+                        zonder deze key blijft geldig en valt terug op True.
 ================================================================================
 """
 
@@ -44,6 +47,7 @@ def test_nieuwe_defaults_zijn_veilig_en_bestaand_gedrag_blijft_behouden():
     assert instellingen.algemeen.laatste_importmap == ""
     assert instellingen.algemeen.laatste_rapportmap == ""
     assert instellingen.algemeen.exportmap_openen_na_export is False
+    assert instellingen.algemeen.controleer_updates_bij_opstarten is True
     assert instellingen.esr_condensator.capaciteitseenheid == "µF"
     assert instellingen.esr_condensator.tolerantie_percent == 20.0
     assert instellingen.esr_condensator.werkspanning_v is None
@@ -350,3 +354,56 @@ def test_laatste_rapportmap_staat_los_van_exportmap(tmp_path, monkeypatch):
 
     assert geladen.algemeen.laatste_rapportmap == r"D:\NieuweRapporten"
     assert geladen.algemeen.laatste_exportmap == r"C:\CSV"
+
+
+# ============================================================================
+# v1.4.0 — controleer_updates_bij_opstarten (fase 9H)
+# ============================================================================
+
+def test_controleer_updates_default_aan():
+    instellingen = AppInstellingen()
+    assert instellingen.algemeen.controleer_updates_bij_opstarten is True
+
+
+def test_oude_settings_json_zonder_update_key_blijft_geldig(
+    tmp_path, monkeypatch
+):
+    """Backward-compat: oude settings.json zonder de nieuwe key."""
+    pad = tmp_path / "settings.json"
+    pad.write_text(
+        json.dumps(
+            {
+                "language": "nl_NL",
+                "algemeen": {
+                    "thema": "dark",
+                    "laatste_exportmap": r"C:\CSV",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(settings_module, "SETTINGS_PATH", pad)
+
+    instellingen = laad_instellingen()
+
+    assert instellingen.algemeen.laatste_exportmap == r"C:\CSV"
+    # Nieuwe key valt terug op de default True
+    assert instellingen.algemeen.controleer_updates_bij_opstarten is True
+
+
+def test_update_key_roundtrip(tmp_path, monkeypatch):
+    pad = tmp_path / "settings.json"
+    monkeypatch.setattr(settings_module, "SETTINGS_PATH", pad)
+
+    basis = AppInstellingen()
+    aangepast = replace(
+        basis,
+        algemeen=replace(
+            basis.algemeen,
+            controleer_updates_bij_opstarten=False,
+        ),
+    )
+    sla_instellingen_op(aangepast)
+    geladen = laad_instellingen()
+
+    assert geladen.algemeen.controleer_updates_bij_opstarten is False

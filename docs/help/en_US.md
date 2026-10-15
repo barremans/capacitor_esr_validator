@@ -46,6 +46,17 @@ The search language supports simple characters:
 Press **F1** or use the question-mark button next to the search field
 for detailed instructions with examples.
 
+## Updates
+
+The application checks once at startup, without blocking, whether a
+newer version is available. You can also run that check manually via
+**Help → Check for updates…**.
+
+If a newer version is available, a message appears with the
+**Download** button. That opens the download page in your browser.
+Via **Settings → General** you can disable the automatic check at
+startup; the manual check always remains available.
+
 ## Keyboard shortcuts
 
 - **Global:** Ctrl+Q (quit), Ctrl+E (ESR test), F1 (help).

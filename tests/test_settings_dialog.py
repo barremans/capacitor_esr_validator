@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_settings_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.2.0
-Datum:      2026-10-11
+Versie:     1.3.0
+Datum:      2026-10-14
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor de Settings-dialoog.
@@ -11,6 +11,9 @@ Doel:       GUI-regressietests voor de Settings-dialoog.
 Wijzigingen:
   v1.1.0 (2026-10-02)  Algemene bestandsvoorkeuren en Browse-gedrag getest.
   v1.2.0 (2026-10-11)  Fase 8D: Auteur-veld en Rapportmap-veld getest.
+  v1.3.0 (2026-10-14)  Fase 9H: checkbox "Bij opstarten controleren op
+                       updates" getest, inclusief default True en
+                       roundtrip via Toepassen.
 ================================================================================
 """
 
@@ -177,3 +180,77 @@ def test_bladeren_voor_rapportmap_vult_veld(monkeypatch):
     dialog._kies_rapportmap()
 
     assert dialog.rapportmap_edit.text() == r"C:\GekozenRapportmap"
+
+
+# ============================================================================
+# v1.3.0 — update-check bij opstarten (fase 9H)
+# ============================================================================
+
+def test_controleer_updates_checkbox_default_aan():
+    _app()
+    dialog = SettingsDialog(AppInstellingen(), taal="nl_NL")
+    assert dialog.controleer_updates_check.isChecked() is True
+
+
+def test_controleer_updates_checkbox_neemt_waarde_over():
+    _app()
+    basis = AppInstellingen()
+    basis = type(basis)(
+        taal=basis.taal,
+        algemeen=type(basis.algemeen)(
+            thema=basis.algemeen.thema,
+            tooltips_ingeschakeld=basis.algemeen.tooltips_ingeschakeld,
+            standaard_exportmap=basis.algemeen.standaard_exportmap,
+            standaard_importmap=basis.algemeen.standaard_importmap,
+            laatste_exportmap=basis.algemeen.laatste_exportmap,
+            laatste_importmap=basis.algemeen.laatste_importmap,
+            laatste_rapportmap=basis.algemeen.laatste_rapportmap,
+            exportmap_openen_na_export=basis.algemeen.exportmap_openen_na_export,
+            controleer_updates_bij_opstarten=False,
+        ),
+        esr_condensator=basis.esr_condensator,
+        rapportage=basis.rapportage,
+        beoordeling=basis.beoordeling,
+    )
+    dialog = SettingsDialog(basis, taal="nl_NL")
+    assert dialog.controleer_updates_check.isChecked() is False
+
+
+def test_controleer_updates_uit_wordt_opgenomen():
+    _app()
+    dialog = SettingsDialog(AppInstellingen(), taal="nl_NL")
+    dialog.controleer_updates_check.setChecked(False)
+    dialog._toepassen()
+
+    assert (
+        dialog.toegepaste_instellingen.algemeen.controleer_updates_bij_opstarten
+        is False
+    )
+
+
+def test_controleer_updates_aan_blijft_aan_bij_toepassen():
+    _app()
+    dialog = SettingsDialog(AppInstellingen(), taal="nl_NL")
+    dialog._toepassen()
+
+    assert (
+        dialog.toegepaste_instellingen.algemeen.controleer_updates_bij_opstarten
+        is True
+    )
+
+
+def test_andere_instellingen_blijven_behouden_bij_update_checkbox_wijziging():
+    """De nieuwe checkbox mag niets anders beïnvloeden."""
+    _app()
+    basis = AppInstellingen()
+    dialog = SettingsDialog(basis, taal="nl_NL")
+    dialog.temperatuur_spin.setValue(30.0)
+    dialog.controleer_updates_check.setChecked(False)
+    dialog._toepassen()
+
+    esr = dialog.toegepaste_instellingen.esr_condensator
+    assert esr.temperatuur_c == 30.0
+    assert (
+        dialog.toegepaste_instellingen.algemeen.controleer_updates_bij_opstarten
+        is False
+    )

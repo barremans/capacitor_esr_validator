@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/dialogs/settings_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.3.0
-Datum:      2026-10-11
+Versie:     1.4.0
+Datum:      2026-10-14
 Auteur:     Bart Bossuyt
 
 Doel:       Modale Settings-dialoog met tabs Algemeen, ESR / Condensator en
@@ -29,6 +29,11 @@ Wijzigingen:
                        en het exportdialoog.
   v1.0.0 (2026-09-27)  Eerste implementatie van de drie Settings-tabs en
                        bediening Herstellen/Annuleren/Toepassen/OK.
+  v1.4.0 (2026-10-14)  Fase 9H: checkbox "Bij opstarten controleren op
+                       updates" toegevoegd op het tabblad Algemeen,
+                       gekoppeld aan algemeen.controleer_updates_bij_opstarten.
+                       De handmatige check via Help blijft altijd beschikbaar;
+                       deze checkbox regelt alleen de opstartcontrole.
 ================================================================================
 """
 
@@ -164,6 +169,17 @@ class SettingsDialog(QDialog):
 
         self.tooltips_check = QCheckBox(self._t("settings.algemeen.tooltips"))
         form.addRow("", self.tooltips_check)
+
+        # v1.4.0 (9H): schakelt de eenmalige, niet-blokkerende update-check
+        # bij het opstarten in of uit. De handmatige check via Help blijft
+        # altijd beschikbaar.
+        self.controleer_updates_check = QCheckBox(
+            self._t("settings.algemeen.controleer_updates")
+        )
+        self.controleer_updates_check.setToolTip(
+            self._t("settings.algemeen.controleer_updates_tooltip")
+        )
+        form.addRow("", self.controleer_updates_check)
 
         self.exportmap_edit = QLineEdit()
         self.exportmap_bladeren_btn = QPushButton(self._t("settings.algemeen.bladeren"))
@@ -320,6 +336,10 @@ class SettingsDialog(QDialog):
         self._select(self.taal_combo, instellingen.taal)
         self._select(self.thema_combo, instellingen.algemeen.thema)
         self.tooltips_check.setChecked(instellingen.algemeen.tooltips_ingeschakeld)
+        # v1.4.0 (9H): nieuwe checkbox.
+        self.controleer_updates_check.setChecked(
+            instellingen.algemeen.controleer_updates_bij_opstarten
+        )
         self.exportmap_edit.setText(instellingen.algemeen.standaard_exportmap)
         self.importmap_edit.setText(instellingen.algemeen.standaard_importmap)
         self.exportmap_openen_check.setChecked(
@@ -358,6 +378,10 @@ class SettingsDialog(QDialog):
             self._basis.algemeen,
             thema=self.thema_combo.currentData() or "dark",
             tooltips_ingeschakeld=self.tooltips_check.isChecked(),
+            # v1.4.0 (9H): nieuwe instelling.
+            controleer_updates_bij_opstarten=(
+                self.controleer_updates_check.isChecked()
+            ),
             standaard_exportmap=self.exportmap_edit.text().strip(),
             standaard_importmap=self.importmap_edit.text().strip(),
             laatste_rapportmap=self.rapportmap_edit.text().strip(),

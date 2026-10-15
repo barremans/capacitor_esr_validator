@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.12.0
-Datum:      2026-10-14
+Versie:     2.14.0
+Datum:      2026-10-15
 Auteur:     Bart Bossuyt
 
 Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
@@ -94,10 +94,56 @@ Wijzigingen:
                         houdt de opstarttijd laag en vermijdt een harde
                         afhankelijkheid bij het importeren van deze module
                         in tests.
+  v2.13.0 (2026-10-14) Fase 9H: update-check.
+                        - Nieuwe parameter check_on_startup (default True).
+                          main.py geeft de waarde uit settings.json mee.
+                        - __init__ plant na _apply_language() een eenmalige,
+                          niet-blokkerende check via QTimer.singleShot(0, …).
+                          De check zelf zit in _run_startup_update_check(),
+                          die nooit een exception laat doorwerken.
+                        - Nieuw Help-menu-item "Controleren op updates…"
+                          dat _check_for_updates_manually() aanroept.
+                        - _toon_update_melding(info) toont een QMessageBox
+                          met "Downloaden"-knop (webbrowser.open) en
+                          "Later". Bij geen nieuwere versie: informatieve
+                          melding "Je gebruikt de nieuwste versie".
+                        - Nieuwe i18n-keys: menu.controleren_op_updates,
+                          update.titel, update.nieuwer_bericht,
+                          update.geen_update, update.downloaden, update.later,
+                          update.fout_titel, update.fout_bericht.
+                        - De import van app.helpers.updater staat binnen de
+                          methoden, niet bovenaan: zo blijft het importeren
+                          van main_window.py licht en werkt de GUI ook als
+                          requests/packaging ontbreken (dan faalt de check
+                          stil, zonder crash).
+  v2.14.0 (2026-10-15) Fase 9H-afronding:
+                        - Nieuwe knop "Wat is er nieuw?" in de update-
+                          melding, naast Downloaden en Later. Roept
+                          _toon_release_notes() aan, dat via de GitHub
+                          Releases API de release notes ophaalt en toont
+                          in een QTextBrowser-dialoog. Bij een fout:
+                          nette informationele melding met een knop naar
+                          de release-pagina op GitHub.
+                        - Nieuwe hulpmethode _toon_release_notes_dialoog()
+                          in de stijl van SearchHelpDialog (QTextBrowser
+                          met mini-Markdown-render, "Sluiten"-knop,
+                          "Open op GitHub"-knop).
+                        - Nieuwe hulpmethode _markdown_naar_html() voor
+                          de mini-Markdown-render van release notes.
+                        - _show_changelog() gebruikt nu
+                          changelog_pad_voor_taal(self.taal) in plaats van
+                          het vaste pad "docs/changelog.md". De changelog
+                          is daarmee meertalig, met dezelfde fallback-
+                          keten als Help (taal → nl_NL → legacy).
+                        - Nieuwe i18n-keys: update.wat_is_er_nieuw,
+                          update.release_notes_titel,
+                          update.release_notes_fout, update.open_op_github,
+                          dialog.sluiten.
 ================================================================================
 """
 
 from dataclasses import replace
+import webbrowser
 
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -106,10 +152,10 @@ from PySide6.QtWidgets import (
     QScrollArea, QFrame, QStackedWidget,
 )
 from PySide6.QtGui import QAction, QKeySequence, QShortcut, QIcon, QPixmap
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QTimer
 
 from app.helpers.i18n import beschikbare_taalinfos, vertaal
-from app.helpers.help_paths import help_pad_voor_taal
+from app.helpers.help_paths import help_pad_voor_taal, changelog_pad_voor_taal
 from app.config.settings import laad_instellingen, sla_instellingen_op, AppInstellingen
 from app.gui.dialogs.settings_dialog import SettingsDialog
 from app.gui.dialogs.search_help_dialog import SearchHelpDialog
@@ -119,7 +165,7 @@ from app.version import __version__
 class ToolHubWindow(QMainWindow):
     """Startscherm — hub met knoppen voor alle beschikbare tools."""
 
-    def __init__(self, taal: str | None = None):
+    def __init__(self, taal: str | None = None, check_on_startup: bool = True):
         super().__init__()
         self.instellingen = laad_instellingen()
         # v2.11.3: de parameter heeft voorrang op settings.json. Voorheen
@@ -129,6 +175,13 @@ class ToolHubWindow(QMainWindow):
         self.taal = taal if taal else self.instellingen.taal
         self._build_ui()
         self._apply_language()
+
+        # v2.13.0 (9H): eenmalige, niet-blokkerende update-check. De check
+        # wordt gepland en draait dus niet tijdens __init__. Daardoor
+        # blijven tests die alleen het venster bouwen snel en
+        # deterministisch. main.py geeft de waarde uit settings.json mee.
+        if check_on_startup:
+            QTimer.singleShot(0, self._run_startup_update_check)
 
     def _t(self, sleutel, **kwargs):
         return vertaal(sleutel, taal=self.taal, **kwargs)
@@ -399,6 +452,8 @@ class ToolHubWindow(QMainWindow):
         aanklikt. Dat houdt de opstarttijd laag en vermijdt een harde
         afhankelijkheid in tests die alleen de rest van het venster nodig
         hebben.
+
+        v2.13.0 (9H): nieuw Help-menu-item "Controleren op updates…".
         """
         menubar = self.menuBar()
 
@@ -487,6 +542,15 @@ class ToolHubWindow(QMainWindow):
         changelog_action = QAction(self._t("menu.changelog"), help_menu)
         changelog_action.triggered.connect(self._show_changelog)
         help_menu.addAction(changelog_action)
+
+        help_menu.addSeparator()
+
+        # v2.13.0 (9H): handmatige update-check.
+        update_action = QAction(
+            self._t("menu.controleren_op_updates"), help_menu
+        )
+        update_action.triggered.connect(self._check_for_updates_manually)
+        help_menu.addAction(update_action)
 
         help_menu.addSeparator()
 
@@ -656,6 +720,207 @@ class ToolHubWindow(QMainWindow):
 
         show_github_cases(self)
 
+    # ------------------------------------------------------------------
+    # v2.13.0 (9H): update-check
+    # ------------------------------------------------------------------
+    def _run_startup_update_check(self) -> None:
+        """Eenmalige, niet-blokkerende update-check bij het opstarten.
+
+        Draait in de Qt-eventloop (gepland via QTimer.singleShot in
+        __init__), niet in een thread. De check zelf vangt alle fouten af
+        en toont alleen bij een nieuwere versie een melding. Zo blijft
+        het opstarten stil als er niets aan de hand is.
+        """
+        info = self._do_update_check()
+        if info is not None and info.is_newer:
+            self._toon_update_melding(info)
+
+    def _check_for_updates_manually(self) -> None:
+        """Handmatige update-check via Help → Controleren op updates…
+
+        Toont altijd een melding: ofwel "nieuwere versie beschikbaar",
+        ofwel "je gebruikt de nieuwste versie", ofwel een foutmelding.
+        """
+        info = self._do_update_check()
+        if info is None:
+            QMessageBox.warning(
+                self,
+                self._t("update.fout_titel"),
+                self._t("update.fout_bericht"),
+            )
+            return
+
+        if info.is_newer:
+            self._toon_update_melding(info)
+        else:
+            QMessageBox.information(
+                self,
+                self._t("update.titel"),
+                self._t(
+                    "update.geen_update",
+                    versie=info.current_version,
+                ),
+            )
+
+    def _do_update_check(self):
+        """Voert de check uit en vangt alle fouten af.
+
+        Retourneert UpdateInfo bij succes, of None bij een onverwachte
+        fout (bijv. ontbrekende dependency). Nooit een exception naar
+        buiten.
+        """
+        try:
+            from app.helpers.updater import check_for_update
+        except ImportError:
+            return None
+        try:
+            return check_for_update(__version__)
+        except Exception:
+            return None
+
+    def _toon_update_melding(self, info) -> None:
+        """Toont de melding met Downloaden / Wat is er nieuw? / Later."""
+        box = QMessageBox(self)
+        box.setWindowTitle(self._t("update.titel"))
+        box.setIcon(QMessageBox.Icon.Information)
+        box.setText(
+            self._t(
+                "update.nieuwer_bericht",
+                huidig=info.current_version,
+                nieuw=info.remote_version,
+            )
+        )
+        download_btn = box.addButton(
+            self._t("update.downloaden"),
+            QMessageBox.ButtonRole.AcceptRole,
+        )
+        whatsnew_btn = box.addButton(
+            self._t("update.wat_is_er_nieuw"),
+            QMessageBox.ButtonRole.ActionRole,
+        )
+        box.addButton(
+            self._t("update.later"),
+            QMessageBox.ButtonRole.RejectRole,
+        )
+        box.exec()
+
+        geklikt = box.clickedButton()
+        if geklikt is download_btn and info.download_url:
+            webbrowser.open(info.download_url)
+        elif geklikt is whatsnew_btn:
+            self._toon_release_notes()
+
+    # ------------------------------------------------------------------
+    # v2.14.0 (9H-afronding): "Wat is er nieuw?"-dialoog
+    # ------------------------------------------------------------------
+    def _toon_release_notes(self) -> None:
+        """Haalt de release notes op en toont ze in een dialoog.
+
+        Bij een fout: informationele melding met een knop naar de
+        release-pagina op GitHub. Nooit een exception naar buiten.
+        """
+        fallback_url = (
+            "https://github.com/barremans/capacitor_esr_validator/"
+            "releases/latest"
+        )
+        try:
+            from app.helpers.updater import fetch_release_notes
+        except ImportError:
+            self._toon_release_notes_fout(fallback_url)
+            return
+
+        try:
+            notes = fetch_release_notes()
+        except Exception:
+            self._toon_release_notes_fout(fallback_url)
+            return
+
+        body = (notes.get("body") or "").strip()
+        html_url = notes.get("html_url") or fallback_url
+
+        if not body:
+            # Geen release notes ingevuld op GitHub: val terug op de
+            # informationele melding met de link naar de release-pagina.
+            self._toon_release_notes_fout(html_url)
+            return
+
+        self._toon_release_notes_dialoog(body, html_url)
+
+    def _toon_release_notes_fout(self, html_url: str) -> None:
+        """Toont een nette fallback-melding met knop naar de release-pagina."""
+        box = QMessageBox(self)
+        box.setWindowTitle(self._t("update.release_notes_titel"))
+        box.setIcon(QMessageBox.Icon.Information)
+        box.setText(self._t("update.release_notes_fout"))
+        open_btn = box.addButton(
+            self._t("update.open_op_github"),
+            QMessageBox.ButtonRole.AcceptRole,
+        )
+        box.addButton(
+            self._t("update.later"),
+            QMessageBox.ButtonRole.RejectRole,
+        )
+        box.exec()
+        if box.clickedButton() is open_btn:
+            webbrowser.open(html_url)
+
+    def _toon_release_notes_dialoog(self, body: str, html_url: str) -> None:
+        """Toont de release notes in een QTextBrowser-dialoog."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self._t("update.release_notes_titel"))
+        dialog.resize(720, 560)
+        layout = QVBoxLayout(dialog)
+
+        browser = QTextBrowser()
+        browser.setOpenExternalLinks(True)
+        browser.setReadOnly(True)
+        browser.setStyleSheet(
+            "QTextBrowser { background-color: #1E1E1E; color: #F0F0F0; "
+            "border: 1px solid #4A4A4A; padding: 12px; }"
+        )
+        browser.setHtml(self._markdown_naar_html(body))
+        layout.addWidget(browser, 1)
+
+        button_row = QHBoxLayout()
+        button_row.addStretch()
+
+        github_btn = QPushButton(self._t("update.open_op_github"))
+        github_btn.clicked.connect(lambda: webbrowser.open(html_url))
+        button_row.addWidget(github_btn)
+
+        sluiten_btn = QPushButton(self._t("dialog.sluiten"))
+        sluiten_btn.setDefault(True)
+        sluiten_btn.clicked.connect(dialog.accept)
+        button_row.addWidget(sluiten_btn)
+
+        layout.addLayout(button_row)
+        dialog.exec()
+
+    def _markdown_naar_html(self, markdown_tekst: str) -> str:
+        """Mini-Markdown-render in dezelfde stijl als _show_markdown_dialog.
+
+        Ondersteunt koppen (#, ##, ###), vet, cursief, code, en eenvoudige
+        lijsten (- item). Geen tabellen — bewust beperkt, want de release
+        notes zijn doorgaans korte blokken tekst.
+        """
+        import re
+
+        html = markdown_tekst
+        html = re.sub(r'^### (.+)$', r'<h3>\1</h3>', html, flags=re.M)
+        html = re.sub(r'^## (.+)$', r'<h2>\1</h2>', html, flags=re.M)
+        html = re.sub(r'^# (.+)$', r'<h1>\1</h1>', html, flags=re.M)
+        html = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', html)
+        html = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', html)
+        html = re.sub(r'`(.+?)`', r'<code>\1</code>', html)
+        html = re.sub(r'^- (.+)$', r'&bull; \1', html, flags=re.M)
+        html = html.replace('\n', '<br>')
+
+        return (
+            '<body style="font-family: Segoe UI; color: #F0F0F0; '
+            'background-color: #1E1E1E; font-size: 10.5pt; line-height: 1.4;">'
+            f'{html}</body>'
+        )
+
     def closeEvent(self, event):
         if hasattr(self, "stack"):
             current = self.stack.currentWidget()
@@ -706,7 +971,16 @@ class ToolHubWindow(QMainWindow):
         dialog.exec()
 
     def _show_changelog(self):
-        self._show_markdown_dialog(self._t("dialog.changelog_title"), "docs/changelog.md")
+        """v2.14.0 (9H-afronding): changelog per taal via dezelfde
+        fallback-keten als Help (taal → nl_NL → legacy)."""
+        try:
+            pad = changelog_pad_voor_taal(self.taal)
+            pad_str = str(pad)
+        except FileNotFoundError:
+            pad_str = "docs/changelog.md"
+        self._show_markdown_dialog(
+            self._t("dialog.changelog_title"), pad_str
+        )
 
     def _show_markdown_dialog(self, title, filepath):
         dialog = QDialog(self)

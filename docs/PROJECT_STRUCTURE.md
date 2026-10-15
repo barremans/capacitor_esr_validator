@@ -354,8 +354,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Hoofdvenster van de Tool Hub met één-venster-navigatie.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 2.11.6
-        # Datum: 2026-10-13
+        # Versie: 2.12.0
+        # Datum: 2026-10-14
         ```
       - 📄 **/app/gui/styles.py**
         ```text
@@ -652,10 +652,12 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     - 📄 **/docs/help.md**
     - 📄 **/docs/markdown_levering.md**
     - 📄 **/docs/openvragen.md**
+    - 📄 **/docs/packaging.md**
     - 📄 **/docs/PROJECT_STRUCTURE.md**
     - 📄 **/docs/python_header_standard.md**
     - 📄 **/docs/search_syntax.md**
     - 📄 **/docs/testgevallen_analyse.md**
+    - 📄 **/docs/testmatrix_defender_intune.md**
     - 📄 **/docs/validation_rules.md**
     - 📄 **/docs/WatNu.md**
   - 📁 **i18n/**
@@ -753,6 +755,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
       # Versie: 1.0.0
       # Datum: 2026-10-08
+      ```
+    - 📄 **/tests/test_check_github_secret.py**
+      ```text
+      # Bestandsnaam: tests/test_check_github_secret.py
+      # Beschrijving: Regressietests voor check_github_secret.py (Fase 9G).
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.1
+      # Datum: 2026-10-14
       ```
     - 📄 **/tests/test_document_source_paths.py**
       ```text
@@ -960,6 +971,24 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: Condensator- en ESR-validator (Windows)
       # Versie: 1.4.0
       # Datum: 2026-09-28
+      ```
+    - 📄 **/tests/test_github_feedback_client.py**
+      ```text
+      # Bestandsnaam: tests/test_github_feedback_client.py
+      # Beschrijving: Regressietests voor GitHubFeedbackClient in
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-14
+      ```
+    - 📄 **/tests/test_github_feedback_config.py**
+      ```text
+      # Bestandsnaam: tests/test_github_feedback_config.py
+      # Beschrijving: Regressietests voor github_feedback_config.py (Fase 9G):
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-14
       ```
     - 📄 **/tests/test_gui_language_switch.py**
       ```text
@@ -1213,6 +1242,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.0.4
       # Datum: 2026-10-10
       ```
+    - 📄 **/tests/test_main_window_reporting_menu.py**
+      ```text
+      # Bestandsnaam: tests/test_main_window_reporting_menu.py
+      # Beschrijving: GUI-regressietests voor het "Rapporteren"-menu in
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.1
+      # Datum: 2026-10-14
+      ```
     - 📄 **/tests/test_measurement_methods.py**
       ```text
       # Bestandsnaam: tests/test_measurement_methods.py
@@ -1429,6 +1467,14 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       ```
   - 📄 **/.gitattributes**
   - 📄 **/.gitignore**
+  - 📄 **/bug_report_dialog.py**
+    ```text
+    # Bestandsnaam: bug_report_dialog.py
+    # Beschrijving: BugDialog (QDialog) — laat de gebruiker een bug of feature-
+    # Auteur: Bart Bossuyt
+    # Applicatie: GEEN APPLICATIE
+    # Versie: 2.0.0
+    ```
   - 📄 **/build_and_publish.ps1**
   - 📄 **/build_installer.bat**
   - 📄 **/build_log.txt**
@@ -1446,8 +1492,55 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     # Applicatie: GEEN APPLICATIE
     # Versie: 2.0.0
     ```
+  - 📄 **/check_github_secret.py**
+    ```text
+    # Bestandsnaam: check_github_secret.py
+    # Beschrijving: Controle vóór elke commit/push en vóór elke build:
+    # Auteur: Bart Bossuyt
+    # Applicatie: GEEN APPLICATIE
+    # Versie: 1.0.0
+    ```
   - 📄 **/ESR_Tester.spec**
   - 📄 **/Export-SigningCertificate.ps1**
+  - 📄 **/github_cases.py**
+    ```text
+    # Bestandsnaam: github_cases.py
+    # Beschrijving: show_github_cases() — toont de open bugmeldingen en feature-
+    # Auteur: Bart Bossuyt
+    # Applicatie: GEEN APPLICATIE
+    # Versie: 2.0.0
+    ```
+  - 📄 **/github_feedback.py**
+    ```text
+    # Bestandsnaam: github_feedback.py
+    # Beschrijving: GitHubFeedbackClient — maakt een bug-/feature-melding aan als
+    # Auteur: Bart Bossuyt
+    # Applicatie: GEEN APPLICATIE
+    # Versie: 1.0.0
+    ```
+  - 📄 **/github_feedback_config.py**
+    ```text
+    # Bestandsnaam: github_feedback_config.py
+    # Beschrijving: App-specifieke instellingen voor het uniforme GitHub-
+    # Auteur: Bart Bossuyt
+    # Applicatie: GEEN APPLICATIE
+    # Versie: 1.0.0
+    ```
+  - 📄 **/github_secret_local.example.py**
+    ```text
+    # Bestandsnaam: github_secret_local.example.py
+    # Beschrijving: SJABLOON voor github_secret_local.py. Dit sjabloon bevat geen
+    # Auteur: Bart Bossuyt
+    # Applicatie: GEEN APPLICATIE
+    # Versie: 1.0.0
+    ```
+  - 📄 **/github_secret_local.py**
+    ```text
+    # Beschrijving: GEEN BESCHRIJVING
+    # Auteur: GEEN AUTEUR
+    # Applicatie: GEEN APPLICATIE
+    # Versie: V1.0.0
+    ```
   - 📄 **/LICENSE**
   - 📄 **/main.py**
     ```text

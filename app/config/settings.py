@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/config/settings.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.5.0
-Datum:      2026-10-11
+Versie:     1.6.0
+Datum:      2026-10-14
 Auteur:     Bart Bossuyt
 
 Doel:       Centrale, aanpasbare instellingen voor de app.
@@ -28,6 +28,10 @@ Wijzigingen:
                        RapportageInstellingen. Backward-compatible: oude
                        settings.json blijft geldig, ontbrekende keys worden
                        leeg.
+  v1.6.0 (2026-10-14)  Fase 9H: controleer_updates_bij_opstarten toegevoegd
+                       aan AlgemeneInstellingen (default True). Backward-
+                       compatible: oude settings.json blijft geldig, de
+                       ontbrekende key valt terug op True.
 
 Referentie: docs/validation_rules.md §11, docs/data_model.md §9 en
             functional_design_multitool_questionnaire.md §14.
@@ -118,6 +122,11 @@ class AlgemeneInstellingen:
 
     ``laatste_rapportmap`` wordt sinds fase 8D automatisch bijgehouden door
     het rapportdialoog, analoog aan laatste_exportmap.
+
+    ``controleer_updates_bij_opstarten`` (sinds 9H) bepaalt of de
+    applicatie bij het opstarten eenmalig en niet-blokkerend controleert
+    op een nieuwere versie. De handmatige check via het Help-menu blijft
+    altijd beschikbaar.
     """
 
     thema: str = "dark"
@@ -128,6 +137,7 @@ class AlgemeneInstellingen:
     laatste_importmap: str = ""
     laatste_rapportmap: str = ""
     exportmap_openen_na_export: bool = False
+    controleer_updates_bij_opstarten: bool = True
 
 
 @dataclass(frozen=True)
@@ -210,8 +220,9 @@ def laad_instellingen() -> AppInstellingen:
     """Laadt settings.json, of veilige defaults wanneer laden niet lukt.
 
     Oude bestanden zonder de nieuwste velden (laatste_importmap,
-    laatste_exportmap, laatste_rapportmap, auteur) blijven geldig; die
-    velden worden dan leeg.
+    laatste_exportmap, laatste_rapportmap, auteur,
+    controleer_updates_bij_opstarten) blijven geldig; die velden vallen
+    terug op hun dataclass-default.
     """
     if SETTINGS_PATH.exists():
         try:
@@ -231,7 +242,8 @@ def laad_instellingen() -> AppInstellingen:
                     data.get("esr_condensator", {}),
                 ),
                 rapportage=_dataclass_from_dict(
-                    RapportageInstellingen, data.get("rapportage", {})
+                    RapportageInstellingen,
+                    data.get("rapportage", {}),
                 ),
                 beoordeling=_dataclass_from_dict(
                     BeoordelingsInstellingen, data.get("beoordeling", {})
