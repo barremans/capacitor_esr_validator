@@ -4,7 +4,83 @@ Overzicht van wat er nieuw of verbeterd is in de Electronics Diagnostic
 Tool Hub. Voor technische details en architectuurkeuzes verwijzen we naar
 `docs/context.md`.
 
-## Versie 1.12 — Update-controle bij opstarten en via Help (15 oktober 2026)
+<!--
+Opmerking over de versienummering:
+- Vanaf v1.1.1 komen de versienummers 1-op-1 overeen met
+  `app/version.py`, met de GitHub-releases en met
+  `releases/latest/version.txt`.
+- Vóór v1.1.1 is de nummering historisch: de vroege ontwikkelfases
+  gebruikten een eigen 1.x-teller die niet altijd samenviel met de
+  uiteindelijke releases. Die entries blijven staan als functionele
+  mijlpalen; ze zijn niet 1-op-1 te mappen op een specifieke
+  `app/version.py`-waarde.
+- Voor de actuele versie: zie `app/version.py` of Help → Over.
+-->
+
+## Versie 1.2.0 — Frequentie-specifieke referenties en drempelvalidatie (15 oktober 2026)
+
+**ESR-referenties per meetfrequentie**
+
+De ESR-referentie is nu **frequentie-specifiek**. In plaats van één
+officiële ESR70-tabel op 100 kHz te gebruiken voor alle metingen, kiest
+de applicatie voortaan het referentieprofiel dat het dichtst bij de
+werkelijke meetfrequentie ligt.
+
+- **Officiële ESR70-tabel** — 100 kHz. Blijft de primaire bron voor
+  metingen op 100 kHz (de LCR-ST1 kan dit zelf niet, maar andere
+  toestellen wel).
+- **Geschatte profielen** — 100 Hz, 1 kHz en 10 kHz. Deze zijn
+  afgeleid van de officiële ESR70-tabel via de Nichicon-
+  frequentiecoëfficiënten:
+  - 100 Hz — × 2,00
+  - 1 kHz — × 1,50
+  - 10 kHz — × 1,15
+- De geschatte profielen zijn expliciet gemarkeerd als **schatting**
+  (`is_schatting: true`) en dragen een lager betrouwbaarheidsniveau.
+  Ze zijn géén datasheet-waarde.
+
+**Waarom deze wijziging**
+
+De LCR-ST1 meet op 1 kHz en 10 kHz. De officiële ESR70-tabel geldt voor
+100 kHz. Omdat ESR daalt met frequentie, was de vergelijking
+structureel te streng: goede condensatoren kregen factoren die te laag
+uitvielen. Met de nieuwe profielen klopt de vergelijking weer.
+
+**Validatie met 72 praktijkmetingen**
+
+De nieuwe referenties zijn gevalideerd tegen 72 praktijkmetingen uit de
+historiek. Voor goede condensatoren zakten de factoren naar
+**0,09–0,41** — een gezonde verdeling.
+
+**Drempels blijven ongewijzigd**
+
+De drempels `≤1,0 / ≤2,0 / ≤3,0` blijven zoals ze zijn. Met de nieuwe
+referenties betekenen ze weer wat ze moeten betekenen: een gezonde
+condensator zit ruim onder 1,0, en er is marge voor verslechtering
+voordat "aandachtspunt" wordt bereikt.
+
+**Zichtbaar in het resultaat**
+
+Het resultaat toont nu expliciet de **referentiefrequentie** die voor
+de vergelijking gebruikt is. Zo zie je meteen of de meting en de
+referentie op dezelfde frequentie staan.
+
+**Voor ontwikkelaars**
+
+- `app/data/references/esr_references.json` — nieuwe profielen
+  `algemeen_100hz_geschat`, `algemeen_1khz_geschat` en
+  `algemeen_10khz_geschat`, elk met de volledige ESR70-tabel geschaald.
+- `app/data/references/__init__.py` — `zoek_referentie()` accepteert
+  `meetfrequentie_hz` en kiest het dichtstbijzijnde profiel met regels.
+- `app/services/assessment_service.py` — `Beoordeling` heeft het veld
+  `referentiefrequentie_hz`.
+- `app/gui/esr_test_screen.py` — geeft `meetfrequentie_hz` door aan
+  `zoek_referentie` en toont de werkelijke referentiefrequentie.
+- Nieuwe i18n-key: `resultaat.referentiefrequentie` (NL + EN).
+- Nieuw analysedraaiboek: `scripts/herbereken_steekproef.py`.
+- Baseline: 1297 passed.
+
+## Versie 1.1.1 — Update-controle bij opstarten en via Help (15 oktober 2026)
 
 **Automatische controle op een nieuwere versie**
 
@@ -54,7 +130,7 @@ die bij de gekozen taal hoort, met dezelfde fallback-keten als de Help
 - Nieuwe instelling `algemeen.controleer_updates_bij_opstarten` (default
   `True`), backward-compatible met bestaande `settings.json`.
 
-## Versie 1.10 — Publicatie, testmatrix en bug/feature-meldingen (14 oktober 2026)
+## Versie 1.0.3 — Publicatie, testmatrix en bug/feature-meldingen (14 oktober 2026)
 
 **De applicatie is nu publiek beschikbaar op GitHub**
 
@@ -63,7 +139,7 @@ in de repo `barremans/capacitor_esr_validator`. De installer
 (`ESR_TesterSetup_1.0.3.exe`, ongeveer 63 MB) is ondertekend en
 gepubliceerd, samen met een **stabiele "latest"-pointer** in
 `releases/latest/version.txt`. Die pointer is de basis voor de
-toekomstige update-controle.
+update-controle.
 
 **Buildstraat uitgebreid met `publish.ps1` en `build_and_publish.ps1`**
 
@@ -132,14 +208,13 @@ via de GitHub REST API.
 - `docs/testmatrix_defender_intune.md` — de volledige testmatrix met
   bewezen status per pc-type.
 
-## Versie 1.9 — Eerste Windows-build, installer en signing (13 oktober 2026)
+## Versie 1.0.2 — Eerste Windows-build, installer en signing (13 oktober 2026)
 
 **De applicatie heeft nu een echte versie**
 
 De applicatie heeft nu één centrale versie, op één plek: `app/version.py`.
-Bij deze release staat die op **1.0.3**. De versie wordt getoond in de
-**Over**-dialoog (Help → Over) en is de basis voor de buildstraat en
-latere update-controle.
+De versie wordt getoond in de **Over**-dialoog (Help → Over) en is de
+basis voor de buildstraat en de latere update-controle.
 
 **Volledige Windows-buildstraat**
 
@@ -206,7 +281,7 @@ variabele nog niet gezet is.
   aangemaakt wordt.
 - `app/version.py` is de centrale versiebron.
 
-## Versie 1.8 — Meetrapporten en uitgebreidere instellingen (12 oktober 2026)
+## Versie 1.0.1 — Meetrapporten en uitgebreidere instellingen (12 oktober 2026)
 
 **Meetrapporten maken**
 
@@ -261,7 +336,7 @@ Het rapport is puur een weergave.
   (`binnen_tolerantie`, `niet_beoordeeld`). Ze worden nu vertaald,
   net als in de GUI.
 
-## Versie 1.7 — Grafieken en trends (9 oktober 2026)
+## Versie 1.0.0 — Grafieken en trends (9 oktober 2026)
 
 **Nieuwe pagina "Analyse"**
 
@@ -302,7 +377,15 @@ De Analyse-pagina leest je opgeslagen metingen en schrijft niets terug.
 - **Ctrl+F** opent het filterpaneel.
 - **Esc** gaat terug naar het Hoofdmenu.
 
-## Versie 1.6 — Fabrikantdocumenten: Word en Excel (9 oktober 2026)
+---
+
+<!--
+Vanaf hier: vroege ontwikkelfases. De nummering is historisch en komt
+niet altijd 1-op-1 overeen met `app/version.py`. Deze entries blijven
+staan als functionele mijlpalen.
+-->
+
+## Versie 0.9 — Fabrikantdocumenten: Word en Excel (9 oktober 2026)
 
 **Word- en Excel-import**
 
@@ -325,7 +408,7 @@ worden niet ondersteund.
 Geïmporteerde Word- en Excel-bestanden worden geopend in de standaard
 Word- of Excel-applicatie.
 
-## Versie 1.5 — Status van eigen imports beheren (8 oktober 2026)
+## Versie 0.8 — Status van eigen imports beheren (8 oktober 2026)
 
 **Status van een import wijzigen**
 
@@ -345,7 +428,7 @@ De documentatietabel heeft nu een extra kolom **Status**.
 De checkboxen en radio buttons in de hele applicatie zijn nu duidelijk
 zichtbaar in het donkere thema.
 
-## Versie 1.4 — Metadata bij import en bewerken in de viewer (7 oktober 2026)
+## Versie 0.7 — Metadata bij import en bewerken in de viewer (7 oktober 2026)
 
 **Metadata bij importeren van een PDF of URL**
 
@@ -363,8 +446,7 @@ eigen imports.
 Het zoekveld in de documentatiebibliotheek doorzoekt nu ook de metadata
 van geïmporteerde documenten.
 
-## Versie 1.3 — Help per taal en duidelijkere zoekuitleg
-**Datum:** 6 oktober 2026
+## Versie 0.6 — Help per taal en duidelijkere zoekuitleg (6 oktober 2026)
 
 **Nieuw**
 - **Help per taal.** De algemene help wordt nu per taal getoond.
@@ -376,8 +458,7 @@ van geïmporteerde documenten.
 **Voor ontwikkelaars**
 - Nieuwe referentie `docs/search_syntax.md`.
 
-## Versie 1.2 — Sneltoetsen en veiliger afsluiten
-**Datum:** 5 oktober 2026
+## Versie 0.5 — Sneltoetsen en veiliger afsluiten (5 oktober 2026)
 
 **Nieuw**
 - Je kan nu door de hele applicatie met het toetsenbord werken.
@@ -385,8 +466,7 @@ van geïmporteerde documenten.
 **Verbeterd**
 - Esc op het Hoofdmenu vraagt nu een bevestiging.
 
-## Versie 1.1 — Slimmer zoeken en hulp in de documentatie
-**Datum:** 5 oktober 2026
+## Versie 0.4 — Slimmer zoeken en hulp in de documentatie (5 oktober 2026)
 
 **Nieuw**
 - **Zoektaal voor documentatie.**
@@ -395,8 +475,7 @@ van geïmporteerde documenten.
 **Verbeterd**
 - Het venster voor zoekhulp is nu ook bereikbaar via het Help-menu.
 
-## Versie 1.0 — Meerdere diagnosetools in één hub
-**Datum:** 3 oktober 2026
+## Versie 0.3 — Meerdere diagnosetools in één hub (3 oktober 2026)
 
 **Nieuw**
 - Documenten kunnen nu aan meerdere diagnosetools gekoppeld worden.
@@ -404,57 +483,13 @@ van geïmporteerde documenten.
 **Verbeterd**
 - Interne structuur klaar voor toekomstige diagnosetools.
 
-## Versie 0.9 — Documentatiebibliotheek
-**Datum:** 3 oktober 2026
+## Versie 0.2 — Documentatiebibliotheek (3 oktober 2026)
 
 **Nieuw**
 - Een centrale, meertalige documentatiebibliotheek met 8 technische
   documenten.
 
-## Versie 0.8 — Historiek
-**Datum:** 1 oktober 2026
-
-**Nieuw**
-- Een overzichtelijke historiekpagina met alle opgeslagen metingen.
-
-## Versie 0.7 — Lokale opslag
-**Datum:** 27 september 2026
-
-**Nieuw**
-- Beoordeelde metingen kunnen lokaal opgeslagen worden.
-
-## Versie 0.6 — Robuustere invoer en veiligere OL
-**Datum:** 29 september 2026
-
-**Nieuw**
-- Duidelijke behandeling van "buiten bereik" (OL).
-
-## Versie 0.5 — Instellingen
-**Datum:** 27 september 2026
-
-**Nieuw**
-- Een instellingenvenster met drie tabbladen.
-
-## Versie 0.4 — Compact ESR-scherm
-**Datum:** 26 september 2026
-
-**Nieuw**
-- Het ESR-scherm is compacter gemaakt.
-
-## Versie 0.3 — Donker thema
-**Datum:** 27 september 2026
-
-**Verbeterd**
-- Uniform donker thema.
-
-## Versie 0.2 — Eén venster met interne navigatie
-**Datum:** 13 augustus 2026
-
-**Nieuw**
-- Eén hoofdvenster met interne pagina's.
-
-## Versie 0.1 — Eerste werkende versie
-**Datum:** 11 augustus 2026
+## Versie 0.1 — Eerste werkende versie (11 augustus 2026)
 
 **Nieuw**
 - Eerste versie van de ESR-validator.
@@ -462,10 +497,36 @@ van geïmporteerde documenten.
 ---
 
 ## Gepland voor volgende versies
-- **Versie 1.12** — Praktische ESR-validatie met echte meetgegevens.
-- **Versie 1.13** — UX/documentatie-afwerking: visuele selectie in
-  Analyse, checkbox-zichtbaarheid in het donkere thema, en het
-  gelijktrekken van de taal in het Diagnose/Result-venster.
-- **Versie 2.0** — Tweede diagnosetool: weerstandsmetingen.
-- **Versie 3.0** — AI-extractie uit fabrikantdocumenten met verplichte
-  menselijke goedkeuring.
+
+- **Versie 1.2.0 — UX/documentatie-afwerking.** Alle kleine punten die
+  in eerdere fases zijn blijven liggen:
+  - **11A** — Export, import en selectie: export respecteert selectie,
+    import van metingen uit een ander toestel, mapvoorkeuren
+    respecteren, visuele selectie in Analyse, rapport-scope "selectie".
+  - **11B** — Betrouwbaarheidsregel herzien: onderscheid tussen
+    inhoudelijke en administratieve betrouwbaarheidsverlagers.
+  - **11C** — Iconen voor alle vensters.
+  - **11D** — i18n-menging in Diagnose/Result oplossen.
+  - **11E** — Async netwerk (URL-fetch, release notes).
+  - **11F** — Documentatie-uitbreiding (redenen, filters, bulk-edit).
+  - **11G** — Visueel donker thema (checkboxen, scrollbar).
+  - **11H** — Light theme.
+  - **11I** — Build en cosmetica (deprecations, logbestanden,
+    certificaten).
+- **Versie 1.3.0 — AI-extractie uit fabrikantdocumenten.**
+  Automatische tekstextractie uit docx/xlsx als voorbereiding op
+  menselijke validatie.
+- **Versie 1.4.0 — Menselijke validatie van AI-output.**
+  Goedkeuringsstroom voor AI-geëxtraheerde gegevens.
+- **Versie 1.5.0 — Goedgekeurde fabrikantdata koppelen aan
+  assessment.** De assessment gebruikt dan gevalideerde
+  fabrikantgegevens.
+- **Versie 1.6.0 — Tweede diagnosetool: Resistor.**
+  Weerstandsmetingen in dezelfde Tool Hub.
+
+---
+
+_Historische nummering: de entries 0.1 t/m 0.9 beschrijven de vroege
+ontwikkelperiode. De nummering is functioneel, niet 1-op-1 gekoppeld
+aan `app/version.py`. Vanaf v1.1.1 komen de versienummers overeen met
+de werkelijke releases._

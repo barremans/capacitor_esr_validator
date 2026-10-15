@@ -4,7 +4,82 @@ Overview of what is new or improved in the Electronics Diagnostic Tool
 Hub. For technical details and architecture decisions, see
 `docs/context.md`.
 
-## Version 1.12 — Update check at startup and via Help (15 October 2026)
+<!--
+Note on version numbering:
+- From v1.1.1 onwards, the version numbers map 1-to-1 to
+  `app/version.py`, to the GitHub releases, and to
+  `releases/latest/version.txt`.
+- Before v1.1.1, the numbering is historical: the early development
+  phases used their own 1.x counter that did not always match the
+  final releases. Those entries remain as functional milestones;
+  they cannot be mapped 1-to-1 to a specific `app/version.py` value.
+- For the current version: see `app/version.py` or Help → About.
+-->
+
+## Version 1.2.0 — Frequency-specific references and threshold validation (15 October 2026)
+
+**ESR references per measurement frequency**
+
+The ESR reference is now **frequency-specific**. Instead of one
+official ESR70 table at 100 kHz used for all measurements, the
+application now picks the reference profile closest to the actual
+measurement frequency.
+
+- **Official ESR70 table** — 100 kHz. Remains the primary source for
+  100 kHz measurements (the LCR-ST1 cannot do this itself, but other
+  instruments can).
+- **Estimated profiles** — 100 Hz, 1 kHz and 10 kHz. These are
+  derived from the official ESR70 table via the Nichicon frequency
+  coefficients:
+  - 100 Hz — × 2.00
+  - 1 kHz — × 1.50
+  - 10 kHz — × 1.15
+- The estimated profiles are explicitly marked as an **estimate**
+  (`is_schatting: true`) and carry a lower reliability level.
+  They are not a datasheet value.
+
+**Why this change**
+
+The LCR-ST1 measures at 1 kHz and 10 kHz. The official ESR70 table
+applies to 100 kHz. Because ESR falls with frequency, the comparison
+was structurally too strict: good capacitors got factors that were
+too low. With the new profiles, the comparison is correct again.
+
+**Validated against 72 field measurements**
+
+The new references were validated against 72 field measurements from
+the history. For good capacitors, the factors dropped to
+**0.09–0.41** — a healthy distribution.
+
+**Thresholds remain unchanged**
+
+The thresholds `≤1.0 / ≤2.0 / ≤3.0` remain as they are. With the new
+references, they mean what they should: a healthy capacitor sits well
+below 1.0, with room for degradation before "point of attention" is
+reached.
+
+**Visible in the result**
+
+The result now explicitly shows the **reference frequency** used for
+the comparison. That way you see immediately whether the measurement
+and the reference are on the same frequency.
+
+**For developers**
+
+- `app/data/references/esr_references.json` — new profiles
+  `algemeen_100hz_geschat`, `algemeen_1khz_geschat` and
+  `algemeen_10khz_geschat`, each with the full ESR70 table scaled.
+- `app/data/references/__init__.py` — `zoek_referentie()` accepts
+  `meetfrequentie_hz` and picks the closest profile with rules.
+- `app/services/assessment_service.py` — `Beoordeling` has the field
+  `referentiefrequentie_hz`.
+- `app/gui/esr_test_screen.py` — passes `meetfrequentie_hz` to
+  `zoek_referentie` and displays the actual reference frequency.
+- New i18n key: `resultaat.referentiefrequentie` (NL + EN).
+- New analysis script: `scripts/herbereken_steekproef.py`.
+- Baseline: 1297 passed.
+
+## Version 1.1.1 — Update check at startup and via Help (15 October 2026)
 
 **Automatic check for a newer version**
 
@@ -53,7 +128,7 @@ chain as the Help (language → Dutch → general).
 - New setting `algemeen.controleer_updates_bij_opstarten` (default
   `True`), backward-compatible with existing `settings.json`.
 
-## Version 1.10 — Publication, test matrix and bug/feature reports (14 October 2026)
+## Version 1.0.3 — Publication, test matrix and bug/feature reports (14 October 2026)
 
 **The application is now publicly available on GitHub**
 
@@ -62,7 +137,7 @@ repo `barremans/capacitor_esr_validator`. The installer
 (`ESR_TesterSetup_1.0.3.exe`, about 63 MB) is signed and published,
 together with a **stable "latest" pointer** in
 `releases/latest/version.txt`. That pointer is the basis for the
-future update check.
+update check.
 
 **Build pipeline extended with `publish.ps1` and `build_and_publish.ps1`**
 
@@ -131,14 +206,14 @@ REST API.
 - `docs/testmatrix_defender_intune.md` — the full test matrix with
   proven status per PC type.
 
-## Version 1.9 — First Windows build, installer and signing (13 October 2026)
+## Version 1.0.2 — First Windows build, installer and signing (13 October 2026)
 
 **The application now has a real version**
 
 The application now has one central version, in one place:
-`app/version.py`. At this release it is **1.0.3**. The version is shown
-in the **About** dialog (Help → About) and is the basis for the build
-pipeline and later update check.
+`app/version.py`. The version is shown in the **About** dialog
+(Help → About) and is the basis for the build pipeline and the later
+update check.
 
 **Full Windows build pipeline**
 
@@ -205,7 +280,7 @@ variable is not already set.
   created.
 - `app/version.py` is the central version source.
 
-## Version 1.8 — Measurement reports and extended settings (12 October 2026)
+## Version 1.0.1 — Measurement reports and extended settings (12 October 2026)
 
 **Creating measurement reports**
 
@@ -261,7 +336,7 @@ report is purely a view.
   (`binnen_tolerantie`, `niet_beoordeeld`). They are now translated,
   just like in the GUI.
 
-## Version 1.7 — Charts and trends (9 October 2026)
+## Version 1.0.0 — Charts and trends (9 October 2026)
 
 **New "Analysis" page**
 
@@ -305,7 +380,15 @@ back.
 - **Ctrl+F** opens the filter panel.
 - **Esc** returns to the Main menu.
 
-## Version 1.6 — Manufacturer documents: Word and Excel (9 October 2026)
+---
+
+<!--
+From here on: early development phases. The numbering is historical and
+does not always map 1-to-1 to `app/version.py`. These entries remain as
+functional milestones.
+-->
+
+## Version 0.9 — Manufacturer documents: Word and Excel (9 October 2026)
 
 **Word and Excel import**
 
@@ -328,7 +411,7 @@ are not supported.
 Imported Word and Excel files are opened in the default Word or Excel
 application.
 
-## Version 1.5 — Managing the status of your own imports (8 October 2026)
+## Version 0.8 — Managing the status of your own imports (8 October 2026)
 
 **Changing the status of an import**
 
@@ -348,7 +431,7 @@ The documentation table now has an extra **Status** column.
 The checkboxes and radio buttons throughout the application are now
 clearly visible in the dark theme.
 
-## Version 1.4 — Metadata on import and editing in the viewer (7 October 2026)
+## Version 0.7 — Metadata on import and editing in the viewer (7 October 2026)
 
 **Metadata when importing a PDF or URL**
 
@@ -366,8 +449,7 @@ own imports.
 The search field in the documentation library now also searches the
 metadata of imported documents.
 
-## Version 1.3 — Per-language Help and clearer search explanation
-**Date:** 6 October 2026
+## Version 0.6 — Per-language Help and clearer search explanation (6 October 2026)
 
 **New**
 - **Per-language Help.** The general help is now shown per language.
@@ -379,8 +461,7 @@ metadata of imported documents.
 **For developers**
 - New reference `docs/search_syntax.md`.
 
-## Version 1.2 — Keyboard shortcuts and safer exit
-**Date:** 5 October 2026
+## Version 0.5 — Keyboard shortcuts and safer exit (5 October 2026)
 
 **New**
 - You can now work with the keyboard throughout the application.
@@ -388,8 +469,7 @@ metadata of imported documents.
 **Improved**
 - Esc on the Main menu now asks for confirmation.
 
-## Version 1.1 — Smarter searching and help in the documentation
-**Date:** 5 October 2026
+## Version 0.4 — Smarter searching and help in the documentation (5 October 2026)
 
 **New**
 - **Search language for documentation.**
@@ -398,8 +478,7 @@ metadata of imported documents.
 **Improved**
 - The search help window is now also reachable via the Help menu.
 
-## Version 1.0 — Multiple diagnostic tools in one hub
-**Date:** 3 October 2026
+## Version 0.3 — Multiple diagnostic tools in one hub (3 October 2026)
 
 **New**
 - Documents can now be linked to multiple diagnostic tools.
@@ -407,57 +486,13 @@ metadata of imported documents.
 **Improved**
 - Internal structure ready for future diagnostic tools.
 
-## Version 0.9 — Documentation library
-**Date:** 3 October 2026
+## Version 0.2 — Documentation library (3 October 2026)
 
 **New**
 - A central, multilingual documentation library with 8 technical
   documents.
 
-## Version 0.8 — History
-**Date:** 1 October 2026
-
-**New**
-- A clear history page with all stored measurements.
-
-## Version 0.7 — Local storage
-**Date:** 27 September 2026
-
-**New**
-- Assessed measurements can be stored locally.
-
-## Version 0.6 — More robust input and safer OL
-**Date:** 29 September 2026
-
-**New**
-- Clear handling of "out of range" (OL).
-
-## Version 0.5 — Settings
-**Date:** 27 September 2026
-
-**New**
-- A settings window with three tabs.
-
-## Version 0.4 — Compact ESR screen
-**Date:** 26 September 2026
-
-**New**
-- The ESR screen has been made more compact.
-
-## Version 0.3 — Dark theme
-**Date:** 27 September 2026
-
-**Improved**
-- Uniform dark theme.
-
-## Version 0.2 — One window with internal navigation
-**Date:** 13 August 2026
-
-**New**
-- One main window with internal pages.
-
-## Version 0.1 — First working version
-**Date:** 11 August 2026
+## Version 0.1 — First working version (11 August 2026)
 
 **New**
 - First version of the ESR validator.
@@ -465,11 +500,36 @@ metadata of imported documents.
 ---
 
 ## Planned for future versions
-- **Version 1.12** — Practical ESR validation with real measurement
-  data.
-- **Version 1.13** — UX/documentation polish: visual selection in
-  Analysis, checkbox visibility in the dark theme, and aligning the
-  language in the Diagnostics/Result window.
-- **Version 2.0** — Second diagnostic tool: resistance measurements.
-- **Version 3.0** — AI extraction from manufacturer documents with
-  mandatory human approval.
+
+- **Version 1.2.0 — UX/documentation polish.** All small points left
+  over from earlier phases:
+  - **11A** — Export, import and selection: export respects
+    selection, import of measurements from another device, folder
+    preferences respected, visual selection in Analysis,
+    report scope "selection".
+  - **11B** — Reliability rule revised: distinction between
+    substantive and administrative reliability reducers.
+  - **11C** — Icons for all windows.
+  - **11D** — i18n mixing in Diagnostics/Result resolved.
+  - **11E** — Async network (URL fetch, release notes).
+  - **11F** — Documentation extension (reasons, filters, bulk edit).
+  - **11G** — Dark theme visuals (checkboxes, scrollbar).
+  - **11H** — Light theme.
+  - **11I** — Build and cosmetics (deprecations, log files,
+    certificates).
+- **Version 1.3.0 — AI extraction from manufacturer documents.**
+  Automatic text extraction from docx/xlsx as preparation for human
+  validation.
+- **Version 1.4.0 — Human validation of AI output.**
+  Approval flow for AI-extracted data.
+- **Version 1.5.0 — Linking approved manufacturer data to
+  assessment.** The assessment then uses validated manufacturer data.
+- **Version 1.6.0 — Second diagnostic tool: Resistor.**
+  Resistance measurements in the same Tool Hub.
+
+---
+
+_Historical numbering: the entries 0.1 through 0.9 describe the early
+development period. The numbering is functional, not 1-to-1 linked to
+`app/version.py`. From v1.1.1 onwards, the version numbers match the
+actual releases._
