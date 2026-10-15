@@ -4,7 +4,7 @@ Overview of what is new or improved in the Electronics Diagnostic Tool
 Hub. For technical details and architecture decisions, see
 `docs/context.md`.
 
-## Version 1.11 — Update check at startup and via Help (15 October 2026)
+## Version 1.12 — Update check at startup and via Help (15 October 2026)
 
 **Automatic check for a newer version**
 

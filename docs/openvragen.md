@@ -1,7 +1,7 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 2.2.0
-**Datum:** 2026-10-14
+**Versie:** 2.3.0
+**Datum:** 2026-10-15
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
 is. Geen bugs, geen beloftes — alleen vragen en observaties.
@@ -32,6 +32,13 @@ Wijzigingen:
   v2.2.0 (2026-10-14)  §2.22 bijgewerkt: 9G is afgerond. §2.23 toegevoegd:
                        9H (update-check) aangekondigd. §4.12 toegevoegd:
                        eerste geslaagde bug-/feature-melding via GitHub.
+  v2.3.0 (2026-10-15)  §2.23 bijgewerkt: 9H is afgerond en gepubliceerd
+                       als v1.1.1. Nieuwe openstaande punten: meertalige
+                       changelog (opgelost in 9H) en een drietal
+                       cosmetische/UX-punten rond de update-melding.
+                       §4.13 toegevoegd: eerste publicatie met
+                       update-check. §4.14 toegevoegd: changelog-resolver
+                       gedeeld met Help.
 
 ---
 
@@ -227,15 +234,82 @@ Zie v2.0.0.
     in het "Open cases"-scherm.
 - **Status:** afgerond voor 9G.
 
-### 2.23 Fase 9H aangekondigd — update-check (2026-10-14)
+### 2.23 Update-check bij opstarten en via Help — beantwoord (fase 9H)
 
-- **Wat:** de "latest"-pointer op
-  `releases/latest/version.txt` uitlezen en vergelijken met
-  `app/version.py`. Bij een nieuwere versie een melding tonen, met
-  een knop naar de download-URL. Zowel bij opstarten (eenmalig,
-  niet-blokkerend) als via een menu-item in Help.
-- **Voorbeeld:** ArticleSearch heeft al een `updater.py` (v1.3.0).
-- **Status:** na 9G.
+- **Vraag:** kan de applicatie bij het opstarten en via het Help-menu
+  controleren of er een nieuwere versie beschikbaar is, zonder dat er
+  een token in de repo belandt?
+- **Antwoord:** ja. De oplossing leunt op dezelfde bewezen aanpak als
+  de ArticleSearch-flow:
+  - `app/helpers/updater.py` (v1.1.0) — pure, GUI-onafhankelijke
+    update-check. Leest `releases/latest/version.txt` via de raw-URL,
+    met de Contents API als fallback, en vergelijkt die met
+    `app/version.__version__` via `packaging.version.parse`.
+  - `fetch_release_notes()` haalt de release notes (body) van de
+    laatste gepubliceerde GitHub Release op via de Releases API. Geen
+    token; de repo is publiek.
+  - `ToolHubWindow.__init__(check_on_startup=True)` plant een
+    eenmalige, niet-blokkerende check via `QTimer.singleShot(0, …)`.
+    De check vangt alle fouten af en toont alleen bij een nieuwere
+    versie een melding.
+  - Nieuw Help-menu-item **"Controleren op updates…"** dat
+    `_check_for_updates_manually()` aanroept. Toont altijd een
+    melding: nieuwere versie, "je gebruikt de nieuwste versie", of
+    een foutmelding.
+  - De melding bij een nieuwere versie heeft drie knoppen:
+    **Downloaden**, **Wat is er nieuw?**, **Later**. De "Wat is er
+    nieuw?"-knop opent een `QTextBrowser`-dialoog met de release
+    notes van GitHub, plus een knop **Open op GitHub**.
+  - Nieuwe Settings-checkbox **"Bij opstarten controleren op
+    updates"** onder **Instellingen → Algemeen**, gekoppeld aan
+    `algemeen.controleer_updates_bij_opstarten` (default `True`).
+    Backward-compatible met bestaande `settings.json`.
+  - Nieuwe i18n-keys: `menu.controleren_op_updates`, `update.*`,
+    `dialog.sluiten`, `settings.algemeen.controleer_updates` en
+    `settings.algemeen.controleer_updates_tooltip` (NL + EN).
+  - **Meertalige changelog:** `changelog_pad_voor_taal()` in
+    `app/helpers/help_paths.py` gebruikt dezelfde fallback-keten als
+    `help_pad_voor_taal()` (taal → nl_NL → legacy). De changelog
+    staat nu onder `docs/changelog/nl_NL.md` en
+    `docs/changelog/en_US.md`.
+  - **Gepubliceerd als v1.1.1 op 2026-10-15**, met succesvolle
+    handtekening en release-gate.
+- **Status:** afgerond voor 9H.
+
+### 2.24 Nieuwe openstaande punten (na fase 9H)
+
+- **Drie-knoppenmelding is niet testbaar zonder nieuwe versie.**
+  - **Wat:** de knoppen **Downloaden** en **Wat is er nieuw?**
+    verschijnen alleen wanneer `is_newer` True is. In een normale
+    ontwikkelomgeving (waar lokaal == remote) is dat nooit het geval,
+    dus manuele visuele QA is niet mogelijk zonder een echte release.
+  - **Opties:** (a) een verborgen `--force-update-check` flag in
+    `main.py`; (b) een verborgen menu-item dat de melding forceert;
+    (c) niets doen, vertrouwen op de pytest-dekking.
+  - **Status:** open; cosmetisch; fase 11.
+- **`fetch_release_notes()` blokkeert kort bij netwerk-timeout.**
+  - **Wat:** `requests.get(..., timeout=5)` blokkeert de GUI tot 5
+    seconden wanneer de netwerkverbinding traag of afwezig is. Dat is
+    alleen merkbaar wanneer de gebruiker op **Wat is er nieuw?**
+    klikt; bij het opstarten is de check via `QTimer.singleShot`
+    gepland, maar de timeout blijft.
+  - **Opties:** (a) async fetch via `QThread`; (b) kortere timeout;
+    (c) accepteren zoals het is.
+  - **Status:** open; cosmetisch; fase 11.
+- **De release notes-dialoog ondersteunt geen tabellen.**
+  - **Wat:** `_markdown_naar_html()` ondersteunt koppen, vet,
+    cursief, code en eenvoudige lijsten, maar geen tabellen. Als de
+    gebruiker tabellen in de release notes zet, worden die niet
+    weergegeven.
+  - **Status:** bewust beperkt; fase 11 (of nooit, als de
+    release-notes-conventie het niet nodig maakt).
+- **`docs/changelog.md` bestaat niet meer.**
+  - **Wat:** de changelog staat nu onder `docs/changelog/` per taal.
+  - **Impact:** eventuele externe links of scripts die naar
+    `docs/changelog.md` verwijzen, moeten naar
+    `docs/changelog/nl_NL.md` of `docs/changelog/en_US.md` wijzen.
+  - **Status:** opgelost (in 9H); controle van externe verwijzingen
+    open; fase 11.
 
 ---
 
@@ -309,6 +383,24 @@ Zie v2.0.0.
 - **Bewijs:** de GUI-screenshot in de 9G-sessie toont beide items
   onder de juiste rubriek.
 - **Status:** afgerond in 9G.
+
+### 4.13 Eerste publicatie met update-check (9H)
+- **Observatie:** op 2026-10-15 is v1.1.1 gepubliceerd via
+  `publish.ps1`, met succesvolle release-gate op de
+  Authenticode-handtekening. `releases/latest/version.txt` staat op
+  GitHub en bevat `1.1.1` + de download-URL.
+- **Verwacht gedrag bij een oudere installatie (1.0.4):** bij het
+  opstarten of via **Help → Controleren op updates…** verschijnt de
+  melding met **Downloaden** / **Wat is er nieuw?** / **Later**.
+- **Status:** afgerond in 9H.
+
+### 4.14 Changelog-resolver gedeeld met Help (9H)
+- **Observatie:** `changelog_pad_voor_taal()` in
+  `app/helpers/help_paths.py` gebruikt dezelfde fallback-keten als
+  `help_pad_voor_taal()` (taal → nl_NL → legacy). Dat betekent dat
+  het toevoegen van een nieuwe taal aan de changelog géén codewijziging
+  vraagt — alleen een nieuw bestand onder `docs/changelog/`.
+- **Status:** afgerond in 9H.
 
 ---
 

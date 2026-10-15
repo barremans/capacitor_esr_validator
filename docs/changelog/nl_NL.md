@@ -1,11 +1,10 @@
 # Changelog
 
-
 Overzicht van wat er nieuw of verbeterd is in de Electronics Diagnostic
 Tool Hub. Voor technische details en architectuurkeuzes verwijzen we naar
 `docs/context.md`.
 
-## Versie 1.11 — Update-controle bij opstarten en via Help (15 oktober 2026)
+## Versie 1.12 — Update-controle bij opstarten en via Help (15 oktober 2026)
 
 **Automatische controle op een nieuwere versie**
 
@@ -54,8 +53,6 @@ die bij de gekozen taal hoort, met dezelfde fallback-keten als de Help
   `settings.algemeen.controleer_updates` (NL + EN).
 - Nieuwe instelling `algemeen.controleer_updates_bij_opstarten` (default
   `True`), backward-compatible met bestaande `settings.json`.
-
-
 
 ## Versie 1.10 — Publicatie, testmatrix en bug/feature-meldingen (14 oktober 2026)
 
@@ -465,10 +462,6 @@ van geïmporteerde documenten.
 ---
 
 ## Gepland voor volgende versies
-- **Versie 1.11** — Update-controle: bij het opstarten en via het
-  Help-menu wordt gecontroleerd of er een nieuwere versie beschikbaar
-  is op GitHub. De "latest"-pointer in `releases/latest/version.txt`
-  is sinds versie 1.10 beschikbaar.
 - **Versie 1.12** — Praktische ESR-validatie met echte meetgegevens.
 - **Versie 1.13** — UX/documentatie-afwerking: visuele selectie in
   Analyse, checkbox-zichtbaarheid in het donkere thema, en het

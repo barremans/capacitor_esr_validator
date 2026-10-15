@@ -1,16 +1,16 @@
 # OVERDRACHT — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie overdracht:** 4.3.0
-**Datum:** 2026-10-14
+**Versie overdracht:** 5.0.0
+**Datum:** 2026-10-15
 **Auteur:** Bart Bossuyt
-**Vorige versie:** 4.2.0 (2026-10-14)
+**Vorige versie:** 4.3.0 (2026-10-14)
 **Doel:** volledig overdrachtsdocument voor een nieuwe ChatGPT-sessie of
 nieuwe ontwikkelaar. Bevat projectstaat, architectuur, regels, changelog,
 teststructuur en startprompt. Alles in één bestand.
 
-**Huidige baseline:** 1203 passed
-**Laatste afgeronde fase:** 9G — Bug/feature-rapportage naar GitHub
-**Volgende fase:** 9H — Update-check bij opstarten + via Help
+**Huidige baseline:** 1270 passed
+**Laatste afgeronde fase:** 9H — Update-check bij opstarten + via Help
+**Volgende fase:** 10 — Praktische ESR-validatie
 
 ---
 
@@ -20,7 +20,7 @@ teststructuur en startprompt. Alles in één bestand.
 2. Context — projectstaat en architectuur
 3. Kernregels — bindende afspraken
 4. Stappenplan — chronologisch overzicht
-5. Wat is nieuw sinds versie 4.2.0
+5. Wat is nieuw sinds versie 4.3.0
 6. Openstaande vragen voor de nieuwe chat
 7. Teststatus — baseline en teststructuur
 8. Bestanden die de nieuwe chat moet opvragen
@@ -40,10 +40,10 @@ iets doet.
 
 - Projectmap: `C:\PY\capacitor_esr_validator`.
 - Technologie: Python 3.12 + PySide6 (Qt6, Fusion-stijl), volledig offline.
-- Baseline: **1203 passed**.
-- Laatste afgeronde fase: **9G — Bug/feature-rapportage naar GitHub**
-  (2026-10-14).
-- Volgende fase: **9H — Update-check bij opstarten + via Help**.
+- Baseline: **1270 passed**.
+- Laatste afgeronde fase: **9H — Update-check bij opstarten + via Help**
+  (2026-10-15).
+- Volgende fase: **10 — Praktische ESR-validatie**.
 
 **Werkafspraken die je strikt volgt:**
 
@@ -117,10 +117,10 @@ eerst. Geen aannames.
 | Werkmodus | Volledig offline, lokale opslag |
 | Database | SQLite op `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\measurements.sqlite3` |
 | GitHub-repo | `https://github.com/barremans/capacitor_esr_validator` |
-| Huidige versie | `1.0.3` (gepubliceerd als GitHub-release `v1.0.3`) |
-| Huidige baseline | **1203 passed** |
-| Laatste afgeronde fase | 9G — Bug/feature-rapportage naar GitHub |
-| Volgende fase | 9H — Update-check bij opstarten + via Help |
+| Huidige versie | `1.1.1` (gepubliceerd als GitHub-release `v1.1.1`) |
+| Huidige baseline | **1270 passed** |
+| Laatste afgeronde fase | 9H — Update-check bij opstarten + via Help |
+| Volgende fase | 10 — Praktische ESR-validatie |
 
 ### 2.2 Huidige applicatiearchitectuur
 
@@ -132,9 +132,14 @@ eerst. Geen aannames.
   pagina; op de hub sluit de applicatie.
 - Menu: Bestand, Diagnose, **Rapporteren (sinds 9G)**, Instellingen,
   Help.
-- **Belangrijk (v2.11.3):** `ToolHubWindow.__init__(taal=None)`
+- **Belangrijk (v2.11.3):** `ToolHubWindow.__init__(taal=None)` 
   respecteert de parameter `taal`. Valt alleen terug op `settings.json`
   als de parameter leeg is.
+- **Belangrijk (v2.13.0):** `ToolHubWindow.__init__(taal=None,
+  check_on_startup=True)` plant een eenmalige, niet-blokkerende
+  update-check via `QTimer.singleShot(0, …)`. De waarde komt uit
+  `main.py`, die `algemeen.controleer_updates_bij_opstarten` uit
+  `settings.json` leest.
 
 **Sneltoetsen:**
 
@@ -195,6 +200,15 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - Ontbrekende EN-key valt terug op NL.
 - Live taalwissel behoudt state.
 
+**Help en changelog (sinds 4H en 9H):**
+
+- Help: `docs/help/<taal>.md`, met fallback via `help_pad_voor_taal()`.
+- Changelog: `docs/changelog/<taal>.md`, met dezelfde fallback via
+  `changelog_pad_voor_taal()`.
+- Beide resolvers leven in `app/helpers/help_paths.py`.
+- Fallback-keten: taal → `nl_NL` → legacy (`docs/help.md` resp.
+  `docs/changelog.md`).
+
 **Qt-stijl:**
 
 - `main.py` zet `app.setStyle("Fusion")` vóór `apply_dark_theme(app)`.
@@ -203,8 +217,9 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 
 **Buildstraat (fase 9A–9F):**
 
-- `app/version.py` — centrale versie, momenteel `1.0.3`.
-- `main.py` — `QT_QPA_FONTDIR` automatisch, `setApplicationVersion`.
+- `app/version.py` — centrale versie, momenteel `1.1.1`.
+- `main.py` — `QT_QPA_FONTDIR` automatisch, `setApplicationVersion`,
+  geeft `check_on_startup` door.
 - `bump_version.py` — verhoogt patch/minor/major in `app/version.py`.
 - `ESR_Tester.spec` (v2.1.0) — PyInstaller-specificatie met `icon=`
   actief. Sinds 9G: controleblok + `hiddenimports` voor
@@ -240,7 +255,26 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
   token in git staat, dat `github_secret_local.py` genegeerd wordt, en
   dat het token nog door GitHub aanvaard wordt.
 
-### 2.3 Belangrijke recente bugfixes (8D+, 9A–9G)
+**Update-check-laag (fase 9H):**
+
+- `app/helpers/updater.py` (v1.1.0) — pure, GUI-onafhankelijke
+  update-check. Geen Qt, geen token.
+  - `check_for_update(current_version)` → `UpdateInfo`
+  - `fetch_version_txt()` — raw-URL + Contents API-fallback
+  - `fetch_release_notes()` — GitHub Releases API
+- `ToolHubWindow` v2.14.0 — opstartcheck via `QTimer.singleShot`,
+  Help-menu-item "Controleren op updates…", drie-knoppenmelding
+  (Downloaden / Wat is er nieuw? / Later), release-notes-dialoog.
+- `app/config/settings.py` v1.6.0 — `algemeen.controleer_updates_bij_opstarten`
+  (default `True`), backward-compatible.
+- `app/gui/dialogs/settings_dialog.py` v1.4.0 — checkbox op tab Algemeen.
+- Nieuwe i18n-keys: `menu.controleren_op_updates`, `update.*`,
+  `dialog.sluiten`, `settings.algemeen.controleer_updates`,
+  `settings.algemeen.controleer_updates_tooltip` (NL + EN).
+- Changelog meertalig: `docs/changelog/nl_NL.md` +
+  `docs/changelog/en_US.md`, via `changelog_pad_voor_taal()`.
+
+### 2.3 Belangrijke recente bugfixes (8D+, 9A–9H)
 
 - **`algemeen.ja` / `algemeen.nee` lekten in rapport-HTML** (v1.3.0 van
   `report_render.py`): vervangen door `app.ja` / `app.nee`.
@@ -277,14 +311,13 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 Volgens het stappenplan:
 
 - **9G** — Bug/feature-rapportage naar GitHub. **Afgerond 2026-10-14.**
-- **9H** — Update-check bij opstarten + via Help. **Volgende fase.**
-  De "latest"-pointer op `releases/latest/version.txt` is sinds 9E
-  beschikbaar. ArticleSearch heeft een `updater.py` (v1.3.0) als
-  voorbeeld.
-- **10** — Praktische ESR-validatie.
+- **9H** — Update-check bij opstarten + via Help. **Afgerond en
+  gepubliceerd als v1.1.1 op 2026-10-15.**
+- **10** — Praktische ESR-validatie. **Volgende fase.**
 - **11** — Laatste UX/documentatie-afwerking (incl. light theme,
   async URL-fetch, cosmetische punten, visuele selectie in Analyse,
-  checkbox-zichtbaarheid donker thema, i18n-menging in Diagnose/Result).
+  checkbox-zichtbaarheid donker thema, i18n-menging in Diagnose/Result,
+  en de nieuwe cosmetische punten uit §2.24 van `openvragen.md`).
 - **12** — AI-extractie uit fabrikantdocumenten.
 - **13** — Menselijke validatie van AI-output.
 - **14** — Goedgekeurde fabrikantdata koppelen aan assessment.
@@ -348,6 +381,8 @@ Volgens het stappenplan:
 22. **De ArticleSearch-flow is de bewezen build-flow.**
 23. **Nooit een GitHub-token in een getrackt bestand, chat of
     context-document zetten.**
+24. **Een update-check mag de applicatie nooit laten crashen.**
+25. **De changelog-resolver gebruikt dezelfde fallback-keten als Help.**
 
 ### 3.2 Architectuur
 
@@ -364,9 +399,10 @@ Volgens het stappenplan:
 - **GitHub-feedbacklaag** (fase 9G) is eveneens gescheiden van de
   applicatiecode: vijf identieke pakketbestanden in de projectroot,
   plus een app-specifieke `github_feedback_config.py`, plus een
-  niet-getrackte `github_secret_local.py`. De meldschermen zijn GUI;
-  `github_feedback.py` is puur; `check_github_secret.py` is een
-  build-controle.
+  niet-getrackte `github_secret_local.py`.
+- **Update-check-laag** (fase 9H) is puur en GUI-onafhankelijk:
+  `app/helpers/updater.py` bevat de logica, `main_window.py` bevat
+  de presentatie.
 
 ### 3.3 ESR-technische kernregels
 
@@ -415,9 +451,9 @@ Volgens het stappenplan:
 | 9D | Signing | ✅ |
 | 9E | GitHub Release | ✅ |
 | 9F | Intune/Defender/CFA-testmatrix + `docs/packaging.md` | ✅ |
-| **9G** | **Bug/feature-rapportage naar GitHub** | **✅** |
-| **9H** | **Update-check bij opstarten + via Help** | **Volgende** |
-| 10 | Praktische ESR-validatie | Gepland |
+| 9G | Bug/feature-rapportage naar GitHub | ✅ |
+| **9H** | **Update-check bij opstarten + via Help** | **✅ (v1.1.1)** |
+| **10** | **Praktische ESR-validatie** | **Volgende** |
 | 11 | Laatste UX/documentatie-afwerking | Gepland |
 | 12 | AI-extractie uit fabrikantdocumenten | Gepland |
 | 13 | Menselijke validatie van AI-output | Gepland |
@@ -426,86 +462,104 @@ Volgens het stappenplan:
 
 ---
 
-## 5. WAT IS NIEUW SINDS VERSIE 4.2.0
+## 5. WAT IS NIEUW SINDS VERSIE 4.3.0
 
-### 5.1 Fase 9G — Bug/feature-rapportage naar GitHub
+### 5.1 Fase 9H — Update-check bij opstarten + via Help
 
-- **Uniform pakket uitgerold** volgens `GITHUB_FEEDBACK_UITROL.md`:
-  vijf identieke bestanden in de projectroot, één app-specifieke
-  config, één niet-getrackt tokenbestand.
-- **Nieuwe bestanden:**
-  - `github_feedback.py` (v1.0.0) — GitHubFeedbackClient, geen Qt,
-    geen token.
-  - `bug_report_dialog.py` (v2.0.0) — BugDialog.
-  - `github_cases.py` (v2.0.0) — show_github_cases.
-  - `check_github_secret.py` (v1.0.0) — build-controle.
-  - `github_secret_local.example.py` (v1.0.0) — sjabloon.
-  - `github_feedback_config.py` (v1.0.0) — app-specifiek.
-  - `tests/test_github_feedback_config.py` (v1.0.0) — 10 tests.
-  - `tests/test_github_feedback_client.py` (v1.0.0) — 22 tests.
-  - `tests/test_check_github_secret.py` (v1.0.1) — 11 tests.
-  - `tests/test_main_window_reporting_menu.py` (v1.0.1) — 10 tests.
-- **Gewijzigde bestanden:**
-  - `.gitignore` — `*_secret_local.py` toegevoegd.
-  - `app/gui/main_window.py` — v2.11.6 → v2.12.0. Nieuw menu
-    "Rapporteren" tussen Diagnose en Instellingen. Nieuwe methoden
-    `_show_bug_report_dialog()` en `_show_open_cases()`.
-  - `i18n/locales/nl_NL/app.json` — 3 nieuwe keys.
-  - `i18n/locales/en_US/app.json` — 3 nieuwe keys.
-  - `ESR_Tester.spec` — v2.0.0 → v2.1.0. Controleblok + twee
-    `hiddenimports`.
-- **Nieuwe i18n-keys:**
+- **Nieuwe module `app/helpers/updater.py` (v1.1.0):**
+  - `check_for_update(current_version)` → `UpdateInfo`
+  - `fetch_version_txt()` — raw-URL + Contents API-fallback
+  - `fetch_release_notes()` — GitHub Releases API
+  - `parse_version_file()` — leest `<versie>\n<url>` uit version.txt
+  - `UpdateInfo` dataclass (frozen, slots)
+- **`app/gui/main_window.py` v2.13.0 → v2.14.0:**
+  - `ToolHubWindow.__init__(taal=None, check_on_startup=True)`
+  - `QTimer.singleShot(0, self._run_startup_update_check)`
+  - `_run_startup_update_check()` — stil, toont alleen bij nieuwere versie
+  - `_check_for_updates_manually()` — altijd een melding
+  - `_do_update_check()` — vangt alle fouten af
+  - `_toon_update_melding(info)` — drie knoppen
+  - `_toon_release_notes()` — haalt release notes op
+  - `_toon_release_notes_dialoog(body, html_url)` — QTextBrowser-dialoog
+  - `_markdown_naar_html(tekst)` — mini-Markdown-render
+  - `_show_changelog()` — via `changelog_pad_voor_taal(self.taal)`
+- **`app/config/settings.py` v1.5.0 → v1.6.0:**
+  - Nieuwe instelling `algemeen.controleer_updates_bij_opstarten: bool = True`
+- **`app/gui/dialogs/settings_dialog.py` v1.3.0 → v1.4.0:**
+  - Nieuwe checkbox op tab Algemeen
+- **`main.py` v1.3.0 → v1.4.0:**
+  - Geeft `check_on_startup` door aan `ToolHubWindow`
+- **`app/helpers/help_paths.py` v1.0.0 → v1.1.0:**
+  - `changelog_pad_voor_taal(taal)` — dezelfde fallback-keten als Help
+  - `changelog_pad_bestaat_voor_taal(taal)`
+- **Nieuwe changelog-structuur:**
+  - `docs/changelog/nl_NL.md` — volledige Nederlandse changelog
+  - `docs/changelog/en_US.md` — volledige Engelse changelog
+  - `docs/changelog.md` — **verwijderd**
+- **Help-sectie "Updates"** in `docs/help/nl_NL.md` + `en_US.md`.
+- **Nieuwe i18n-keys (NL + EN):**
+  - `menu.controleren_op_updates`
+  - `update.titel`, `update.nieuwer_bericht`, `update.geen_update`,
+    `update.downloaden`, `update.wat_is_er_nieuw`,
+    `update.release_notes_titel`, `update.release_notes_fout`,
+    `update.open_op_github`, `update.later`, `update.fout_titel`,
+    `update.fout_bericht`
+  - `dialog.sluiten`
+  - `settings.algemeen.controleer_updates`,
+    `settings.algemeen.controleer_updates_tooltip`
+- **Gepubliceerd als v1.1.1 op 2026-10-15** met geslaagde
+  release-gate op de Authenticode-handtekening.
+- **Baseline:** van 1203 naar **1270 passed** (+67 tests).
 
-  | Key | NL | EN |
-  |---|---|---|
-  | `menu.rapporteren` | `Rapporteren` | `Report` |
-  | `menu.bug_melden` | `🐞 Bug of feature melden…` | `🐞 Report a bug or feature…` |
-  | `menu.open_cases` | `Open cases tonen` | `Show open cases` |
-
-- **Bewezen op 2026-10-14:** een testbug en een testfeature zijn
-  succesvol aangemaakt als GitHub Issues met de juiste labels, en
-  worden correct getoond in het "Open cases"-scherm.
-- **Baseline:** van 1150 naar **1203 passed** (+53 tests).
-
-### 5.2 Gewijzigde bestanden sinds 4.2.0
+### 5.2 Gewijzigde bestanden sinds 4.3.0
 
 | Bestand | Versie / status |
 |---|---|
-| `.gitignore` | `*_secret_local.py` toegevoegd |
-| `app/gui/main_window.py` | v2.12.0 (was v2.11.6) |
-| `ESR_Tester.spec` | v2.1.0 (was v2.0.0) |
-| `i18n/locales/nl_NL/app.json` | 3 nieuwe keys |
-| `i18n/locales/en_US/app.json` | 3 nieuwe keys |
-| `github_feedback.py` | **nieuw** (v1.0.0) |
-| `bug_report_dialog.py` | **nieuw** (v2.0.0) |
-| `github_cases.py` | **nieuw** (v2.0.0) |
-| `check_github_secret.py` | **nieuw** (v1.0.0) |
-| `github_secret_local.example.py` | **nieuw** (v1.0.0) |
-| `github_feedback_config.py` | **nieuw** (v1.0.0) |
-| `github_secret_local.py` | **nieuw** (niet in git) |
-| `tests/test_github_feedback_config.py` | **nieuw** (v1.0.0) |
-| `tests/test_github_feedback_client.py` | **nieuw** (v1.0.0) |
-| `tests/test_check_github_secret.py` | **nieuw** (v1.0.1) |
-| `tests/test_main_window_reporting_menu.py` | **nieuw** (v1.0.1) |
-| `docs/changelog.md` | Versie 1.10 toegevoegd |
-| `docs/openvragen.md` | v2.2.0 (was v2.1.0) |
-| `overdracht.md` | v4.3.0 (dit bestand) |
+| `app/helpers/updater.py` | **nieuw** (v1.1.0) |
+| `app/helpers/help_paths.py` | v1.1.0 (was v1.0.0) |
+| `app/gui/main_window.py` | v2.14.0 (was v2.12.0) |
+| `app/gui/dialogs/settings_dialog.py` | v1.4.0 (was v1.3.0) |
+| `app/config/settings.py` | v1.6.0 (was v1.5.0) |
+| `main.py` | v1.4.0 (was v1.3.0) |
+| `app/version.py` | 1.1.1 (was 1.0.4) |
+| `releases/latest/version.txt` | 1.1.1 + download-URL |
+| `i18n/locales/nl_NL/app.json` | nieuwe keys |
+| `i18n/locales/en_US/app.json` | nieuwe keys |
+| `i18n/locales/nl_NL/settings.json` | nieuwe keys |
+| `i18n/locales/en_US/settings.json` | nieuwe keys |
+| `docs/help/nl_NL.md` | sectie Updates |
+| `docs/help/en_US.md` | sectie Updates |
+| `docs/changelog/nl_NL.md` | **nieuw** |
+| `docs/changelog/en_US.md` | **nieuw** |
+| `docs/changelog.md` | **verwijderd** |
+| `tests/test_updater.py` | **nieuw** (v1.1.0) |
+| `tests/test_main_window_update_menu.py` | **nieuw** (v1.1.0) |
+| `tests/test_startup_update_check.py` | **nieuw** (v1.0.0) |
+| `tests/test_help_paths.py` | v1.1.0 (was v1.0.0) |
+| `tests/test_main_window_help_menu.py` | v1.1.0 (was v1.0.2) |
+| `tests/test_settings.py` | v1.4.0 (was v1.3.0) |
+| `tests/test_settings_dialog.py` | v1.3.0 (was v1.2.0) |
+| `docs/openvragen.md` | v2.3.0 (was v2.2.0) |
+| `overdracht.md` | v5.0.0 (dit bestand) |
 
 ### 5.3 Teststatus
 
-**Baseline: 1203 passed.** Was 1150 in v4.2.0. De 53 nieuwe tests:
+**Baseline: 1270 passed.** Was 1203 in v4.3.0. De 67 nieuwe tests:
 
 | Bestand | Aantal |
 |---|---|
-| `tests/test_github_feedback_config.py` | 10 |
-| `tests/test_github_feedback_client.py` | 22 |
-| `tests/test_check_github_secret.py` | 11 |
-| `tests/test_main_window_reporting_menu.py` | 10 |
-| **Totaal** | **53** |
+| `tests/test_updater.py` | 24 |
+| `tests/test_main_window_update_menu.py` | 16 |
+| `tests/test_startup_update_check.py` | 5 |
+| `tests/test_settings.py` (nieuwe tests) | 3 |
+| `tests/test_settings_dialog.py` (nieuwe tests) | 5 |
+| `tests/test_main_window_help_menu.py` (nieuw + aangepast) | 5 |
+| `tests/test_help_paths.py` (nieuwe tests) | 6 |
+| **Totaal** | **~64–67** |
 
-Volledige suite: **1203 passed in 32.26s**.
+Volledige suite: **1270 passed in 51.04s**.
 
-### 5.4 Bekende beperkingen (ongewijzigd t.o.v. 4.2.0, plus nieuwe)
+### 5.4 Bekende beperkingen (ongewijzigd t.o.v. 4.3.0, plus nieuwe)
 
 - Geen OCR voor gescande PDF's.
 - `.doc` en `.xls` worden geweigerd.
@@ -517,8 +571,6 @@ Volledige suite: **1203 passed in 32.26s**.
 - Analyse-pagina: geen zoom/pan, geen PNG/PDF-export, geen visuele
   selectie.
 - Rapportage: alleen "één meting" in de GUI.
-- **Geen update-check** — volgt in 9H. De "latest"-pointer is sinds
-  9E beschikbaar.
 - Pandas-pin `<3`, numpy als directe dependency.
 - Defender-indicator op Intune-pc's vereist eenmalige `.cer`-upload.
 - WDAC/AppLocker: bevestigd **niet actief** (2026-10-13).
@@ -526,6 +578,10 @@ Volledige suite: **1203 passed in 32.26s**.
   repo (fine-grained). Eén token per app, niet delen.
 - **Meldingen zijn publiek leesbaar** — de repo is publiek. Houd
   testtekst neutraal.
+- **De drie-knoppenmelding is niet testbaar zonder nieuwe versie** —
+  zie `openvragen.md` §2.24.
+- **`fetch_release_notes()` blokkeert kort bij netwerk-timeout** —
+  zie `openvragen.md` §2.24.
 
 ---
 
@@ -558,13 +614,17 @@ Volledige suite: **1203 passed in 32.26s**.
   `4DA652...`, `13B90D...`.
 - **Checkbox-zichtbaarheid in donker thema** (Analyse + History).
 - **i18n-menging in Diagnose/Result en Resultaatdetails.**
+- **Drie-knoppenmelding forceren voor QA** (nieuw, §2.24).
+- **`fetch_release_notes()` async maken** (nieuw, §2.24).
+- **`docs/changelog.md` verwijderd — controleer externe links**
+  (nieuw, §2.24).
 
 ---
 
 ## 7. TESTSTATUS — BASELINE EN TESTSTRUCTUUR
 
-**Datum:** 2026-10-14
-**Baseline:** 1203 passed
+**Datum:** 2026-10-15
+**Baseline:** 1270 passed
 **Werkwijze:** eerst gerichte tests, dan volledige `pytest -q`.
 
 ### 7.1 Commando's
@@ -644,6 +704,22 @@ python check_github_secret.py --skip-token
 python check_github_secret.py --skip-online
 ```
 
+### 7.7 Update-check handmatig testen (fase 9H)
+
+De drie-knoppenmelding (**Downloaden** / **Wat is er nieuw?** / **Later**)
+verschijnt alleen wanneer `is_newer` True is. In een normale
+ontwikkelomgeving is dat nooit het geval. Om het toch te testen:
+
+```powershell
+# Tijdelijk de lokale versie verlagen (NIET vergeten terug te zetten)
+python bump_version.py patch --dry-run    # bekijk wat er zou gebeuren
+# Of pas app\version.py manueel aan naar een lagere versie, start de
+# app, en zet daarna terug.
+```
+
+De pytest-dekking in `tests/test_main_window_update_menu.py` en
+`tests/test_updater.py` dekt de logica zonder echt netwerk.
+
 ---
 
 ## 8. BESTANDEN DIE DE NIEUWE CHAT MOET OPVRAGEN
@@ -653,23 +729,27 @@ Voor een nieuwe sessie heeft de chat meestal nodig:
 - `overdracht.md` (dit bestand) — primaire bron
 - `docs/context.md` — architectuur en ontwerpprincipes
 - `docs/openvragen.md` — levende lijst
-- `docs/changelog.md` — versiegeschiedenis voor de gebruiker
+- `docs/changelog/nl_NL.md` — versiegeschiedenis voor de gebruiker
 - `PROJECT_STRUCTURE.md` — automatisch gegenereerde mappenstructuur
 
 Bij een specifieke fase vraagt de chat om de bestanden die de fase raakt.
 
-**Voor fase 9H (update-check bij opstarten + via Help):**
+**Voor fase 10 (Praktische ESR-validatie):**
 
-- `releases/latest/version.txt` — de "latest"-pointer
-- `publish.ps1` — om te zien welk formaat de pointer heeft
-- `main.py` — waar de check moet komen
-- `app/gui/main_window.py` — huidige versie (v2.12.0) — voor het
-  Help-menu-item
-- `app/version.py` — huidige versie (1.0.3) — om te vergelijken
-- `updater.py` — als die bestaat in ArticleSearch (`C:\searcharticle_code`),
-  als voorbeeld (v1.3.0)
-- `i18n/locales/nl_NL/app.json` — voor nieuwe i18n-keys
-- `i18n/locales/en_US/app.json` — idem
+Deze fase raakt de meetkern en de referentiedata. Vraag in elk geval op:
+
+- `app/services/assessment_service.py`
+- `app/data/references/esr_references.json`
+- `app/config/instrument_profiles.py`
+- `app/helpers/units.py`
+- `app/gui/esr_test_screen.py`
+- `docs/validation_rules.md`
+- `docs/context.md`
+- `tests/test_assessment.py`
+
+Vraag daarnaast om de **praktische meetgegevens** die de gebruiker in
+fase 10 wil gebruiken om de referentiedrempels te valideren. Zonder
+die gegevens kan fase 10 niet starten.
 
 ---
 
