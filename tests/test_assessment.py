@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_assessment.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.3.0
-Datum:      2026-09-26
+Versie:     1.4.0
+Datum:      2026-10-15
 Auteur:     Ontwikkelaar
 
 Doel:       Unit tests voor de assessment_service. Test alle 20 testgevallen
@@ -23,6 +23,8 @@ Wijzigingen:
   v1.3.0 (2026-09-29)  Grens- en referentievalidatie toegevoegd:
                        exacte tolerantielimieten, type-mismatch en
                        ontbrekende referentiefrequentie.
+  v1.4.0 (2026-10-15)  Fase 10B: tests voor het nieuwe veld
+                       `referentiefrequentie_hz` in Beoordeling.
 ================================================================================
 """
 
@@ -630,6 +632,85 @@ class TestVolledigeMeting(unittest.TestCase):
             vertaal("veiligheid.buiten_bereik"),
             resultaat.waarschuwingen,
         )
+
+
+class TestReferentiefrequentieInResultaat(unittest.TestCase):
+    """Fase 10B: het Beoordeling-resultaat bewaart de gebruikte
+    referentiefrequentie, zodat de GUI die kan tonen."""
+
+    def _ref(self, freq_hz):
+        return ReferentieContext(
+            esr_waarde=400,
+            eenheid="mΩ",
+            bron="Test",
+            referentieniveau=5,
+            frequentie_hz=freq_hz,
+            typisch_of_maximaal="maximaal",
+            condensatortype="Aluminium elektrolytisch",
+        )
+
+    def test_referentiefrequentie_aanwezig_bij_1khz(self):
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=470,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=460,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=0.18,
+            eenheid_gemeten_esr="Ω",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=self._ref(1000),
+            fabrikant_bekend=True,
+            serie_bekend=True,
+        )
+        self.assertEqual(resultaat.referentiefrequentie_hz, 1000)
+
+    def test_referentiefrequentie_aanwezig_bij_10khz(self):
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=470,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=460,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=0.15,
+            eenheid_gemeten_esr="Ω",
+            meetfrequentie_hz=10000,
+            D=None,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=self._ref(10000),
+            fabrikant_bekend=True,
+            serie_bekend=True,
+        )
+        self.assertEqual(resultaat.referentiefrequentie_hz, 10000)
+
+    def test_referentiefrequentie_none_zonder_referentie(self):
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=470,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=460,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=0.18,
+            eenheid_gemeten_esr="Ω",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=None,
+            fabrikant_bekend=False,
+            serie_bekend=False,
+        )
+        self.assertIsNone(resultaat.referentiefrequentie_hz)
 
 
 if __name__ == "__main__":

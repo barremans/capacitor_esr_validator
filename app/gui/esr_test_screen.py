@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/esr_test_screen.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.11.0
-Datum:      2026-10-05
+Versie:     1.12.0
+Datum:      2026-10-15
 Auteur:     Ontwikkelaar
 
 Doel:       Compact ESR-diagnosescherm voor nominale gegevens, meetcontext,
@@ -73,6 +73,11 @@ Wijzigingen:
                        Ctrl+W (wissen), Ctrl+I (meetinstructies).
                        Alleen lokale QShortcuts op de pagina-root met
                        WidgetWithChildrenShortcut; geen nieuwe i18n-keys.
+  v1.12.0 (2026-10-15) Fase 10B: _show_result gebruikt nu de werkelijke
+                       referentiefrequentie uit het Beoordeling-resultaat
+                       (`referentiefrequentie_hz`) i.p.v. de aanname dat de
+                       referentie altijd op 100 kHz staat. Geen wijziging
+                       aan de beoordelingslogica zelf.
 
 Versiebeheer:
   - MAJOR: incompatibele architectuur/API-wijziging.
@@ -915,7 +920,11 @@ class EsrTestScreen(QWidget):
 
             referentie = None
             if cond_type == "Aluminium elektrolytisch" and nom_voltage:
-                referentie = zoek_referentie(nom_cap_uf, nom_voltage)
+                referentie = zoek_referentie(
+                    nom_cap_uf,
+                    nom_voltage,
+                    meetfrequentie_hz=freq_hz,
+                )
 
             resultaat = beoordeel_meting(
                 nominale_capaciteit=nom_cap,
@@ -1052,13 +1061,13 @@ class EsrTestScreen(QWidget):
             f"{esr.factor:.2f}×" if esr.factor is not None else "—"
         )
         if esr.factor is not None and esr.frequentie_wijkt_af:
-            ref_freq = getattr(resultaat, "referentiefrequentie_hz", None)
-            # De Beoordeling bewaart de referentiefrequentie momenteel niet apart.
-            # De ingebouwde referentiebron gebruikt 100 kHz; toon daarom alleen
-            # de meetfrequentie en markeer de factor ondubbelzinnig als indicatief.
+            # Fase 10B: gebruik de werkelijke referentiefrequentie uit het
+            # resultaat i.p.v. de aanname dat de referentie op 100 kHz staat.
+            ref_freq_tekst = _format_frequency(resultaat.referentiefrequentie_hz)
+            meet_freq_tekst = _format_frequency(self.freq_combo.currentData())
             esr_factor = (
-                f"{esr_factor}* ({_format_frequency(self.freq_combo.currentData())} gemeten; "
-                f"referentiefrequentie wijkt af)"
+                f"{esr_factor}* ({meet_freq_tekst} gemeten; "
+                f"referentiefrequentie {ref_freq_tekst})"
             )
 
         if (
@@ -1133,6 +1142,8 @@ class EsrTestScreen(QWidget):
                 f"{self._t('resultaat.esr_defect_indicatief')}: &gt; {_format_esr_ohm(verdacht)}"
             )
 
+        ref_freq_html = _format_frequency(resultaat.referentiefrequentie_hz)
+
         html = [
             f"<h2>{self._t('scherm.resultaat')}</h2>",
             f"<p><b>{self._t('resultaat.eindstatus')}:</b> {status_text}</p>",
@@ -1141,7 +1152,8 @@ class EsrTestScreen(QWidget):
             f"{resultaat.testspanning_vrms if resultaat.testspanning_vrms is not None else '—'} Vrms<br>"
             f"<b>{self._t('resultaat.meetfrequentie')}:</b> {_format_frequency(self.freq_combo.currentData())}<br>"
             f"<b>{self._t('resultaat.referentiebron')}:</b> {e.referentiebron or '—'}<br>"
-            f"<b>{self._t('resultaat.referentieniveau')}:</b> {e.referentieniveau if e.referentieniveau is not None else '—'}</p>",
+            f"<b>{self._t('resultaat.referentieniveau')}:</b> {e.referentieniveau if e.referentieniveau is not None else '—'}<br>"
+            f"<b>{self._t('resultaat.referentiefrequentie')}:</b> {ref_freq_html}</p>",
             f"<h3>{self._t('resultaat.capaciteit')}</h3>",
             f"<p>{c.toelichting}<br>"
             f"<b>{self._t('resultaat.toegestane_capaciteit')}:</b> {cap_grenzen_html}</p>",

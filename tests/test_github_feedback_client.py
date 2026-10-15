@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_github_feedback_client.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-14
+Versie:     1.0.1
+Datum:      2026-10-15
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor GitHubFeedbackClient in
@@ -21,6 +21,11 @@ Doel:       Regressietests voor GitHubFeedbackClient in
 
 Wijzigingen:
   v1.0.0 (2026-10-14)  Eerste versie. Fase 9G.
+  v1.0.1 (2026-10-15)  Versie-assertie in
+                       test_build_body_header_mentions_app_and_version
+                       gebruikt nu app.version.__version__ in plaats
+                       van hardcoded "1.0". Voorkomt flakiness bij elke
+                       versie-bump. Geen functionele codewijziging.
 ================================================================================
 """
 
@@ -29,6 +34,8 @@ import sys
 from datetime import datetime
 
 import pytest
+
+from app.version import __version__
 
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -111,7 +118,7 @@ def test_build_body_header_mentions_app_and_version(monkeypatch):
     gf, _ = _maak_client(monkeypatch)
     body = gf.build_body("BBossuyt", "iets", gf.REPORT_TYPE_BUG)
     assert "ESR Tester" in body
-    assert "1.0" in body  # versie begint met 1.0.x
+    assert __version__ in body
 
 
 def test_build_body_datetime_format(monkeypatch):

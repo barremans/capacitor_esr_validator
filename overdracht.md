@@ -1,16 +1,16 @@
 # OVERDRACHT — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie overdracht:** 5.0.0
+**Versie overdracht:** 5.1.0
 **Datum:** 2026-10-15
 **Auteur:** Bart Bossuyt
-**Vorige versie:** 4.3.0 (2026-10-14)
+**Vorige versie:** 5.0.0 (2026-10-15)
 **Doel:** volledig overdrachtsdocument voor een nieuwe ChatGPT-sessie of
 nieuwe ontwikkelaar. Bevat projectstaat, architectuur, regels, changelog,
 teststructuur en startprompt. Alles in één bestand.
 
-**Huidige baseline:** 1270 passed
-**Laatste afgeronde fase:** 9H — Update-check bij opstarten + via Help
-**Volgende fase:** 10 — Praktische ESR-validatie
+**Huidige baseline:** 1297 passed
+**Laatste afgeronde fase:** 10B — drempelvalidatie
+**Volgende fase:** 11 — Laatste UX/documentatie-afwerking
 
 ---
 
@@ -20,7 +20,7 @@ teststructuur en startprompt. Alles in één bestand.
 2. Context — projectstaat en architectuur
 3. Kernregels — bindende afspraken
 4. Stappenplan — chronologisch overzicht
-5. Wat is nieuw sinds versie 4.3.0
+5. Wat is nieuw sinds versie 5.0.0
 6. Openstaande vragen voor de nieuwe chat
 7. Teststatus — baseline en teststructuur
 8. Bestanden die de nieuwe chat moet opvragen
@@ -40,10 +40,9 @@ iets doet.
 
 - Projectmap: `C:\PY\capacitor_esr_validator`.
 - Technologie: Python 3.12 + PySide6 (Qt6, Fusion-stijl), volledig offline.
-- Baseline: **1270 passed**.
-- Laatste afgeronde fase: **9H — Update-check bij opstarten + via Help**
-  (2026-10-15).
-- Volgende fase: **10 — Praktische ESR-validatie**.
+- Baseline: **1297 passed**.
+- Laatste afgeronde fase: **10B — drempelvalidatie** (2026-10-15).
+- Volgende fase: **11 — Laatste UX/documentatie-afwerking**.
 
 **Werkafspraken die je strikt volgt:**
 
@@ -117,10 +116,10 @@ eerst. Geen aannames.
 | Werkmodus | Volledig offline, lokale opslag |
 | Database | SQLite op `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\measurements.sqlite3` |
 | GitHub-repo | `https://github.com/barremans/capacitor_esr_validator` |
-| Huidige versie | `1.1.1` (gepubliceerd als GitHub-release `v1.1.1`) |
-| Huidige baseline | **1270 passed** |
-| Laatste afgeronde fase | 9H — Update-check bij opstarten + via Help |
-| Volgende fase | 10 — Praktische ESR-validatie |
+| Huidige versie | `1.1.2` (gepubliceerd als GitHub-release `v1.1.2`) |
+| Huidige baseline | **1297 passed** |
+| Laatste afgeronde fase | 10B — drempelvalidatie |
+| Volgende fase | 11 — Laatste UX/documentatie-afwerking |
 
 ### 2.2 Huidige applicatiearchitectuur
 
@@ -217,7 +216,7 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 
 **Buildstraat (fase 9A–9F):**
 
-- `app/version.py` — centrale versie, momenteel `1.1.1`.
+- `app/version.py` — centrale versie, momenteel `1.1.2`.
 - `main.py` — `QT_QPA_FONTDIR` automatisch, `setApplicationVersion`,
   geeft `check_on_startup` door.
 - `bump_version.py` — verhoogt patch/minor/major in `app/version.py`.
@@ -274,7 +273,24 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
 - Changelog meertalig: `docs/changelog/nl_NL.md` +
   `docs/changelog/en_US.md`, via `changelog_pad_voor_taal()`.
 
-### 2.3 Belangrijke recente bugfixes (8D+, 9A–9H)
+**Referentie-architectuur (fase 10A + 10B):**
+
+- `app/data/references/esr_references.json` — meerdere profielen per
+  frequentie. Officiële ESR70-tabel op 100 kHz (`esr70_100khz`,
+  `is_schatting: false`) plus geschatte profielen op 100 Hz, 1 kHz en
+  10 kHz (`algemeen_100hz_geschat`, `algemeen_1khz_geschat`,
+  `algemeen_10khz_geschat`, alle `is_schatting: true`).
+- Schattingsfactoren t.o.v. 100 kHz: 100 Hz × 2,00, 1 kHz × 1,50,
+  10 kHz × 1,15 (Nichicon-frequentiecoëfficiënten).
+- `app/data/references/__init__.py` v2.0.0 — `zoek_referentie` accepteert
+  `meetfrequentie_hz` en kiest het dichtstbijzijnde profiel met regels.
+- `assessment_service.Beoordeling` heeft sinds 10B het veld
+  `referentiefrequentie_hz: Optional[float]`, gevuld vanuit de
+  gekozen `ReferentieContext`.
+- `esr_test_screen.py` v1.12.0 roept `zoek_referentie` aan met
+  `meetfrequentie_hz=freq_hz` en toont de werkelijke referentiefrequentie.
+
+### 2.3 Belangrijke recente bugfixes (8D+, 9A–9H, 10A–10B)
 
 - **`algemeen.ja` / `algemeen.nee` lekten in rapport-HTML** (v1.3.0 van
   `report_render.py`): vervangen door `app.ja` / `app.nee`.
@@ -305,6 +321,11 @@ Alle lokale sneltoetsen gebruiken `WidgetWithChildrenShortcut`.
   menu's op met `menubar.clear()` + `deleteLater()`. Oplossing: alle
   helpers lezen de menu-inhoud in één keer uit en geven strings terug,
   nooit `QMenu`-objecten die bewaard worden.
+- **Frequentie-mismatch 100 kHz vs 1/10 kHz** in de referentie-
+  vergelijking: opgelost in 10A/10B met frequentie-specifieke profielen.
+  De oude drempels `≤1,0 / ≤2,0 / ≤3,0` blijven zinvol omdat de
+  factoren voor goede condensatoren nu 0,09–0,41 zijn (steekproef 72
+  metingen).
 
 ### 2.4 Openstaande werkpunten
 
@@ -313,11 +334,14 @@ Volgens het stappenplan:
 - **9G** — Bug/feature-rapportage naar GitHub. **Afgerond 2026-10-14.**
 - **9H** — Update-check bij opstarten + via Help. **Afgerond en
   gepubliceerd als v1.1.1 op 2026-10-15.**
-- **10** — Praktische ESR-validatie. **Volgende fase.**
+- **10A** — Referentie-architectuur met profielen. **Afgerond
+  2026-10-15.**
+- **10B** — Drempelvalidatie. **Afgerond 2026-10-15** (v1.1.2).
 - **11** — Laatste UX/documentatie-afwerking (incl. light theme,
   async URL-fetch, cosmetische punten, visuele selectie in Analyse,
   checkbox-zichtbaarheid donker thema, i18n-menging in Diagnose/Result,
-  en de nieuwe cosmetische punten uit §2.24 van `openvragen.md`).
+  **export respecteert selectie**, **betrouwbaarheidsregel herzien**,
+  en de nieuwe cosmetische punten uit §2.24–§2.26 van `openvragen.md`).
 - **12** — AI-extractie uit fabrikantdocumenten.
 - **13** — Menselijke validatie van AI-output.
 - **14** — Goedgekeurde fabrikantdata koppelen aan assessment.
@@ -383,6 +407,10 @@ Volgens het stappenplan:
     context-document zetten.**
 24. **Een update-check mag de applicatie nooit laten crashen.**
 25. **De changelog-resolver gebruikt dezelfde fallback-keten als Help.**
+26. **Referenties zijn frequentie-specifiek; geen automatische
+    frequentieconversie in de beoordelingsketen.**
+27. **Geschatte referentieprofielen blijven expliciet als schatting
+    gemarkeerd (`is_schatting: true`).**
 
 ### 3.2 Architectuur
 
@@ -403,6 +431,9 @@ Volgens het stappenplan:
 - **Update-check-laag** (fase 9H) is puur en GUI-onafhankelijk:
   `app/helpers/updater.py` bevat de logica, `main_window.py` bevat
   de presentatie.
+- **Referentie-laag** (fase 10A/10B) leeft in
+  `app/data/references/` en is puur data + selectielogica; de
+  assessment-service past ze enkel toe.
 
 ### 3.3 ESR-technische kernregels
 
@@ -419,6 +450,13 @@ Volgens het stappenplan:
 10. **Eerst praktijkdata verzamelen; daarna referenties/drempels
     aanpassen.**
 11. **OL/out-of-range nooit als 0 interpreteren.**
+12. **Frequentie-specifieke referenties: kies het profiel dat het
+    dichtst bij de meetfrequentie ligt. Geen 100 kHz-referentie op
+    1 kHz-meting zonder markering.**
+13. **Geschatte profielen dragen `is_schatting: true` en een
+    `betrouwbaarheidsniveau: "laag"`.**
+14. **Drempels `≤1,0 / ≤2,0 / ≤3,0` blijven ongewijzigd tot een
+    grotere dataset beschikbaar is.**
 
 ### 3.4 Verboden handelingen zonder expliciete toestemming
 
@@ -452,9 +490,10 @@ Volgens het stappenplan:
 | 9E | GitHub Release | ✅ |
 | 9F | Intune/Defender/CFA-testmatrix + `docs/packaging.md` | ✅ |
 | 9G | Bug/feature-rapportage naar GitHub | ✅ |
-| **9H** | **Update-check bij opstarten + via Help** | **✅ (v1.1.1)** |
-| **10** | **Praktische ESR-validatie** | **Volgende** |
-| 11 | Laatste UX/documentatie-afwerking | Gepland |
+| 9H | Update-check bij opstarten + via Help | ✅ (v1.1.1) |
+| 10A | Referentie-architectuur met profielen | ✅ |
+| **10B** | **Drempelvalidatie** | **✅ (v1.1.2)** |
+| **11** | **Laatste UX/documentatie-afwerking** | **Volgende** |
 | 12 | AI-extractie uit fabrikantdocumenten | Gepland |
 | 13 | Menselijke validatie van AI-output | Gepland |
 | 14 | Goedgekeurde fabrikantdata koppelen aan assessment | Gepland |
@@ -462,104 +501,111 @@ Volgens het stappenplan:
 
 ---
 
-## 5. WAT IS NIEUW SINDS VERSIE 4.3.0
+## 5. WAT IS NIEUW SINDS VERSIE 5.0.0
 
-### 5.1 Fase 9H — Update-check bij opstarten + via Help
+### 5.1 Fase 10B — Drempelvalidatie
 
-- **Nieuwe module `app/helpers/updater.py` (v1.1.0):**
-  - `check_for_update(current_version)` → `UpdateInfo`
-  - `fetch_version_txt()` — raw-URL + Contents API-fallback
-  - `fetch_release_notes()` — GitHub Releases API
-  - `parse_version_file()` — leest `<versie>\n<url>` uit version.txt
-  - `UpdateInfo` dataclass (frozen, slots)
-- **`app/gui/main_window.py` v2.13.0 → v2.14.0:**
-  - `ToolHubWindow.__init__(taal=None, check_on_startup=True)`
-  - `QTimer.singleShot(0, self._run_startup_update_check)`
-  - `_run_startup_update_check()` — stil, toont alleen bij nieuwere versie
-  - `_check_for_updates_manually()` — altijd een melding
-  - `_do_update_check()` — vangt alle fouten af
-  - `_toon_update_melding(info)` — drie knoppen
-  - `_toon_release_notes()` — haalt release notes op
-  - `_toon_release_notes_dialoog(body, html_url)` — QTextBrowser-dialoog
-  - `_markdown_naar_html(tekst)` — mini-Markdown-render
-  - `_show_changelog()` — via `changelog_pad_voor_taal(self.taal)`
-- **`app/config/settings.py` v1.5.0 → v1.6.0:**
-  - Nieuwe instelling `algemeen.controleer_updates_bij_opstarten: bool = True`
-- **`app/gui/dialogs/settings_dialog.py` v1.3.0 → v1.4.0:**
-  - Nieuwe checkbox op tab Algemeen
-- **`main.py` v1.3.0 → v1.4.0:**
-  - Geeft `check_on_startup` door aan `ToolHubWindow`
-- **`app/helpers/help_paths.py` v1.0.0 → v1.1.0:**
-  - `changelog_pad_voor_taal(taal)` — dezelfde fallback-keten als Help
-  - `changelog_pad_bestaat_voor_taal(taal)`
-- **Nieuwe changelog-structuur:**
-  - `docs/changelog/nl_NL.md` — volledige Nederlandse changelog
-  - `docs/changelog/en_US.md` — volledige Engelse changelog
-  - `docs/changelog.md` — **verwijderd**
-- **Help-sectie "Updates"** in `docs/help/nl_NL.md` + `en_US.md`.
-- **Nieuwe i18n-keys (NL + EN):**
-  - `menu.controleren_op_updates`
-  - `update.titel`, `update.nieuwer_bericht`, `update.geen_update`,
-    `update.downloaden`, `update.wat_is_er_nieuw`,
-    `update.release_notes_titel`, `update.release_notes_fout`,
-    `update.open_op_github`, `update.later`, `update.fout_titel`,
-    `update.fout_bericht`
-  - `dialog.sluiten`
-  - `settings.algemeen.controleer_updates`,
-    `settings.algemeen.controleer_updates_tooltip`
-- **Gepubliceerd als v1.1.1 op 2026-10-15** met geslaagde
-  release-gate op de Authenticode-handtekening.
-- **Baseline:** van 1203 naar **1270 passed** (+67 tests).
+**Nieuwe referentieprofielen:**
 
-### 5.2 Gewijzigde bestanden sinds 4.3.0
+- `algemeen_100hz_geschat` — volledige ESR70-tabel × 2,00.
+- `algemeen_1khz_geschat` — volledige ESR70-tabel × 1,50.
+- `algemeen_10khz_geschat` — volledige ESR70-tabel × 1,15.
+
+Alle drie `is_schatting: true`, `referentieniveau: 5`,
+`betrouwbaarheidsniveau: "laag"`, bron-omschrijving vermeldt de
+schattingsfactor.
+
+**`assessment_service.py` v1.3.0 → v1.4.0:**
+
+- `Beoordeling` krijgt `referentiefrequentie_hz: Optional[float]`.
+- Geen wijziging aan drempels of logica.
+
+**`esr_test_screen.py` v1.11.0 → v1.12.0:**
+
+- `_on_assess` roept `zoek_referentie(..., meetfrequentie_hz=freq_hz)`.
+- `_show_result` en `_build_result_html` tonen de werkelijke
+  referentiefrequentie uit `resultaat.referentiefrequentie_hz`.
+
+**`i18n/locales/*/esr.json`:**
+
+- Nieuwe key `resultaat.referentiefrequentie` (NL: "Referentiefrequentie",
+  EN: "Reference frequency").
+
+**`tests/test_references.py` v1.0.0 → v1.1.0:**
+
+- Tests aangepast: 1 kHz, 10 kHz en 100 Hz vallen niet meer terug op
+  100 kHz.
+- Nieuwe tests voor de schalingsfactoren (bijv. 470 µF / 25 V → 600 mΩ
+  op 1 kHz, 460 mΩ op 10 kHz, 800 mΩ op 100 Hz).
+
+**`tests/test_assessment.py` v1.3.0 → v1.4.0:**
+
+- Nieuwe testklasse `TestReferentiefrequentieInResultaat` met drie
+  tests voor het nieuwe veld.
+
+**`scripts/herbereken_steekproef.py` (nieuw, v1.1.0):**
+
+- Eenmalig analysedraaiboek dat de praktijkmetingen uit de historiek
+  herberekent met de nieuwe profielen. Read-only. Zoekt automatisch
+  het meest recente `historiek_detail_*.csv` in de projectroot, of
+  accepteert een expliciet pad.
+
+### 5.2 Resultaten van de steekproef (72 metingen)
+
+Met de nieuwe referenties:
+
+| Frequentie | Situatie | Oude factor (100 kHz) | Nieuwe factor |
+|---|---|---|---|
+| 1 kHz | 220 µF / 25 V | 1,05–1,07 | 0,15–0,20 |
+| 1 kHz | 470 µF / 25 V | 1,47–1,52 | 0,25–0,31 |
+| 1 kHz | 1000 µF / 16 V | 1,42–1,44 | 0,36–0,37 |
+| 10 kHz | 330 µF / 35 V | 0,42–0,45 | 0,09–0,10 |
+| 10 kHz | 470 µF / 25 V | 1,23–1,28 | 0,32–0,33 |
+| 10 kHz | 1000 µF / 16 V | 1,15–1,23 | 0,38–0,41 |
+
+**Conclusies:**
+
+1. De drempels `≤1,0 / ≤2,0 / ≤3,0` blijven ongewijzigd. Goede
+   condensatoren zitten nu structureel onder 0,5; er is ruimte voor
+   verslechtering voordat "aandachtspunt" wordt bereikt.
+2. De statussen in de steekproef veranderen weinig. Dat komt omdat de
+   betrouwbaarheid en de capaciteitsafwijking nu de bepalende factoren
+   zijn, niet meer de ESR-factor.
+3. **Open UX-punt:** de regel "betrouwbaarheid laag → minstens
+   aandachtspunt" verbergt goede resultaten wanneer alleen
+   administratieve gegevens ontbreken (fabrikant/serie onbekend).
+   Zie `docs/openvragen.md` §2.26.
+
+### 5.3 Gewijzigde bestanden sinds 5.0.0
 
 | Bestand | Versie / status |
 |---|---|
-| `app/helpers/updater.py` | **nieuw** (v1.1.0) |
-| `app/helpers/help_paths.py` | v1.1.0 (was v1.0.0) |
-| `app/gui/main_window.py` | v2.14.0 (was v2.12.0) |
-| `app/gui/dialogs/settings_dialog.py` | v1.4.0 (was v1.3.0) |
-| `app/config/settings.py` | v1.6.0 (was v1.5.0) |
-| `main.py` | v1.4.0 (was v1.3.0) |
-| `app/version.py` | 1.1.1 (was 1.0.4) |
-| `releases/latest/version.txt` | 1.1.1 + download-URL |
-| `i18n/locales/nl_NL/app.json` | nieuwe keys |
-| `i18n/locales/en_US/app.json` | nieuwe keys |
-| `i18n/locales/nl_NL/settings.json` | nieuwe keys |
-| `i18n/locales/en_US/settings.json` | nieuwe keys |
-| `docs/help/nl_NL.md` | sectie Updates |
-| `docs/help/en_US.md` | sectie Updates |
-| `docs/changelog/nl_NL.md` | **nieuw** |
-| `docs/changelog/en_US.md` | **nieuw** |
-| `docs/changelog.md` | **verwijderd** |
-| `tests/test_updater.py` | **nieuw** (v1.1.0) |
-| `tests/test_main_window_update_menu.py` | **nieuw** (v1.1.0) |
-| `tests/test_startup_update_check.py` | **nieuw** (v1.0.0) |
-| `tests/test_help_paths.py` | v1.1.0 (was v1.0.0) |
-| `tests/test_main_window_help_menu.py` | v1.1.0 (was v1.0.2) |
-| `tests/test_settings.py` | v1.4.0 (was v1.3.0) |
-| `tests/test_settings_dialog.py` | v1.3.0 (was v1.2.0) |
-| `docs/openvragen.md` | v2.3.0 (was v2.2.0) |
-| `overdracht.md` | v5.0.0 (dit bestand) |
+| `app/data/references/esr_references.json` | gevulde geschatte profielen |
+| `app/services/assessment_service.py` | v1.4.0 (was v1.3.0) |
+| `app/gui/esr_test_screen.py` | v1.12.0 (was v1.11.0) |
+| `i18n/locales/nl_NL/esr.json` | nieuwe key `referentiefrequentie` |
+| `i18n/locales/en_US/esr.json` | nieuwe key `referentiefrequentie` |
+| `tests/test_references.py` | v1.1.0 (was v1.0.0) |
+| `tests/test_assessment.py` | v1.4.0 (was v1.3.0) |
+| `scripts/herbereken_steekproef.py` | **nieuw** (v1.1.0) |
+| `app/version.py` | 1.1.2 |
+| `overdracht.md` | v5.1.0 (dit bestand) |
+| `docs/phase10_analysis.md` | v1.1.0 |
+| `docs/openvragen.md` | v2.4.0 |
 
-### 5.3 Teststatus
+### 5.4 Teststatus
 
-**Baseline: 1270 passed.** Was 1203 in v4.3.0. De 67 nieuwe tests:
+**Baseline: 1297 passed.** Was 1286 in v5.0.0. De 11 nieuwe tests:
 
 | Bestand | Aantal |
 |---|---|
-| `tests/test_updater.py` | 24 |
-| `tests/test_main_window_update_menu.py` | 16 |
-| `tests/test_startup_update_check.py` | 5 |
-| `tests/test_settings.py` (nieuwe tests) | 3 |
-| `tests/test_settings_dialog.py` (nieuwe tests) | 5 |
-| `tests/test_main_window_help_menu.py` (nieuw + aangepast) | 5 |
-| `tests/test_help_paths.py` (nieuwe tests) | 6 |
-| **Totaal** | **~64–67** |
+| `tests/test_references.py` (nieuwe tests voor schalingsfactoren en profielselectie) | 8 |
+| `tests/test_assessment.py` (`TestReferentiefrequentieInResultaat`) | 3 |
+| **Totaal** | **11** |
 
-Volledige suite: **1270 passed in 51.04s**.
+Volledige suite: **1297 passed in 53.05s**.
 
-### 5.4 Bekende beperkingen (ongewijzigd t.o.v. 4.3.0, plus nieuwe)
+### 5.5 Bekende beperkingen (ongewijzigd t.o.v. 5.0.0, plus nieuwe)
 
 - Geen OCR voor gescande PDF's.
 - `.doc` en `.xls` worden geweigerd.
@@ -582,6 +628,9 @@ Volledige suite: **1270 passed in 51.04s**.
   zie `openvragen.md` §2.24.
 - **`fetch_release_notes()` blokkeert kort bij netwerk-timeout** —
   zie `openvragen.md` §2.24.
+- **Export respecteert selectie niet** — zie `openvragen.md` §2.25.
+- **Betrouwbaarheidsregel verbergt goede resultaten bij ontbrekende
+  administratieve gegevens** — zie `openvragen.md` §2.26.
 
 ---
 
@@ -614,17 +663,19 @@ Volledige suite: **1270 passed in 51.04s**.
   `4DA652...`, `13B90D...`.
 - **Checkbox-zichtbaarheid in donker thema** (Analyse + History).
 - **i18n-menging in Diagnose/Result en Resultaatdetails.**
-- **Drie-knoppenmelding forceren voor QA** (nieuw, §2.24).
-- **`fetch_release_notes()` async maken** (nieuw, §2.24).
+- **Drie-knoppenmelding forceren voor QA** (§2.24).
+- **`fetch_release_notes()` async maken** (§2.24).
 - **`docs/changelog.md` verwijderd — controleer externe links**
-  (nieuw, §2.24).
+  (§2.24).
+- **Export respecteert selectie niet** (§2.25).
+- **Betrouwbaarheidsregel verbergt goede resultaten** (§2.26).
 
 ---
 
 ## 7. TESTSTATUS — BASELINE EN TESTSTRUCTUUR
 
 **Datum:** 2026-10-15
-**Baseline:** 1270 passed
+**Baseline:** 1297 passed
 **Werkwijze:** eerst gerichte tests, dan volledige `pytest -q`.
 
 ### 7.1 Commando's
@@ -720,6 +771,18 @@ python bump_version.py patch --dry-run    # bekijk wat er zou gebeuren
 De pytest-dekking in `tests/test_main_window_update_menu.py` en
 `tests/test_updater.py` dekt de logica zonder echt netwerk.
 
+### 7.8 Steekproef herberekenen (fase 10B)
+
+```powershell
+python scripts/herbereken_steekproef.py
+# of met een expliciet pad:
+python scripts/herbereken_steekproef.py pad\naar\historiek_detail_*.csv
+```
+
+Het script zoekt automatisch het meest recente `historiek_detail_*.csv`
+in de projectroot. Kopieer het CSV-bestand dus eerst vanuit Downloads
+naar de projectroot, of geef een expliciet pad mee.
+
 ---
 
 ## 8. BESTANDEN DIE DE NIEUWE CHAT MOET OPVRAGEN
@@ -734,22 +797,23 @@ Voor een nieuwe sessie heeft de chat meestal nodig:
 
 Bij een specifieke fase vraagt de chat om de bestanden die de fase raakt.
 
-**Voor fase 10 (Praktische ESR-validatie):**
+**Voor fase 11 (Laatste UX/documentatie-afwerking):**
 
-Deze fase raakt de meetkern en de referentiedata. Vraag in elk geval op:
+Deze fase raakt veel schermen tegelijk. Vraag in elk geval op:
 
-- `app/services/assessment_service.py`
-- `app/data/references/esr_references.json`
-- `app/config/instrument_profiles.py`
-- `app/helpers/units.py`
+- `app/gui/history_screen.py`
+- `app/gui/analysis_screen.py`
 - `app/gui/esr_test_screen.py`
-- `docs/validation_rules.md`
-- `docs/context.md`
-- `tests/test_assessment.py`
+- `app/services/history_service.py`
+- `app/services/analysis_service.py`
+- `app/helpers/history_csv_export.py`
+- `app/helpers/history_detail_export.py`
+- `app/services/assessment_service.py`
+- `app/gui/styles.py`
+- `i18n/locales/nl_NL/*.json` en `i18n/locales/en_US/*.json`
+- `docs/openvragen.md` (voor de actuele puntenlijst)
 
-Vraag daarnaast om de **praktische meetgegevens** die de gebruiker in
-fase 10 wil gebruiken om de referentiedrempels te valideren. Zonder
-die gegevens kan fase 10 niet starten.
+**Voor fase 12–15:** zie de betreffende specificaties in `docs/future_tools.md`.
 
 ---
 

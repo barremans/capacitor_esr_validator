@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/services/assessment_service.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.3.0
-Datum:      2026-09-29
+Versie:     1.4.0
+Datum:      2026-10-15
 Auteur:     Ontwikkelaar
 
 Doel:       Kernlogica van de indicatieve beoordeling: capaciteitsvalidatie,
@@ -25,6 +25,12 @@ Wijzigingen:
   v1.3.0 (2026-09-29)  Referentie zonder frequentie veilig afgehandeld:
                        ESR wordt niet numeriek beoordeeld en betrouwbaarheid
                        blijft conservatief laag; geen verborgen conversie.
+  v1.4.0 (2026-10-15)  Fase 10B: Beoordeling krijgt het veld
+                       `referentiefrequentie_hz`, gevuld vanuit de gebruikte
+                       ReferentieContext. Maakt het voor de GUI mogelijk de
+                       werkelijke referentiefrequentie te tonen i.p.v. een
+                       aangenomen 100 kHz. Geen wijziging aan de drempels
+                       of aan de beoordelingslogica zelf.
 
 Referentie: docs/validation_rules.md (volledig), in het bijzonder:
             §2 referentiehiërarchie, §3 capaciteitsvalidatie,
@@ -212,6 +218,7 @@ class Beoordeling:
     meetmethode: Meetmethode
     instrument_code: Optional[str]
     testspanning_vrms: Optional[float]
+    referentiefrequentie_hz: Optional[float] = None
 
 
 # ---------------------------------------------------------------------------
@@ -892,6 +899,8 @@ def beoordeel_meting(
             vertaal("veiligheid.eenhedenfout", taal=taal)
         )
 
+    referentiefrequentie_hz = referentie.frequentie_hz if referentie else None
+
     return Beoordeling(
         eindstatus=eindstatus,
         redenen=redenen,
@@ -904,4 +913,5 @@ def beoordeel_meting(
         meetmethode=methode,
         instrument_code=instrument_code,
         testspanning_vrms=testspanning_vrms,
+        referentiefrequentie_hz=referentiefrequentie_hz,
     )

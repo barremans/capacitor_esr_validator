@@ -2,20 +2,28 @@
 ================================================================================
 Module:     app/data/references/__init__.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.0.0
-Datum:      2026-08-11
+Versie:     2.0.0
+Datum:      2026-10-15
 Auteur:     Ontwikkelaar
 
-Doel:       Laadt de ingebouwde referentietabellen (Peak Atlas ESR70, etc.)
+Doel:       Laadt de ingebouwde referentietabellen uit esr_references.json
             en biedt een functie om de beste matching referentie te vinden
-            voor een gegeven condensator.
+            voor een gegeven condensator. Ondersteunt meerdere profielen
+            per frequentie. Kiest op basis van meetfrequentie.
 
 Wijzigingen:
   v1.0.0 (2026-08-11)  Initiele versie. JSON-lader voor Peak Atlas ESR70
                        tabel, zoekfunctie op capaciteit en spanningsklasse.
+  v2.0.0 (2026-10-15)  Profielen-model: meerdere profielen in één JSON,
+                       elk met eigen frequentie en bron. zoek_referentie
+                       accepteert meetfrequentie_hz en kiest het beste
+                       profiel. Bij geen exacte match wordt het
+                       dichtstbijzijnde profiel gekozen met fallback-
+                       waarschuwing. Kleine capaciteiten (0,1–2,2 µF)
+                       krijgen een apart screeningsprofiel.
 
-Referentie: PROJECT_CONTEXT_capacitor_ESR_validator.md §20 (opslagmodel
-            voor referentietabellen), §8.1 (Peak Atlas ESR70 Look-up Chart).
+Referentie: docs/validation_rules.md §2 (referentiehiërarchie),
+            overdracht.md §8 (fase 10).
 ================================================================================
 """
 
@@ -37,7 +45,9 @@ class EsrReferentieRegel:
 
 
 @dataclass(frozen=True)
-class EsrReferentieTabel:
+class EsrReferentieProfiel:
+    id: str
+    naam: str
     bron: str
     bron_url: str
     condensatortype: str
@@ -45,86 +55,167 @@ class EsrReferentieTabel:
     frequentie_hz: float
     typisch_of_maximaal: str
     betrouwbaarheidsniveau: str
+    is_schatting: bool
     regels: tuple[EsrReferentieRegel, ...]
 
 
-_REFERENTIES: list[EsrReferentieTabel] = []
+_PROFIELEN: list[EsrReferentieProfiel] = []
+_PROFIELEN_GELADEN: bool = False
 
 
-def _laad_referenties() -> list[EsrReferentieTabel]:
-    """Laadt alle JSON-referentiebestanden uit de references-map."""
-    global _REFERENTIES
-    if _REFERENTIES:
-        return _REFERENTIES
+def _laad_profielen() -> list[EsrReferentieProfiel]:
+    """Laadt alle profielen uit esr_references.json."""
+    global _PROFIELEN, _PROFIELEN_GELADEN
+    if _PROFIELEN_GELADEN:
+        return _PROFIELEN
 
     root = Path(__file__).resolve().parent
-    for pad in root.glob("*.json"):
-        with pad.open("r", encoding="utf-8") as f:
-            data = json.load(f)
+    pad = root / "esr_references.json"
+    if not pad.exists():
+        _PROFIELEN_GELADEN = True
+        return _PROFIELEN
 
+    with pad.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    for profiel_data in data.get("profiles", []):
         regels = tuple(
             EsrReferentieRegel(
                 capaciteit_uf=r["capaciteit_uf"],
                 spanningsklasse_v=r["spanningsklasse_v"],
                 esr_max_mohm=r["esr_max_mohm"],
             )
-            for r in data.get("tabel", [])
+            for r in profiel_data.get("tabel", [])
         )
-
-        tabel = EsrReferentieTabel(
-            bron=data["bron"],
-            bron_url=data.get("bron_url", ""),
-            condensatortype=data["condensatortype"],
-            referentieniveau=data["referentieniveau"],
-            frequentie_hz=data["frequentie_hz"],
-            typisch_of_maximaal=data["typisch_of_maximaal"],
-            betrouwbaarheidsniveau=data["betrouwbaarheidsniveau"],
+        profiel = EsrReferentieProfiel(
+            id=profiel_data["id"],
+            naam=profiel_data["naam"],
+            bron=profiel_data["bron"],
+            bron_url=profiel_data.get("bron_url", ""),
+            condensatortype=profiel_data["condensatortype"],
+            referentieniveau=profiel_data["referentieniveau"],
+            frequentie_hz=profiel_data["frequentie_hz"],
+            typisch_of_maximaal=profiel_data["typisch_of_maximaal"],
+            betrouwbaarheidsniveau=profiel_data["betrouwbaarheidsniveau"],
+            is_schatting=bool(profiel_data.get("is_schatting", False)),
             regels=regels,
         )
-        _REFERENTIES.append(tabel)
+        _PROFIELEN.append(profiel)
 
-    return _REFERENTIES
+    _PROFIELEN_GELADEN = True
+    return _PROFIELEN
+
+
+def _beste_profiel_voor_frequentie(
+    profielen: list[EsrReferentieProfiel],
+    frequentie_hz: float,
+    condensatortype: str,
+) -> Optional[EsrReferentieProfiel]:
+    """Kies het profiel met de dichtstbijzijnde frequentie.
+
+    Voorkeur:
+    1. Exacte frequentie-match.
+    2. Dichtstbijzijnde frequentie.
+    Alleen profielen met regels komen in aanmerking.
+    """
+    kandidaten = [
+        p
+        for p in profielen
+        if p.condensatortype == condensatortype and len(p.regels) > 0
+    ]
+    if not kandidaten:
+        return None
+
+    # Exacte match
+    for p in kandidaten:
+        if p.frequentie_hz == frequentie_hz:
+            return p
+
+    # Dichtstbijzijnde
+    return min(kandidaten, key=lambda p: abs(p.frequentie_hz - frequentie_hz))
+
+
+def _beste_regel(
+    profiel: EsrReferentieProfiel,
+    capaciteit_uf: float,
+    spanningsklasse_v: float,
+) -> Optional[EsrReferentieRegel]:
+    """Vind de dichtstbijzijnde regel binnen een profiel.
+
+    Matcht eerst op capaciteit (logaritmisch), dan op spanning.
+    """
+    if not profiel.regels:
+        return None
+
+    # Dichtstbijzijnde capaciteit
+    beste_cap = min(profiel.regels, key=lambda r: abs(r.capaciteit_uf - capaciteit_uf))
+    cap_afw = abs(beste_cap.capaciteit_uf - capaciteit_uf)
+
+    # Als de capaciteit binnen 20% zit, zoek dan de beste spanningsmatch
+    # onder regels met (bijna) dezelfde capaciteit.
+    if beste_cap.capaciteit_uf > 0 and cap_afw / beste_cap.capaciteit_uf <= 0.20:
+        zelfde_cap = [
+            r
+            for r in profiel.regels
+            if r.capaciteit_uf == beste_cap.capaciteit_uf
+        ]
+        if zelfde_cap:
+            return min(
+                zelfde_cap,
+                key=lambda r: abs(r.spanningsklasse_v - spanningsklasse_v),
+            )
+
+    # Fallback: dichtstbijzijnde op capaciteit + spanning gecombineerd
+    return min(
+        profiel.regels,
+        key=lambda r: (
+            abs(r.capaciteit_uf - capaciteit_uf),
+            abs(r.spanningsklasse_v - spanningsklasse_v),
+        ),
+    )
 
 
 def zoek_referentie(
     capaciteit_uf: float,
     spanningsklasse_v: float,
     condensatortype: str = "Aluminium elektrolytisch",
+    meetfrequentie_hz: Optional[float] = None,
 ) -> Optional[ReferentieContext]:
-    """Zoekt de beste matching referentie uit de ingebouwde tabellen.
+    """Zoekt de beste matching referentie.
 
-    Voor de Peak Atlas-tabel: vind de regel met de dichtstbijzijnde
-    capaciteit en spanningsklasse. Geen interpolatie — exacte match
-    of dichtstbijzijnde.
+    Wanneer `meetfrequentie_hz` wordt meegegeven, kiest de functie het
+    profiel met de dichtstbijzijnde frequentie. Wanneer die parameter
+    ontbreekt, valt de functie terug op het eerst beschikbare profiel
+    met regels (doorgaans ESR70 100 kHz), voor backward-compatibiliteit.
     """
-    referenties = _laad_referenties()
+    profielen = _laad_profielen()
 
-    for ref in referenties:
-        if ref.condensatortype != condensatortype:
-            continue
-
-        # Vind de dichtstbijzijnde capaciteit
-        beste_regel = None
-        beste_cap_afwijking = float("inf")
-
-        for regel in ref.regels:
-            cap_afw = abs(regel.capaciteit_uf - capaciteit_uf)
-            if cap_afw < beste_cap_afwijking:
-                beste_cap_afwijking = cap_afw
-                beste_regel = regel
-
-        if beste_regel is None:
-            continue
-
-        return ReferentieContext(
-            esr_waarde=beste_regel.esr_max_mohm,
-            eenheid="mΩ",
-            bron=ref.bron,
-            referentieniveau=ref.referentieniveau,
-            frequentie_hz=ref.frequentie_hz,
-            typisch_of_maximaal=ref.typisch_of_maximaal,
-            temperatuur_c=20.0,
-            condensatortype=ref.condensatortype,
+    if meetfrequentie_hz is None:
+        # Backward-compatible: kies het eerste profiel met regels.
+        for p in profielen:
+            if p.condensatortype == condensatortype and len(p.regels) > 0:
+                profiel = p
+                break
+        else:
+            return None
+    else:
+        profiel = _beste_profiel_voor_frequentie(
+            profielen, meetfrequentie_hz, condensatortype
         )
+        if profiel is None:
+            return None
 
-    return None
+    regel = _beste_regel(profiel, capaciteit_uf, spanningsklasse_v)
+    if regel is None:
+        return None
+
+    return ReferentieContext(
+        esr_waarde=regel.esr_max_mohm,
+        eenheid="mΩ",
+        bron=profiel.bron,
+        referentieniveau=profiel.referentieniveau,
+        frequentie_hz=profiel.frequentie_hz,
+        typisch_of_maximaal=profiel.typisch_of_maximaal,
+        temperatuur_c=20.0,
+        condensatortype=profiel.condensatortype,
+    )

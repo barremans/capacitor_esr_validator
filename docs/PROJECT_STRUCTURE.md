@@ -74,11 +74,11 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         - 📄 **/app/data/references/__init__.py**
           ```text
           # Bestandsnaam: app/data/references/__init__.py
-          # Beschrijving: Laadt de ingebouwde referentietabellen (Peak Atlas ESR70, etc.)
+          # Beschrijving: Laadt de ingebouwde referentietabellen uit esr_references.json
           # Auteur: Ontwikkelaar
           # Applicatie: Condensator- en ESR-validator (Windows)
-          # Versie: 1.0.0
-          # Datum: 2026-08-11
+          # Versie: 2.0.0
+          # Datum: 2026-10-15
           ```
         - 📄 **/app/data/references/esr_references.json**
       - 📄 **/app/data/.gitkeep**
@@ -336,8 +336,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Compact ESR-diagnosescherm voor nominale gegevens, meetcontext,
         # Auteur: Ontwikkelaar
         # Applicatie: Condensator- en ESR-validator (Windows)
-        # Versie: 1.11.0
-        # Datum: 2026-10-05
+        # Versie: 1.12.0
+        # Datum: 2026-10-15
         ```
       - 📄 **/app/gui/history_screen.py**
         ```text
@@ -514,8 +514,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Kernlogica van de indicatieve beoordeling: capaciteitsvalidatie,
         # Auteur: Ontwikkelaar
         # Applicatie: Condensator- en ESR-validator (Windows)
-        # Versie: 1.3.0
-        # Datum: 2026-09-29
+        # Versie: 1.4.0
+        # Datum: 2026-10-15
         ```
       - 📄 **/app/services/history_service.py**
         ```text
@@ -665,6 +665,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     - 📄 **/docs/markdown_levering.md**
     - 📄 **/docs/openvragen.md**
     - 📄 **/docs/packaging.md**
+    - 📄 **/docs/phase10_analysis.md**
     - 📄 **/docs/PROJECT_STRUCTURE.md**
     - 📄 **/docs/python_header_standard.md**
     - 📄 **/docs/search_syntax.md**
@@ -705,6 +706,16 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Applicatie: GEEN APPLICATIE
         # Versie: V1.0.0
         ```
+  - 📁 **scripts/**
+    - 📄 **/scripts/herbereken_steekproef.py**
+      ```text
+      # Bestandsnaam: scripts/herbereken_steekproef.py
+      # Beschrijving: Fase 10B — herberekent de praktijkmetingen uit de historiek
+      # Auteur: Ontwikkelaar
+      # Applicatie: Condensator- en ESR-validator (Windows)
+      # Versie: 1.1.0
+      # Datum: 2026-10-15
+      ```
   - 📁 **tests/**
     - 📁 **tests/**
     - 📄 **/tests/__init__.py**
@@ -765,8 +776,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Unit tests voor de assessment_service. Test alle 20 testgevallen
       # Auteur: Ontwikkelaar
       # Applicatie: Condensator- en ESR-validator (Windows)
-      # Versie: 1.3.0
-      # Datum: 2026-09-26
+      # Versie: 1.4.0
+      # Datum: 2026-10-15
       ```
     - 📄 **/tests/test_change_status_dialog.py**
       ```text
@@ -999,8 +1010,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor GitHubFeedbackClient in
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.0
-      # Datum: 2026-10-14
+      # Versie: 1.0.1
+      # Datum: 2026-10-15
       ```
     - 📄 **/tests/test_github_feedback_config.py**
       ```text
@@ -1308,6 +1319,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.1.0
       # Datum: 2026-10-02
       ```
+    - 📄 **/tests/test_references.py**
+      ```text
+      # Bestandsnaam: tests/test_references.py
+      # Beschrijving: Regressietests voor app/data/references/__init__.py.
+      # Auteur: Ontwikkelaar
+      # Applicatie: Condensator- en ESR-validator (Windows)
+      # Versie: 1.1.0
+      # Datum: 2026-10-15
+      ```
     - 📄 **/tests/test_repeat_measurement_service.py**
       ```text
       # Bestandsnaam: tests/test_repeat_measurement_service.py
@@ -1589,6 +1609,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     # Applicatie: GEEN APPLICATIE
     # Versie: V1.0.0
     ```
+  - 📄 **/historiek_detail_2026-10-15_15-51-41.csv**
+  - 📄 **/historiek_overzicht_2026-10-15_15-51-41.csv**
   - 📄 **/LICENSE**
   - 📄 **/main.py**
     ```text

@@ -191,7 +191,8 @@
     "esr_zones_disclaimer": "These ESR zones are derived from the selected reference and current configurable factors; they are not universal rejection limits.",
     "meetfrequentie": "Measurement frequency",
     "referentiebron": "Reference source",
-    "referentieniveau": "Reference level"
+    "referentieniveau": "Reference level",
+    "referentiefrequentie": "Reference frequency"
   },
   "opslag": {
     "meting_opgeslagen_titel": "Measurement saved",

@@ -191,7 +191,8 @@
     "esr_zones_disclaimer": "Deze ESR-zones zijn afgeleid van de gekozen referentie en de huidige configureerbare factoren; het zijn geen universele afkeurgrenzen.",
     "meetfrequentie": "Meetfrequentie",
     "referentiebron": "Referentiebron",
-    "referentieniveau": "Referentieniveau"
+    "referentieniveau": "Referentieniveau",
+    "referentiefrequentie": "Referentiefrequentie"
   },
   "opslag": {
     "meting_opgeslagen_titel": "Meting opgeslagen",

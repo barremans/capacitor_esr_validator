@@ -1,6 +1,6 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 2.3.0
+**Versie:** 2.4.0
 **Datum:** 2026-10-15
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
@@ -39,6 +39,11 @@ Wijzigingen:
                        §4.13 toegevoegd: eerste publicatie met
                        update-check. §4.14 toegevoegd: changelog-resolver
                        gedeeld met Help.
+  v2.4.0 (2026-10-15)  §2.24 bijgewerkt: fase 10A/10B afgerond.
+                       §2.25 toegevoegd: export respecteert selectie niet.
+                       §2.26 toegevoegd: betrouwbaarheidsregel verbergt
+                       goede resultaten bij ontbrekende administratieve
+                       gegevens.
 
 ---
 
@@ -57,7 +62,7 @@ Wijzigingen:
 
 ---
 
-## 2. Uit Fase 5, 6, 7, 8, 9 en later
+## 2. Uit Fase 5, 6, 7, 8, 9, 10 en later
 
 ### 2.1 t/m 2.5 — beantwoord
 
@@ -311,6 +316,61 @@ Zie v2.0.0.
   - **Status:** opgelost (in 9H); controle van externe verwijzingen
     open; fase 11.
 
+### 2.25 Export respecteert de selectie niet (toegevoegd 2026-10-15)
+
+- **Wat:** als de gebruiker in de Historiek (of Analyse) een selectie
+  maakt — bijvoorbeeld 4 metingen aanvinkt — dan exporteert de app nog
+  steeds **alles**, niet alleen de selectie. Dat is niet wat de
+  gebruiker verwacht.
+- **Impact:** `app/gui/history_screen.py` (selectie-detectie),
+  `app/services/history_service.py` (export-scope),
+  `app/helpers/history_csv_export.py` en
+  `app/helpers/history_detail_export.py` (filterparameter), mogelijk
+  `app/gui/analysis_screen.py` (rapport/export vanuit Analyse).
+- **Gewenst gedrag:** als er een selectie actief is, exporteert de app
+  **alleen de geselecteerde metingen**. Als er geen selectie is,
+  exporteert de app alles (huidig gedrag). De gebruiker moet in de
+  GUI expliciet kunnen kiezen tussen "alles" en "selectie".
+- **Aandachtspunt:** dit raakt ook de Rapportage-laag (fase 8): het
+  `ReportDialog` heeft nu een scope-parameter die "één meting" of
+  "alles" ondersteunt. De uitbreiding naar "selectie" moet consistent
+  doorwerken in rapport én CSV/Excel-export.
+- **Status:** open; toegevoegd 2026-10-15; fase 11.
+
+### 2.26 Betrouwbaarheidsregel verbergt goede resultaten (toegevoegd 2026-10-15)
+
+- **Wat:** in `assessment_service.bepaal_eindstatus` staat de regel:
+
+  ```
+  if (capaciteit.status == OP_GRENS
+      or esr.status == AANDACHTSPUNT
+      or betrouwbaarheid.niveau == LAAG):
+      return Eindstatus.AANDACHTSPUNT
+  ```
+
+  Met andere woorden: als de betrouwbaarheid laag is, wordt de
+  eindstatus **altijd** minstens "aandachtspunt" — ook als C binnen
+  tolerantie is en ESR waarschijnlijk normaal.
+
+  In de praktijk betekent dat: een goede condensator waarvan de
+  gebruiker geen fabrikant of serie heeft ingevuld, krijgt nooit
+  "waarschijnlijk goed". Dat is verwarrend, want de meting zelf is
+  goed; alleen de **administratieve** context ontbreekt.
+- **Impact:** `app/services/assessment_service.py` (`bepaal_eindstatus`
+  en `bepaal_betrouwbaarheid`), en de redenenteksten in `esr.json`.
+- **Voorstel:** onderscheid maken tussen **inhoudelijke** en
+  **administratieve** betrouwbaarheidsverlagers:
+  - Inhoudelijk (frequentieverschil, in-circuit, type-mismatch,
+    inconsistentie) → verlaagt betrouwbaarheid én verhoogt
+    minimum-eindstatus.
+  - Administratief (fabrikant/serie onbekend) → verlaagt
+    betrouwbaarheid, maar verhoogt **niet** het minimum van de
+    eindstatus. De gebruiker ziet dan "waarschijnlijk goed,
+    betrouwbaarheid laag" i.p.v. "aandachtspunt".
+- **Open vraag:** is dit de juiste richting, of blijft de
+  conservatieve regel bewust gehandhaafd?
+- **Status:** open; toegevoegd 2026-10-15; fase 11.
+
 ---
 
 ## 3. Uit vroegere contextdocumenten (nog steeds relevant)
@@ -322,19 +382,20 @@ Zie v2.0.0.
 - **Status:** handmatige invoer blijft de standaard.
 
 ### 3.3 Praktijkvalidatie
-- **Status:** Fase 10 — Praktische ESR-validatie.
+- **Status:** Fase 10 — afgerond in 10A/10B.
 
 ### 3.4 Referentiedata
-- **Status:** open; relevant voor Fase 6 en later.
+- **Status:** opgelost in 10A/10B (frequentie-specifieke profielen).
 
 ### 3.5 Rapportage
-- **Status:** deels beantwoord in fase 8.
+- **Status:** deels beantwoord in fase 8. Scope "selectie" blijft open
+  (zie §2.25).
 
 ### 3.6 Override van automatische beoordeling
 - **Status:** open; relevant voor Fase 11.
 
 ### 3.7 Praktische meetgegevens
-- **Status:** Fase 10 — Praktische ESR-validatie.
+- **Status:** Fase 10 — afgerond.
 
 ---
 
@@ -380,8 +441,6 @@ Zie v2.0.0.
   eerste feature-aanvraag ("eerste feature aanvraag") succesvol
   aangemaakt als GitHub Issue, met de juiste labels (`bug` en
   `enhancement`). Het "Open cases"-scherm toont ze correct.
-- **Bewijs:** de GUI-screenshot in de 9G-sessie toont beide items
-  onder de juiste rubriek.
 - **Status:** afgerond in 9G.
 
 ### 4.13 Eerste publicatie met update-check (9H)
@@ -389,9 +448,6 @@ Zie v2.0.0.
   `publish.ps1`, met succesvolle release-gate op de
   Authenticode-handtekening. `releases/latest/version.txt` staat op
   GitHub en bevat `1.1.1` + de download-URL.
-- **Verwacht gedrag bij een oudere installatie (1.0.4):** bij het
-  opstarten of via **Help → Controleren op updates…** verschijnt de
-  melding met **Downloaden** / **Wat is er nieuw?** / **Later**.
 - **Status:** afgerond in 9H.
 
 ### 4.14 Changelog-resolver gedeeld met Help (9H)
@@ -401,6 +457,21 @@ Zie v2.0.0.
   het toevoegen van een nieuwe taal aan de changelog géén codewijziging
   vraagt — alleen een nieuw bestand onder `docs/changelog/`.
 - **Status:** afgerond in 9H.
+
+### 4.15 Nieuwe referentie-architectuur en drempelvalidatie (10A/10B)
+- **Observatie:** fase 10A introduceerde frequentie-specifieke
+  referentieprofielen. Fase 10B vulde de geschatte profielen op
+  100 Hz, 1 kHz en 10 kHz met de volledige ESR70-tabel, geschaald
+  met 2,00 / 1,50 / 1,15.
+- **Bewijs:** herberekening van de 72 praktijkmetingen via
+  `scripts/herbereken_steekproef.py` toont factoren 0,09–0,41 voor
+  goede condensatoren. De drempels `≤1,0 / ≤2,0 / ≤3,0` blijven
+  ongewijzigd.
+- **Belangrijkste observatie:** de statussen in de steekproef
+  veranderen weinig, omdat de betrouwbaarheid en de
+  capaciteitsafwijking nu de bepalende factoren zijn. Dit leidt tot
+  §2.26.
+- **Status:** afgerond in 10A/10B.
 
 ---
 
