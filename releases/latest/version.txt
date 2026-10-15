@@ -1,2 +1,2 @@
-1.1.2
-https://github.com/barremans/capacitor_esr_validator/releases/download/v1.1.2/ESR_TesterSetup_1.1.2.exe
+1.2.0
+https://github.com/barremans/capacitor_esr_validator/releases/download/v1.2.0/ESR_TesterSetup_1.2.0.exe
