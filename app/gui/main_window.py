@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.16.0
+Versie:     2.17.0
 Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
@@ -56,6 +56,17 @@ Wijzigingen:
                           - Analyse + checkbox-selectie -> scope 'selectie'
                         De bestaande informatieve melding blijft voor de
                         gevallen waarin geen selectie is.
+  v2.17.0 (2026-10-16) Fase 11C (iconen):
+                        - Hub-knoppen (Diagnose, Historiek, Documentatie,
+                          Analyse) krijgen een icoon.
+                        - Diagnose-ESR-knop gebruikt esr.png (kleine
+                          letter) in plaats van ESR.png.
+                        - Menu-items krijgen een icoon via de centrale
+                          helper app/helpers/icon_paths.
+                        - Elke dialoog krijgt een venstericoon via
+                          _zet_dialoog_icoon().
+                        - Geen wijziging aan bestaande navigatie, taalwissel
+                          of selectielogica.
 ================================================================================
 """
 
@@ -73,6 +84,7 @@ from PySide6.QtCore import Qt, QSize, QTimer
 
 from app.helpers.i18n import beschikbare_taalinfos, vertaal
 from app.helpers.help_paths import help_pad_voor_taal, changelog_pad_voor_taal
+from app.helpers.icon_paths import laad_icoon, zet_venster_icoon
 from app.config.settings import laad_instellingen, sla_instellingen_op, AppInstellingen
 from app.gui.dialogs.settings_dialog import SettingsDialog
 from app.gui.dialogs.search_help_dialog import SearchHelpDialog
@@ -96,6 +108,32 @@ class ToolHubWindow(QMainWindow):
     def _t(self, sleutel, **kwargs):
         return vertaal(sleutel, taal=self.taal, **kwargs)
 
+    # ------------------------------------------------------------------
+    # Iconen (11C)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _zet_icoon_op_knop(knop: QPushButton, naam: str, grootte: int = 32) -> None:
+        """Zet een icoon op een knop als het bestaat; anders niets."""
+        icoon = laad_icoon(naam)
+        if icoon is not None:
+            knop.setIcon(icoon)
+            knop.setIconSize(QSize(grootte, grootte))
+
+    @staticmethod
+    def _zet_icoon_op_action(action: QAction, naam: str) -> None:
+        """Zet een icoon op een QAction als het bestaat; anders niets."""
+        icoon = laad_icoon(naam)
+        if icoon is not None:
+            action.setIcon(icoon)
+
+    @staticmethod
+    def _zet_dialoog_icoon(dialoog: QDialog) -> None:
+        """Zet het applicatie-icoon op een dialoog."""
+        zet_venster_icoon(dialoog)
+
+    # ------------------------------------------------------------------
+    # UI
+    # ------------------------------------------------------------------
     def _build_ui(self):
         self.setWindowTitle(self._t("app.titel"))
         self.setMinimumSize(900, 600)
@@ -166,6 +204,7 @@ class ToolHubWindow(QMainWindow):
         self.diagnose_btn = QPushButton(self._t("tool.diagnose"))
         self.diagnose_btn.setFixedSize(180, 120)
         self.diagnose_btn.setToolTip(self._t("tool.diagnose_omschrijving"))
+        self._zet_icoon_op_knop(self.diagnose_btn, "diagnose", 48)
         self.diagnose_btn.clicked.connect(self._show_diagnose)
         menu_grid.addWidget(
             self.diagnose_btn, 0, 0, Qt.AlignmentFlag.AlignCenter
@@ -174,6 +213,7 @@ class ToolHubWindow(QMainWindow):
         self.history_btn = QPushButton(self._t("tool.historiek"))
         self.history_btn.setFixedSize(180, 120)
         self.history_btn.setToolTip(self._t("tool.historiek_omschrijving"))
+        self._zet_icoon_op_knop(self.history_btn, "history", 48)
         self.history_btn.clicked.connect(self._show_history)
         menu_grid.addWidget(
             self.history_btn, 0, 1, Qt.AlignmentFlag.AlignCenter
@@ -184,6 +224,7 @@ class ToolHubWindow(QMainWindow):
         self.documentation_btn.setToolTip(
             self._t("tool.documentatie_omschrijving")
         )
+        self._zet_icoon_op_knop(self.documentation_btn, "documentation", 48)
         self.documentation_btn.clicked.connect(self._show_documentation)
         menu_grid.addWidget(
             self.documentation_btn, 0, 2, Qt.AlignmentFlag.AlignCenter
@@ -192,6 +233,7 @@ class ToolHubWindow(QMainWindow):
         self.analysis_btn = QPushButton(self._t("tool.analyse"))
         self.analysis_btn.setFixedSize(180, 120)
         self.analysis_btn.setToolTip(self._t("tool.analyse_omschrijving"))
+        self._zet_icoon_op_knop(self.analysis_btn, "analysis", 48)
         self.analysis_btn.clicked.connect(self._show_analysis)
         menu_grid.addWidget(
             self.analysis_btn, 0, 3, Qt.AlignmentFlag.AlignCenter
@@ -280,11 +322,12 @@ class ToolHubWindow(QMainWindow):
         self.esr_btn.setToolTip(self._t("tool.esr_omschrijving"))
         self.esr_btn.clicked.connect(self._open_esr_test)
 
-        icon_path = "assets/icons/esr.png"
-        if QPixmap(icon_path).isNull():
+        # 11C: gebruik esr.png (kleine letter) via de centrale helper.
+        esr_icoon = laad_icoon("esr")
+        if esr_icoon is None:
             self.esr_btn.setText(self._t("tool.esr"))
         else:
-            self.esr_btn.setIcon(QIcon(icon_path))
+            self.esr_btn.setIcon(esr_icoon)
             self.esr_btn.setIconSize(QSize(64, 64))
             self.esr_btn.setText(self._t("tool.esr"))
 
@@ -365,14 +408,10 @@ class ToolHubWindow(QMainWindow):
 
         file_menu = menubar.addMenu(self._t("menu.bestand"))
 
-        exit_action = QAction(self._t("menu.afsluiten"), file_menu)
-        exit_action.setShortcut(QKeySequence("Ctrl+Q"))
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
-
         import_action = QAction(self._t("menu.document_importeren"), file_menu)
         import_action.setShortcut(QKeySequence("Ctrl+I"))
         import_action.triggered.connect(self._show_import_wizard)
+        self._zet_icoon_op_action(import_action, "documentation")
         file_menu.addAction(import_action)
 
         self.rapport_action = QAction(self._t("menu.rapport"), file_menu)
@@ -380,28 +419,41 @@ class ToolHubWindow(QMainWindow):
         self.rapport_action.triggered.connect(self._open_report_dialog)
         self.rapport_action.setToolTip(self._t("menu.rapport_tooltip"))
         self.rapport_action.setEnabled(False)
+        self._zet_icoon_op_action(self.rapport_action, "report")
         file_menu.addAction(self.rapport_action)
+
+        file_menu.addSeparator()
+
+        exit_action = QAction(self._t("menu.afsluiten"), file_menu)
+        exit_action.setShortcut(QKeySequence("Ctrl+Q"))
+        exit_action.triggered.connect(self.close)
+        self._zet_icoon_op_action(exit_action, "exit")
+        file_menu.addAction(exit_action)
 
         diagnose_menu = menubar.addMenu(self._t("menu.diagnose"))
 
         diagnose_action = QAction(self._t("menu.open_diagnose"), diagnose_menu)
         diagnose_action.triggered.connect(self._show_diagnose)
+        self._zet_icoon_op_action(diagnose_action, "diagnose")
         diagnose_menu.addAction(diagnose_action)
 
         esr_action = QAction(self._t("menu.esr_test"), diagnose_menu)
         esr_action.setShortcut(QKeySequence("Ctrl+E"))
         esr_action.triggered.connect(self._open_esr_test)
+        self._zet_icoon_op_action(esr_action, "esr")
         diagnose_menu.addAction(esr_action)
 
         analysis_action = QAction(self._t("menu.analyse"), diagnose_menu)
         analysis_action.setShortcut(QKeySequence("Ctrl+A"))
         analysis_action.triggered.connect(self._show_analysis)
+        self._zet_icoon_op_action(analysis_action, "analysis")
         diagnose_menu.addAction(analysis_action)
 
         report_menu = menubar.addMenu(self._t("menu.rapporteren"))
 
         bug_report_action = QAction(self._t("menu.bug_melden"), report_menu)
         bug_report_action.triggered.connect(self._show_bug_report_dialog)
+        self._zet_icoon_op_action(bug_report_action, "bug")
         report_menu.addAction(bug_report_action)
 
         open_cases_action = QAction(self._t("menu.open_cases"), report_menu)
@@ -414,6 +466,7 @@ class ToolHubWindow(QMainWindow):
             self._t("menu.instellingen") + "...", settings_menu
         )
         settings_action.triggered.connect(self._show_settings)
+        self._zet_icoon_op_action(settings_action, "settings")
         settings_menu.addAction(settings_action)
 
         settings_menu.addSeparator()
@@ -436,12 +489,14 @@ class ToolHubWindow(QMainWindow):
         help_action.setShortcut(QKeySequence("F1"))
         help_action.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
         help_action.triggered.connect(self._show_help)
+        self._zet_icoon_op_action(help_action, "help")
         help_menu.addAction(help_action)
 
         search_help_action = QAction(
             self._t("menu.documentatie_zoeken"), help_menu
         )
         search_help_action.triggered.connect(self._show_search_help)
+        self._zet_icoon_op_action(search_help_action, "documentation")
         help_menu.addAction(search_help_action)
 
         changelog_action = QAction(self._t("menu.changelog"), help_menu)
@@ -454,6 +509,7 @@ class ToolHubWindow(QMainWindow):
             self._t("menu.controleren_op_updates"), help_menu
         )
         update_action.triggered.connect(self._check_for_updates_manually)
+        self._zet_icoon_op_action(update_action, "update")
         help_menu.addAction(update_action)
 
         help_menu.addSeparator()
@@ -597,6 +653,7 @@ class ToolHubWindow(QMainWindow):
         from app.gui.dialogs.import_wizard_dialog import ImportWizardDialog
 
         dialog = ImportWizardDialog(taal=self.taal, parent=self)
+        self._zet_dialoog_icoon(dialog)
         dialog.import_completed.connect(self._on_import_completed)
         dialog.exec()
 
@@ -665,6 +722,7 @@ class ToolHubWindow(QMainWindow):
             scope=self._t("report.scope.enkel"),
             parent=self,
         )
+        self._zet_dialoog_icoon(dialog)
         dialog.exec()
 
     def _open_multi_report_dialog(self, measurement_ids: list[int]) -> None:
@@ -679,6 +737,7 @@ class ToolHubWindow(QMainWindow):
             grafiek_default=False,
             parent=self,
         )
+        self._zet_dialoog_icoon(dialog)
         dialog.exec()
 
     def _huidige_meting_id(self) -> int | None:
@@ -696,7 +755,9 @@ class ToolHubWindow(QMainWindow):
     def _show_bug_report_dialog(self) -> None:
         from bug_report_dialog import BugDialog
 
-        BugDialog(self).exec()
+        dialog = BugDialog(self)
+        self._zet_dialoog_icoon(dialog)
+        dialog.exec()
 
     def _show_open_cases(self) -> None:
         from github_cases import show_github_cases
@@ -821,6 +882,7 @@ class ToolHubWindow(QMainWindow):
         dialog = QDialog(self)
         dialog.setWindowTitle(self._t("update.release_notes_titel"))
         dialog.resize(720, 560)
+        self._zet_dialoog_icoon(dialog)
         layout = QVBoxLayout(dialog)
 
         browser = QTextBrowser()
@@ -895,6 +957,7 @@ class ToolHubWindow(QMainWindow):
 
     def _show_settings(self):
         dialog = SettingsDialog(self.instellingen, taal=self.taal, parent=self)
+        self._zet_dialoog_icoon(dialog)
         dialog.settings_applied.connect(self._apply_settings)
         dialog.exec()
 
@@ -914,6 +977,7 @@ class ToolHubWindow(QMainWindow):
 
     def _show_search_help(self):
         dialog = SearchHelpDialog(taal=self.taal, parent=self)
+        self._zet_dialoog_icoon(dialog)
         dialog.exec()
 
     def _show_changelog(self):
@@ -930,6 +994,7 @@ class ToolHubWindow(QMainWindow):
         dialog = QDialog(self)
         dialog.setWindowTitle(title)
         dialog.resize(700, 500)
+        self._zet_dialoog_icoon(dialog)
         layout = QVBoxLayout(dialog)
         browser = QTextBrowser()
         browser.setOpenExternalLinks(True)

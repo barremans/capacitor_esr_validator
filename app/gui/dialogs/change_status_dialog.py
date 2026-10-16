@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/dialogs/change_status_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
+Versie:     1.1.0
 Datum:      2026-10-08
 Auteur:     Bart Bossuyt
 
@@ -21,6 +21,9 @@ Wijzigingen:
                        EditMetadataDialog, maar dan voor de status.
                        Bevestigingsvraag bij archiveren en bij terug
                        naar Concept; niet bij activeren.
+  v1.1.0 (2026-10-16)  Fase 11C: dialoog krijgt een venstericoon via
+                        de centrale helper app/helpers/icon_paths.
+                        Geen wijziging aan de statuslogica.
 ================================================================================
 """
 
@@ -72,6 +75,7 @@ class ChangeStatusDialog(QDialog):
         self.setModal(True)
         self.resize(480, 320)
         self.setMinimumSize(420, 280)
+        self._zet_eigen_icoon()
 
         self._build_ui()
         self._apply_language()
@@ -238,3 +242,10 @@ class ChangeStatusDialog(QDialog):
 
         self.status_changed.emit(result.source.source_id)
         self.accept()
+        
+    def _zet_eigen_icoon(self) -> None:
+        try:
+            from app.helpers.icon_paths import zet_venster_icoon
+            zet_venster_icoon(self)
+        except Exception:
+            pass

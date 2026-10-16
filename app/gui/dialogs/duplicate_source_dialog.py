@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/dialogs/duplicate_source_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
+Versie:     1.1.0
 Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
@@ -15,6 +15,9 @@ Doel:       Modale popup die de gebruiker bij een bestaande bron drie
 Wijzigingen:
   v1.0.0 (2026-10-07)  Eerste versie: drie radio-opties, samenvatting
                        van de bestaande bron, keuze via exec().
+  v1.1.0 (2026-10-16)  Fase 11C: dialoog krijgt een venstericoon via
+                        de centrale helper app/helpers/icon_paths.
+                        Geen wijziging aan de duplicate-logica.
 ================================================================================
 """
 
@@ -66,6 +69,7 @@ class DuplicateSourceDialog(QDialog):
         self.setModal(True)
         self.resize(560, 420)
         self.setMinimumSize(480, 360)
+        self._zet_eigen_icoon()
 
         self._build_ui()
         self._apply_language()
@@ -257,3 +261,10 @@ class DuplicateSourceDialog(QDialog):
         if resultaat == QDialog.Accepted:
             return dialog.gekozen_actie
         return None
+    
+    def _zet_eigen_icoon(self) -> None:
+        try:
+            from app.helpers.icon_paths import zet_venster_icoon
+            zet_venster_icoon(self)
+        except Exception:
+            pass

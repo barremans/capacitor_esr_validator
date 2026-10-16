@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/dialogs/import_wizard_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.8.0
+Versie:     1.9.0
 Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
@@ -33,6 +33,9 @@ Wijzigingen:
                        _onthoud_laatste_importmap delegeren naar de nieuwe
                        pure helper app/helpers/dialog_start_directory
                        (categorie 'import').
+  v1.9.0 (2026-10-16)  Fase 11C: dialoog krijgt een venstericoon via
+                        de centrale helper app/helpers/icon_paths.
+                        Geen wijziging aan de importlogica.
 ================================================================================
 """
 
@@ -148,6 +151,7 @@ class ImportWizardDialog(QDialog):
         self.setModal(True)
         self.resize(620, 700)
         self.setMinimumSize(520, 640)
+        self._zet_eigen_icoon()
 
         self._build_ui()
         self._apply_language()
@@ -900,3 +904,10 @@ class ImportWizardDialog(QDialog):
 
         self.import_completed.emit(result.source.source_id)
         self.accept()
+        
+    def _zet_eigen_icoon(self) -> None:
+        try:
+            from app.helpers.icon_paths import zet_venster_icoon
+            zet_venster_icoon(self)
+        except Exception:
+            pass

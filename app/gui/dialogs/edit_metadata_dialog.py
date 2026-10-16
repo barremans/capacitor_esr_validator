@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/dialogs/edit_metadata_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
+Versie:     1.1.0
 Datum:      2026-10-07
 Auteur:     Bart Bossuyt
 
@@ -20,6 +20,9 @@ Wijzigingen:
   v1.0.0 (2026-10-07)  Eerste versie (fase 5D'.2c). Hergebruikt de
                        gedeelde helpers _metadata_form_helpers voor
                        categorie-dropdown en uppercase.
+  v1.1.0 (2026-10-16)  Fase 11C: dialoog krijgt een venstericoon via
+                        de centrale helper app/helpers/icon_paths.
+                        Geen wijziging aan de metadatalogica.
 ================================================================================
 """
 
@@ -78,6 +81,7 @@ class EditMetadataDialog(QDialog):
         self.setModal(True)
         self.resize(560, 520)
         self.setMinimumSize(480, 460)
+        self._zet_eigen_icoon()
 
         self._build_ui()
         self._apply_language()
@@ -347,3 +351,10 @@ class EditMetadataDialog(QDialog):
 
         self.metadata_saved.emit(result.source.source_id)
         self.accept()
+        
+    def _zet_eigen_icoon(self) -> None:
+        try:
+            from app.helpers.icon_paths import zet_venster_icoon
+            zet_venster_icoon(self)
+        except Exception:
+            pass

@@ -2,13 +2,14 @@
 ================================================================================
 Module:     tests/test_main_window_help_menu.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-14
+Versie:     1.3.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor het Help-menu in ToolHubWindow. Oorspronkelijk
             (Fase 4E.4) alleen voor "Documentatie zoeken…". Sinds fase 9H
-            ook voor "Controleren op updates…".
+            ook voor "Controleren op updates…". Sinds fase 11C ook voor
+            het icoon op het Help-item.
 
 Wijzigingen:
   v1.0.2 (2026-10-05)  Taalonafhankelijk gemaakt. De applicatie start met de
@@ -23,6 +24,13 @@ Wijzigingen:
                        aangepast; nieuwe tests voor het update-item.
                        window wordt in elke test met check_on_startup=False
                        gebouwd, zodat de opstartcheck niet interfereert.
+  v1.2.0 (2026-10-14)  Fase 11C: Help-menu-items hebben nu een icoon.
+  v1.3.0 (2026-10-16)  Fase 11C-fix: test_help_menu_action_heeft_icoon
+                       gebruikt geen niet-bestaande _app-fixture meer.
+                       De QApplication wordt lokaal in de test opgehaald
+                       via QApplication.instance() or QApplication([]),
+                       conform de projectafspraak (geen pytest-qt,
+                       geen qtbot, geen conftest.py).
 ================================================================================
 """
 
@@ -30,6 +38,7 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import pytest
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMenu
 
@@ -266,3 +275,32 @@ def test_trigger_update_item_roept_handmatige_check_aan(monkeypatch):
     action.trigger()
 
     assert aangeroepen["n"] == 1
+
+
+# ============================================================================
+# v1.2.0 — Fase 11C: iconen in het Help-menu
+# ============================================================================
+
+def test_help_menu_action_heeft_icoon():
+    """Het Help-menu-item heeft een icoon zodra assets/icons/help.png bestaat.
+
+    Conform de projectafspraak gebruiken we geen _app-fixture en geen
+    pytest-qt: we halen de QApplication lokaal op.
+    """
+    from app.helpers.icon_paths import icoon_pad
+
+    if icoon_pad("help") is None:
+        pytest.skip("Geen help.png aanwezig; plaats eerst placeholders.")
+
+    app = _app()
+    window = ToolHubWindow(taal="nl_NL", check_on_startup=False)
+    try:
+        app.processEvents()
+        menu = _help_menu(window)
+        acties = _niet_lege_acties(menu)
+        assert acties, "Help-menu heeft geen acties"
+        eerste = acties[0]
+        assert not eerste.icon().isNull(), "Help-actie heeft geen icoon"
+    finally:
+        window.deleteLater()
+        app.processEvents()

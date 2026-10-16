@@ -137,7 +137,134 @@ automatisch onthouden voor de volgende keer.
 - **Nieuw:** `app/helpers/dialog_start_directory.py` (v1.0.0).
 - Nieuwe i18n-keys: 24 onder `analyse.selectie.*`, `analyse.export.*`,
   `analyse.rapport.*` en `menu.rapport_tooltip` (NL + EN).
-- Baseline: **1347 passed** (was 1297).
+- Baseline: **1339 passed** (was 1329 vóór 11A).
+
+### Betrouwbaarheidsregel herzien (fase 11B, 16 oktober 2026)
+
+**Waarom deze wijziging**
+
+De regel in `bepaal_eindstatus` gebruikte `betrouwbaarheid.niveau == LAAG`
+als trigger voor minimaal `AANDACHTSPUNT`. Daardoor kreeg een goede
+condensator zonder bekende fabrikant/serie nooit `WAARSCHIJNLIJK_GOED`,
+ook al waren C en ESR ruim binnen tolerantie.
+
+**Oplossing: inhoudelijk vs. administratief**
+
+Er is nu een onderscheid tussen **inhoudelijke** en **administratieve**
+betrouwbaarheidsverlagers.
+
+- **Inhoudelijk** (raakt de meetcontext zelf): frequentieverschil,
+  condensatortype onbekend of niet-elektrolytisch, type-mismatch van de
+  referentie, C-ESR-D-inconsistentie, meetmethode ONE_LEG of
+  IN_CIRCUIT. Deze verhogen het minimum van de eindstatus.
+- **Administratief** (raakt enkel de documentatie/omgeving):
+  omgevingstemperatuur onbekend, typische referentiewaarde,
+  fabrikant/serie onbekend. Deze verlagen de betrouwbaarheid wel, maar
+  verhogen het minimum van de eindstatus **niet**.
+
+**Concreet**
+
+"Waarschijnlijk goed, betrouwbaarheid laag door administratieve
+factoren" is nu mogelijk, met een expliciete reden in
+`eindstatus_reden.betrouwbaarheid_laag_administratief`.
+
+**Voor ontwikkelaars**
+
+- `app/services/assessment_service.py` (v1.5.0) —
+  `BetrouwbaarheidsResultaat` heeft een extra veld
+  `inhoudelijke_verlagers: tuple[str, ...] = ()`.
+  `bepaal_eindstatus` gebruikt `betrouwbaarheid.inhoudelijke_verlagers`
+  in plaats van `betrouwbaarheid.niveau == Betrouwbaarheid.LAAG` als
+  trigger voor minimaal `AANDACHTSPUNT`. In het `WAARSCHIJNLIJK_GOED`-
+  blok is een extra tak toegevoegd: als de betrouwbaarheid LAAG is door
+  uitsluitend administratieve verlagers, wordt de status alsnog
+  `WAARSCHIJNLIJK_GOED` met een expliciete reden.
+- Nieuwe i18n-keys:
+  - `betrouwbaarheid_factor.categorie_inhoudelijk` — "inhoudelijke
+    verlager".
+  - `betrouwbaarheid_factor.categorie_administratief` —
+    "administratieve verlager".
+  - `eindstatus_reden.betrouwbaarheid_laag_administratief`.
+  - `resultaat.inhoudelijke_verlagers` en
+    `resultaat.administratieve_verlagers`.
+- `tests/test_assessment.py` (v1.5.0) — 10 nieuwe tests. Twee bestaande
+  tests aangepast:
+  - `test_meerdere_verlagende_factoren` — verwacht nu 4 inhoudelijke
+    verlagers (frequentie, type, inconsistentie, in-circuit).
+  - `test_gebruiksscenario_1_goed` — gebruikt `D=None`, zodat de
+    consistentiecontrole niet tussenbeide komt.
+- **Niet gewijzigd:** alle drempels in `settings.py`, de
+  ESR-classificatie, de consistentie-logica, de GUI (de GUI leest
+  `verlagende_factoren`, dat blijft gevuld), en `report_render.py`.
+- **Baseline:** 1329 → **1339 passed** (+10 tests, alle in
+  `test_assessment.py`). De eerder gedocumenteerde baseline van 1347
+  in `overdracht.md` v5.3.0 klopte niet en is in v5.4.0 gecorrigeerd.
+
+### Iconen voor alle vensters (fase 11C, 16 oktober 2026)
+
+**Eén applicatie-icoon, twaalf thematische iconen**
+
+De applicatie heeft nu een volledige iconenset:
+
+- **Eén applicatie-icoon** — `assets/icons/app.png` (256×256,
+  transparant) en `assets/icons/logo.ico` (resoluties 16, 32, 48, 64,
+  128 en 256). Het applicatie-icoon verschijnt in de vensterbalk, in
+  de taakbalk, op de EXE en in de installer.
+- **Twaalf thematische iconen** — voor Diagnose, ESR, Historiek,
+  Documentatie, Analyse, Rapport, Instellingen, Help, Bug/feature
+  melden, Update en Afsluiten. Elk icoon is 64×64 en transparant.
+
+**Waar zie je ze**
+
+- De **hub-knoppen** (Diagnose, Historiek, Documentatie, Analyse)
+  hebben elk een eigen icoon.
+- De **ESR-testknop** in de Diagnose-pagina gebruikt `esr.png`.
+- De **menu-items** in Bestand, Diagnose, Rapporteren, Instellingen en
+  Help hebben een icoon waar dat zinvol is.
+- **Elke dialoog** krijgt automatisch het applicatie-icoon, ook als
+  die ooit los van het hoofdvenster wordt gebruikt.
+
+**Placeholders, later te vervangen**
+
+De huidige iconen zijn **placeholders** die met een script zijn
+gegenereerd (`scripts/genereer_placeholders.py`). Ze zijn bewust
+eenvoudig en vlak: donkerblauw (`#1F4E79`) als hoofdkleur, cyaan
+(`#4AA3FF`) als accent. Je kunt ze op elk moment vervangen door
+definitieve ontwerpen. De bestandsnamen liggen vast; de code hoeft dan
+niet te veranderen.
+
+**Geen icoon is geen fout**
+
+`app/helpers/icon_paths.py` geeft `None` terug als een icoon niet
+bestaat. De GUI laat het icoon dan gewoon weg en blijft werken. Zo
+breekt een build nooit door een ontbrekend bestand.
+
+**Voor ontwikkelaars**
+
+- **Nieuw:** `app/helpers/icon_paths.py` (v1.0.0) — pure padresolutie
+  plus dunne Qt-wrappers. Geen harde Qt-import op moduleniveau.
+- **Nieuw:** `scripts/genereer_placeholders.py` (v1.0.0) — genereert
+  alle PNG's en `logo.ico` met `QPainter`.
+- **Gewijzigd:** `main.py` (v1.5.0) — zet het applicatie-icoon via
+  `QApplication.setWindowIcon()`.
+- **Gewijzigd:** `app/gui/main_window.py` (v2.17.0) — iconen op
+  hub-knoppen, diagnose-knoppen en menu-items; dialogen krijgen een
+  icoon via `_zet_dialoog_icoon()`.
+- **Gewijzigd:** alle dialogen in `app/gui/dialogs/` — eigen
+  `_zet_eigen_icoon()` in `__init__`.
+- **Gewijzigd:** `app/gui/esr_test_screen.py` (v1.13.0) — expliciet
+  venstericoon, zodat het scherm ook los van het hoofdvenster het
+  juiste icoon toont.
+- **Nieuw:** `tests/test_icon_paths.py` — 16 tests voor de helper.
+- **Nieuw:** `tests/test_main_icon.py` — 1 test voor het
+  applicatie-icoon.
+- **Uitgebreid:** `tests/test_main_window_help_menu.py` en
+  `tests/test_main_window_report_menu.py` — elk 1 test voor het icoon
+  op het bijhorende menu-item.
+- **Geen wijziging:** `ESR_Tester.spec` en de Inno Setup `.iss`
+  verwijzen nog steeds naar `assets/icons/logo.ico`; dat bestand is
+  vervangen, niet hernoemd.
+- **Baseline:** 1339 → **1358 passed** (+19 tests).
 
 ## Versie 1.1.1 — Update-controle bij opstarten en via Help (15 oktober 2026)
 
@@ -566,8 +693,10 @@ van geïmporteerde documenten.
     (import van metingen uit een ander toestel) blijven open.
   - **11B** — Betrouwbaarheidsregel herzien: onderscheid tussen
     inhoudelijke en administratieve betrouwbaarheidsverlagers.
+    **Afgerond op 16 oktober 2026.** Baseline 1329 → **1339 passed**.
   - **11C** — Iconen voor alle vensters.
-  - **11D** — i18n-menging in Diagnose/Result oplossen.
+    **Afgerond op 16 oktober 2026.** Baseline 1339 → **1358 passed**.
+  - **11D** — i18n-menging in Diagnose/Result oplossen. **Volgende.**
   - **11E** — Async netwerk (URL-fetch, release notes).
   - **11F** — Documentatie-uitbreiding (redenen, filters, bulk-edit).
   - **11G** — Visueel donker thema (checkboxen, scrollbar).

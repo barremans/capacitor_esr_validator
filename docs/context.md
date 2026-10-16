@@ -931,3 +931,48 @@ Belangrijk:
 - **`QChartView.grab()`** is de juiste manier om een grafiek als
   afbeelding te exporteren (voor het rapport). Werkt zonder extra
   dependency.
+
+## Update 2026-10-16 — stand na fase 11C
+
+Sinds de vorige update-blokken is het project doorgegroeid tot en met
+fase 11C. De oorspronkelijke tekst in dit document blijft gelden als
+**ontwerpprincipe en richting**, maar de operationele stand is nu:
+
+**Versie:** `1.2.0`. **Baseline:** 1358 passed.
+
+**Afgeronde fases sinds de vorige update:**
+- 9A t/m 9H — build, GitHub-feedback, update-check.
+- 10A — referentie-architectuur met frequentieprofielen.
+- 10B — drempelvalidatie.
+- 11A — export/import/selectie en mapvoorkeuren.
+- 11B — betrouwbaarheidsregel herzien (inhoudelijk vs. administratief).
+- 11C — iconen voor alle vensters.
+
+**Nieuwe architectuuronderdelen:**
+- `app/helpers/dialog_start_directory.py` (11A.3) — centrale
+  startmaphelper voor `QFileDialog`.
+- `app/helpers/icon_paths.py` (11C) — centrale icoonpadhelper met
+  veilige fallback.
+- `scripts/genereer_placeholders.py` (11C) — genereert de
+  placeholder-iconen.
+- `assets/icons/` — één applicatie-icoon plus twaalf thematische
+  iconen.
+
+**Belangrijke ontwerpbeslissingen sinds de vorige update:**
+- De beoordelingslogica onderscheidt sinds 11B **inhoudelijke** en
+  **administratieve** betrouwbaarheidsverlagers. Alleen inhoudelijke
+  verlagers verhogen het minimum van de eindstatus.
+- De ESR-referentie is sinds 10B **frequentie-specifiek**. De officiële
+  ESR70-tabel op 100 kHz blijft de primaire bron voor 100 kHz; voor
+  100 Hz, 1 kHz en 10 kHz bestaan geschatte profielen.
+- Sinds 11A respecteert de export de selectie en worden
+  mapvoorkeuren overal gerespecteerd.
+- Sinds 11C heeft elk venster een icoon; ontbrekende iconen zijn geen
+  fout en laten de GUI gewoon zonder icoon verder werken.
+
+**Volgende fase:** 11D — i18n-menging in Diagnose/Result en
+Resultaatdetails oplossen.
+
+De tekst in §31 ("Concrete eerstvolgende ontwikkelstap") is historisch
+en niet meer actueel. De actuele planning staat in `overdracht.md` §4
+en §2.4.

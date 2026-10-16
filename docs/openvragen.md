@@ -1,6 +1,6 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 2.7.0
+**Versie:** 2.8.0
 **Datum:** 2026-10-16
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
@@ -19,12 +19,17 @@ Wijzigingen:
                        (onderscheid inhoudelijke vs. administratieve
                        betrouwbaarheidsverlagers). Nieuwe subsectie 4.18
                        toegevoegd met de opgeloste punten in 11B.
+  v2.8.0 (2026-10-16)  §2.27 gemarkeerd als opgelost in 11C (iconen voor
+                       alle vensters). Nieuwe subsectie 4.20 toegevoegd
+                       met de opgeloste punten in 11C. Nieuwe subsectie
+                       4.21 met een kleine inconsistentie in
+                       test_icon_paths.py (lokale _app-fixture).
 
 ---
 
 ## 1. Uit Fase 4I — Zoektaal-observaties
 
-Onveranderd t.o.v. v2.6.0.
+Onveranderd t.o.v. v2.7.0.
 
 ---
 
@@ -36,7 +41,7 @@ Zie eerdere versies.
 
 ### 2.6 Nieuwe openstaande punten (na 5D'.2e)
 
-Onveranderd t.o.v. v2.6.0.
+Onveranderd t.o.v. v2.7.0.
 
 ### 2.7 t/m 2.13 — beantwoord
 
@@ -62,7 +67,8 @@ Zie eerdere versies.
   compacte selectielijst onder de grafiek. Klikbare datapunten blijven
   open voor fase 11G.
 - **Checkbox-zichtbaarheid in donker thema.** Open; fase 11G.
-- **i18n-menging in Diagnose/Result en Resultaatdetails.** Open; fase 11D.
+- **i18n-menging in Diagnose/Result en Resultaatdetails.** Open;
+  **fase 11D (volgende).**
 
 ### 2.22 t/m 2.24 — beantwoord
 
@@ -100,7 +106,23 @@ Zie eerdere versies.
 
 ### 2.27 Alle vensters een gepast icoon (toegevoegd 2026-10-15)
 
-- **Status:** open; **fase 11C** (volgende).
+- **Status:** **opgelost in 11C.**
+- **Wat was:** de applicatie had geen icoon op de vensters en geen
+  thematische iconen voor de hub-knoppen, diagnose-knoppen en
+  menu-items.
+- **Oplossing:** één applicatie-icoon (`app.png`, `logo.ico`) plus
+  twaalf thematische iconen, alle in `assets/icons/`, met een pure
+  helper (`app/helpers/icon_paths.py`) die de paden bepaalt en stil
+  terugvalt op `None` als een icoon ontbreekt. De GUI laat het icoon
+  dan weg.
+- **Gewijzigd:** `main.py` (v1.5.0), `app/gui/main_window.py`
+  (v2.17.0), `app/gui/esr_test_screen.py` (v1.13.0), alle dialogen in
+  `app/gui/dialogs/`, `assets/icons/README.md`. Nieuw:
+  `app/helpers/icon_paths.py` (v1.0.0),
+  `scripts/genereer_placeholders.py` (v1.0.0),
+  `tests/test_icon_paths.py` (16 tests),
+  `tests/test_main_icon.py` (1 test).
+- **Baseline:** 1339 → 1358 passed (+19 tests).
 
 ### 2.28 Metingen exporteren/importeren voor samenvoegen tussen toestellen (toegevoegd 2026-10-15)
 
@@ -114,13 +136,13 @@ Zie eerdere versies.
 
 ## 3. Uit vroegere contextdocumenten (nog steeds relevant)
 
-Onveranderd t.o.v. v2.6.0.
+Onveranderd t.o.v. v2.7.0.
 
 ---
 
 ## 4. Uit eigen observaties tijdens recente fases
 
-Onveranderd t.o.v. v2.6.0, plus:
+Onveranderd t.o.v. v2.7.0, plus:
 
 ### 4.16 Nieuwe openvragen na 11A
 
@@ -152,6 +174,28 @@ Onveranderd t.o.v. v2.6.0, plus:
 - De GUI toont de opsplitsing inhoudelijk/administratief nog niet in de
   resultaatdetails. Dat is een mogelijke cosmetische aanvulling voor een
   latere fase (11D of 11F), geen open vraag.
+
+### 4.20 Opgeloste punten in 11C (2026-10-16)
+
+- **§2.27 — iconen voor alle vensters.** Eén applicatie-icoon plus
+  twaalf thematische iconen. Pure helper `icon_paths` met veilige
+  fallback. Baseline 1339 → 1358 passed.
+- **Help-sneltoetsen gecontroleerd.** De NL Help en EN Help zijn nu
+  consistent: `Ctrl+I`, `Ctrl+P` en `Ctrl+A` staan in beide onder
+  "Globaal".
+- **Changelogs bijgewerkt** voor 11B en 11C.
+
+### 4.21 Kleine inconsistentie: `test_icon_paths.py` gebruikt een
+lokale `_app`-fixture
+
+- **Status:** open; lage prioriteit.
+- **Wat:** `tests/test_icon_paths.py` definieert een lokale
+  `_app`-fixture met `@pytest.fixture(scope="module")`. De
+  projectafspraak zegt: **geen fixture, `QApplication` lokaal ophalen
+  in de testfunctie**. De fixture werkt, maar wijkt af van de
+  afspraak.
+- **Wanneer opruimen:** een latere cosmetische fase (11F of 11I).
+  Geen functionele impact.
 
 ---
 

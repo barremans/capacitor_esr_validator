@@ -2,7 +2,7 @@
 ================================================================================
 Module:     tests/test_main_window_report_menu.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.0
+Versie:     1.4.0
 Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
@@ -17,6 +17,12 @@ Wijzigingen:
   v1.1.0 (2026-10-16)  Fase 11A.1: menu-item disabled zonder selectie.
   v1.2.0 (2026-10-16)  Fase 11A.2: menu-item wordt ook enabled op Analyse
                         met een checkbox-selectie.
+  v1.3.0 (2026-10-16)  Fase 11B: menu-item heeft een tooltip die vertaalt mee.
+  v1.4.0 (2026-10-16)  Fase 11C: menu-item heeft een icoon. De nieuwe test
+                        test_rapport_action_heeft_icoon gebruikt geen
+                        niet-bestaande _app-fixture meer; de QApplication
+                        wordt lokaal opgehaald via de bestaande
+                        qapplication-fixture of QApplication.instance().
 ================================================================================
 """
 
@@ -269,4 +275,28 @@ def test_rapport_action_heeft_tooltip_en(window):
     QApplication.processEvents()
     assert window.rapport_action.toolTip() == (
         "Select a measurement in the history first."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Fase 11C — icoon op het Rapport-menu-item
+# ---------------------------------------------------------------------------
+
+def test_rapport_action_heeft_icoon(window):
+    """Rapport maken… heeft een icoon zodra report.png bestaat.
+
+    Conform de projectafspraak gebruiken we geen niet-bestaande _app-fixture:
+    de bestaande `window`-fixture levert al een ToolHubWindow, en de
+    QApplication wordt door de autouse `qapplication`-fixture op moduleniveau
+    gezet.
+    """
+    from app.helpers.icon_paths import icoon_pad
+
+    if icoon_pad("report") is None:
+        pytest.skip("Geen report.png aanwezig; plaats eerst placeholders.")
+
+    QApplication.processEvents()
+    assert window.rapport_action is not None
+    assert not window.rapport_action.icon().isNull(), (
+        "Rapport-actie heeft geen icoon"
     )

@@ -22,6 +22,61 @@ Detailed explanations about:
 
 will be added in a later development phase.
 
+## History
+
+The **History** page shows the stored measurements from the local
+database. You can filter on manufacturer, series, measurement method,
+instrument, frequency, date and status. Each measurement has a detail
+view with the full stored measurement chain and assessment.
+
+Select a row to activate the **Report**, **Repeat measurement** and
+**Details** buttons. You can also check one or more measurements via
+the checkbox column to make a selection for export or report.
+
+## Analysis
+
+The **Analysis** page shows charts and trends of your stored
+measurements. There are four chart types:
+
+- ESR over time;
+- capacitance over time;
+- D over time;
+- ESR vs. capacitance (scatter plot, coloured per final status).
+
+With the aggregation dropdown you choose **raw measurements**,
+**average per day**, **per week** or **per month**. The filter bar uses
+the same fields as the History. The page is fully read-only.
+
+Below the chart there is a compact **selection list** with the same
+measurements. Check one or more measurements to export them or create
+a report from them.
+
+## Creating reports
+
+From the **History** you can create a measurement report for a single
+measurement via the **Report** button or via **Ctrl+P** in the File
+menu. From the **Analysis** you can create a report for your full
+checkbox selection.
+
+The report contains component identification, measurement context,
+raw measurement values, assessment snapshots, reference snapshots and
+optionally a chart (only for a single measurement). You can save it as
+**HTML** or **PDF**. The report is read-only: no historical
+measurements or assessments are recalculated.
+
+## Exporting and selection
+
+In the **History** and in the **Analysis** you can use a scope
+dropdown to choose what you export:
+
+- **Current filters** — all measurements that match the active
+  filters.
+- **Selection** — only the measurements you checked in the checkbox
+  column.
+
+Without a selection, the app exports the full filter result. You can
+choose between an **overview CSV**, a **detail CSV** or **both**.
+
 ## Documentation library
 
 Besides this general help, the application contains a multilingual
@@ -59,13 +114,16 @@ startup; the manual check always remains available.
 
 ## Keyboard shortcuts
 
-- **Global:** Ctrl+Q (quit), Ctrl+E (ESR test), F1 (help).
+- **Global:** Ctrl+Q (quit), Ctrl+E (ESR test),
+  Ctrl+I (Import document), Ctrl+P (Create report), F1 (help).
 - **ESR screen:** Esc (back), Ctrl+Enter (assess), Ctrl+S (save),
   Ctrl+W (clear), Ctrl+I (measurement instructions).
 - **History:** Esc (back), Ctrl+R (refresh), Ctrl+F (filters),
   Ctrl+D (details), Ctrl+H (repeat measurement).
+- **Analysis:** Esc (back), Ctrl+R (refresh), Ctrl+F (filters).
 - **Main menu:** Ctrl+D (Diagnose), Ctrl+H (History),
-  Ctrl+K (Documentation), Esc (quit with confirmation).
+  Ctrl+K (Documentation), Ctrl+A (Analysis), Esc (quit with
+  confirmation).
 
 ## Languages
 

@@ -1,7 +1,7 @@
 # Wat nu? — Electronics Diagnostic Tool Hub
 
-**Versie:** 1.3.0
-**Datum:** 2026-10-13
+**Versie:** 1.4.0
+**Datum:** 2026-10-16
 **Auteur:** Bart Bossuyt
 **Doel:** beknopte gids voor "wat is de volgende stap" na een
 afgeronde fase. Geen volledige overdracht — die staat in
@@ -11,12 +11,10 @@ afgeronde fase. Geen volledige overdracht — die staat in
 
 ## Huidige staat
 
-- **Baseline tests:** 1150 passed.
-- **Huidige versie:** `1.0.3`, gepubliceerd als GitHub-release
-  `v1.0.3` op 2026-10-13.
-- **Laatste afgeronde fase:** 9E — GitHub Release.
-- **Volgende fase:** 9F — Intune/Defender/CFA-testmatrix +
-  `docs/packaging.md`.
+- **Baseline tests:** 1358 passed.
+- **Huidige versie:** `1.2.0`.
+- **Laatste afgeronde fase:** 11C — iconen voor alle vensters.
+- **Volgende fase:** 11D — i18n-menging oplossen.
 
 Dit bestand wordt bijgewerkt na elke fase.
 
@@ -109,5 +107,5 @@ Dit bestand wordt bijgewerkt na elke fase.
 | Signing-flow (CGK) | `05-signing-build-context.md` |
 | Defender-indicator | `signingContext.md` |
 | GitHub-repo | `https://github.com/barremans/capacitor_esr_validator` |
-| Laatste release | `https://github.com/barremans/capacitor_esr_validator/releases/tag/v1.0.3` |
+| Laatste release | `https://github.com/barremans/capacitor_esr_validator/releases/latest` |
 | Update-check pointer | `https://raw.githubusercontent.com/barremans/capacitor_esr_validator/main/releases/latest/version.txt` |

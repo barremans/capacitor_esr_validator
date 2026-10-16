@@ -2,8 +2,8 @@
 ================================================================================
 Module:     main.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.4.0
-Datum:      2026-10-14
+Versie:     1.5.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Entry point. Start de Qt6 GUI met donker thema en ToolHubWindow.
@@ -34,6 +34,13 @@ Wijzigingen:
                           (algemeen.controleer_updates_bij_opstarten,
                           default True). main.py geeft de waarde door;
                           de GUI plant daarna de niet-blokkerende check.
+  v1.5.0 (2026-10-16)  Fase 11C (iconen):
+                        - QApplication krijgt een applicatie-icoon via
+                          app/helpers/icon_paths.applicatie_icoon().
+                          Fallback-keten: assets/icons/app.png ->
+                          assets/icons/logo.ico -> geen icoon (Qt
+                          gebruikt dan het systeemstandaardicoon).
+                        - Geen wijziging aan de bestaande opstartlogica.
 ================================================================================
 """
 
@@ -63,6 +70,7 @@ from PySide6.QtWidgets import QApplication
 from app.gui.main_window import ToolHubWindow
 from app.gui.styles import apply_dark_theme
 from app.config.settings import laad_instellingen
+from app.helpers.icon_paths import applicatie_icoon
 from app.version import __version__
 
 
@@ -76,6 +84,12 @@ def main():
     app.setApplicationName("Condensator- en ESR-validator")
     app.setApplicationDisplayName("Condensator- en ESR-validator")
     app.setApplicationVersion(__version__)
+
+    # Fase 11C: applicatie-icoon. Valt stil terug op logo.ico of op
+    # niets als geen van beide bestaat.
+    icoon = applicatie_icoon()
+    if icoon is not None:
+        app.setWindowIcon(icoon)
 
     apply_dark_theme(app)
 

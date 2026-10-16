@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/esr_test_screen.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.12.0
+Versie:     1.13.0
 Datum:      2026-10-15
 Auteur:     Ontwikkelaar
 
@@ -78,6 +78,11 @@ Wijzigingen:
                        (`referentiefrequentie_hz`) i.p.v. de aanname dat de
                        referentie altijd op 100 kHz staat. Geen wijziging
                        aan de beoordelingslogica zelf.
+  v1.13.0 (2026-10-16) Fase 11C: het scherm krijgt een venstericoon via
+                        de centrale helper app/helpers/icon_paths, zodat
+                        het ook los van het hoofdvenster het juiste
+                        icoon toont. Geen wijziging aan de beoordelings-
+                        of opslaglogica.
 
 Versiebeheer:
   - MAJOR: incompatibele architectuur/API-wijziging.
@@ -191,6 +196,11 @@ class EsrTestScreen(QWidget):
         self._apply_saved_defaults()
         self.setMinimumSize(1040, 620)
         self.resize(1120, 690)
+        try:
+            from app.helpers.icon_paths import zet_venster_icoon
+            zet_venster_icoon(self)
+        except Exception:
+            pass
 
     def _t(self, sleutel: str, **kwargs) -> str:
         return vertaal(sleutel, taal=self.taal, **kwargs)

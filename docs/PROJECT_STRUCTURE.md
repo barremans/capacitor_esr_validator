@@ -248,7 +248,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Modale dialoog waarmee de gebruiker de status van een eigen
           # Auteur: Bart Bossuyt
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-          # Versie: 1.0.0
+          # Versie: 1.1.0
           # Datum: 2026-10-08
           ```
         - 📄 **/app/gui/dialogs/duplicate_source_dialog.py**
@@ -257,7 +257,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Modale popup die de gebruiker bij een bestaande bron drie
           # Auteur: Bart Bossuyt
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-          # Versie: 1.0.0
+          # Versie: 1.1.0
           # Datum: 2026-10-07
           ```
         - 📄 **/app/gui/dialogs/edit_metadata_dialog.py**
@@ -266,7 +266,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Modale dialoog waarmee de gebruiker de metadata van een eigen
           # Auteur: Bart Bossuyt
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-          # Versie: 1.0.0
+          # Versie: 1.1.0
           # Datum: 2026-10-07
           ```
         - 📄 **/app/gui/dialogs/import_wizard_dialog.py**
@@ -275,7 +275,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Modale wizard voor het importeren van een PDF, Word-document,
           # Auteur: Bart Bossuyt
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-          # Versie: 1.8.0
+          # Versie: 1.9.0
           # Datum: 2026-10-16
           ```
         - 📄 **/app/gui/dialogs/report_dialog.py**
@@ -284,7 +284,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Modale dialoog voor het maken en opslaan van meetrapporten.
           # Auteur: Bart Bossuyt
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-          # Versie: 1.4.0
+          # Versie: 1.5.0
           # Datum: 2026-10-16
           ```
         - 📄 **/app/gui/dialogs/search_help_dialog.py**
@@ -293,7 +293,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Modale read-only help-dialoog voor de documentatie-zoektaal.
           # Auteur: Bart Bossuyt
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-          # Versie: 1.0.1
+          # Versie: 1.1.0
           # Datum: 2026-10-06
           ```
         - 📄 **/app/gui/dialogs/settings_dialog.py**
@@ -302,7 +302,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Modale Settings-dialoog met tabs Algemeen, ESR / Condensator en
           # Auteur: Bart Bossuyt
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-          # Versie: 1.5.0
+          # Versie: 1.6.0
           # Datum: 2026-10-16
           ```
       - 📄 **/app/gui/__init__.py**
@@ -336,7 +336,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Compact ESR-diagnosescherm voor nominale gegevens, meetcontext,
         # Auteur: Ontwikkelaar
         # Applicatie: Condensator- en ESR-validator (Windows)
-        # Versie: 1.12.0
+        # Versie: 1.13.0
         # Datum: 2026-10-15
         ```
       - 📄 **/app/gui/history_screen.py**
@@ -354,7 +354,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Hoofdvenster van de Tool Hub met één-venster-navigatie.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 2.16.0
+        # Versie: 2.17.0
         # Datum: 2026-10-16
         ```
       - 📄 **/app/gui/styles.py**
@@ -455,6 +455,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Versie: 2.0.0
         # Datum: 2026-10-03
         ```
+      - 📄 **/app/helpers/icon_paths.py**
+        ```text
+        # Bestandsnaam: app/helpers/icon_paths.py
+        # Beschrijving: GUI-onafhankelijke resolutie van het juiste icoonpad, met
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.0
+        # Datum: 2026-10-16
+        ```
       - 📄 **/app/helpers/report_chart.py**
         ```text
         # Bestandsnaam: app/helpers/report_chart.py
@@ -523,8 +532,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Kernlogica van de indicatieve beoordeling: capaciteitsvalidatie,
         # Auteur: Ontwikkelaar
         # Applicatie: Condensator- en ESR-validator (Windows)
-        # Versie: 1.4.0
-        # Datum: 2026-10-15
+        # Versie: 1.5.0
+        # Datum: 2026-10-16
         ```
       - 📄 **/app/services/history_service.py**
         ```text
@@ -654,9 +663,20 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
   - 📁 **assets/**
     - 📁 **icons/**
       - 📄 **/assets/icons/.gitkeep**
-      - 📄 **/assets/icons/ESR.png**
+      - 📄 **/assets/icons/analysis.png**
+      - 📄 **/assets/icons/app.png**
+      - 📄 **/assets/icons/bug.png**
+      - 📄 **/assets/icons/diagnose.png**
+      - 📄 **/assets/icons/documentation.png**
+      - 📄 **/assets/icons/esr.png**
+      - 📄 **/assets/icons/exit.png**
+      - 📄 **/assets/icons/help.png**
+      - 📄 **/assets/icons/history.png**
       - 📄 **/assets/icons/logo.ico**
       - 📄 **/assets/icons/README.md**
+      - 📄 **/assets/icons/report.png**
+      - 📄 **/assets/icons/settings.png**
+      - 📄 **/assets/icons/update.png**
   - 📁 **docs/**
     - 📁 **changelog/**
       - 📄 **/docs/changelog/en_US.md**
@@ -716,6 +736,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Versie: V1.0.0
         ```
   - 📁 **scripts/**
+    - 📄 **/scripts/genereer_placeholders.py**
+      ```text
+      # Bestandsnaam: scripts/genereer_placeholders.py
+      # Beschrijving: Genereert een volledige set placeholder-iconen voor fase 11C:
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-16
+      ```
     - 📄 **/scripts/herbereken_steekproef.py**
       ```text
       # Bestandsnaam: scripts/herbereken_steekproef.py
@@ -785,8 +814,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Unit tests voor de assessment_service. Test alle 20 testgevallen
       # Auteur: Ontwikkelaar
       # Applicatie: Condensator- en ESR-validator (Windows)
-      # Versie: 1.4.0
-      # Datum: 2026-10-15
+      # Versie: 1.5.0
+      # Datum: 2026-10-16
       ```
     - 📄 **/tests/test_change_status_dialog.py**
       ```text
@@ -1238,6 +1267,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.0.0
       # Datum: 2026-10-01
       ```
+    - 📄 **/tests/test_icon_paths.py**
+      ```text
+      # Bestandsnaam: tests/test_icon_paths.py
+      # Beschrijving: Regressietests voor app/helpers/icon_paths.py (fase 11C).
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-16
+      ```
     - 📄 **/tests/test_import_wizard_dialog.py**
       ```text
       # Bestandsnaam: tests/test_import_wizard_dialog.py
@@ -1255,6 +1293,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: Condensator- en ESR-validator (Windows)
       # Versie: 1.0.0
       # Datum: 2026-09-26
+      ```
+    - 📄 **/tests/test_main_icon.py**
+      ```text
+      # Bestandsnaam: tests/test_main_icon.py
+      # Beschrijving: Regressietests voor het applicatie-icoon in main.py (fase 11C).
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-16
       ```
     - 📄 **/tests/test_main_window_context_documentation.py**
       ```text
@@ -1280,8 +1327,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor het Help-menu in ToolHubWindow. Oorspronkelijk
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.1.0
-      # Datum: 2026-10-14
+      # Versie: 1.3.0
+      # Datum: 2026-10-16
       ```
     - 📄 **/tests/test_main_window_report_menu.py**
       ```text
@@ -1289,7 +1336,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor het menu-item "Rapport maken…".
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.2.0
+      # Versie: 1.4.0
       # Datum: 2026-10-16
       ```
     - 📄 **/tests/test_main_window_reporting_menu.py**
@@ -1636,8 +1683,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     # Beschrijving: Entry point. Start de Qt6 GUI met donker thema en ToolHubWindow.
     # Auteur: Bart Bossuyt
     # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-    # Versie: 1.4.0
-    # Datum: 2026-10-14
+    # Versie: 1.5.0
+    # Datum: 2026-10-16
     ```
   - 📄 **/overdracht.md**
   - 📄 **/publish.ps1**

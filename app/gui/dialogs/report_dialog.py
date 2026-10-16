@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/dialogs/report_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.4.0
+Versie:     1.5.0
 Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
@@ -31,6 +31,9 @@ Wijzigingen:
                         app/helpers/dialog_start_directory (categorie
                         'rapport'). Geen gedragswijziging voor de
                         gebruiker.
+  v1.5.0 (2026-10-16)  Fase 11C: dialoog krijgt een venstericoon via
+                        de centrale helper app/helpers/icon_paths.
+                        Geen wijziging aan de rapportlogica.
 ================================================================================
 """
 
@@ -166,6 +169,7 @@ class ReportDialog(QDialog):
         self.setWindowTitle(self._t("report.dialoog.titel"))
         self.setModal(True)
         self.resize(900, 720)
+        self._zet_eigen_icoon()
 
         self._build_ui()
         self._laad_bundle()
@@ -428,3 +432,10 @@ class ReportDialog(QDialog):
             self._t("report.dialoog.titel"),
             bericht,
         )
+        
+    def _zet_eigen_icoon(self) -> None:
+        try:
+            from app.helpers.icon_paths import zet_venster_icoon
+            zet_venster_icoon(self)
+        except Exception:
+            pass

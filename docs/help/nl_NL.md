@@ -116,7 +116,8 @@ beschikbaar.
 ## Sneltoetsen
 
 - **Globaal:** Ctrl+Q (afsluiten), Ctrl+E (ESR-test),
-  Ctrl+I (Document importeren), Ctrl+P (Rapport maken), F1 (help).
+  Ctrl+I (Document importeren), Ctrl+P (Rapport maken),
+  Ctrl+A (Analyse), F1 (help).
 - **ESR-scherm:** Esc (terug), Ctrl+Enter (beoordelen), Ctrl+S (opslaan),
   Ctrl+W (wissen), Ctrl+I (meetinstructies).
 - **Historiek:** Esc (terug), Ctrl+R (verversen), Ctrl+F (filters),

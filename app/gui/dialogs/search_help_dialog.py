@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/dialogs/search_help_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.1
+Versie:     1.1.0
 Datum:      2026-10-06
 Auteur:     Bart Bossuyt
 
@@ -22,6 +22,9 @@ Wijzigingen:
                         documentatie.help.uitsluiten_titel en
                         documentatie.help.uitsluiten_tekst. Geen wijziging
                         aan bestaande keys of aan de zoeklogica.
+  v1.1.0 (2026-10-16)  Fase 11C: dialoog krijgt een venstericoon via
+                        de centrale helper app/helpers/icon_paths.
+                        Geen wijziging aan de help-inhoud.
 ================================================================================
 """
 
@@ -61,6 +64,7 @@ class SearchHelpDialog(QDialog):
         self.setModal(True)
         self.resize(680, 620)
         self.setMinimumSize(520, 420)
+        self._zet_eigen_icoon()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
@@ -144,3 +148,10 @@ class SearchHelpDialog(QDialog):
             filters_titel=t("documentatie.help.filters_titel"),
             filters_tekst=t("documentatie.help.filters_tekst"),
         )
+        
+    def _zet_eigen_icoon(self) -> None:
+        try:
+            from app.helpers.icon_paths import zet_venster_icoon
+            zet_venster_icoon(self)
+        except Exception:
+            pass

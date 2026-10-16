@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/dialogs/settings_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.5.0
+Versie:     1.6.0
 Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
@@ -30,6 +30,9 @@ Wijzigingen:
                        fallback als het veld leeg is. De dialoog blijft
                        schrijven naar standaard_* en laatste_rapportmap
                        zoals voorheen.
+  v1.6.0 (2026-10-16)  Fase 11C: dialoog krijgt een venstericoon via
+                        de centrale helper app/helpers/icon_paths.
+                        Geen wijziging aan de instellingenlogica.
 ================================================================================
 """
 
@@ -85,6 +88,7 @@ class SettingsDialog(QDialog):
         self.setWindowTitle(self._t("settings.titel"))
         self.setModal(True)
         self.resize(650, 560)
+        self._zet_eigen_icoon()
 
         hoofd = QVBoxLayout(self)
         self.tabs = QTabWidget()
@@ -472,6 +476,13 @@ class SettingsDialog(QDialog):
                 rapportage=RapportageInstellingen(),
             )
         self._load_widgets(standaard)
+        
+    def _zet_eigen_icoon(self) -> None:
+        try:
+            from app.helpers.icon_paths import zet_venster_icoon
+            zet_venster_icoon(self)
+        except Exception:
+            pass
 
     @property
     def toegepaste_instellingen(self) -> AppInstellingen:
