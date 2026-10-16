@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/services/assessment_service.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.5.0
+Versie:     1.6.0
 Datum:      2026-10-16
 Auteur:     Ontwikkelaar
 
@@ -45,6 +45,15 @@ Wijzigingen:
                        de betrouwbaarheid wel, maar verhogen het minimum van de
                        eindstatus niet. Geen wijziging aan drempels of aan de
                        ESR-classificatie zelf.
+  v1.6.0 (2026-10-16)  Fase 11D: `Beoordeling` krijgt het veld `taal`,
+                       gevuld met de taalparameter van `beoordeel_meting`.
+                       Hierdoor kan de GUI zien in welke taal de reeds
+                       vertaalde strings (`toelichting`, `redenen`,
+                       `waarschuwingen`, `aanbevolen_vervolgstap`) zijn
+                       opgesteld, en na een live taalwissel correct
+                       reageren zonder het Beoordeling-object opnieuw te
+                       hoeven te interpreteren. Geen wijziging aan de
+                       beoordelingslogica of aan de drempels.
 
 Referentie: docs/validation_rules.md (volledig), in het bijzonder:
             §2 referentiehiërarchie, §3 capaciteitsvalidatie,
@@ -234,7 +243,15 @@ class BetrouwbaarheidsResultaat:
 
 @dataclass(frozen=True)
 class Beoordeling:
-    """Het volledige, transparante eindresultaat van een meting (§18 context)."""
+    """Het volledige, transparante eindresultaat van een meting (§18 context).
+
+    Sinds fase 11D bevat dit object ook het veld ``taal``: de taal waarin
+    alle reeds vertaalde strings (``toelichting``, ``redenen``,
+    ``waarschuwingen``, ``aanbevolen_vervolgstap``) zijn opgesteld. De GUI
+    kan daarmee detecteren dat een live taalwissel het object niet heeft
+    meegenomen, en in plaats van een stille mengeling een nette banner
+    tonen.
+    """
 
     eindstatus: Eindstatus
     redenen: tuple[str, ...]
@@ -248,6 +265,7 @@ class Beoordeling:
     instrument_code: Optional[str]
     testspanning_vrms: Optional[float]
     referentiefrequentie_hz: Optional[float] = None
+    taal: str = STANDAARD_TAAL
 
 
 # ---------------------------------------------------------------------------
@@ -534,7 +552,8 @@ def controleer_consistentie(
 #     - meetmethode ONE_LEG of IN_CIRCUIT
 #   administratief:
 #     - omgevingstemperatuur onbekend
-#     - referentiewaarde is typisch i.p.v. maximaal#     - fabrikant en/of serie onbekend
+#     - referentiewaarde is typisch i.p.v. maximaal
+#     - fabrikant en/of serie onbekend
 # ---------------------------------------------------------------------------
 def bepaal_betrouwbaarheid(
     referentieniveau: Optional[int],
@@ -996,4 +1015,5 @@ def beoordeel_meting(
         instrument_code=instrument_code,
         testspanning_vrms=testspanning_vrms,
         referentiefrequentie_hz=referentiefrequentie_hz,
+        taal=taal,
     )

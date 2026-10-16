@@ -17,6 +17,70 @@ Opmerking over de versienummering:
 - Voor de actuele versie: zie `app/version.py` of Help → Over.
 -->
 
+### Fase 11D — i18n-menging oplossen (16 oktober 2026)
+
+**Waarom deze wijziging**
+
+Na een live taalwissel toonde het ESR-scherm een mengeling van talen:
+de GUI-chrome (groepstitels, knoppen) schakelde netjes om, maar de
+reeds vertaalde strings uit het `Beoordeling`-object (`toelichting`,
+`redenen`, `waarschuwingen`, `aanbevolen_vervolgstap`) bleven in de
+oude taal staan. Daarnaast was de `*`-toelichting bij een
+frequentieverschil hardcoded in de GUI in plaats van via i18n.
+
+**Oplossing**
+
+- `Beoordeling` krijgt een `taal`-veld dat wordt gevuld door
+  `beoordeel_meting`. De GUI kan daarmee detecteren dat een resultaat
+  in een andere taal is opgesteld dan de huidige GUI-taal.
+- Na een live taalwissel toont het ESR-scherm een nette banner in de
+  GUI-taal ("Dit resultaat is opgesteld in het {oude_taal}. Beoordeel
+  opnieuw om het in het {nieuwe_taal} weer te geven."). De reeds
+  vertaalde resultaatstrings blijven in hun eigen taal; er is geen
+  stille mengeling meer.
+- `_show_result` en `_build_result_html` vertalen alle
+  resultaat-specifieke labels in `resultaat.taal` in plaats van
+  `self.taal`. De GUI-chrome blijft via `self.taal` lopen.
+- De losse `*`-toelichting bij een frequentieverschil loopt nu via twee
+  nieuwe i18n-keys (`resultaat.esr_factor_frequentie_indicatief` en
+  `resultaat.esr_factor_frequentie_indicatief_kort`) in NL én EN.
+- Bugfix in `apply_language`: de conditie `result_group.isVisible()`
+  is vervangen door `_laatste_resultaat is not None`. In
+  offscreen/headless situaties (tests, pagina's die nog niet actief
+  zijn in de `QStackedWidget`) is `isVisible()` False en werd de
+  banner nooit getoond. `isVisible()` was ook in productie niet de
+  juiste check.
+
+**Voor ontwikkelaars**
+
+- `app/services/assessment_service.py` (v1.6.0) — `Beoordeling` heeft
+  het extra veld `taal: str = STANDAARD_TAAL`. `beoordeel_meting`
+  vult het met de `taal`-parameter.
+- `app/gui/esr_test_screen.py` (v1.14.0) — `_show_result` detecteert
+  taal-mismatch en toont `result_language_banner`. Nieuwe helper
+  `_t_voor(taal, sleutel, **kwargs)` voor vertalingen in de taal van
+  het resultaat. `_build_result_html` gebruikt `resultaat.taal` voor
+  alle resultaat-specifieke labels. `apply_language` gebruikt
+  `_laatste_resultaat is not None` in plaats van
+  `result_group.isVisible()`.
+- Nieuwe i18n-keys onder `resultaat`:
+  - `taal_mismatch_banner` — "Dit resultaat is opgesteld in het
+    {oude_taal}. Beoordeel opnieuw om het in het {nieuwe_taal} weer te
+    geven." (EN: "This result was produced in {oude_taal}. Re-assess
+    to display it in {nieuwe_taal}.")
+  - `esr_factor_frequentie_indicatief` — "Indicatieve
+    ESR-vergelijking: meet- en referentiefrequentie verschillen."
+  - `esr_factor_frequentie_indicatief_kort` — "* indicatief:
+    frequentieverschil"
+- `tests/test_assessment.py` (v1.5.1) — 5 nieuwe tests in
+  `TestBeoordelingTaal` die bewijzen dat `Beoordeling.taal` correct
+  gevuld wordt en dat de vertaalde strings in de opgegeven taal staan.
+- `tests/test_gui_language_switch.py` (v1.2.0) — 3 nieuwe tests die de
+  taal-mismatch-banner testen. De stub `_fake_translate` geeft nu
+  kwargs door in de output; `_fake_esr_settings` levert ook een
+  `beoordeling`-namespace.
+- **Baseline:** 1358 → **1366 passed** (+8 tests).
+
 ## Versie 1.2.0 — Frequentie-specifieke referenties en drempelvalidatie (15 oktober 2026)
 
 **ESR-referenties per meetfrequentie**
@@ -696,8 +760,9 @@ van geïmporteerde documenten.
     **Afgerond op 16 oktober 2026.** Baseline 1329 → **1339 passed**.
   - **11C** — Iconen voor alle vensters.
     **Afgerond op 16 oktober 2026.** Baseline 1339 → **1358 passed**.
-  - **11D** — i18n-menging in Diagnose/Result oplossen. **Volgende.**
-  - **11E** — Async netwerk (URL-fetch, release notes).
+  - **11D** — i18n-menging in Diagnose/Result oplossen.
+    **Afgerond op 16 oktober 2026.** Baseline 1358 → **1366 passed**.
+  - **11E** — Async netwerk (URL-fetch, release notes). **Volgende.**
   - **11F** — Documentatie-uitbreiding (redenen, filters, bulk-edit).
   - **11G** — Visueel donker thema (checkboxen, scrollbar).
   - **11H** — Light theme.

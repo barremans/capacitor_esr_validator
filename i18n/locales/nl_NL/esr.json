@@ -197,7 +197,10 @@
     "referentieniveau": "Referentieniveau",
     "referentiefrequentie": "Referentiefrequentie",
     "inhoudelijke_verlagers": "Inhoudelijke verlagers",
-    "administratieve_verlagers": "Administratieve verlagers"
+    "administratieve_verlagers": "Administratieve verlagers",
+    "taal_mismatch_banner": "Dit resultaat is opgesteld in het {oude_taal}. Beoordeel opnieuw om het in het {nieuwe_taal} weer te geven.",
+    "esr_factor_frequentie_indicatief": "Indicatieve ESR-vergelijking: meet- en referentiefrequentie verschillen.",
+    "esr_factor_frequentie_indicatief_kort": "* indicatief: frequentieverschil"
   },
   "opslag": {
     "meting_opgeslagen_titel": "Meting opgeslagen",

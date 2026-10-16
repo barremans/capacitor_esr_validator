@@ -2,7 +2,7 @@
 ================================================================================
 Module:     tests/test_assessment.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.5.0
+Versie:     1.5.1
 Datum:      2026-10-16
 Auteur:     Ontwikkelaar
 
@@ -41,6 +41,11 @@ Wijzigingen:
                          zodat de consistentiecontrole niet tussenbeide
                          komt en de test het frequentieverschil als
                          enige inhoudelijke verlager test.
+  v1.5.1 (2026-10-16)  Fase 11D: tests voor het nieuwe veld `taal` in
+                       Beoordeling. Bewijst dat beoordeel_meting de
+                       taalparameter doorgeeft aan het resultaatobject,
+                       en dat de default STANDAARD_TAAL ("nl_NL") blijft
+                       werken wanneer geen taal wordt meegegeven.
 ================================================================================
 """
 
@@ -956,6 +961,87 @@ class TestReferentiefrequentieInResultaat(unittest.TestCase):
             serie_bekend=False,
         )
         self.assertIsNone(resultaat.referentiefrequentie_hz)
+
+
+class TestBeoordelingTaal(unittest.TestCase):
+    """Fase 11D: het Beoordeling-object bewaart de taal waarin alle
+    vertaalde strings zijn opgesteld. De GUI gebruikt dat veld om na een
+    live taalwissel een nette banner te tonen in plaats van een stille
+    mengeling van oude en nieuwe taal."""
+
+    def _ref(self):
+        return ReferentieContext(
+            esr_waarde=100,
+            eenheid="mΩ",
+            bron="Test",
+            referentieniveau=1,
+            frequentie_hz=1000,
+            typisch_of_maximaal="maximaal",
+            condensatortype="Aluminium elektrolytisch",
+        )
+
+    def _meting(self, taal):
+        return beoordeel_meting(
+            nominale_capaciteit=100,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=100,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=80,
+            eenheid_gemeten_esr="mΩ",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=self._ref(),
+            fabrikant_bekend=True,
+            serie_bekend=True,
+            taal=taal,
+        )
+
+    def test_taal_nl_nl_wordt_overgenomen(self):
+        resultaat = self._meting("nl_NL")
+        self.assertEqual(resultaat.taal, "nl_NL")
+
+    def test_taal_en_us_wordt_overgenomen(self):
+        resultaat = self._meting("en_US")
+        self.assertEqual(resultaat.taal, "en_US")
+
+    def test_default_taal_is_nl_nl(self):
+        """Zonder expliciete taal gebruikt beoordeel_meting de projectdefault."""
+        from app.helpers.i18n import STANDAARD_TAAL
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=100,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=100,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=80,
+            eenheid_gemeten_esr="mΩ",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=self._ref(),
+            fabrikant_bekend=True,
+            serie_bekend=True,
+        )
+        self.assertEqual(resultaat.taal, STANDAARD_TAAL)
+
+    def test_en_us_bevat_engelse_toelichting(self):
+        """Bewijs dat de reeds vertaalde strings in de opgegeven taal zijn."""
+        resultaat = self._meting("en_US")
+        # De capaciteits-toelichting bevat in en_US het woord "Measured".
+        self.assertIn("Measured", resultaat.capaciteit.toelichting)
+
+    def test_nl_nl_bevat_nederlandse_toelichting(self):
+        resultaat = self._meting("nl_NL")
+        # De capaciteits-toelichting bevat in nl_NL het woord "Gemeten".
+        self.assertIn("Gemeten", resultaat.capaciteit.toelichting)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 2.8.0
+**Versie:** 2.9.0
 **Datum:** 2026-10-16
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
@@ -24,12 +24,17 @@ Wijzigingen:
                        met de opgeloste punten in 11C. Nieuwe subsectie
                        4.21 met een kleine inconsistentie in
                        test_icon_paths.py (lokale _app-fixture).
+  v2.9.0 (2026-10-16)  §2.21 (i18n-menging) gemarkeerd als opgelost in
+                       11D. Nieuwe subsectie 4.22 met de opgeloste punten
+                       in 11D. Nieuwe subsectie 4.23 met een cosmetische
+                       inconsistentie in de teststub _fake_translate van
+                       test_gui_language_switch.py.
 
 ---
 
 ## 1. Uit Fase 4I — Zoektaal-observaties
 
-Onveranderd t.o.v. v2.7.0.
+Onveranderd t.o.v. v2.8.0.
 
 ---
 
@@ -41,7 +46,7 @@ Zie eerdere versies.
 
 ### 2.6 Nieuwe openstaande punten (na 5D'.2e)
 
-Onveranderd t.o.v. v2.7.0.
+Onveranderd t.o.v. v2.8.0.
 
 ### 2.7 t/m 2.13 — beantwoord
 
@@ -67,8 +72,11 @@ Zie eerdere versies.
   compacte selectielijst onder de grafiek. Klikbare datapunten blijven
   open voor fase 11G.
 - **Checkbox-zichtbaarheid in donker thema.** Open; fase 11G.
-- **i18n-menging in Diagnose/Result en Resultaatdetails.** Open;
-  **fase 11D (volgende).**
+- **i18n-menging in Diagnose/Result en Resultaatdetails.** **Opgelost
+  in 11D.** `Beoordeling` draagt nu zijn eigen taal; het ESR-scherm
+  toont na een live taalwissel een nette banner in plaats van een
+  stille mengeling. De `*`-toelichting bij een frequentieverschil
+  loopt nu via i18n-keys.
 
 ### 2.22 t/m 2.24 — beantwoord
 
@@ -136,7 +144,7 @@ Zie eerdere versies.
 
 ## 3. Uit vroegere contextdocumenten (nog steeds relevant)
 
-Onveranderd t.o.v. v2.7.0.
+Onveranderd t.o.v. v2.8.0.
 
 ---
 
@@ -196,6 +204,41 @@ lokale `_app`-fixture
   afspraak.
 - **Wanneer opruimen:** een latere cosmetische fase (11F of 11I).
   Geen functionele impact.
+
+### 4.22 Opgeloste punten in 11D (2026-10-16)
+
+- **§2.21 — i18n-menging in Diagnose/Result en Resultaatdetails.**
+  `Beoordeling` krijgt een `taal`-veld. Het ESR-scherm toont na een
+  live taalwissel een nette banner en gebruikt `resultaat.taal` voor
+  alle resultaat-specifieke labels. Geen stille mengeling meer.
+- **`*`-toelichting bij frequentieverschil** loopt nu via i18n-keys
+  (`resultaat.esr_factor_frequentie_indicatief` en
+  `resultaat.esr_factor_frequentie_indicatief_kort`) in NL én EN.
+- **Bugfix in `apply_language`.** De conditie
+  `result_group.isVisible()` is vervangen door
+  `_laatste_resultaat is not None`. In offscreen/headless situaties
+  (tests, pagina's die nog niet actief zijn in de `QStackedWidget`) is
+  `isVisible()` False en werd de banner nooit getoond. `isVisible()`
+  was ook in productie niet de juiste check.
+- **Baseline:** 1358 → 1366 passed (+8 tests: 5 in `test_assessment.py`,
+  3 in `test_gui_language_switch.py`).
+
+### 4.23 Cosmetische inconsistentie: `_fake_translate` in
+`test_gui_language_switch.py` plakt kwargs achter de sleutel
+
+- **Status:** open; lage prioriteit.
+- **Wat:** de teststub `_fake_translate` retourneert
+  `f"{taal}:{key}"` en plakt eventuele kwargs achter de sleutel als
+  `[k=v,...]`. Dat is genoeg om te controleren dat kwargs worden
+  doorgegeven, maar het is geen echte simulatie van `vertaal()`. De
+  drie 11D-tests vertrouwen erop dat `{oude_taal}` en `{nieuwe_taal}`
+  in de bannertekst voorkomen; de stub doet dat op een eigen,
+  afwijkende manier.
+- **Wanneer opruimen:** een latere cosmetische fase (11F of 11I). Geen
+  functionele impact.
+- **Alternatief:** de stub laten retourneren wat `vertaal()` in
+  productie zou doen (met echte format-vervanging), of de drie tests
+  herschrijven zodat ze niet van de stub-output afhangen.
 
 ---
 

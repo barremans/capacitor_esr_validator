@@ -197,7 +197,10 @@
     "referentieniveau": "Reference level",
     "referentiefrequentie": "Reference frequency",
     "inhoudelijke_verlagers": "Content-related reducers",
-    "administratieve_verlagers": "Administrative reducers"
+    "administratieve_verlagers": "Administrative reducers",
+    "taal_mismatch_banner": "This result was produced in {oude_taal}. Re-assess to display it in {nieuwe_taal}.",
+    "esr_factor_frequentie_indicatief": "Indicative ESR comparison: measurement and reference frequency differ.",
+    "esr_factor_frequentie_indicatief_kort": "* indicative: frequency difference"
   },
   "opslag": {
     "meting_opgeslagen_titel": "Measurement saved",

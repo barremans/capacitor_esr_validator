@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_gui_language_switch.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.1
-Datum:      2026-10-01
+Versie:     1.2.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor live taalwissel in Hoofdmenu/Diagnose, ESR en
@@ -14,6 +14,18 @@ Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste regressietests voor de taalwissel-UX-fix.
   v1.1.0 (2026-10-02)  Documentatiepagina opgenomen in live taalwisseltests.
   v1.1.1 (2026-10-03)  analysis test toegevoegd
+  v1.2.0 (2026-10-16)  Fase 11D: test dat na een beoordeling in NL een
+                        live taalwissel naar EN de taal-mismatch-banner
+                        toont en de reeds vertaalde resultaatstrings niet
+                        stil vermengt met de nieuwe GUI-taal. De test
+                        gebruikt een echt Beoordeling-object via
+                        beoordeel_meting, niet een stub. De stub van
+                        laad_instellingen levert nu ook een
+                        `beoordeling`-namespace, nodig voor de ESR-zones
+                        in _build_result_html. Zichtbaarheid van de banner
+                        wordt getoetst met isHidden() i.p.v. isVisible(),
+                        omdat het scherm in de offscreen-test nooit
+                        getoond wordt.
 ================================================================================
 """
 
@@ -34,6 +46,11 @@ import app.gui.main_window as main_window_module
 from app.gui.esr_test_screen import EsrTestScreen
 from app.gui.history_screen import HistoryScreen
 from app.gui.main_window import ToolHubWindow
+from app.services.assessment_service import (
+    Meetmethode,
+    ReferentieContext,
+    beoordeel_meting,
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -43,7 +60,16 @@ def qapplication():
 
 
 def _fake_translate(key: str, taal: str = "nl_NL", **kwargs) -> str:
-    return f"{taal}:{key}"
+    """Teststub voor vertaal(): behoudt de kwargs zodat tests die op
+    ingevulde placeholders controleren (zoals de taal-mismatch-banner)
+    realistisch blijven."""
+    result = f"{taal}:{key}"
+    if kwargs:
+        # Plak de kwargs achter de sleutel zodat we kunnen controleren
+        # dat ze daadwerkelijk zijn doorgegeven aan vertaal().
+        kv = ",".join(f"{k}={v}" for k, v in sorted(kwargs.items()))
+        result = f"{result}[{kv}]"
+    return result
 
 
 def _fake_esr_settings():
@@ -69,7 +95,15 @@ def _fake_esr_settings():
             temperatuur_c=20.0,
             esr_eenheid="mΩ",
             bevestig_wissen=False,
-        )
+        ),
+        beoordeling=SimpleNamespace(
+            capaciteit_marge_binnen=0.9,
+            esr_factor_normaal=1.0,
+            esr_factor_aandachtspunt=2.0,
+            esr_factor_verdacht=3.0,
+            consistentie_marge=2.0,
+            consistentie_eenhedenfout_drempel=100.0,
+        ),
     )
 
 
@@ -79,6 +113,38 @@ class _EmptyHistoryService:
 
     def get_measurement_detail(self, measurement_id):
         return None
+
+
+def _maak_echt_resultaat(taal: str):
+    """Produceer een echt Beoordeling-object in de gevraagde taal."""
+    referentie = ReferentieContext(
+        esr_waarde=100,
+        eenheid="mΩ",
+        bron="Test",
+        referentieniveau=1,
+        frequentie_hz=1000,
+        typisch_of_maximaal="maximaal",
+        condensatortype="Aluminium elektrolytisch",
+    )
+    return beoordeel_meting(
+        nominale_capaciteit=100,
+        eenheid_nominaal="µF",
+        tolerantie_percent=20,
+        gemeten_capaciteit=100,
+        eenheid_gemeten_capaciteit="µF",
+        gemeten_esr=80,
+        eenheid_gemeten_esr="mΩ",
+        meetfrequentie_hz=1000,
+        D=None,
+        condensatortype="Aluminium elektrolytisch",
+        meetmethode=Meetmethode.EX_SITU,
+        omgevingstemperatuur_c=20,
+        veiligheid_bevestigd=True,
+        referentie=referentie,
+        fabrikant_bekend=True,
+        serie_bekend=True,
+        taal=taal,
+    )
 
 
 def test_esr_language_switch_preserves_user_input(monkeypatch):
@@ -177,3 +243,92 @@ def test_language_switch_updates_analysis_page_title() -> None:
         assert window.analysis_page.title_label.text() != ""
     finally:
         window.deleteLater()
+
+
+# ---------------------------------------------------------------------------
+# Fase 11D — i18n-menging oplossen
+# ---------------------------------------------------------------------------
+
+def test_language_switch_na_beoordeling_toont_banner_en_behoudt_oude_strings(monkeypatch):
+    """Fase 11D: na een beoordeling in NL toont een live taalwissel naar EN
+    een nette banner. De reeds vertaalde resultaatstrings blijven in het NL
+    (de taal van het Beoordeling-object) en worden niet vermengd met EN
+    GUI-teksten."""
+    monkeypatch.setattr(esr_module, "vertaal", _fake_translate)
+    monkeypatch.setattr(esr_module, "laad_instellingen", _fake_esr_settings)
+
+    screen = EsrTestScreen(taal="nl_NL")
+
+    # Simuleer een beoordeling in NL: een echt Beoordeling-object in nl_NL.
+    resultaat_nl = _maak_echt_resultaat("nl_NL")
+    screen._laatste_resultaat = resultaat_nl
+    screen._show_result(resultaat_nl)
+
+    # Vóór de taalwissel: geen banner, taal van het resultaat is nl_NL.
+    # isHidden() i.p.v. isVisible(): het scherm zelf is nooit getoond in de
+    # test, dus isVisible() zou altijd False zijn. isHidden() weerspiegelt
+    # de setVisible()-status van het widget zelf.
+    assert screen.result_language_banner.isHidden() is True
+    assert resultaat_nl.taal == "nl_NL"
+
+    # Live taalwissel naar en_US.
+    screen.apply_language("en_US")
+
+    # De GUI-chrome is nu EN.
+    assert screen.title_label.text() == "en_US:scherm.esr_test"
+    assert screen.assess_btn.text() == "en_US:knop.beoordeel"
+
+    # De banner is zichtbaar (niet verborgen) en bevat beide taalcodes.
+    assert screen.result_language_banner.isHidden() is False
+    banner_tekst = screen.result_language_banner.text()
+    assert "nl_NL" in banner_tekst
+    assert "en_US" in banner_tekst
+    assert banner_tekst.startswith("en_US:resultaat.taal_mismatch_banner")
+
+    # Het resultaatobject is niet opnieuw beoordeeld: nog steeds nl_NL.
+    assert screen._laatste_resultaat.taal == "nl_NL"
+
+    # De samenvatting is niet opnieuw in het EN gezet: de reeds vertaalde
+    # strings uit het Beoordeling-object zijn nog steeds de NL-versie.
+    assert screen.result_summary.text().startswith("nl_NL:")
+
+
+def test_banner_verbergt_na_nieuwe_beoordeling_in_nieuwe_taal(monkeypatch):
+    """Fase 11D: als de gebruiker opnieuw beoordeelt in de nieuwe taal,
+    verdwijnt de banner."""
+    monkeypatch.setattr(esr_module, "vertaal", _fake_translate)
+    monkeypatch.setattr(esr_module, "laad_instellingen", _fake_esr_settings)
+
+    screen = EsrTestScreen(taal="nl_NL")
+
+    resultaat_nl = _maak_echt_resultaat("nl_NL")
+    screen._laatste_resultaat = resultaat_nl
+    screen._show_result(resultaat_nl)
+
+    screen.apply_language("en_US")
+    assert screen.result_language_banner.isHidden() is False
+
+    # Nieuwe beoordeling in en_US: banner moet verdwijnen.
+    resultaat_en = _maak_echt_resultaat("en_US")
+    screen._laatste_resultaat = resultaat_en
+    screen._show_result(resultaat_en)
+
+    assert screen.result_language_banner.isHidden() is True
+    assert screen._laatste_resultaat.taal == "en_US"
+
+
+def test_banner_verdwijnt_na_wissen(monkeypatch):
+    """Fase 11D: bij Wissen verdwijnt de taal-mismatch-banner."""
+    monkeypatch.setattr(esr_module, "vertaal", _fake_translate)
+    monkeypatch.setattr(esr_module, "laad_instellingen", _fake_esr_settings)
+
+    screen = EsrTestScreen(taal="nl_NL")
+    resultaat_nl = _maak_echt_resultaat("nl_NL")
+    screen._laatste_resultaat = resultaat_nl
+    screen._show_result(resultaat_nl)
+
+    screen.apply_language("en_US")
+    assert screen.result_language_banner.isHidden() is False
+
+    screen._on_clear()
+    assert screen.result_language_banner.isHidden() is True

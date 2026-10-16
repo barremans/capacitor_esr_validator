@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/esr_test_screen.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.13.0
-Datum:      2026-10-15
+Versie:     1.14.0
+Datum:      2026-10-16
 Auteur:     Ontwikkelaar
 
 Doel:       Compact ESR-diagnosescherm voor nominale gegevens, meetcontext,
@@ -83,6 +83,26 @@ Wijzigingen:
                         het ook los van het hoofdvenster het juiste
                         icoon toont. Geen wijziging aan de beoordelings-
                         of opslaglogica.
+  v1.14.0 (2026-10-16) Fase 11D: i18n-menging opgelost. _show_result en
+                        _build_result_html gebruiken nu `resultaat.taal`
+                        voor alle reeds vertaalde strings uit het
+                        Beoordeling-object. Na een live taalwissel toont
+                        het scherm een nette banner in plaats van een
+                        stille mengeling van oude en nieuwe taal; de
+                        gebruiker wordt gevraagd opnieuw te beoordelen.
+                        De losse `*`-toelichting bij een frequentie-
+                        verschil loopt nu via i18n-keys i.p.v. een
+                        hardcoded string. Geen wijziging aan de
+                        beoordelings- of opslaglogica.
+                        Bugfix: apply_language gebruikte
+                        `result_group.isVisible()` als conditie om het
+                        bestaande resultaat opnieuw te renderen. In
+                        offscreen/headless situaties is dat False,
+                        waardoor de mismatch-banner nooit verscheen.
+                        Nu wordt `_laatste_resultaat is not None`
+                        gebruikt, wat dezelfde bedoeling uitdrukt
+                        zonder van de zichtbaarheid van het scherm af
+                        te hangen.
 
 Versiebeheer:
   - MAJOR: incompatibele architectuur/API-wijziging.
@@ -205,6 +225,11 @@ class EsrTestScreen(QWidget):
     def _t(self, sleutel: str, **kwargs) -> str:
         return vertaal(sleutel, taal=self.taal, **kwargs)
 
+    def _t_voor(self, taal: str, sleutel: str, **kwargs) -> str:
+        """Vertaal in een expliciete taal — gebruikt voor resultaatstrings
+        die in de taal van het Beoordeling-object moeten blijven."""
+        return vertaal(sleutel, taal=taal, **kwargs)
+
     @staticmethod
     def _set_grid_label_text(group: QGroupBox, row: int, column: int, text: str) -> None:
         """Werk één bestaand QLabel in een QGridLayout veilig bij."""
@@ -251,7 +276,13 @@ class EsrTestScreen(QWidget):
         self._on_save_measurement()
 
     def apply_language(self, taal: str) -> None:
-        """Vertalingen vernieuwen zonder meet- of assessmenttoestand te wissen."""
+        """Vertalingen vernieuwen zonder meet- of assessmenttoestand te wissen.
+
+        Fase 11D: de GUI-chrome gebruikt de nieuwe taal. Een reeds beoordeeld
+        resultaat is opgesteld in de taal van het Beoordeling-object; de
+        renderer detecteert een mismatch en toont een nette banner in
+        plaats van een stille mengeling.
+        """
         self.taal = taal
 
         self.back_btn.setText(self._t("knop.terug"))
@@ -318,8 +349,17 @@ class EsrTestScreen(QWidget):
                 )
             )
 
-        # Geen herbeoordeling: render exact hetzelfde Beoordeling-object opnieuw.
-        if self._laatste_resultaat is not None and self.result_group.isVisible():
+        # Fase 11D: render exact hetzelfde Beoordeling-object opnieuw. De
+        # renderer detecteert een taal-mismatch en toont een banner in
+        # plaats van de oude strings stil te mengen met de nieuwe GUI-taal.
+        #
+        # Bugfix: we checken NIET `result_group.isVisible()`. Dat is False
+        # zolang het scherm zelf niet getoond is (offscreen tests, of een
+        # pagina die nog niet actief is in de QStackedWidget). De juiste
+        # conditie is `_laatste_resultaat is not None`: dat veld wordt
+        # gezet door _show_result en gewist door _on_clear en
+        # apply_repeat_preset.
+        if self._laatste_resultaat is not None:
             self._show_result(self._laatste_resultaat)
 
     @staticmethod
@@ -344,6 +384,16 @@ class EsrTestScreen(QWidget):
             "border: 1px solid #546E7A; border-radius: 4px; padding: 6px 10px;"
         )
         root.addWidget(self.repeat_banner)
+
+        # Fase 11D: banner voor taal-mismatch na een live taalwissel.
+        self.result_language_banner = QLabel()
+        self.result_language_banner.setWordWrap(True)
+        self.result_language_banner.setVisible(False)
+        self.result_language_banner.setStyleSheet(
+            "background-color: #4E342E; color: #FFE0B2; "
+            "border: 1px solid #A1887F; border-radius: 4px; padding: 6px 10px;"
+        )
+        root.addWidget(self.result_language_banner)
 
         root.addLayout(self._build_safety_row())
 
@@ -852,6 +902,7 @@ class EsrTestScreen(QWidget):
         self.out_of_range_check.setChecked(False)
         self.open_connection_check.setChecked(False)
         self.result_group.setVisible(False)
+        self.result_language_banner.setVisible(False)
         self._laatste_resultaat_html = ""
         self._laatste_resultaat = None
         self._laatste_opslag_payload = None
@@ -1042,11 +1093,35 @@ class EsrTestScreen(QWidget):
         )
 
     def _show_result(self, resultaat) -> None:
+        """Render het Beoordeling-object in zijn eigen taal.
+
+        Fase 11D: de GUI gebruikt `resultaat.taal` voor alle strings die
+        uit het Beoordeling-object komen (status, samenvatting, details),
+        zodat er nooit een stil mengeling ontstaat tussen de GUI-taal en
+        de taal van het resultaat. Bij een mismatch tonen we een nette
+        banner in de GUI-taal en verwijzen we naar een nieuwe beoordeling.
+        """
         self._laatste_resultaat = resultaat
+        resultaat_taal = getattr(resultaat, "taal", self.taal)
+
+        # Fase 11D: banner tonen als het resultaat in een andere taal is
+        # opgesteld dan de huidige GUI-taal.
+        if resultaat_taal != self.taal:
+            self.result_language_banner.setText(
+                self._t(
+                    "resultaat.taal_mismatch_banner",
+                    oude_taal=resultaat_taal,
+                    nieuwe_taal=self.taal,
+                )
+            )
+            self.result_language_banner.setVisible(True)
+        else:
+            self.result_language_banner.setVisible(False)
+
         status_key = resultaat.eindstatus.value
         color = STATUS_COLORS.get(status_key, "#9E9E9E")
         status_text = status_label(
-            "status.eindstatus", status_key, self.taal
+            "status.eindstatus", status_key, resultaat_taal
         )
 
         self.result_status.setText(status_text.upper())
@@ -1057,7 +1132,7 @@ class EsrTestScreen(QWidget):
         reliability = status_label(
             "status.betrouwbaarheid",
             resultaat.betrouwbaarheid.niveau.value,
-            self.taal,
+            resultaat_taal,
         )
         cap = resultaat.capaciteit
         esr = resultaat.esr
@@ -1099,7 +1174,9 @@ class EsrTestScreen(QWidget):
         )
         esr_gemeten = _format_esr_ohm(esr.gemeten_esr_ohm)
 
-        summary_text = self._t(
+        # Fase 11D: samenvatting vertalen in de taal van het resultaat.
+        summary_text = self._t_voor(
+            resultaat_taal,
             "resultaat.samenvatting_grenzen",
             betrouwbaarheid=reliability,
             cap_gemeten=cap_gemeten,
@@ -1111,15 +1188,27 @@ class EsrTestScreen(QWidget):
             advies=resultaat.aanbevolen_vervolgstap,
         )
         if esr.factor is not None and esr.frequentie_wijkt_af:
-            summary_text += "\n* Indicatieve ESR-vergelijking: meet- en referentiefrequentie verschillen."
+            summary_text += "\n" + self._t_voor(
+                resultaat_taal,
+                "resultaat.esr_factor_frequentie_indicatief",
+            )
         self.result_summary.setText(summary_text)
 
         self._laatste_resultaat_html = self._build_result_html(resultaat)
         self.result_group.setVisible(True)
 
     def _build_result_html(self, resultaat) -> str:
+        """Bouw de detail-HTML in de taal van het Beoordeling-object.
+
+        Fase 11D: alle labels die het resultaat zelf beschrijven, worden
+        vertaald in `resultaat.taal`. De GUI-chrome (groepstitels,
+        knoppen) blijft via `self.taal` lopen.
+        """
+        resultaat_taal = getattr(resultaat, "taal", self.taal)
+        t = lambda sleutel, **kwargs: self._t_voor(resultaat_taal, sleutel, **kwargs)
+
         status_text = status_label(
-            "status.eindstatus", resultaat.eindstatus.value, self.taal
+            "status.eindstatus", resultaat.eindstatus.value, resultaat_taal
         )
         c = resultaat.capaciteit
         e = resultaat.esr
@@ -1144,38 +1233,38 @@ class EsrTestScreen(QWidget):
             aandacht = ref * instellingen.esr_factor_aandachtspunt
             verdacht = ref * instellingen.esr_factor_verdacht
             esr_zones_html = (
-                f"{self._t('resultaat.esr_normaal')}: ≤ {_format_esr_ohm(normaal)}<br>"
-                f"{self._t('resultaat.esr_aandacht')}: &gt; {_format_esr_ohm(normaal)} "
+                f"{t('resultaat.esr_normaal')}: ≤ {_format_esr_ohm(normaal)}<br>"
+                f"{t('resultaat.esr_aandacht')}: &gt; {_format_esr_ohm(normaal)} "
                 f"t/m {_format_esr_ohm(aandacht)}<br>"
-                f"{self._t('resultaat.esr_verdacht')}: &gt; {_format_esr_ohm(aandacht)} "
+                f"{t('resultaat.esr_verdacht')}: &gt; {_format_esr_ohm(aandacht)} "
                 f"t/m {_format_esr_ohm(verdacht)}<br>"
-                f"{self._t('resultaat.esr_defect_indicatief')}: &gt; {_format_esr_ohm(verdacht)}"
+                f"{t('resultaat.esr_defect_indicatief')}: &gt; {_format_esr_ohm(verdacht)}"
             )
 
         ref_freq_html = _format_frequency(resultaat.referentiefrequentie_hz)
 
         html = [
-            f"<h2>{self._t('scherm.resultaat')}</h2>",
-            f"<p><b>{self._t('resultaat.eindstatus')}:</b> {status_text}</p>",
-            f"<p><b>{self._t('veld.meetinstrument')}:</b> {resultaat.instrument_code or '—'}<br>"
-            f"<b>{self._t('veld.testspanning')}:</b> "
+            f"<h2>{t('scherm.resultaat')}</h2>",
+            f"<p><b>{t('resultaat.eindstatus')}:</b> {status_text}</p>",
+            f"<p><b>{t('veld.meetinstrument')}:</b> {resultaat.instrument_code or '—'}<br>"
+            f"<b>{t('veld.testspanning')}:</b> "
             f"{resultaat.testspanning_vrms if resultaat.testspanning_vrms is not None else '—'} Vrms<br>"
-            f"<b>{self._t('resultaat.meetfrequentie')}:</b> {_format_frequency(self.freq_combo.currentData())}<br>"
-            f"<b>{self._t('resultaat.referentiebron')}:</b> {e.referentiebron or '—'}<br>"
-            f"<b>{self._t('resultaat.referentieniveau')}:</b> {e.referentieniveau if e.referentieniveau is not None else '—'}<br>"
-            f"<b>{self._t('resultaat.referentiefrequentie')}:</b> {ref_freq_html}</p>",
-            f"<h3>{self._t('resultaat.capaciteit')}</h3>",
+            f"<b>{t('resultaat.meetfrequentie')}:</b> {_format_frequency(self.freq_combo.currentData())}<br>"
+            f"<b>{t('resultaat.referentiebron')}:</b> {e.referentiebron or '—'}<br>"
+            f"<b>{t('resultaat.referentieniveau')}:</b> {e.referentieniveau if e.referentieniveau is not None else '—'}<br>"
+            f"<b>{t('resultaat.referentiefrequentie')}:</b> {ref_freq_html}</p>",
+            f"<h3>{t('resultaat.capaciteit')}</h3>",
             f"<p>{c.toelichting}<br>"
-            f"<b>{self._t('resultaat.toegestane_capaciteit')}:</b> {cap_grenzen_html}</p>",
-            f"<h3>{self._t('resultaat.esr')}</h3>",
+            f"<b>{t('resultaat.toegestane_capaciteit')}:</b> {cap_grenzen_html}</p>",
+            f"<h3>{t('resultaat.esr')}</h3>",
             f"<p>{e.toelichting}<br>"
-            f"<b>{self._t('resultaat.esr_referentie')}:</b> {_format_esr_ohm(e.referentie_esr_ohm)}<br>"
-            f"<b>{self._t('resultaat.esr_zones')}:</b><br>{esr_zones_html}<br>"
-            f"<i>{self._t('resultaat.esr_zones_disclaimer')}</i></p>",
-            f"<h3>{self._t('resultaat.consistentie')}</h3>",
+            f"<b>{t('resultaat.esr_referentie')}:</b> {_format_esr_ohm(e.referentie_esr_ohm)}<br>"
+            f"<b>{t('resultaat.esr_zones')}:</b><br>{esr_zones_html}<br>"
+            f"<i>{t('resultaat.esr_zones_disclaimer')}</i></p>",
+            f"<h3>{t('resultaat.consistentie')}</h3>",
             f"<p>{cons.toelichting}</p>",
-            f"<h3>{self._t('resultaat.betrouwbaarheid')}</h3>",
-            f"<p>{status_label('status.betrouwbaarheid', b.niveau.value, self.taal)}</p>",
+            f"<h3>{t('resultaat.betrouwbaarheid')}</h3>",
+            f"<p>{status_label('status.betrouwbaarheid', b.niveau.value, resultaat_taal)}</p>",
         ]
 
         if b.verlagende_factoren:
@@ -1183,18 +1272,18 @@ class EsrTestScreen(QWidget):
             html.extend(f"<li>{x}</li>" for x in b.verlagende_factoren)
             html.append("</ul>")
 
-        html.append(f"<h3>{self._t('resultaat.redenen')}</h3><ul>")
+        html.append(f"<h3>{t('resultaat.redenen')}</h3><ul>")
         html.extend(f"<li>{x}</li>" for x in resultaat.redenen)
         html.append("</ul>")
 
         html.append(
-            f"<h3>{self._t('resultaat.vervolgstap')}</h3>"
+            f"<h3>{t('resultaat.vervolgstap')}</h3>"
             f"<p>{resultaat.aanbevolen_vervolgstap}</p>"
         )
 
         if resultaat.waarschuwingen:
             html.append(
-                f"<h3>{self._t('scherm.waarschuwingen')}</h3><ul>"
+                f"<h3>{t('scherm.waarschuwingen')}</h3><ul>"
             )
             html.extend(
                 f"<li>{x}</li>" for x in resultaat.waarschuwingen
@@ -1254,6 +1343,7 @@ class EsrTestScreen(QWidget):
         self.out_of_range_check.setChecked(False)
         self.open_connection_check.setChecked(False)
         self.result_group.setVisible(False)
+        self.result_language_banner.setVisible(False)
         self._laatste_resultaat_html = ""
         self._laatste_resultaat = None
         self._laatste_opslag_payload = None

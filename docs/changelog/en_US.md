@@ -16,6 +16,70 @@ Note on version numbering:
 - For the current version: see `app/version.py` or Help → About.
 -->
 
+### Phase 11D — Resolving i18n mixing (16 October 2026)
+
+**Motivation**
+
+After a live language switch, the ESR screen showed a mixture of
+languages: the GUI chrome (group titles, buttons) switched correctly,
+but the already-translated strings from the `Beoordeling` object
+(`toelichting`, `redenen`, `waarschuwingen`, `aanbevolen_vervolgstap`)
+remained in the old language. In addition, the `*` annotation for a
+frequency difference was hardcoded in the GUI instead of going through
+i18n.
+
+**Solution**
+
+- `Beoordeling` gains a `taal` field populated by `beoordeel_meting`.
+  The GUI can use it to detect that a result was produced in a
+  different language than the current GUI language.
+- After a live language switch, the ESR screen shows a clear banner in
+  the GUI language ("This result was produced in {oude_taal}.
+  Re-assess to display it in {nieuwe_taal}."). The already-translated
+  result strings remain in their own language; no silent mixing.
+- `_show_result` and `_build_result_html` translate all
+  result-specific labels in `resultaat.taal` instead of `self.taal`.
+  The GUI chrome continues to use `self.taal`.
+- The `*` annotation for a frequency difference now goes through two
+  new i18n keys (`resultaat.esr_factor_frequentie_indicatief` and
+  `resultaat.esr_factor_frequentie_indicatief_kort`) in NL and EN.
+- Bugfix in `apply_language`: the condition `result_group.isVisible()`
+  is replaced by `_laatste_resultaat is not None`. In
+  offscreen/headless situations (tests, pages not yet active in the
+  `QStackedWidget`), `isVisible()` is False and the banner was never
+  shown. `isVisible()` was also not the right check in production.
+
+**For developers**
+
+- `app/services/assessment_service.py` (v1.6.0) — `Beoordeling` has
+  the extra field `taal: str = STANDAARD_TAAL`. `beoordeel_meting`
+  populates it with the `taal` parameter.
+- `app/gui/esr_test_screen.py` (v1.14.0) — `_show_result` detects a
+  language mismatch and shows `result_language_banner`. New helper
+  `_t_voor(taal, sleutel, **kwargs)` for translations in the language
+  of the result. `_build_result_html` uses `resultaat.taal` for all
+  result-specific labels. `apply_language` uses
+  `_laatste_resultaat is not None` instead of
+  `result_group.isVisible()`.
+- New i18n keys under `resultaat`:
+  - `taal_mismatch_banner` — "Dit resultaat is opgesteld in het
+    {oude_taal}. Beoordeel opnieuw om het in het {nieuwe_taal} weer te
+    geven." (EN: "This result was produced in {oude_taal}. Re-assess
+    to display it in {nieuwe_taal}.")
+  - `esr_factor_frequentie_indicatief` — "Indicatieve
+    ESR-vergelijking: meet- en referentiefrequentie verschillen."
+  - `esr_factor_frequentie_indicatief_kort` — "* indicatief:
+    frequentieverschil"
+- `tests/test_assessment.py` (v1.5.1) — 5 new tests in
+  `TestBeoordelingTaal` proving that `Beoordeling.taal` is populated
+  correctly and that the translated strings are in the specified
+  language.
+- `tests/test_gui_language_switch.py` (v1.2.0) — 3 new tests covering
+  the language-mismatch banner. The `_fake_translate` stub now passes
+  kwargs through to the output; `_fake_esr_settings` also provides a
+  `beoordeling` namespace.
+- **Baseline:** 1358 → **1366 passed** (+8 tests).
+
 ## Version 1.2.0 — Frequency-specific references and threshold validation (15 October 2026)
 
 **ESR references per measurement frequency**
@@ -703,9 +767,10 @@ metadata of imported documents.
     substantive and administrative reliability reducers.
     **Completed on 16 October 2026.** Baseline 1329 → **1339 passed**.
   - **11C** — Icons for all windows.
-    **Completed on 16 October 2026.** Baseline 1339 → **1357 passed**.
-  - **11D** — i18n mixing in Diagnostics/Result resolved. **Next.**
-  - **11E** — Async network (URL fetch, release notes).
+    **Completed on 16 October 2026.** Baseline 1339 → **1358 passed**.
+  - **11D** — i18n mixing in Diagnostics/Result resolved.
+    **Completed on 16 October 2026.** Baseline 1358 → **1366 passed**.
+  - **11E** — Async network (URL fetch, release notes). **Next.**
   - **11F** — Documentation extension (reasons, filters, bulk edit).
   - **11G** — Dark theme visuals (checkboxes, scrollbar).
   - **11H** — Light theme.

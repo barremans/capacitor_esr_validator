@@ -336,8 +336,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Compact ESR-diagnosescherm voor nominale gegevens, meetcontext,
         # Auteur: Ontwikkelaar
         # Applicatie: Condensator- en ESR-validator (Windows)
-        # Versie: 1.13.0
-        # Datum: 2026-10-15
+        # Versie: 1.14.0
+        # Datum: 2026-10-16
         ```
       - 📄 **/app/gui/history_screen.py**
         ```text
@@ -532,7 +532,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Kernlogica van de indicatieve beoordeling: capaciteitsvalidatie,
         # Auteur: Ontwikkelaar
         # Applicatie: Condensator- en ESR-validator (Windows)
-        # Versie: 1.5.0
+        # Versie: 1.6.0
         # Datum: 2026-10-16
         ```
       - 📄 **/app/services/history_service.py**
@@ -814,7 +814,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Unit tests voor de assessment_service. Test alle 20 testgevallen
       # Auteur: Ontwikkelaar
       # Applicatie: Condensator- en ESR-validator (Windows)
-      # Versie: 1.5.0
+      # Versie: 1.5.1
       # Datum: 2026-10-16
       ```
     - 📄 **/tests/test_change_status_dialog.py**
@@ -1075,8 +1075,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor live taalwissel in Hoofdmenu/Diagnose, ESR en
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.1.1
-      # Datum: 2026-10-01
+      # Versie: 1.2.0
+      # Datum: 2026-10-16
       ```
     - 📄 **/tests/test_gui_regressions.py**
       ```text
