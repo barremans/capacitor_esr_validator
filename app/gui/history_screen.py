@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/history_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.14.0
-Datum:      2026-10-10
+Versie:     1.17.1
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Compacte centrale read-only weergave van opgeslagen meethistoriek.
@@ -14,12 +14,11 @@ Doel:       Compacte centrale read-only weergave van opgeslagen meethistoriek.
             voor de volledige opgeslagen meetketen, assessments en referenties.
 
 Wijzigingen:
-  v1.0.0 (2026-10-01)  Eerste compacte historiekpagina met verversen, lege-state
-                        en foutmelding; gekoppeld aan MeasurementHistoryService.
+  v1.0.0 (2026-10-01)  Eerste compacte historiekpagina.
   v1.1.0 (2026-10-01)  Read-only detaildialoog toegevoegd.
   v1.2.0 (2026-10-01)  "Herhaal meting" toegevoegd.
   v1.3.0 (2026-10-01)  Compacte read-only filterbalk.
-  v1.4.0 (2026-10-01)  Multitool-historiek: Tool/Testtype-filter en tabelkolom.
+  v1.4.0 (2026-10-01)  Multitool-historiek: Tool/Testtype-filter.
   v1.5.0 (2026-10-01)  Tabel tool-neutraal met één kolom Meetwaarden.
   v1.5.1 (2026-10-01)  Live taalwissel vervolledigd.
   v1.5.2 (2026-10-01)  Fout-refresh maakt selectie-afhankelijke acties inactief.
@@ -34,14 +33,27 @@ Wijzigingen:
   v1.11.0 (2026-10-02) Laatste export-UX: checkboxselectie, exporttype-DDL,
                         één Exporteren-knop, leesbare timestamp.
   v1.12.0 (2026-10-05) Sneltoetsen toegevoegd (Fase 4F).
-  v1.13.0 (2026-10-07) Fase 5D'.3: exportdialoog start in laatste_exportmap
-                        (indien geldig), anders standaard_exportmap. Na een
-                        geslaagde export wordt laatste_exportmap bijgewerkt
-                        en opgeslagen.
+  v1.13.0 (2026-10-07) Fase 5D'.3: exportdialoog start in laatste_exportmap.
   v1.14.0 (2026-10-10) Fase 8C: knop "Rapport…" in de detaildialoog en knop
-                        "Rapport" in de tabel-bottom-row. Opent ReportDialog
-                        voor de geselecteerde meting. Geen schrijfacties aan
-                        de historiek; alleen een rapportbestand op verzoek.
+                        "Rapport" in de tabel-bottom-row.
+  v1.15.0 (2026-10-16) Fase 11A.1: nieuw signaal selection_changed.
+  v1.15.1 (2026-10-16) Fase 11A.1-fix: selection_changed geëmit vanuit
+                        _update_detail_button() met snapshot-dedup.
+  v1.16.0 (2026-10-16) Fase 11A.2: _show_report_for_selected() respecteert
+                        de checkbox-selectie.
+  v1.17.0 (2026-10-16) Fase 11A.3: exportmap-logica via de nieuwe pure
+                        helper app/helpers/dialog_start_directory.
+  v1.17.1 (2026-10-16) Fase 11A.3-fix: _beste_export_start_directory en
+                        _onthoud_laatste_exportmap gebruiken uitsluitend de
+                        lokale laad_instellingen/sla_instellingen_op (dus
+                        de bestaande compatibiliteitswrappers), niet de
+                        centrale helper. Reden: bestaande tests in
+                        test_history_export_settings.py monkeypatchen
+                        history_module.laad_instellingen en verwachten dat
+                        die naam gebruikt wordt. De helper is bedoeld voor
+                        nieuwe code (AnalysisScreen, ReportDialog,
+                        ImportWizard); HistoryScreen houdt zijn bestaande
+                        contract.
 ================================================================================
 """
 
@@ -74,6 +86,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+# Compatibiliteit voor bestaande tests die deze namen monkeypatchen.
 from app.config.settings import (
     AppInstellingen,
     laad_instellingen,
@@ -112,6 +125,7 @@ class HistoryScreen(QWidget):
 
     back_requested = Signal()
     repeat_requested = Signal(object)
+    selection_changed = Signal()
 
     def __init__(
         self,
@@ -127,11 +141,13 @@ class HistoryScreen(QWidget):
         self._page_index = 0
         self._has_next_page = False
         self._current_rows: list[dict[str, Any]] = []
+        self._laatste_selectie_snapshot: (
+            tuple[int | None, tuple[int, ...]] | None
+        ) = None
         self._build_ui()
         self._install_shortcuts()
 
     def _install_shortcuts(self) -> None:
-        """Lokale sneltoetsen voor de historiekpagina (Fase 4F)."""
         ctx = Qt.ShortcutContext.WidgetWithChildrenShortcut
 
         self.sc_back = QShortcut(QKeySequence("Esc"), self)
@@ -155,7 +171,6 @@ class HistoryScreen(QWidget):
         self.sc_repeat.activated.connect(self._on_repeat_shortcut)
 
     def _focus_filters(self) -> None:
-        """Open filterpaneel en zet focus op het eerste filterveld."""
         self.filter_group.setChecked(True)
         self.filter_body.setVisible(True)
         self.filter_tool.setFocus()
@@ -206,7 +221,6 @@ class HistoryScreen(QWidget):
         self.export_btn.clicked.connect(self._export_selected_type)
         top.addWidget(self.export_btn)
 
-        # Compatibiliteitsalias voor bestaande tests/aanroepers.
         self.export_csv_btn = self.export_btn
 
         self.refresh_btn = QPushButton(self._t("knop.verversen"))
@@ -329,7 +343,6 @@ class HistoryScreen(QWidget):
 
         bottom.addStretch(1)
 
-        # Nieuw in 8C: "Rapport…" naast Herhaal meting en Details.
         self.report_btn = QPushButton(self._t("report.knop_tabel"))
         self.report_btn.setEnabled(False)
         self.report_btn.clicked.connect(self._show_report_for_selected)
@@ -351,7 +364,6 @@ class HistoryScreen(QWidget):
         self._update_paging_controls()
 
     def _column_headers(self) -> list[str]:
-        """Mensleesbare overzicht-CSV-kolommen; bevat geen GUI-selectiekolom."""
         return [
             self._t("historiek.kolom.datum_tijd"),
             self._t("historiek.kolom.tool"),
@@ -379,16 +391,13 @@ class HistoryScreen(QWidget):
         current = self.export_scope.currentData() if self.export_scope.count() else "FILTERED"
         self.export_scope.clear()
         self.export_scope.addItem(
-            self._t("historiek.export.scope_gefilterd"),
-            "FILTERED",
+            self._t("historiek.export.scope_gefilterd"), "FILTERED"
         )
         self.export_scope.addItem(
-            self._t("historiek.export.scope_geselecteerd"),
-            "SELECTED",
+            self._t("historiek.export.scope_geselecteerd"), "SELECTED"
         )
         self.export_scope.addItem(
-            self._t("historiek.export.scope_pagina"),
-            "PAGE",
+            self._t("historiek.export.scope_pagina"), "PAGE"
         )
         index = self.export_scope.findData(current)
         self.export_scope.setCurrentIndex(index if index >= 0 else 0)
@@ -401,16 +410,13 @@ class HistoryScreen(QWidget):
         )
         self.export_type_combo.clear()
         self.export_type_combo.addItem(
-            self._t("historiek.export.type_overzicht"),
-            "OVERVIEW",
+            self._t("historiek.export.type_overzicht"), "OVERVIEW"
         )
         self.export_type_combo.addItem(
-            self._t("historiek.export.type_detail"),
-            "DETAIL",
+            self._t("historiek.export.type_detail"), "DETAIL"
         )
         self.export_type_combo.addItem(
-            self._t("historiek.export.type_beide"),
-            "BOTH",
+            self._t("historiek.export.type_beide"), "BOTH"
         )
         index = self.export_type_combo.findData(current)
         self.export_type_combo.setCurrentIndex(index if index >= 0 else 0)
@@ -644,7 +650,6 @@ class HistoryScreen(QWidget):
         return rows
 
     def _selected_measurement_ids(self) -> list[int]:
-        """Exportselectie komt uitsluitend uit de expliciete checkboxkolom."""
         ids: list[int] = []
         for row in range(self.table.rowCount()):
             item = self.table.item(row, 0)
@@ -657,7 +662,7 @@ class HistoryScreen(QWidget):
 
     def _on_table_item_changed(self, item: QTableWidgetItem) -> None:
         if item.column() == 0:
-            self._update_selection_count()
+            self._update_detail_button()
 
     def _update_selection_count(self) -> None:
         aantal = len(self._selected_measurement_ids()) if hasattr(self, "table") else 0
@@ -690,10 +695,14 @@ class HistoryScreen(QWidget):
         return self._load_all_filtered_rows_for_export(filters)
 
     # ------------------------------------------------------------------ export-mappen
+    # 11A.3: HistoryScreen houdt zijn bestaande contract. De centrale
+    # helper dialog_start_directory is bedoeld voor nieuwe code
+    # (AnalysisScreen, ReportDialog, ImportWizard). HistoryScreen gebruikt
+    # uitsluitend de lokale laad_instellingen/sla_instellingen_op, zodat
+    # bestaande tests die die namen monkeypatchen blijven werken.
 
     @staticmethod
     def _map_bestaat(pad: str) -> bool:
-        """Controleer of pad een bestaande map is."""
         if not pad:
             return False
         try:
@@ -702,7 +711,6 @@ class HistoryScreen(QWidget):
             return False
 
     def _laatste_export_directory(self) -> Path | None:
-        """Lees laatste_exportmap uit settings als die een geldige map is."""
         try:
             instellingen = laad_instellingen()
         except (OSError, ValueError):
@@ -713,7 +721,6 @@ class HistoryScreen(QWidget):
         return Path(laatste).expanduser()
 
     def _configured_export_directory(self) -> Path | None:
-        """Lees standaard_exportmap uit settings als die een geldige map is."""
         instellingen = laad_instellingen()
         configured = instellingen.algemeen.standaard_exportmap.strip()
         if not configured:
@@ -722,25 +729,12 @@ class HistoryScreen(QWidget):
         return directory if directory.is_dir() else None
 
     def _beste_export_start_directory(self) -> Path | None:
-        """Beste startmap voor exportdialogen.
-
-        Voorkeur:
-          1. laatste_exportmap als die een bestaande map is
-          2. standaard_exportmap als die een bestaande map is
-          3. None (Qt's standaard startlocatie)
-        """
         laatste = self._laatste_export_directory()
         if laatste is not None:
             return laatste
         return self._configured_export_directory()
 
     def _onthoud_laatste_exportmap(self, doel_pad: Path) -> None:
-        """Werk laatste_exportmap bij na een geslaagde export.
-
-        doel_pad mag een bestand of een map zijn. Voor een bestand nemen
-        we de parent. Faalt stil: het onthouden van de map is een
-        gemaksfunctie, geen kernfunctionaliteit.
-        """
         try:
             if doel_pad.is_dir():
                 nieuwe_map = str(doel_pad)
@@ -760,8 +754,6 @@ class HistoryScreen(QWidget):
             sla_instellingen_op(bijgewerkt)
         except (OSError, ValueError):
             pass
-
-    # ------------------------------------------------------------------ export
 
     def _export_timestamp(self) -> str:
         return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -843,7 +835,6 @@ class HistoryScreen(QWidget):
             self._export_csv()
 
     def _export_csv(self) -> None:
-        """Mensleesbare overzicht-export; bestaande kolommen blijven behouden."""
         try:
             filters = self._active_filters()
         except ValueError as exc:
@@ -891,7 +882,6 @@ class HistoryScreen(QWidget):
         self._open_export_directory_if_enabled(file_path)
 
     def _export_detail_csv(self) -> None:
-        """Machineleesbare detail-export vanuit opgeslagen snapshots."""
         try:
             filters = self._active_filters()
         except ValueError as exc:
@@ -958,7 +948,6 @@ class HistoryScreen(QWidget):
         self._open_export_directory_if_enabled(file_path)
 
     def _export_both_csv(self) -> None:
-        """Schrijf overzicht en detail met dezelfde scope en dezelfde timestamp."""
         try:
             filters = self._active_filters()
         except ValueError as exc:
@@ -1113,6 +1102,15 @@ class HistoryScreen(QWidget):
         self.repeat_btn.setEnabled(
             has_selection and self._selected_tool_key() == "ESR_CAPACITOR"
         )
+        self._update_selection_count()
+
+        snapshot = (
+            self._selected_measurement_id(),
+            tuple(self._selected_measurement_ids()),
+        )
+        if snapshot != self._laatste_selectie_snapshot:
+            self._laatste_selectie_snapshot = snapshot
+            self.selection_changed.emit()
 
     def _selected_measurement_id(self) -> int | None:
         row = self.table.currentRow()
@@ -1150,20 +1148,29 @@ class HistoryScreen(QWidget):
         self.repeat_requested.emit(preset)
 
     def _show_report_for_selected(self) -> None:
-        """Open ReportDialog voor de geselecteerde meting (Fase 8C)."""
+        checkbox_ids = self._selected_measurement_ids()
+        if checkbox_ids:
+            self._open_report_dialog_voor_ids(
+                checkbox_ids, scope=self._t("report.scope.selectie")
+            )
+            return
+
         measurement_id = self._selected_measurement_id()
         if measurement_id is None:
             return
         self._open_report_dialog(measurement_id)
 
     def _open_report_dialog(self, measurement_id: int) -> None:
-        """Open ReportDialog voor één meting, met de actieve taal."""
         from app.gui.dialogs.report_dialog import ReportDialog
 
         werkplaats = ""
+        auteur = ""
+        grafiek_default = False
         try:
             instellingen = laad_instellingen()
             werkplaats = instellingen.rapportage.werkplaats_bedrijf
+            auteur = instellingen.rapportage.auteur
+            grafiek_default = instellingen.rapportage.grafiek_opnemen
         except (OSError, ValueError):
             pass
 
@@ -1171,6 +1178,34 @@ class HistoryScreen(QWidget):
             measurement_id,
             taal=self.taal,
             werkplaats=werkplaats,
+            auteur=auteur,
+            grafiek_default=grafiek_default,
+            scope=self._t("report.scope.enkel"),
+            parent=self,
+        )
+        dialog.exec()
+
+    def _open_report_dialog_voor_ids(
+        self, measurement_ids: list[int], *, scope: str
+    ) -> None:
+        from app.gui.dialogs.report_dialog import ReportDialog
+
+        werkplaats = ""
+        auteur = ""
+        try:
+            instellingen = laad_instellingen()
+            werkplaats = instellingen.rapportage.werkplaats_bedrijf
+            auteur = instellingen.rapportage.auteur
+        except (OSError, ValueError):
+            pass
+
+        dialog = ReportDialog.for_measurements(
+            measurement_ids,
+            scope=scope,
+            taal=self.taal,
+            werkplaats=werkplaats,
+            auteur=auteur,
+            grafiek_default=False,
             parent=self,
         )
         dialog.exec()
@@ -1208,7 +1243,6 @@ class HistoryScreen(QWidget):
         browser.setHtml(self._build_detail_html(detail))
         layout.addWidget(browser)
 
-        # Nieuw in 8C: knop "Rapport…" in de detaildialoog.
         knoppen = QDialogButtonBox()
         self._rapport_knop = knoppen.addButton(
             self._t("report.knop"),

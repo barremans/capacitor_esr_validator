@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.14.0
-Datum:      2026-10-15
+Versie:     2.16.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
@@ -13,16 +13,9 @@ Wijzigingen:
   v2.2.1 (2026-09-27)  Settings-dialoog gekoppeld; Apply/OK bewaren alle
                        settings en taalwissel behoudt overige voorkeuren.
   v1.0.0 (2026-08-11)  Initiele versie — QMainWindow met centrale widget.
-  v2.0.0 (2026-08-13)  Herontworpen naar ToolHubWindow. Knoppen-hub voor
-                       meerdere tools. ESR-test opent als apart venster.
-                       Menu: Bestand, Tools, Instellingen, Help.
-                       Snelkoppelingen: Ctrl+Q, Ctrl+E, F1.
-  v2.1.0 (2026-09-26)  Eén-venster-navigatie met QStackedWidget. ESR-tool
-                       opent nu als interne pagina; terugkeer naar Tool Hub
-                       zonder tweede top-level venster.
-  v2.1.1 (2026-09-26)  Sluitknop (X) gedraagt zich contextueel: vanuit een
-                       toolpagina terug naar Tool Hub; vanuit Tool Hub sluit
-                       de applicatie wel volledig.
+  v2.0.0 (2026-08-13)  Herontworpen naar ToolHubWindow.
+  v2.1.0 (2026-09-26)  Eén-venster-navigatie met QStackedWidget.
+  v2.1.1 (2026-09-26)  Sluitknop (X) gedraagt zich contextueel.
   v2.1.2 (2026-09-27)  Leesbaarheid van Tool Hub en markdown-dialogen verbeterd.
   v2.1.3 (2026-09-27)  Dubbele algemene dark-theme styling verwijderd.
   v2.2.0 (2026-09-27)  Navigatie uitgebreid naar Hoofdmenu -> Diagnose -> ESR.
@@ -33,9 +26,7 @@ Wijzigingen:
   v2.7.0 (2026-10-03)  ESR-contextdocumentatie gekoppeld aan centrale viewer.
   v2.7.1 (2026-10-05)  Globale F1 (Help-menu) expliciet op WindowShortcut.
   v2.7.2 (2026-10-05)  Help-menu uitgebreid met "Documentatie zoeken…".
-  v2.7.3 (2026-10-05)  Fix: _apply_language() lekte menu's; opgeruimd met
-                        setParent(None) + deleteLater(). Dubbele _build_menu()
-                        in __init__ verwijderd.
+  v2.7.3 (2026-10-05)  Fix: _apply_language() lekte menu's.
   v2.8.0 (2026-10-05)  Sneltoetsen op het Hoofdmenu (Fase 4F).
   v2.8.1 (2026-10-05)  Fase 4F.1: Esc op Diagnose-pagina.
   v2.8.2 (2026-10-05)  Fase 4F.2: Esc op Hoofdmenu vraagt bevestiging.
@@ -45,100 +36,26 @@ Wijzigingen:
   v2.10.1 (2026-10-10) Fase 8B.2a: analysis_page.apply_language() doet geen
                         refresh meer.
   v2.11.0 (2026-10-10) Fase 8C: menu-item "Rapport maken…" (Ctrl+P).
-  v2.11.1 (2026-10-10) Poging QActions op te ruimen vóór menu's; hielp niet.
-  v2.11.2 (2026-10-10) QActions krijgen het menu als parent in plaats van
-                        het window. Dat is de canonieke Qt-manier.
-  v2.11.3 (2026-10-10) Fix: __init__ respecteert nu de parameter taal.
-                        Voorheen werd de parameter altijd overschreven door
-                        self.instellingen.taal (settings.json). Daardoor
-                        verscheen de GUI in tests in het Engels, terwijl de
-                        test Nederlands verwachtte. De parameter heeft nu
-                        voorrang; valt terug op settings.json als hij leeg
-                        is. main.py roept zonder argument aan en behoudt
-                        dus het bestaande gedrag.
-  v2.11.4 (2026-10-11) Fase 8D: auteur wordt uit de rapportage-instellingen
-                        gelezen en meegegeven aan ReportDialog. Backward-
-                        compatible: leeg laten betekent geen auteur in het
-                        rapport.
-  v2.11.5 (2026-10-11) Fase 8D (vervolg): grafiek_default-parameter wordt
-                        uit de rapportage-instellingen gelezen en meegegeven
-                        aan ReportDialog. De dialoog hoeft zo niet zelf
-                        laad_instellingen() aan te roepen voor de
-                        grafiek-checkbox. Versie-header gecorrigeerd: de
-                        auteur-parameter (v2.11.4) stond al in de code maar
-                        niet in de header.
-  v2.11.6 (2026-10-13) Fase 9A.1 (packaging):
-                        - _show_about() vult nu {versie} in via
-                          app.version.__version__. De Over-dialoog toont
-                          daardoor "Versie: 1.0.0" in plaats van
-                          "Version: {versie}".
-                        - Bugfix: _show_markdown_dialog gebruikte de keys
-                          dialog.help_titel en dialog.changelog_titel, die
-                          niet bestaan. De juiste keys zijn dialog.help_title
-                          en dialog.changelog_title. Zonder deze fix toonden
-                          de Help- en Wijzigingslog-vensters de ruwe key in
-                          hun titelbalk.
-  v2.12.0 (2026-10-14) Fase 9G: bug/feature-rapportage naar GitHub via het
-                        uniforme feedbackpakket (github_feedback.py,
-                        bug_report_dialog.py, github_cases.py). Nieuw menu
-                        "Rapporteren" tussen Diagnose en Instellingen met
-                        twee acties:
-                          - "Bug of feature melden…" opent BugDialog(self).
-                          - "Open cases tonen" opent show_github_cases(self).
-                        Nieuwe i18n-keys: menu.rapporteren, menu.bug_melden,
-                        menu.open_cases (NL + EN). De imports van
-                        bug_report_dialog en github_cases staan binnen de
-                        methoden, niet bovenaan: de pakketbestanden staan
-                        in de projectroot en worden pas geladen als de
-                        gebruiker het menu-item effectief aanklikt. Dat
-                        houdt de opstarttijd laag en vermijdt een harde
-                        afhankelijkheid bij het importeren van deze module
-                        in tests.
+  v2.11.1 (2026-10-10) Poging QActions op te ruimen vóór menu's.
+  v2.11.2 (2026-10-10) QActions krijgen het menu als parent.
+  v2.11.3 (2026-10-10) Fix: __init__ respecteert parameter taal.
+  v2.11.4 (2026-10-11) Fase 8D: auteur mee aan ReportDialog.
+  v2.11.5 (2026-10-11) Fase 8D: grafiek_default mee aan ReportDialog.
+  v2.11.6 (2026-10-13) Fase 9A.1: Over-dialoog toont versie; bugfix
+                        help/changelog titel-keys.
+  v2.12.0 (2026-10-14) Fase 9G: bug/feature-rapportage naar GitHub.
   v2.13.0 (2026-10-14) Fase 9H: update-check.
-                        - Nieuwe parameter check_on_startup (default True).
-                          main.py geeft de waarde uit settings.json mee.
-                        - __init__ plant na _apply_language() een eenmalige,
-                          niet-blokkerende check via QTimer.singleShot(0, …).
-                          De check zelf zit in _run_startup_update_check(),
-                          die nooit een exception laat doorwerken.
-                        - Nieuw Help-menu-item "Controleren op updates…"
-                          dat _check_for_updates_manually() aanroept.
-                        - _toon_update_melding(info) toont een QMessageBox
-                          met "Downloaden"-knop (webbrowser.open) en
-                          "Later". Bij geen nieuwere versie: informatieve
-                          melding "Je gebruikt de nieuwste versie".
-                        - Nieuwe i18n-keys: menu.controleren_op_updates,
-                          update.titel, update.nieuwer_bericht,
-                          update.geen_update, update.downloaden, update.later,
-                          update.fout_titel, update.fout_bericht.
-                        - De import van app.helpers.updater staat binnen de
-                          methoden, niet bovenaan: zo blijft het importeren
-                          van main_window.py licht en werkt de GUI ook als
-                          requests/packaging ontbreken (dan faalt de check
-                          stil, zonder crash).
-  v2.14.0 (2026-10-15) Fase 9H-afronding:
-                        - Nieuwe knop "Wat is er nieuw?" in de update-
-                          melding, naast Downloaden en Later. Roept
-                          _toon_release_notes() aan, dat via de GitHub
-                          Releases API de release notes ophaalt en toont
-                          in een QTextBrowser-dialoog. Bij een fout:
-                          nette informationele melding met een knop naar
-                          de release-pagina op GitHub.
-                        - Nieuwe hulpmethode _toon_release_notes_dialoog()
-                          in de stijl van SearchHelpDialog (QTextBrowser
-                          met mini-Markdown-render, "Sluiten"-knop,
-                          "Open op GitHub"-knop).
-                        - Nieuwe hulpmethode _markdown_naar_html() voor
-                          de mini-Markdown-render van release notes.
-                        - _show_changelog() gebruikt nu
-                          changelog_pad_voor_taal(self.taal) in plaats van
-                          het vaste pad "docs/changelog.md". De changelog
-                          is daarmee meertalig, met dezelfde fallback-
-                          keten als Help (taal → nl_NL → legacy).
-                        - Nieuwe i18n-keys: update.wat_is_er_nieuw,
-                          update.release_notes_titel,
-                          update.release_notes_fout, update.open_op_github,
-                          dialog.sluiten.
+  v2.14.0 (2026-10-15) Fase 9H-afronding.
+  v2.15.0 (2026-10-16) Fase 11A.1: menu-item "Rapport maken…" wordt
+                        disabled zonder selectie op Historiek.
+  v2.16.0 (2026-10-16) Fase 11A.2: menu-item wordt ook enabled op Analyse
+                        met een checkbox-selectie. _open_report_dialog()
+                        bepaalt de scope op basis van de actieve pagina:
+                          - Historiek + checkbox-selectie -> scope 'selectie'
+                          - Historiek + rij-selectie -> scope 'enkel'
+                          - Analyse + checkbox-selectie -> scope 'selectie'
+                        De bestaande informatieve melding blijft voor de
+                        gevallen waarin geen selectie is.
 ================================================================================
 """
 
@@ -168,18 +85,11 @@ class ToolHubWindow(QMainWindow):
     def __init__(self, taal: str | None = None, check_on_startup: bool = True):
         super().__init__()
         self.instellingen = laad_instellingen()
-        # v2.11.3: de parameter heeft voorrang op settings.json. Voorheen
-        # werd de parameter altijd overschreven, waardoor tests die
-        # ToolHubWindow(taal="nl_NL") aanriepen toch de taal uit settings
-        # kregen (meestal en_US na een eerdere taalwissel).
         self.taal = taal if taal else self.instellingen.taal
+        self.rapport_action: QAction | None = None
         self._build_ui()
         self._apply_language()
 
-        # v2.13.0 (9H): eenmalige, niet-blokkerende update-check. De check
-        # wordt gepland en draait dus niet tijdens __init__. Daardoor
-        # blijven tests die alleen het venster bouwen snel en
-        # deterministisch. main.py geeft de waarde uit settings.json mee.
         if check_on_startup:
             QTimer.singleShot(0, self._run_startup_update_check)
 
@@ -212,6 +122,9 @@ class ToolHubWindow(QMainWindow):
         self.history_page = HistoryScreen(taal=self.taal)
         self.history_page.back_requested.connect(self._show_hub)
         self.history_page.repeat_requested.connect(self._repeat_measurement)
+        self.history_page.selection_changed.connect(
+            self._update_report_action_state
+        )
         self.stack.addWidget(self.history_page)
 
         from app.gui.documentation_screen import DocumentationScreen
@@ -223,6 +136,9 @@ class ToolHubWindow(QMainWindow):
         from app.gui.analysis_screen import AnalysisScreen
         self.analysis_page = AnalysisScreen(taal=self.taal)
         self.analysis_page.back_requested.connect(self._show_hub)
+        self.analysis_page.selection_changed.connect(
+            self._update_report_action_state
+        )
         self.stack.addWidget(self.analysis_page)
 
         self.stack.setCurrentWidget(self.hub_page)
@@ -410,12 +326,14 @@ class ToolHubWindow(QMainWindow):
     def _show_hub(self):
         self.stack.setCurrentWidget(self.hub_page)
         self.setWindowTitle(self._t("app.titel"))
+        self._update_report_action_state()
 
     def _show_diagnose(self):
         self.stack.setCurrentWidget(self.diagnose_page)
         self.setWindowTitle(
             self._t("app.titel") + " — " + self._t("scherm.diagnose")
         )
+        self._update_report_action_state()
 
     def _show_history(self):
         self.history_page.refresh()
@@ -423,6 +341,7 @@ class ToolHubWindow(QMainWindow):
         self.setWindowTitle(
             self._t("app.titel") + " — " + self._t("scherm.historiek")
         )
+        self._update_report_action_state()
 
     def _show_documentation(self):
         self.documentation_page.refresh()
@@ -430,6 +349,7 @@ class ToolHubWindow(QMainWindow):
         self.setWindowTitle(
             self._t("app.titel") + " — " + self._t("documentatie.titel")
         )
+        self._update_report_action_state()
 
     def _show_analysis(self):
         self.analysis_page.refresh()
@@ -437,24 +357,10 @@ class ToolHubWindow(QMainWindow):
         self.setWindowTitle(
             self._t("app.titel") + " — " + self._t("analyse.titel")
         )
+        self._update_report_action_state()
 
     def _build_menu(self):
-        """Bouwt alle menu's op.
-
-        v2.11.2: elke QAction krijgt het menu als parent, niet het window.
-        Daardoor worden de acties automatisch opgeruimd wanneer het menu
-        wordt opgeruimd, ook zonder draaiende event loop.
-
-        v2.12.0 (9G): nieuw menu "Rapporteren" met bug-/feature-melding
-        en "Open cases tonen". De imports van de pakketbestanden staan
-        bewust binnen de methoden — de bestanden staan in de projectroot
-        en worden pas geladen als de gebruiker het menu-item effectief
-        aanklikt. Dat houdt de opstarttijd laag en vermijdt een harde
-        afhankelijkheid in tests die alleen de rest van het venster nodig
-        hebben.
-
-        v2.13.0 (9H): nieuw Help-menu-item "Controleren op updates…".
-        """
+        """Bouwt alle menu's op."""
         menubar = self.menuBar()
 
         file_menu = menubar.addMenu(self._t("menu.bestand"))
@@ -469,10 +375,12 @@ class ToolHubWindow(QMainWindow):
         import_action.triggered.connect(self._show_import_wizard)
         file_menu.addAction(import_action)
 
-        rapport_action = QAction(self._t("menu.rapport"), file_menu)
-        rapport_action.setShortcut(QKeySequence("Ctrl+P"))
-        rapport_action.triggered.connect(self._open_report_dialog)
-        file_menu.addAction(rapport_action)
+        self.rapport_action = QAction(self._t("menu.rapport"), file_menu)
+        self.rapport_action.setShortcut(QKeySequence("Ctrl+P"))
+        self.rapport_action.triggered.connect(self._open_report_dialog)
+        self.rapport_action.setToolTip(self._t("menu.rapport_tooltip"))
+        self.rapport_action.setEnabled(False)
+        file_menu.addAction(self.rapport_action)
 
         diagnose_menu = menubar.addMenu(self._t("menu.diagnose"))
 
@@ -490,9 +398,6 @@ class ToolHubWindow(QMainWindow):
         analysis_action.triggered.connect(self._show_analysis)
         diagnose_menu.addAction(analysis_action)
 
-        # v2.12.0 (9G): nieuw menu "Rapporteren" tussen Diagnose en
-        # Instellingen. Bevat twee acties: een bug-/feature-melding
-        # versturen, en de open meldingen tonen.
         report_menu = menubar.addMenu(self._t("menu.rapporteren"))
 
         bug_report_action = QAction(self._t("menu.bug_melden"), report_menu)
@@ -545,7 +450,6 @@ class ToolHubWindow(QMainWindow):
 
         help_menu.addSeparator()
 
-        # v2.13.0 (9H): handmatige update-check.
         update_action = QAction(
             self._t("menu.controleren_op_updates"), help_menu
         )
@@ -619,6 +523,7 @@ class ToolHubWindow(QMainWindow):
             self.esr_btn.setToolTip(self._t("tool.esr_omschrijving"))
 
         self._update_window_title_for_current_page()
+        self._update_report_action_state()
 
     def _update_window_title_for_current_page(self):
         if not hasattr(self, "stack"):
@@ -644,6 +549,36 @@ class ToolHubWindow(QMainWindow):
             else self._t("app.titel") + " — " + suffix
         )
 
+    # ------------------------------------------------------------------
+    # Rapport-menu-item state (11A.1 + 11A.2)
+    # ------------------------------------------------------------------
+
+    def _update_report_action_state(self) -> None:
+        """Zet het menu-item 'Rapport maken…' enabled/disabled.
+
+        Enabled als:
+          - Historiek actief is met een rij-selectie, of
+          - Analyse actief is met een checkbox-selectie.
+        Alle andere pagina's: disabled.
+        """
+        if self.rapport_action is None:
+            return
+        current = self.stack.currentWidget() if hasattr(self, "stack") else None
+
+        enabled = False
+        if current is getattr(self, "history_page", None):
+            try:
+                enabled = self.history_page._selected_measurement_id() is not None
+            except Exception:
+                enabled = False
+        elif current is getattr(self, "analysis_page", None):
+            try:
+                enabled = bool(self.analysis_page._selected_measurement_ids())
+            except Exception:
+                enabled = False
+
+        self.rapport_action.setEnabled(enabled)
+
     def _repeat_measurement(self, preset):
         self.esr_page.apply_repeat_preset(preset)
         self._open_esr_test()
@@ -656,6 +591,7 @@ class ToolHubWindow(QMainWindow):
         self.setWindowTitle(
             self._t("app.titel") + " — " + self._t("scherm.esr_test")
         )
+        self._update_report_action_state()
 
     def _show_import_wizard(self) -> None:
         from app.gui.dialogs.import_wizard_dialog import ImportWizardDialog
@@ -669,15 +605,55 @@ class ToolHubWindow(QMainWindow):
         self.documentation_page.select_document_by_id(source_id)
 
     def _open_report_dialog(self) -> None:
-        measurement_id = self._huidige_meting_id()
-        if measurement_id is None:
-            QMessageBox.information(
-                self,
-                self._t("report.dialoog.titel"),
-                self._t("report.dialoog.geen_selectie"),
-            )
+        """Open de rapport-dialoog met de juiste scope.
+
+        Bepaalt de scope op basis van de actieve pagina en de actieve
+        selectie:
+          - Historiek met checkbox-selectie -> scope 'selectie'.
+          - Historiek met rij-selectie -> scope 'enkel'.
+          - Analyse met checkbox-selectie -> scope 'selectie'.
+          - Anders -> informatieve melding (bestaand gedrag).
+        """
+        current = self.stack.currentWidget() if hasattr(self, "stack") else None
+
+        # Historiek
+        if current is getattr(self, "history_page", None):
+            checkbox_ids = self.history_page._selected_measurement_ids()
+            if checkbox_ids:
+                self._open_multi_report_dialog(checkbox_ids)
+                return
+            measurement_id = self.history_page._selected_measurement_id()
+            if measurement_id is None:
+                QMessageBox.information(
+                    self,
+                    self._t("report.dialoog.titel"),
+                    self._t("report.dialoog.geen_selectie"),
+                )
+                return
+            self._open_single_report_dialog(measurement_id)
             return
 
+        # Analyse
+        if current is getattr(self, "analysis_page", None):
+            ids = self.analysis_page._selected_measurement_ids()
+            if not ids:
+                QMessageBox.information(
+                    self,
+                    self._t("report.dialoog.titel"),
+                    self._t("analyse.rapport.geen_selectie"),
+                )
+                return
+            self._open_multi_report_dialog(ids)
+            return
+
+        # Andere pagina's: geen selectie mogelijk.
+        QMessageBox.information(
+            self,
+            self._t("report.dialoog.titel"),
+            self._t("report.dialoog.geen_selectie"),
+        )
+
+    def _open_single_report_dialog(self, measurement_id: int) -> None:
         from app.gui.dialogs.report_dialog import ReportDialog
 
         dialog = ReportDialog(
@@ -686,6 +662,21 @@ class ToolHubWindow(QMainWindow):
             werkplaats=self.instellingen.rapportage.werkplaats_bedrijf,
             auteur=self.instellingen.rapportage.auteur,
             grafiek_default=self.instellingen.rapportage.grafiek_opnemen,
+            scope=self._t("report.scope.enkel"),
+            parent=self,
+        )
+        dialog.exec()
+
+    def _open_multi_report_dialog(self, measurement_ids: list[int]) -> None:
+        from app.gui.dialogs.report_dialog import ReportDialog
+
+        dialog = ReportDialog.for_measurements(
+            list(measurement_ids),
+            scope=self._t("report.scope.selectie"),
+            taal=self.taal,
+            werkplaats=self.instellingen.rapportage.werkplaats_bedrijf,
+            auteur=self.instellingen.rapportage.auteur,
+            grafiek_default=False,
             parent=self,
         )
         dialog.exec()
@@ -703,44 +694,24 @@ class ToolHubWindow(QMainWindow):
             return None
 
     def _show_bug_report_dialog(self) -> None:
-        """v2.12.0 (9G): opent het bug-/feature-meldscherm.
-
-        De import staat binnen de methode: de pakketbestanden staan in de
-        projectroot en worden pas geladen als de gebruiker het menu-item
-        effectief aanklikt. Dat houdt de opstarttijd laag en vermijdt een
-        harde afhankelijkheid bij het importeren van deze module in tests.
-        """
         from bug_report_dialog import BugDialog
 
         BugDialog(self).exec()
 
     def _show_open_cases(self) -> None:
-        """v2.12.0 (9G): toont de open bugmeldingen en feature-aanvragen."""
         from github_cases import show_github_cases
 
         show_github_cases(self)
 
     # ------------------------------------------------------------------
-    # v2.13.0 (9H): update-check
+    # Update-check (9H)
     # ------------------------------------------------------------------
     def _run_startup_update_check(self) -> None:
-        """Eenmalige, niet-blokkerende update-check bij het opstarten.
-
-        Draait in de Qt-eventloop (gepland via QTimer.singleShot in
-        __init__), niet in een thread. De check zelf vangt alle fouten af
-        en toont alleen bij een nieuwere versie een melding. Zo blijft
-        het opstarten stil als er niets aan de hand is.
-        """
         info = self._do_update_check()
         if info is not None and info.is_newer:
             self._toon_update_melding(info)
 
     def _check_for_updates_manually(self) -> None:
-        """Handmatige update-check via Help → Controleren op updates…
-
-        Toont altijd een melding: ofwel "nieuwere versie beschikbaar",
-        ofwel "je gebruikt de nieuwste versie", ofwel een foutmelding.
-        """
         info = self._do_update_check()
         if info is None:
             QMessageBox.warning(
@@ -763,12 +734,6 @@ class ToolHubWindow(QMainWindow):
             )
 
     def _do_update_check(self):
-        """Voert de check uit en vangt alle fouten af.
-
-        Retourneert UpdateInfo bij succes, of None bij een onverwachte
-        fout (bijv. ontbrekende dependency). Nooit een exception naar
-        buiten.
-        """
         try:
             from app.helpers.updater import check_for_update
         except ImportError:
@@ -779,7 +744,6 @@ class ToolHubWindow(QMainWindow):
             return None
 
     def _toon_update_melding(self, info) -> None:
-        """Toont de melding met Downloaden / Wat is er nieuw? / Later."""
         box = QMessageBox(self)
         box.setWindowTitle(self._t("update.titel"))
         box.setIcon(QMessageBox.Icon.Information)
@@ -810,15 +774,7 @@ class ToolHubWindow(QMainWindow):
         elif geklikt is whatsnew_btn:
             self._toon_release_notes()
 
-    # ------------------------------------------------------------------
-    # v2.14.0 (9H-afronding): "Wat is er nieuw?"-dialoog
-    # ------------------------------------------------------------------
     def _toon_release_notes(self) -> None:
-        """Haalt de release notes op en toont ze in een dialoog.
-
-        Bij een fout: informationele melding met een knop naar de
-        release-pagina op GitHub. Nooit een exception naar buiten.
-        """
         fallback_url = (
             "https://github.com/barremans/capacitor_esr_validator/"
             "releases/latest"
@@ -839,15 +795,12 @@ class ToolHubWindow(QMainWindow):
         html_url = notes.get("html_url") or fallback_url
 
         if not body:
-            # Geen release notes ingevuld op GitHub: val terug op de
-            # informationele melding met de link naar de release-pagina.
             self._toon_release_notes_fout(html_url)
             return
 
         self._toon_release_notes_dialoog(body, html_url)
 
     def _toon_release_notes_fout(self, html_url: str) -> None:
-        """Toont een nette fallback-melding met knop naar de release-pagina."""
         box = QMessageBox(self)
         box.setWindowTitle(self._t("update.release_notes_titel"))
         box.setIcon(QMessageBox.Icon.Information)
@@ -865,7 +818,6 @@ class ToolHubWindow(QMainWindow):
             webbrowser.open(html_url)
 
     def _toon_release_notes_dialoog(self, body: str, html_url: str) -> None:
-        """Toont de release notes in een QTextBrowser-dialoog."""
         dialog = QDialog(self)
         dialog.setWindowTitle(self._t("update.release_notes_titel"))
         dialog.resize(720, 560)
@@ -897,12 +849,6 @@ class ToolHubWindow(QMainWindow):
         dialog.exec()
 
     def _markdown_naar_html(self, markdown_tekst: str) -> str:
-        """Mini-Markdown-render in dezelfde stijl als _show_markdown_dialog.
-
-        Ondersteunt koppen (#, ##, ###), vet, cursief, code, en eenvoudige
-        lijsten (- item). Geen tabellen — bewust beperkt, want de release
-        notes zijn doorgaans korte blokken tekst.
-        """
         import re
 
         html = markdown_tekst
@@ -971,8 +917,6 @@ class ToolHubWindow(QMainWindow):
         dialog.exec()
 
     def _show_changelog(self):
-        """v2.14.0 (9H-afronding): changelog per taal via dezelfde
-        fallback-keten als Help (taal → nl_NL → legacy)."""
         try:
             pad = changelog_pad_voor_taal(self.taal)
             pad_str = str(pad)

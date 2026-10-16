@@ -2,59 +2,27 @@
 ================================================================================
 Module:     app/gui/analysis_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.6
-Datum:      2026-10-10
+Versie:     1.3.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only Analyse-pagina binnen het hoofdvenster.
 
-            Toont tijdreeksen (ESR, capaciteit, D) en scatter (ESR vs. C)
-            op basis van opgeslagen historiek. Leest via AnalysisService,
-            schrijft nooit, en wijzigt geen historische data.
-
-            De pagina is ESR-only. Wanneer een tweede diagnosetool bestaat,
-            kan de grafiektype-dropdown per tool worden uitgebreid zonder
-            de pagina zelf te herstructureren.
-
 Wijzigingen:
   v1.0.0 (2026-10-09)  Eerste versie: filters, vier grafiektypes,
                         aggregatie-dropdown, QtCharts-weergave.
-  v1.0.1 (2026-10-09)  Fix: __init__ roept nu apply_language() aan, zodat
-                        de knopteksten, labels en combo-items vanaf de
-                        constructie correct vertaald zijn.
+  v1.0.1 (2026-10-09)  Fix: __init__ roept nu apply_language() aan.
   v1.0.2 (2026-10-09)  Fix: apply_language() roept refresh() niet langer
-                        zelf aan. De pagina is bij constructie nog niet
-                        zichtbaar; de eerste refresh komt via
-                        ToolHubWindow._show_analysis() of de refresh-knop.
-                        Dat houdt het aantal service-aanroepen minimaal en
-                        maakt de volgorde van stub-calls voorspelbaar.
-  v1.0.3 (2026-10-10)  Fix: NaN/Inf in meetwaarden veroorzaakte Qt-
-                        waarschuwingen ("Ignored NaN, Inf, or -Inf value"
-                        en "Attempting to set invalid range for value
-                        axis"). _finite_filter() haalt niet-eindige
-                        waarden uit de reeks voordat min/max/setRange
-                        worden berekend. Lege reeks na filter valt
-                        terug op de "geen gegevens"-staat.
-  v1.0.4 (2026-10-10)  Fix: _is_finite accepteert nu uitsluitend int en
-                        float. Strings worden geweigerd, zodat een
-                        onverwachte string uit de storage zichtbaar wordt
-                        in plaats van stil te worden geaccepteerd.
-                        Consistent met analysis_series._as_float.
-  v1.0.5 (2026-10-10)  Fix: scatter schaalt nu vóór het filteren. Een
-                        eindige p.x of p.y kon door de vermenigvuldiging
-                        met 1e6 resp. 1000.0 alsnog ±Inf worden, waarna
-                        QValueAxis.setRange een Qt-waarschuwing gaf.
-                        Bovendien doet apply_language() geen refresh meer;
-                        de refresh komt via _show_analysis() of de knop.
-  v1.0.6 (2026-10-10)  Fix: applyNiceNumbers() verwijderd uit _draw_time_series
-                        en _draw_scatter. QValueAxis.applyNiceNumbers() roept
-                        intern setRange() aan op basis van de huidige reeks;
-                        bij een lege of nog niet geattache reeks gaf dat
-                        "Attempting to set invalid range for value axis:
-                        [nan - nan]". Expliciete setRange(min, max) is
-                        deterministisch en voldoende. Bovendien klemt
-                        _draw_time_series de x-as op [1970-01-01, 2100-01-01]
-                        zodat een absurde x_ms QDateTime niet laat overlopen.
+                        zelf aan.
+  v1.0.3 (2026-10-10)  Fix: NaN/Inf in meetwaarden.
+  v1.0.4 (2026-10-10)  Fix: _is_finite accepteert uitsluitend int en float.
+  v1.0.5 (2026-10-10)  Fix: scatter schaalt nu vóór het filteren.
+  v1.0.6 (2026-10-10)  Fix: applyNiceNumbers() verwijderd.
+  v1.1.0 (2026-10-16)  Fase 11A.1: compacte selectielijst, scope-DDL,
+                        exportknop voor CSV.
+  v1.2.0 (2026-10-16)  Fase 11A.2: knop "Rapport maken…" naast exportknop.
+  v1.3.0 (2026-10-16)  Fase 11A.3: map-logica delegeert naar de nieuwe
+                        pure helper app/helpers/dialog_start_directory.
 ================================================================================
 """
 
@@ -62,6 +30,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from PySide6.QtCharts import (
@@ -75,20 +44,36 @@ from PySide6.QtCharts import (
 from PySide6.QtCore import QDateTime, Qt, Signal
 from PySide6.QtGui import QColor, QKeySequence, QPainter, QPen, QShortcut
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QComboBox,
+    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
+from app.config.settings import laad_instellingen
 from app.helpers.analysis_series import (
     ScatterPoint,
     TimeSeriesPoint,
+)
+from app.helpers.dialog_start_directory import (
+    beste_startmap as _beste_startmap_helper,
+    onthoud_startmap as _onthoud_startmap_helper,
+    startpad_voor_bestand as _startpad_voor_bestand_helper,
+)
+from app.helpers.history_csv_export import write_history_csv
+from app.helpers.history_detail_export import (
+    DETAIL_EXPORT_HEADERS,
+    detail_row_values,
 )
 from app.helpers.history_filters import (
     build_history_filters,
@@ -96,6 +81,9 @@ from app.helpers.history_filters import (
     parse_local_date_start_ms,
 )
 from app.helpers.history_formatting import (
+    component_label,
+    format_local_datetime,
+    format_measurement_values,
     measurement_method_translation_key,
 )
 from app.helpers.i18n import vertaal
@@ -113,22 +101,22 @@ _AGGREGATION_DAY = "day"
 _AGGREGATION_WEEK = "week"
 _AGGREGATION_MONTH = "month"
 
+_EXPORT_TYPE_OVERVIEW = "OVERVIEW"
+_EXPORT_TYPE_DETAIL = "DETAIL"
+_EXPORT_TYPE_BOTH = "BOTH"
+
+_EXPORT_SCOPE_SELECTED = "SELECTED"
+_EXPORT_SCOPE_FILTERED = "FILTERED"
+
 _UNKNOWN_STATUS_COLOR = "#9E9E9E"
 _LINE_COLOR = "#4AA3FF"
 _SCATTER_NEUTRAL_COLOR = "#B0B0B0"
 
-# Veilige grenzen voor QDateTime.fromMSecsSinceEpoch.
-_MIN_MS = 0                # 1970-01-01
-_MAX_MS = 4_102_444_800_000  # 2100-01-01 in epoch-ms
+_MIN_MS = 0
+_MAX_MS = 4_102_444_800_000
 
 
 def _is_finite(value: Any) -> bool:
-    """True als value een eindig getal is (geen NaN, geen ±Inf).
-
-    Accepteert uitsluitend int en float (geen bool, geen string).
-    Strings worden bewust geweigerd: als de storage een string teruggeeft
-    waar een getal hoort, is dat een bug die we willen zien, niet verbergen.
-    """
     if value is None or isinstance(value, bool):
         return False
     if not isinstance(value, (int, float)):
@@ -140,7 +128,6 @@ def _is_finite(value: Any) -> bool:
 
 
 def _veilige_x_ms(value: int) -> int:
-    """Klem een epoch-ms waarde op het veilige bereik voor QDateTime."""
     if value < _MIN_MS:
         return _MIN_MS
     if value > _MAX_MS:
@@ -152,6 +139,7 @@ class AnalysisScreen(QWidget):
     """Read-only analyse-pagina met QtCharts-visualisaties."""
 
     back_requested = Signal()
+    selection_changed = Signal()
 
     def __init__(
         self,
@@ -163,24 +151,13 @@ class AnalysisScreen(QWidget):
         super().__init__(parent)
         self.taal = taal
         self._analysis_service = analysis_service or AnalysisService()
+        self._current_rows: list[dict[str, Any]] = []
         self._build_ui()
         self._install_shortcuts()
-        # v1.0.1/v1.0.2/v1.0.5: labels en combo-items initialiseren in de
-        # actieve taal, maar zonder refresh. De pagina is bij constructie
-        # nog niet zichtbaar; de eerste refresh komt via _show_analysis()
-        # of de refresh-knop.
         self._apply_static_labels(self.taal)
-
-    # ------------------------------------------------------------------
-    # i18n
-    # ------------------------------------------------------------------
 
     def _t(self, sleutel: str, **kwargs) -> str:
         return vertaal(sleutel, taal=self.taal, **kwargs)
-
-    # ------------------------------------------------------------------
-    # UI
-    # ------------------------------------------------------------------
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
@@ -214,6 +191,35 @@ class AnalysisScreen(QWidget):
         self.refresh_btn.clicked.connect(self.refresh)
         top.addWidget(self.refresh_btn)
         root.addLayout(top)
+
+        export_row = QHBoxLayout()
+        export_row.addStretch()
+
+        self.export_scope_combo = QComboBox()
+        self._fill_export_scope_combo()
+        self.export_scope_combo.setMinimumWidth(190)
+        self.export_scope_combo.currentIndexChanged.connect(
+            lambda _i: self._update_selection_count()
+        )
+        export_row.addWidget(self.export_scope_combo)
+
+        self.export_type_combo = QComboBox()
+        self._fill_export_type_combo()
+        self.export_type_combo.setMinimumWidth(165)
+        export_row.addWidget(self.export_type_combo)
+
+        self.selection_count_label = QLabel("")
+        export_row.addWidget(self.selection_count_label)
+
+        self.report_btn = QPushButton()
+        self.report_btn.setEnabled(False)
+        self.report_btn.clicked.connect(self._open_report_for_selection)
+        export_row.addWidget(self.report_btn)
+
+        self.export_btn = QPushButton()
+        self.export_btn.clicked.connect(self._export_selected_type)
+        export_row.addWidget(self.export_btn)
+        root.addLayout(export_row)
 
         self.filter_group = QGroupBox()
         self.filter_group.setCheckable(True)
@@ -279,6 +285,8 @@ class AnalysisScreen(QWidget):
         self.state_label.setStyleSheet("color: #C8C8C8;")
         root.addWidget(self.state_label)
 
+        self.splitter = QSplitter(Qt.Orientation.Vertical)
+
         self.chart = QChart()
         self.chart.setBackgroundBrush(QColor("#1E1E1E"))
         self.chart.setPlotAreaBackgroundBrush(QColor("#1E1E1E"))
@@ -290,7 +298,37 @@ class AnalysisScreen(QWidget):
         self.chart_view = QChartView(self.chart)
         self.chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.chart_view.setStyleSheet("background-color: #1E1E1E;")
-        root.addWidget(self.chart_view, 1)
+        self.splitter.addWidget(self.chart_view)
+
+        self.selection_panel = QWidget()
+        selection_layout = QVBoxLayout(self.selection_panel)
+        selection_layout.setContentsMargins(0, 0, 0, 0)
+        selection_layout.setSpacing(6)
+
+        self.selection_title_label = QLabel()
+        self.selection_title_label.setStyleSheet("font-weight: bold;")
+        selection_layout.addWidget(self.selection_title_label)
+
+        self.selection_table = QTableWidget(0, 5)
+        self.selection_table.setEditTriggers(
+            QAbstractItemView.EditTrigger.NoEditTriggers
+        )
+        self.selection_table.setSelectionBehavior(
+            QAbstractItemView.SelectionBehavior.SelectRows
+        )
+        self.selection_table.setSelectionMode(
+            QAbstractItemView.SelectionMode.ExtendedSelection
+        )
+        self.selection_table.setAlternatingRowColors(True)
+        self.selection_table.verticalHeader().setVisible(False)
+        self.selection_table.setSortingEnabled(False)
+        self.selection_table.itemChanged.connect(self._on_selection_item_changed)
+        selection_layout.addWidget(self.selection_table, 1)
+
+        self.splitter.addWidget(self.selection_panel)
+        self.splitter.setStretchFactor(0, 3)
+        self.splitter.setStretchFactor(1, 1)
+        root.addWidget(self.splitter, 1)
 
     def _install_shortcuts(self) -> None:
         ctx = Qt.ShortcutContext.WidgetWithChildrenShortcut
@@ -311,10 +349,6 @@ class AnalysisScreen(QWidget):
         self.filter_group.setChecked(True)
         self.filter_body.setVisible(True)
         self.filter_manufacturer.setFocus()
-
-    # ------------------------------------------------------------------
-    # Combo-vulling
-    # ------------------------------------------------------------------
 
     def _fill_chart_type_combo(self) -> None:
         current = (
@@ -392,8 +426,40 @@ class AnalysisScreen(QWidget):
         finally:
             self.filter_frequency.blockSignals(False)
 
+    def _fill_export_scope_combo(self) -> None:
+        current = (
+            self.export_scope_combo.currentData()
+            if self.export_scope_combo.count()
+            else _EXPORT_SCOPE_SELECTED
+        )
+        self.export_scope_combo.blockSignals(True)
+        try:
+            self.export_scope_combo.clear()
+            self.export_scope_combo.addItem("", _EXPORT_SCOPE_SELECTED)
+            self.export_scope_combo.addItem("", _EXPORT_SCOPE_FILTERED)
+            index = self.export_scope_combo.findData(current)
+            self.export_scope_combo.setCurrentIndex(index if index >= 0 else 0)
+        finally:
+            self.export_scope_combo.blockSignals(False)
+
+    def _fill_export_type_combo(self) -> None:
+        current = (
+            self.export_type_combo.currentData()
+            if self.export_type_combo.count()
+            else _EXPORT_TYPE_OVERVIEW
+        )
+        self.export_type_combo.blockSignals(True)
+        try:
+            self.export_type_combo.clear()
+            self.export_type_combo.addItem("", _EXPORT_TYPE_OVERVIEW)
+            self.export_type_combo.addItem("", _EXPORT_TYPE_DETAIL)
+            self.export_type_combo.addItem("", _EXPORT_TYPE_BOTH)
+            index = self.export_type_combo.findData(current)
+            self.export_type_combo.setCurrentIndex(index if index >= 0 else 0)
+        finally:
+            self.export_type_combo.blockSignals(False)
+
     def _apply_combo_labels(self) -> None:
-        """Vertaal alle combo-items in één keer, na een taalwissel."""
         for index in range(self.chart_type_combo.count()):
             data = self.chart_type_combo.itemData(index)
             self.chart_type_combo.setItemText(index, self._chart_type_label(data))
@@ -418,6 +484,18 @@ class AnalysisScreen(QWidget):
                 text = self._frequency_label(float(data))
             self.filter_frequency.setItemText(index, text)
 
+        for index in range(self.export_scope_combo.count()):
+            data = self.export_scope_combo.itemData(index)
+            self.export_scope_combo.setItemText(
+                index, self._export_scope_label(data)
+            )
+
+        for index in range(self.export_type_combo.count()):
+            data = self.export_type_combo.itemData(index)
+            self.export_type_combo.setItemText(
+                index, self._export_type_label(data)
+            )
+
     def _chart_type_label(self, data: str) -> str:
         mapping = {
             _CHART_TYPE_ESR: "analyse.grafiektype.esr",
@@ -436,20 +514,32 @@ class AnalysisScreen(QWidget):
         }
         return self._t(mapping.get(data, data))
 
+    def _export_scope_label(self, data: str) -> str:
+        mapping = {
+            _EXPORT_SCOPE_SELECTED: "analyse.export.scope_selectie",
+            _EXPORT_SCOPE_FILTERED: "analyse.export.scope_filters",
+        }
+        return self._t(mapping.get(data, data))
+
+    def _export_type_label(self, data: str) -> str:
+        mapping = {
+            _EXPORT_TYPE_OVERVIEW: "analyse.export.type_overzicht",
+            _EXPORT_TYPE_DETAIL: "analyse.export.type_detail",
+            _EXPORT_TYPE_BOTH: "analyse.export.type_beide",
+        }
+        return self._t(mapping.get(data, data))
+
     @staticmethod
     def _frequency_label(value: float) -> str:
         return f"{value:g} Hz" if value < 1000 else f"{value / 1000:g} kHz"
 
-    # ------------------------------------------------------------------
-    # Taalwissel
-    # ------------------------------------------------------------------
-
     def _apply_static_labels(self, taal: str) -> None:
-        """Zet alle statische labels en combo-items, zonder refresh."""
         self.taal = taal
         self.back_btn.setText(self._t("knop.terug"))
         self.title_label.setText(self._t("analyse.titel"))
         self.refresh_btn.setText(self._t("knop.verversen"))
+        self.export_btn.setText(self._t("analyse.export.knop"))
+        self.report_btn.setText(self._t("analyse.rapport.knop"))
         self.filter_group.setTitle(self._t("historiek.filter.titel"))
         self.filter_manufacturer_label.setText(self._t("historiek.filter.fabrikant"))
         self.filter_series_label.setText(self._t("historiek.filter.serie"))
@@ -475,21 +565,32 @@ class AnalysisScreen(QWidget):
         )
         self.clear_filters_btn.setText(self._t("historiek.filter.wissen"))
         self.apply_filters_btn.setText(self._t("historiek.filter.toepassen"))
+        self.selection_title_label.setText(self._t("analyse.selectie.titel"))
+        self._apply_selection_headers()
         self._apply_combo_labels()
+        self._update_selection_count()
+
+    def _apply_selection_headers(self) -> None:
+        self.selection_table.setHorizontalHeaderLabels(
+            [
+                "",
+                self._t("analyse.selectie.kolom.datum"),
+                self._t("analyse.selectie.kolom.component"),
+                self._t("analyse.selectie.kolom.meetwaarden"),
+                self._t("analyse.selectie.kolom.status"),
+            ]
+        )
+        header = self.selection_table.horizontalHeader()
+        for column in range(self.selection_table.columnCount()):
+            header.setStretchLastSection(False)
+            self.selection_table.resizeColumnToContents(column)
+        self.selection_table.setColumnWidth(
+            0, max(36, self.selection_table.columnWidth(0))
+        )
+        header.setStretchLastSection(True)
 
     def apply_language(self, taal: str) -> None:
-        """Publieke taalwissel: alleen statische labels, geen refresh.
-
-        Sinds v1.0.5 doet deze methode géén data-refresh meer. De refresh
-        gebeurt via _show_analysis() in ToolHubWindow (bij openen van de
-        pagina) of via de refresh-knop. Dat voorkomt onnodige service-
-        aanroepen bij elke taalwissel en bij het opstarten.
-        """
         self._apply_static_labels(taal)
-
-    # ------------------------------------------------------------------
-    # Filters
-    # ------------------------------------------------------------------
 
     def _clear_filters(self) -> None:
         self.filter_manufacturer.clear()
@@ -528,17 +629,113 @@ class AnalysisScreen(QWidget):
             measured_to_ms=measured_to_ms,
         )
 
-    # ------------------------------------------------------------------
-    # Refresh + grafiekopbouw
-    # ------------------------------------------------------------------
+    def _populate_selection_table(self, rows: list[dict[str, Any]]) -> None:
+        rows_sorted = sorted(
+            rows,
+            key=lambda r: (
+                -int(getattr(r["measurement"], "measured_at_ms", 0) or 0),
+                int(getattr(r["measurement"], "id", 0) or 0),
+            ),
+        )
+
+        self.selection_table.blockSignals(True)
+        try:
+            self.selection_table.setRowCount(len(rows_sorted))
+            for row_index, row in enumerate(rows_sorted):
+                measurement = row["measurement"]
+
+                select_item = QTableWidgetItem("")
+                select_item.setFlags(
+                    Qt.ItemFlag.ItemIsEnabled
+                    | Qt.ItemFlag.ItemIsSelectable
+                    | Qt.ItemFlag.ItemIsUserCheckable
+                )
+                select_item.setCheckState(Qt.CheckState.Unchecked)
+                select_item.setData(Qt.ItemDataRole.UserRole, measurement.id)
+                select_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.selection_table.setItem(row_index, 0, select_item)
+
+                measured_at_ms = getattr(measurement, "measured_at_ms", None)
+                values = [
+                    format_local_datetime(measured_at_ms),
+                    component_label(row),
+                    format_measurement_values(measurement.tool_key, measurement),
+                    (
+                        self._t(f"status.eindstatus.{row['final_status']}")
+                        if row.get("final_status")
+                        else "—"
+                    ),
+                ]
+                for offset, value in enumerate(values, start=1):
+                    item = QTableWidgetItem(str(value))
+                    item.setData(Qt.ItemDataRole.UserRole, measurement.id)
+                    self.selection_table.setItem(row_index, offset, item)
+        finally:
+            self.selection_table.blockSignals(False)
+
+        self._apply_selection_headers()
+        self._update_selection_count()
+
+    def _on_selection_item_changed(self, item: QTableWidgetItem) -> None:
+        if item.column() == 0:
+            self._update_selection_count()
+            self.selection_changed.emit()
+
+    def _selected_measurement_ids(self) -> list[int]:
+        ids: list[int] = []
+        for row in range(self.selection_table.rowCount()):
+            item = self.selection_table.item(row, 0)
+            if item is None or item.checkState() != Qt.CheckState.Checked:
+                continue
+            value = item.data(Qt.ItemDataRole.UserRole)
+            if value is not None:
+                ids.append(int(value))
+        return ids
+
+    def _clear_selection(self) -> bool:
+        gewist = False
+        self.selection_table.blockSignals(True)
+        try:
+            for row in range(self.selection_table.rowCount()):
+                item = self.selection_table.item(row, 0)
+                if item is None:
+                    continue
+                if item.checkState() == Qt.CheckState.Checked:
+                    item.setCheckState(Qt.CheckState.Unchecked)
+                    gewist = True
+        finally:
+            self.selection_table.blockSignals(False)
+        return gewist
+
+    def _update_selection_count(self) -> None:
+        aantal = len(self._selected_measurement_ids())
+        self.selection_count_label.setText(
+            self._t("analyse.selectie.geselecteerd_aantal", aantal=aantal)
+        )
+        self.report_btn.setEnabled(aantal > 0)
+        self.selection_changed.emit()
 
     def refresh(self) -> None:
+        had_selectie = self._clear_selection()
         try:
             filters = self._active_filters()
         except ValueError as exc:
             self.state_label.setText(str(exc))
             self._replace_chart_empty(self._t("analyse.geen_gegevens"))
+            self.selection_table.setRowCount(0)
+            self._current_rows = []
             return
+
+        try:
+            rows = self._analysis_service.load_rows(filters)
+        except Exception as exc:
+            self.state_label.setText(self._t("analyse.fout", bericht=str(exc)))
+            self._replace_chart_empty(self._t("analyse.geen_gegevens"))
+            self.selection_table.setRowCount(0)
+            self._current_rows = []
+            return
+
+        self._current_rows = list(rows)
 
         chart_type = self.chart_type_combo.currentData()
         aggregation = self.aggregation_combo.currentData()
@@ -553,7 +750,12 @@ class AnalysisScreen(QWidget):
         except Exception as exc:
             self.state_label.setText(self._t("analyse.fout", bericht=str(exc)))
             self._replace_chart_empty(self._t("analyse.geen_gegevens"))
-            return
+
+        self._populate_selection_table(self._current_rows)
+        if had_selectie:
+            self.state_label.setText(
+                self._t("analyse.selectie.gewijzigd_bij_verversen")
+            )
 
     def _analysis_service_for(
         self,
@@ -587,21 +789,10 @@ class AnalysisScreen(QWidget):
         self.chart.setTitle(title)
         self.chart.legend().setVisible(show_legend)
 
-    # ------------------------------------------------------------------
-    # Tijdreeksen
-    # ------------------------------------------------------------------
-
     @staticmethod
     def _finite_filter(
         punten: list[tuple[int, float]],
     ) -> list[tuple[int, float]]:
-        """Haal niet-eindige y-waarden (NaN, Inf) uit de reeks.
-
-        QtCharts weigert een as-range met NaN en schrijft dan een
-        waarschuwing naar stderr. Door vóór min/max/setRange te filteren
-        vermijden we dat. De x-waarde moet ook eindig en niet-negatief
-        zijn.
-        """
         resultaat: list[tuple[int, float]] = []
         for x_ms, y in punten:
             if not _is_finite(y):
@@ -624,9 +815,6 @@ class AnalysisScreen(QWidget):
             self.state_label.setText(self._t("analyse.leeg"))
             return
 
-        # Bepaal schaal en y-label op basis van het grafiektype.
-        # v1.0.3/v1.0.5: schaal eerst, filter daarna, zodat een waarde
-        # die door de schaling ±Inf wordt, ook wordt weggefilterd.
         scale, y_label = self._scale_for(chart_type)
         ruwe_punten = [(p.x_ms, p.y * scale) for p in points]
         scaled = self._finite_filter(ruwe_punten)
@@ -659,10 +847,6 @@ class AnalysisScreen(QWidget):
         axis_y.setLabelsColor(QColor("#F0F0F0"))
         axis_y.setTitleBrush(QColor("#F0F0F0"))
         axis_y.setGridLineColor(QColor("#3A3A3A"))
-        # v1.0.6: applyNiceNumbers() verwijderd. Die roept intern setRange()
-        # aan op basis van de huidige (nog niet geattache) reeks en gaf
-        # "Attempting to set invalid range for value axis: [nan - nan]".
-        # Expliciete setRange(min, max) hieronder is deterministisch.
 
         self.chart.addAxis(axis_x, Qt.AlignmentFlag.AlignBottom)
         self.chart.addAxis(axis_y, Qt.AlignmentFlag.AlignLeft)
@@ -672,7 +856,6 @@ class AnalysisScreen(QWidget):
         first_ms = _veilige_x_ms(scaled[0][0])
         last_ms = _veilige_x_ms(scaled[-1][0])
         if first_ms == last_ms:
-            # Eén punt: geef een minuut marge zodat de as iets toont.
             first_ms = _veilige_x_ms(first_ms - 60_000)
             last_ms = _veilige_x_ms(last_ms + 60_000)
         if first_ms >= last_ms:
@@ -696,7 +879,6 @@ class AnalysisScreen(QWidget):
         )
 
     def _scale_for(self, chart_type: str) -> tuple[float, str]:
-        """Geef (schaalfactor, y-aslabel) voor een tijdreeks."""
         if chart_type == _CHART_TYPE_ESR:
             return 1000.0, self._t("analyse.as.esr_mohm")
         if chart_type == _CHART_TYPE_CAPACITANCE:
@@ -704,10 +886,6 @@ class AnalysisScreen(QWidget):
         if chart_type == _CHART_TYPE_DISSIPATION:
             return 1.0, self._t("analyse.as.d")
         return 1.0, ""
-
-    # ------------------------------------------------------------------
-    # Scatter
-    # ------------------------------------------------------------------
 
     def _draw_scatter(self, points: list[ScatterPoint]) -> None:
         title = self._chart_type_label(_CHART_TYPE_SCATTER)
@@ -718,10 +896,6 @@ class AnalysisScreen(QWidget):
             self.state_label.setText(self._t("analyse.leeg"))
             return
 
-        # v1.0.5: schaal eerst (µF, mΩ), filter daarna. Een eindige p.x
-        # of p.y kon door de vermenigvuldiging met 1e6 resp. 1000.0 alsnog
-        # ±Inf worden, waarna QValueAxis.setRange een Qt-waarschuwing gaf
-        # ("Attempting to set invalid range for value axis").
         geschaald: list[tuple[ScatterPoint, float, float]] = []
         for p in points:
             if not _is_finite(p.x) or not _is_finite(p.y):
@@ -741,12 +915,10 @@ class AnalysisScreen(QWidget):
         x_geschaald = [x for _, x, _ in geschaald]
         y_geschaald = [y for _, _, y in geschaald]
 
-        # Groepeer per categorie zodat elke status een eigen kleur krijgt.
         per_categorie: dict[str | None, list[ScatterPoint]] = {}
         for point in geldige_punten:
             per_categorie.setdefault(point.category, []).append(point)
 
-        # Sorteer zodat "geen status" als laatste getekend wordt.
         ordered_categories = sorted(
             per_categorie.keys(),
             key=lambda c: (c is None, c or ""),
@@ -760,7 +932,7 @@ class AnalysisScreen(QWidget):
             series.setColor(QColor(self._category_color(category)))
             series.setBorderColor(QColor("#1E1E1E"))
             for point in group:
-                series.append(point.x * 1e6, point.y * 1000.0)  # µF, mΩ
+                series.append(point.x * 1e6, point.y * 1000.0)
             self.chart.addSeries(series)
 
         axis_x = QValueAxis()
@@ -768,7 +940,6 @@ class AnalysisScreen(QWidget):
         axis_x.setLabelsColor(QColor("#F0F0F0"))
         axis_x.setTitleBrush(QColor("#F0F0F0"))
         axis_x.setGridLineColor(QColor("#3A3A3A"))
-        # v1.0.6: applyNiceNumbers() verwijderd (zie _draw_time_series).
 
         axis_y = QValueAxis()
         axis_y.setTitleText(self._t("analyse.as.esr_mohm"))
@@ -803,3 +974,321 @@ class AnalysisScreen(QWidget):
         if category is None:
             return _SCATTER_NEUTRAL_COLOR
         return STATUS_COLORS.get(category, _UNKNOWN_STATUS_COLOR)
+
+    # ------------------------------------------------------------------
+    # Rapport
+    # ------------------------------------------------------------------
+
+    def _open_report_for_selection(self) -> None:
+        selected_ids = self._selected_measurement_ids()
+        if not selected_ids:
+            self.state_label.setText(self._t("analyse.rapport.geen_selectie"))
+            return
+
+        from app.gui.dialogs.report_dialog import ReportDialog
+
+        werkplaats = ""
+        auteur = ""
+        try:
+            instellingen = laad_instellingen()
+            werkplaats = instellingen.rapportage.werkplaats_bedrijf
+            auteur = instellingen.rapportage.auteur
+        except (OSError, ValueError):
+            pass
+
+        dialog = ReportDialog.for_measurements(
+            selected_ids,
+            scope=self._t("report.scope.selectie"),
+            taal=self.taal,
+            werkplaats=werkplaats,
+            auteur=auteur,
+            grafiek_default=False,
+            parent=self,
+        )
+        dialog.exec()
+
+    # ------------------------------------------------------------------
+    # Export
+    # ------------------------------------------------------------------
+
+    def _export_selected_type(self) -> None:
+        export_type = self.export_type_combo.currentData()
+        if export_type == _EXPORT_TYPE_DETAIL:
+            self._export_detail_csv()
+        elif export_type == _EXPORT_TYPE_BOTH:
+            self._export_both_csv()
+        else:
+            self._export_overview_csv()
+
+    def _rows_for_export(self) -> list[dict[str, Any]] | None:
+        scope = self.export_scope_combo.currentData()
+        if scope == _EXPORT_SCOPE_SELECTED:
+            selected_ids = set(self._selected_measurement_ids())
+            if not selected_ids:
+                self.state_label.setText(
+                    self._t("analyse.selectie.geen_selectie")
+                )
+                return None
+            return [
+                row
+                for row in self._current_rows
+                if int(row["measurement"].id) in selected_ids
+            ]
+        return list(self._current_rows)
+
+    def _overview_headers(self) -> list[str]:
+        return [
+            self._t("historiek.kolom.datum_tijd"),
+            self._t("historiek.kolom.component"),
+            self._t("historiek.kolom.meetwaarden"),
+            self._t("historiek.kolom.status"),
+        ]
+
+    def _overview_row_values(self, row: dict[str, Any]) -> list[str]:
+        measurement = row["measurement"]
+        return [
+            format_local_datetime(measurement.measured_at_ms),
+            component_label(row),
+            format_measurement_values(measurement.tool_key, measurement),
+            (
+                self._t(f"status.eindstatus.{row['final_status']}")
+                if row.get("final_status")
+                else "—"
+            ),
+        ]
+
+    def _export_timestamp(self) -> str:
+        return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    def _default_export_filename(
+        self,
+        export_type: str,
+        *,
+        timestamp: str | None = None,
+    ) -> str:
+        stamp = timestamp or self._export_timestamp()
+        if export_type == _EXPORT_TYPE_DETAIL:
+            return self._t(
+                "analyse.export.bestandsnaam_detail", timestamp=stamp
+            )
+        return self._t(
+            "analyse.export.bestandsnaam_overzicht", timestamp=stamp
+        )
+
+    def _beste_export_start_directory(self) -> Path | None:
+        """Beste startmap via de centrale helper (categorie 'export')."""
+        return _beste_startmap_helper("export")
+
+    def _onthoud_laatste_exportmap(self, doel_pad: Path) -> None:
+        """Onthoud de map via de centrale helper (categorie 'export')."""
+        _onthoud_startmap_helper("export", doel_pad)
+
+    def _export_start_path(self, default_filename: str) -> str:
+        return _startpad_voor_bestand_helper("export", default_filename)
+
+    def _choose_export_path(
+        self,
+        *,
+        default_filename: str,
+        dialog_title_key: str,
+    ) -> str | None:
+        file_path, _selected_filter = QFileDialog.getSaveFileName(
+            self,
+            self._t(dialog_title_key),
+            self._export_start_path(default_filename),
+            self._t("analyse.export.bestandsfilter"),
+        )
+        if not file_path:
+            return None
+        if not file_path.lower().endswith(".csv"):
+            file_path += ".csv"
+        return file_path
+
+    def _choose_export_both_directory(self) -> str | None:
+        start_directory = self._beste_export_start_directory()
+        chosen = QFileDialog.getExistingDirectory(
+            self,
+            self._t("analyse.export.beide_dialoog_titel"),
+            str(start_directory) if start_directory is not None else "",
+        )
+        return chosen or None
+
+    def _export_overview_csv(self) -> None:
+        try:
+            rows = self._rows_for_export()
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("analyse.export.fout", bericht=str(exc))
+            )
+            return
+        if rows is None:
+            return
+        if not rows:
+            self.state_label.setText(self._t("analyse.export.leeg"))
+            return
+
+        default_filename = self._default_export_filename(_EXPORT_TYPE_OVERVIEW)
+        file_path = self._choose_export_path(
+            default_filename=default_filename,
+            dialog_title_key="analyse.export.dialoog_titel",
+        )
+        if file_path is None:
+            return
+
+        try:
+            write_history_csv(
+                file_path,
+                self._overview_headers(),
+                (self._overview_row_values(row) for row in rows),
+            )
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("analyse.export.fout", bericht=str(exc))
+            )
+            return
+
+        self.state_label.setText(
+            self._t(
+                "analyse.export.geslaagd",
+                aantal=len(rows),
+                pad=file_path,
+            )
+        )
+        self._onthoud_laatste_exportmap(Path(file_path))
+
+    def _export_detail_csv(self) -> None:
+        try:
+            rows = self._rows_for_export()
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("analyse.export.fout", bericht=str(exc))
+            )
+            return
+        if rows is None:
+            return
+        if not rows:
+            self.state_label.setText(self._t("analyse.export.leeg"))
+            return
+
+        details: list[dict[str, Any]] = []
+        try:
+            for row in rows:
+                measurement_id = int(row["measurement"].id)
+                detail = self._analysis_service._history().get_measurement_detail(
+                    measurement_id
+                )
+                if detail is None:
+                    raise ValueError(
+                        f"Geen detaildata voor measurement_id={measurement_id}."
+                    )
+                details.append(detail)
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("analyse.export.fout", bericht=str(exc))
+            )
+            return
+
+        default_filename = self._default_export_filename(_EXPORT_TYPE_DETAIL)
+        file_path = self._choose_export_path(
+            default_filename=default_filename,
+            dialog_title_key="analyse.export.detail_dialoog_titel",
+        )
+        if file_path is None:
+            return
+
+        try:
+            write_history_csv(
+                file_path,
+                DETAIL_EXPORT_HEADERS,
+                (detail_row_values(detail) for detail in details),
+            )
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("analyse.export.fout", bericht=str(exc))
+            )
+            return
+
+        self.state_label.setText(
+            self._t(
+                "analyse.export.geslaagd",
+                aantal=len(details),
+                pad=file_path,
+            )
+        )
+        self._onthoud_laatste_exportmap(Path(file_path))
+
+    def _export_both_csv(self) -> None:
+        try:
+            rows = self._rows_for_export()
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("analyse.export.fout", bericht=str(exc))
+            )
+            return
+        if rows is None:
+            return
+        if not rows:
+            self.state_label.setText(self._t("analyse.export.leeg"))
+            return
+
+        details: list[dict[str, Any]] = []
+        try:
+            for row in rows:
+                measurement_id = int(row["measurement"].id)
+                detail = self._analysis_service._history().get_measurement_detail(
+                    measurement_id
+                )
+                if detail is None:
+                    raise ValueError(
+                        f"Geen detaildata voor measurement_id={measurement_id}."
+                    )
+                details.append(detail)
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("analyse.export.fout", bericht=str(exc))
+            )
+            return
+
+        directory = self._choose_export_both_directory()
+        if directory is None:
+            return
+
+        timestamp = self._export_timestamp()
+        overview_path = str(
+            Path(directory)
+            / self._default_export_filename(
+                _EXPORT_TYPE_OVERVIEW, timestamp=timestamp
+            )
+        )
+        detail_path = str(
+            Path(directory)
+            / self._default_export_filename(
+                _EXPORT_TYPE_DETAIL, timestamp=timestamp
+            )
+        )
+
+        try:
+            write_history_csv(
+                overview_path,
+                self._overview_headers(),
+                (self._overview_row_values(row) for row in rows),
+            )
+            write_history_csv(
+                detail_path,
+                DETAIL_EXPORT_HEADERS,
+                (detail_row_values(detail) for detail in details),
+            )
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("analyse.export.fout", bericht=str(exc))
+            )
+            return
+
+        self.state_label.setText(
+            self._t(
+                "analyse.export.geslaagd",
+                aantal=len(rows),
+                pad=directory,
+            )
+        )
+        self._onthoud_laatste_exportmap(Path(directory))

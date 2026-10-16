@@ -20,6 +20,7 @@
     "documentatie_zoeken": "Search documentation…",
     "document_importeren": "Import document…",
     "rapport": "Create report…",
+    "rapport_tooltip": "Select a measurement in the history first.",
     "bug_melden": "🐞 Report a bug or feature…",
     "open_cases": "Show open cases",
     "controleren_op_updates": "Check for updates…"

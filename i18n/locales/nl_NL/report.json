@@ -45,6 +45,8 @@
       "preview_titel": "Voorbeeld",
       "grafiek_checkbox": "Grafiek opnemen",
       "grafiek_niet_beschikbaar": "Geen grafiek beschikbaar voor deze meting.",
+      "grafiek_meerdere_niet_beschikbaar": "Grafiek is alleen beschikbaar voor één meting.",
+      "meerdere_metingen_kop": "{aantal} metingen",
       "opslaan_html": "Opslaan als HTML…",
       "opslaan_pdf": "Opslaan als PDF…",
       "sluiten": "Sluiten",

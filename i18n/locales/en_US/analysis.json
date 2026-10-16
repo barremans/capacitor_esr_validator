@@ -34,6 +34,39 @@
       "esr_mohm": "ESR (mΩ)",
       "capaciteit_uf": "Capacitance (µF)",
       "d": "D"
+    },
+    "selectie": {
+      "titel": "Selection",
+      "kolom": {
+        "datum": "Date / time",
+        "component": "Component",
+        "meetwaarden": "Measurements",
+        "status": "Status"
+      },
+      "geselecteerd_aantal": "{aantal} selected",
+      "geen_selectie": "Select one or more measurements in the list first.",
+      "gewijzigd_bij_verversen": "Selection cleared on refresh."
+    },
+    "rapport": {
+      "knop": "Create report…",
+      "geen_selectie": "Select one or more measurements in the list first."
+    },
+    "export": {
+      "knop": "Export…",
+      "scope_selectie": "Export: selection",
+      "scope_filters": "Export: current filters",
+      "type_overzicht": "Overview CSV",
+      "type_detail": "Detail CSV",
+      "type_beide": "Overview + detail",
+      "dialoog_titel": "Export analysis to CSV",
+      "detail_dialoog_titel": "Export detailed analysis to CSV",
+      "beide_dialoog_titel": "Choose folder for overview + detail",
+      "bestandsnaam_overzicht": "analysis_overview_{timestamp}.csv",
+      "bestandsnaam_detail": "analysis_detail_{timestamp}.csv",
+      "leeg": "No measurements to export.",
+      "geslaagd": "{aantal} measurement(s) exported to {pad}.",
+      "fout": "Export failed: {bericht}",
+      "bestandsfilter": "CSV files (*.csv)"
     }
   }
 }

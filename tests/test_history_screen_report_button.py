@@ -2,14 +2,18 @@
 ================================================================================
 Module:     tests/test_history_screen_report_button.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-10
+Versie:     1.2.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
-Doel:       Regressietests voor de "Rapport"-knop in HistoryScreen (Fase 8C).
+Doel:       Regressietests voor de "Rapport"-knop in HistoryScreen.
 
 Wijzigingen:
   v1.0.0 (2026-10-10)  Eerste versie.
+  v1.1.0 (2026-10-16)  Fase 11A.1: test voor selection_changed-signaal.
+  v1.1.1 (2026-10-16)  Fase 11A.1-fix: correcte tests voor dedup.
+  v1.2.0 (2026-10-16)  Fase 11A.2: test dat de rapport-knop de
+                        checkbox-selectie gebruikt voor scope 'selectie'.
 ================================================================================
 """
 
@@ -23,6 +27,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QApplication
 
 from app.gui.history_screen import HistoryScreen
@@ -104,8 +109,6 @@ def test_report_knop_bestaat_en_is_uitgeschakeld():
 def test_report_knop_gaat_aan_bij_selectie():
     screen = HistoryScreen(taal="nl_NL", history_service=_Service())
     screen.refresh()
-
-    # Selecteer de eerste rij (via de tijd-kolom, niet de checkbox).
     screen.table.setCurrentCell(0, 1)
     assert screen.report_btn.isEnabled() is True
 
@@ -117,15 +120,97 @@ def test_report_knop_opent_dialoog(monkeypatch):
 
     geopend = {}
 
-    class _FakeDialog:
-        def __init__(self, measurement_id, **kwargs):
-            geopend["measurement_id"] = measurement_id
-        def exec(self):
-            return 0
-
     monkeypatch.setattr(
         "app.gui.history_screen.HistoryScreen._open_report_dialog",
         lambda self, mid: geopend.setdefault("measurement_id", mid),
+    )
+
+    screen._show_report_for_selected()
+    assert geopend["measurement_id"] == 1
+
+
+# ---------------------------------------------------------------------------
+# 11A.1 — selection_changed-signaal
+# ---------------------------------------------------------------------------
+
+def test_selection_changed_signal_vuurt_bij_checkbox_wijziging():
+    screen = HistoryScreen(taal="nl_NL", history_service=_Service())
+    screen.refresh()
+
+    spy = QSignalSpy(screen.selection_changed)
+    screen.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+    assert spy.count() >= 1
+
+
+def test_selection_changed_signal_vuurt_bij_rij_selectie():
+    screen = HistoryScreen(taal="nl_NL", history_service=_Service())
+    screen.refresh()
+
+    spy = QSignalSpy(screen.selection_changed)
+    screen.table.setCurrentCell(0, 1)
+    assert spy.count() >= 1
+
+
+def test_selection_changed_signal_vuurt_wanneer_refresh_selectie_wist():
+    screen = HistoryScreen(taal="nl_NL", history_service=_Service())
+    screen.refresh()
+    screen.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+
+    spy = QSignalSpy(screen.selection_changed)
+    screen.refresh()
+
+    assert spy.count() >= 1
+
+
+def test_selection_changed_signal_vuurt_niet_tweemaal_zonder_wijziging():
+    screen = HistoryScreen(taal="nl_NL", history_service=_Service())
+    screen.refresh()
+    spy = QSignalSpy(screen.selection_changed)
+    screen.refresh()
+    assert spy.count() == 0
+
+
+# ---------------------------------------------------------------------------
+# 11A.2 — checkbox-selectie krijgt voorrang op rij-selectie
+# ---------------------------------------------------------------------------
+
+def test_rapport_knop_gebruikt_checkbox_selectie(monkeypatch):
+    """Bij een checkbox-selectie opent de knop een multi-rapport."""
+    screen = HistoryScreen(taal="nl_NL", history_service=_Service())
+    screen.refresh()
+    # Vink twee checkboxen aan.
+    screen.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+    screen.table.item(1, 0).setCheckState(Qt.CheckState.Checked)
+
+    geopend = {"ids": None, "scope": None}
+
+    def _fake_multi(self, ids, *, scope):
+        geopend["ids"] = list(ids)
+        geopend["scope"] = scope
+
+    monkeypatch.setattr(
+        "app.gui.history_screen.HistoryScreen._open_report_dialog_voor_ids",
+        _fake_multi,
+    )
+
+    screen._show_report_for_selected()
+
+    assert geopend["ids"] is not None
+    assert len(geopend["ids"]) == 2
+    assert geopend["scope"] == "Selectie"
+
+
+def test_rapport_knop_valt_terug_op_rij_selectie_zonder_checkbox(monkeypatch):
+    """Zonder checkbox-selectie gebruikt de knop de rij-selectie (scope enkel)."""
+    screen = HistoryScreen(taal="nl_NL", history_service=_Service())
+    screen.refresh()
+    screen.table.setCurrentCell(0, 1)
+
+    geopend = {"measurement_id": None}
+
+    monkeypatch.setattr(
+        "app.gui.history_screen.HistoryScreen._open_report_dialog",
+        lambda self, mid: geopend.__setitem__("measurement_id", mid),
     )
 
     screen._show_report_for_selected()

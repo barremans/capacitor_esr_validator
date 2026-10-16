@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/dialogs/settings_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.4.0
-Datum:      2026-10-14
+Versie:     1.5.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Modale Settings-dialoog met tabs Algemeen, ESR / Condensator en
@@ -16,24 +16,20 @@ Wijzigingen:
                        thema, inclusief actieve/inactieve/hover-status.
   v1.1.0 (2026-10-02)  Algemene bestandspaden toegevoegd voor export/import,
                        met Bladeren-knoppen en optie om de exportmap na een
-                       succesvolle export te openen. Condensatortypes komen
-                       nu uit de centrale settings-constante.
-  v1.2.0 (2026-10-03)  Taalkeuze wordt dynamisch opgebouwd uit language.json-
-                       metadata; geen vaste NL/EN-lijst meer in de dialoog.
+                       succesvolle export te openen.
+  v1.2.0 (2026-10-03)  Taalkeuze dynamisch uit language.json-metadata.
   v1.3.0 (2026-10-11)  Fase 8D: Auteur-veld en Rapportmap-veld toegevoegd
-                       aan de Rapportage-tab. Beide velden zijn optioneel en
-                       backward-compatible met bestaande settings.json.
-                       laatste_exportmap en laatste_importmap worden niet
-                       meer overschreven bij Toepassen: ze worden
-                       uitsluitend automatisch bijgehouden door de wizard
-                       en het exportdialoog.
-  v1.0.0 (2026-09-27)  Eerste implementatie van de drie Settings-tabs en
-                       bediening Herstellen/Annuleren/Toepassen/OK.
+                       aan de Rapportage-tab.
+  v1.0.0 (2026-09-27)  Eerste implementatie van de drie Settings-tabs.
   v1.4.0 (2026-10-14)  Fase 9H: checkbox "Bij opstarten controleren op
-                       updates" toegevoegd op het tabblad Algemeen,
-                       gekoppeld aan algemeen.controleer_updates_bij_opstarten.
-                       De handmatige check via Help blijft altijd beschikbaar;
-                       deze checkbox regelt alleen de opstartcontrole.
+                       updates".
+  v1.5.0 (2026-10-16)  Fase 11A.3: _kies_exportmap, _kies_importmap en
+                       _kies_rapportmap gebruiken de nieuwe helper
+                       app/helpers/dialog_start_directory als startpad.
+                       Het tekstveld krijgt voorrang; de helper is
+                       fallback als het veld leeg is. De dialoog blijft
+                       schrijven naar standaard_* en laatste_rapportmap
+                       zoals voorheen.
 ================================================================================
 """
 
@@ -71,6 +67,7 @@ from app.config.settings import (
     RapportageInstellingen,
     TESTSPANNINGEN_VRMS,
 )
+from app.helpers.dialog_start_directory import beste_startmap
 from app.helpers.i18n import STANDAARD_TAAL, beschikbare_taalinfos, vertaal
 
 
@@ -91,8 +88,6 @@ class SettingsDialog(QDialog):
 
         hoofd = QVBoxLayout(self)
         self.tabs = QTabWidget()
-        # QTabBar erft op Windows niet altijd de gewenste tekstkleur uit het
-        # centrale donkere thema. Houd deze lokale correctie beperkt tot tabs.
         self.tabs.setStyleSheet("""
             QTabBar::tab {
                 color: #f2f2f2;
@@ -170,9 +165,6 @@ class SettingsDialog(QDialog):
         self.tooltips_check = QCheckBox(self._t("settings.algemeen.tooltips"))
         form.addRow("", self.tooltips_check)
 
-        # v1.4.0 (9H): schakelt de eenmalige, niet-blokkerende update-check
-        # bij het opstarten in of uit. De handmatige check via Help blijft
-        # altijd beschikbaar.
         self.controleer_updates_check = QCheckBox(
             self._t("settings.algemeen.controleer_updates")
         )
@@ -203,20 +195,45 @@ class SettingsDialog(QDialog):
         form.addRow("", self.exportmap_openen_check)
         return tab
 
+    def _beste_startpad(
+        self,
+        *,
+        tekstveld_waarde: str,
+        categorie: str,
+    ) -> str:
+        """Beste startpad: tekstveld eerst, helper als fallback.
+
+        Als de gebruiker al een pad in het veld heeft getypt, gebruiken
+        we dat. Anders vragen we de helper (laatste_*map -> standaard_*map).
+        """
+        tekst = (tekstveld_waarde or "").strip()
+        if tekst:
+            return tekst
+        map_ = beste_startmap(categorie)  # type: ignore[arg-type]
+        return str(map_) if map_ is not None else ""
+
     def _kies_exportmap(self) -> None:
+        startpad = self._beste_startpad(
+            tekstveld_waarde=self.exportmap_edit.text(),
+            categorie="export",
+        )
         gekozen = QFileDialog.getExistingDirectory(
             self,
             self._t("settings.algemeen.exportmap_kiezen"),
-            self.exportmap_edit.text().strip(),
+            startpad,
         )
         if gekozen:
             self.exportmap_edit.setText(gekozen)
 
     def _kies_importmap(self) -> None:
+        startpad = self._beste_startpad(
+            tekstveld_waarde=self.importmap_edit.text(),
+            categorie="import",
+        )
         gekozen = QFileDialog.getExistingDirectory(
             self,
             self._t("settings.algemeen.importmap_kiezen"),
-            self.importmap_edit.text().strip(),
+            startpad,
         )
         if gekozen:
             self.importmap_edit.setText(gekozen)
@@ -302,13 +319,9 @@ class SettingsDialog(QDialog):
         self.werkplaats_edit = QLineEdit()
         form.addRow(self._t("settings.rapportage.werkplaats"), self.werkplaats_edit)
 
-        # Sinds 8D: optionele auteur voor de rapportkop.
         self.auteur_edit = QLineEdit()
         form.addRow(self._t("settings.rapportage.auteur"), self.auteur_edit)
 
-        # Sinds 8D: standaardmap voor rapportopslag, met Bladeren-knop.
-        # Dit is de startmap voor de opslaandialoog. De daadwerkelijke
-        # "laatste_rapportmap" wordt bijgehouden door het rapportdialoog.
         self.rapportmap_edit = QLineEdit()
         self.rapportmap_bladeren_btn = QPushButton(
             self._t("settings.algemeen.bladeren")
@@ -324,10 +337,14 @@ class SettingsDialog(QDialog):
         return tab
 
     def _kies_rapportmap(self) -> None:
+        startpad = self._beste_startpad(
+            tekstveld_waarde=self.rapportmap_edit.text(),
+            categorie="rapport",
+        )
         gekozen = QFileDialog.getExistingDirectory(
             self,
             self._t("settings.rapportage.rapportmap_kiezen"),
-            self.rapportmap_edit.text().strip(),
+            startpad,
         )
         if gekozen:
             self.rapportmap_edit.setText(gekozen)
@@ -336,7 +353,6 @@ class SettingsDialog(QDialog):
         self._select(self.taal_combo, instellingen.taal)
         self._select(self.thema_combo, instellingen.algemeen.thema)
         self.tooltips_check.setChecked(instellingen.algemeen.tooltips_ingeschakeld)
-        # v1.4.0 (9H): nieuwe checkbox.
         self.controleer_updates_check.setChecked(
             instellingen.algemeen.controleer_updates_bij_opstarten
         )
@@ -378,7 +394,6 @@ class SettingsDialog(QDialog):
             self._basis.algemeen,
             thema=self.thema_combo.currentData() or "dark",
             tooltips_ingeschakeld=self.tooltips_check.isChecked(),
-            # v1.4.0 (9H): nieuwe instelling.
             controleer_updates_bij_opstarten=(
                 self.controleer_updates_check.isChecked()
             ),
@@ -442,7 +457,6 @@ class SettingsDialog(QDialog):
                 self._widgets_naar_instellingen(),
                 taal=STANDAARD_TAAL,
                 algemeen=AlgemeneInstellingen(
-                    # Behoud de automatisch bijgehouden mappen.
                     laatste_exportmap=self._basis.algemeen.laatste_exportmap,
                     laatste_importmap=self._basis.algemeen.laatste_importmap,
                 ),

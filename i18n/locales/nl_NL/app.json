@@ -20,6 +20,7 @@
     "documentatie_zoeken": "Documentatie zoeken…",
     "document_importeren": "Document importeren…",
     "rapport": "Rapport maken…",
+    "rapport_tooltip": "Selecteer eerst een meting in de historiek.",
     "bug_melden": "🐞 Bug of feature melden…",
     "open_cases": "Open cases tonen",
     "controleren_op_updates": "Controleren op updates…"

@@ -2,20 +2,18 @@
 ================================================================================
 Module:     tests/test_report_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-11
+Versie:     1.2.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor ReportDialog.
 
 Wijzigingen:
-  v1.0.0 (2026-10-10)  Eerste versie: preview, grafiek-checkbox,
-                        opslaan-HTML, opslaan-PDF, foutafhandeling.
+  v1.0.0 (2026-10-10)  Eerste versie.
   v1.1.0 (2026-10-11)  Fase 8D: test voor grafiek_default-parameter.
-                        De grafiek-test roept _on_grafiek_toggled direct
-                        aan, zodat hij niet afhankelijk is van de
-                        startwaarde van de checkbox of van de globale
-                        settings.json.
+  v1.2.0 (2026-10-16)  Fase 11A.2: tests voor for_measurements classmethod,
+                        scope-parameter, en het uitschakelen van de grafiek
+                        bij meerdere metingen.
 ================================================================================
 """
 
@@ -81,7 +79,7 @@ def _detail(measurement_id: int = 42, *, tool_key: str = "ESR_CAPACITOR"):
         "measurement": SimpleNamespace(
             id=measurement_id,
             measurement_session_id=10,
-            measured_at_ms=1_700_000_000_000,
+            measured_at_ms=1_700_000_000_000 + measurement_id,
             tool_key=tool_key,
             measurement_method=_EnumValue.VALUE,
             instrument_key="LCR_ST1",
@@ -117,18 +115,43 @@ def _detail(measurement_id: int = 42, *, tool_key: str = "ESR_CAPACITOR"):
 
 
 class _StubReportService:
-    def __init__(self, detail=None):
+    def __init__(self, detail=None, *, details_by_id=None):
         self._detail = detail or _detail()
+        self._details_by_id = details_by_id or {self._detail["measurement"].id: self._detail}
+        self.calls: list[tuple[str, object]] = []
 
-    def build_bundle(self, measurement_id, *, taal, werkplaats="", rapportdatum=None):
+    def build_bundle(self, measurement_id, *, taal, werkplaats="", auteur="", scope="", rapportdatum=None):
         from app.services.report_service import ReportBundle
 
+        self.calls.append(("build_bundle", int(measurement_id)))
         return ReportBundle(
             details=(self._detail,),
             taal=taal,
             rapportdatum=rapportdatum or "2026-10-10 09:00:00",
             app_versie="0.1.0-dev",
             werkplaats=werkplaats,
+            auteur=auteur,
+            scope=scope,
+        )
+
+    def build_bundle_for_measurements(
+        self, measurement_ids, *, taal, werkplaats="", auteur="",
+        scope="", rapportdatum=None,
+    ):
+        from app.services.report_service import ReportBundle
+
+        self.calls.append(("build_bundle_for_measurements", list(measurement_ids)))
+        details = tuple(
+            self._details_by_id[mid] for mid in measurement_ids
+        )
+        return ReportBundle(
+            details=details,
+            taal=taal,
+            rapportdatum=rapportdatum or "2026-10-10 09:00:00",
+            app_versie="0.1.0-dev",
+            werkplaats=werkplaats,
+            auteur=auteur,
+            scope=scope,
         )
 
 
@@ -164,7 +187,7 @@ def test_dialog_bouwt_preview():
     html = dialog.preview.toHtml()
 
     assert "Meetrapport" in html or "meetrapport" in html.lower()
-    assert dialog._html  # HTML-string is opgebouwd
+    assert dialog._html
 
 
 def test_dialog_toont_geen_grafiek_bij_niet_esr():
@@ -180,11 +203,10 @@ def test_dialog_toont_geen_grafiek_bij_niet_esr():
 
 
 # ============================================================================
-# v1.1.0 — grafiek_default (fase 8D)
+# grafiek_default
 # ============================================================================
 
 def test_dialog_grafiek_checkbox_start_uit_default():
-    """Met grafiek_default=False start de checkbox uit."""
     dialog = ReportDialog(
         42,
         taal="nl_NL",
@@ -197,7 +219,6 @@ def test_dialog_grafiek_checkbox_start_uit_default():
 
 
 def test_dialog_grafiek_checkbox_start_aan_met_default():
-    """Met grafiek_default=True start de checkbox aan."""
     dialog = ReportDialog(
         42,
         taal="nl_NL",
@@ -209,12 +230,6 @@ def test_dialog_grafiek_checkbox_start_aan_met_default():
 
 
 def test_dialog_grafiek_checkbox_laadt_chart():
-    """De grafiek wordt geladen als de checkbox aangezet wordt.
-
-    We roepen _on_grafiek_toggled direct aan, zodat de test niet
-    afhankelijk is van de startwaarde van de checkbox of van de globale
-    settings.json. Dat test de logica, niet het Qt-signaal.
-    """
     dialog = ReportDialog(
         42,
         taal="nl_NL",
@@ -226,7 +241,6 @@ def test_dialog_grafiek_checkbox_laadt_chart():
     assert dialog._chart_png_base64 is None
 
     dialog.grafiek_checkbox.setChecked(True)
-    # Qt.CheckState.Checked == 2; expliciet aanroepen voor determinisme.
     dialog._on_grafiek_toggled(2)
 
     assert dialog._chart_png_base64 is not None
@@ -287,6 +301,8 @@ def test_dialog_toont_fout_bij_service_fout(monkeypatch):
     class _FouteService:
         def build_bundle(self, *args, **kwargs):
             raise ValueError("kapot")
+        def build_bundle_for_measurements(self, *args, **kwargs):
+            raise ValueError("kapot")
 
     monkeypatch.setattr(
         "app.gui.dialogs.report_dialog.QMessageBox.warning",
@@ -301,3 +317,99 @@ def test_dialog_toont_fout_bij_service_fout(monkeypatch):
     )
     assert dialog._bundle is None
     assert dialog._html == ""
+
+
+# ============================================================================
+# Fase 11A.2 — for_measurements
+# ============================================================================
+
+def test_for_measurements_bouwt_bundle_met_meerdere_ids():
+    detail_1 = _detail(measurement_id=1)
+    detail_2 = _detail(measurement_id=2)
+    service = _StubReportService(
+        details_by_id={1: detail_1, 2: detail_2}
+    )
+    dialog = ReportDialog.for_measurements(
+        [1, 2],
+        scope="selectie",
+        taal="nl_NL",
+        report_service=service,
+        analysis_service=_StubAnalysisService(),
+    )
+    assert dialog._bundle is not None
+    assert dialog._bundle.aantal_metingen == 2
+    assert dialog._bundle.scope == "selectie"
+    assert service.calls[-1] == ("build_bundle_for_measurements", [1, 2])
+
+
+def test_for_measurements_met_lege_lijst_faalt():
+    with pytest.raises(ValueError):
+        ReportDialog.for_measurements(
+            [],
+            taal="nl_NL",
+            report_service=_StubReportService(),
+            analysis_service=_StubAnalysisService(),
+        )
+
+
+def test_for_measurements_kop_toont_aantal():
+    detail_1 = _detail(measurement_id=1)
+    detail_2 = _detail(measurement_id=2)
+    service = _StubReportService(
+        details_by_id={1: detail_1, 2: detail_2}
+    )
+    dialog = ReportDialog.for_measurements(
+        [1, 2],
+        scope="selectie",
+        taal="nl_NL",
+        report_service=service,
+        analysis_service=_StubAnalysisService(),
+    )
+    assert "2" in dialog.kop_label.text()
+
+
+def test_for_measurements_grafiek_uitgeschakeld():
+    detail_1 = _detail(measurement_id=1)
+    detail_2 = _detail(measurement_id=2)
+    service = _StubReportService(
+        details_by_id={1: detail_1, 2: detail_2}
+    )
+    dialog = ReportDialog.for_measurements(
+        [1, 2],
+        scope="selectie",
+        taal="nl_NL",
+        report_service=service,
+        analysis_service=_StubAnalysisService(),
+    )
+    assert dialog._grafiek_beschikbaar is False
+    assert dialog.grafiek_checkbox.isEnabled() is False
+    assert dialog.grafiek_hint.text() != ""
+
+
+def test_for_measurements_html_bevat_scope_in_kop():
+    detail_1 = _detail(measurement_id=1)
+    detail_2 = _detail(measurement_id=2)
+    service = _StubReportService(
+        details_by_id={1: detail_1, 2: detail_2}
+    )
+    dialog = ReportDialog.for_measurements(
+        [1, 2],
+        scope="Selectie",
+        taal="nl_NL",
+        report_service=service,
+        analysis_service=_StubAnalysisService(),
+    )
+    assert "Selectie" in dialog._html
+
+
+def test_single_measurement_met_scope_enkel_gebruikt_build_bundle():
+    service = _StubReportService()
+    dialog = ReportDialog(
+        42,
+        taal="nl_NL",
+        report_service=service,
+        analysis_service=_StubAnalysisService(),
+        scope="Eén meting",
+    )
+    assert dialog._bundle.scope == "Eén meting"
+    assert service.calls[-1] == ("build_bundle", 42)

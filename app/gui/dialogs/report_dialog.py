@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/dialogs/report_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.0
-Datum:      2026-10-11
+Versie:     1.4.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Modale dialoog voor het maken en opslaan van meetrapporten.
@@ -11,7 +11,7 @@ Doel:       Modale dialoog voor het maken en opslaan van meetrapporten.
             De dialoog bouwt via ReportService een ReportBundle, rendert
             die met de pure HTML-renderer en toont een preview. De
             gebruiker kan optioneel een grafiek opnemen (alleen voor
-            ESR_CAPACITOR) en het rapport opslaan als HTML of PDF.
+            één ESR_CAPACITOR-meting) en het rapport opslaan als HTML of PDF.
 
             De dialoog schrijft nooit naar de database. Historische
             metingen en beoordelingen worden nooit opnieuw berekend.
@@ -20,25 +20,17 @@ Wijzigingen:
   v1.0.0 (2026-10-10)  Eerste versie: preview, grafiek-checkbox,
                         opslaan-HTML, opslaan-PDF.
   v1.0.1 (2026-10-10)  Fix: _start_directory() en _onthoud_map() lezen
-                        laatste_rapportmap defensief via getattr(). De
-                        instelling bestaat pas vanaf 8D; in 8C werkt de
-                        dialoog zonder die instelling en valt terug op
-                        standaard_exportmap.
-  v1.1.0 (2026-10-11)  Fase 8D: laatste_rapportmap bestaat nu; defensieve
-                        getattr() vervangen door directe toegang. Nieuwe
-                        parameter auteur voor de rapportkop. De
-                        grafiek-checkbox start met de instelling
-                        rapportage.grafiek_opnemen. Na een geslaagde
-                        opslag wordt de map geopend als
-                        exportmap_openen_na_export True is.
-  v1.2.0 (2026-10-11)  Fase 8D (vervolg): de startwaarde van de
-                        grafiek-checkbox komt niet langer uit een globale
-                        laad_instellingen() maar uit een expliciete
-                        parameter grafiek_default. Daardoor is de dialoog
-                        deterministisch en niet afhankelijk van de
-                        settings.json in de actieve map. De aanroeper
-                        (MainWindow) bepaalt de default. Backward-
-                        compatible: default blijft False.
+                        laatste_rapportmap defensief via getattr().
+  v1.1.0 (2026-10-11)  Fase 8D: laatste_rapportmap bestaat nu; auteur-
+                        parameter; grafiek-checkbox start met de instelling.
+  v1.2.0 (2026-10-11)  Fase 8D (vervolg): grafiek_default-parameter voor
+                        determinisme.
+  v1.3.0 (2026-10-16)  Fase 11A.2: classmethod for_measurements.
+  v1.4.0 (2026-10-16)  Fase 11A.3: _start_directory() en _onthoud_map()
+                        delegeren naar de nieuwe pure helper
+                        app/helpers/dialog_start_directory (categorie
+                        'rapport'). Geen gedragswijziging voor de
+                        gebruiker.
 ================================================================================
 """
 
@@ -47,7 +39,6 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from dataclasses import replace
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -65,7 +56,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.config.settings import laad_instellingen, sla_instellingen_op
+from app.config.settings import laad_instellingen
+from app.helpers.dialog_start_directory import (
+    beste_startmap as _beste_startmap_helper,
+    onthoud_startmap as _onthoud_startmap_helper,
+    startpad_voor_bestand as _startpad_voor_bestand_helper,
+)
 from app.helpers.i18n import vertaal
 from app.helpers.report_chart import render_chart_voor_detail
 from app.helpers.report_pdf import write_html_to_pdf
@@ -75,7 +71,7 @@ from app.services.report_service import ReportBundle, ReportService
 
 
 class ReportDialog(QDialog):
-    """Modale dialoog die één meetrapport toont en kan opslaan."""
+    """Modale dialoog die één of meerdere meetrapporten toont en kan opslaan."""
 
     def __init__(
         self,
@@ -88,10 +84,69 @@ class ReportDialog(QDialog):
         auteur: str = "",
         grafiek_default: bool = False,
         parent: QWidget | None = None,
+        scope: str = "",
     ) -> None:
-        super().__init__(parent)
+        self._init_intern(
+            measurement_ids=[int(measurement_id)],
+            scope=scope or "",
+            taal=taal,
+            report_service=report_service,
+            analysis_service=analysis_service,
+            werkplaats=werkplaats,
+            auteur=auteur,
+            grafiek_default=grafiek_default,
+            parent=parent,
+        )
+
+    @classmethod
+    def for_measurements(
+        cls,
+        measurement_ids: list[int],
+        *,
+        scope: str = "",
+        taal: str = "nl_NL",
+        report_service: ReportService | None = None,
+        analysis_service: AnalysisService | None = None,
+        werkplaats: str = "",
+        auteur: str = "",
+        grafiek_default: bool = False,
+        parent: QWidget | None = None,
+    ) -> "ReportDialog":
+        if not isinstance(measurement_ids, list) or not measurement_ids:
+            raise ValueError("measurement_ids moet een niet-lege lijst zijn.")
+        dialog = cls.__new__(cls)
+        dialog._init_intern(
+            measurement_ids=[int(mid) for mid in measurement_ids],
+            scope=scope,
+            taal=taal,
+            report_service=report_service,
+            analysis_service=analysis_service,
+            werkplaats=werkplaats,
+            auteur=auteur,
+            grafiek_default=grafiek_default,
+            parent=parent,
+        )
+        return dialog
+
+    def _init_intern(
+        self,
+        *,
+        measurement_ids: list[int],
+        scope: str,
+        taal: str,
+        report_service: ReportService | None,
+        analysis_service: AnalysisService | None,
+        werkplaats: str,
+        auteur: str,
+        grafiek_default: bool,
+        parent: QWidget | None,
+    ) -> None:
+        QDialog.__init__(self, parent)
+
         self.taal = taal
-        self._measurement_id = int(measurement_id)
+        self._measurement_ids: list[int] = list(measurement_ids)
+        self._measurement_id: int = self._measurement_ids[0]
+        self._scope = scope
         self._report_service = report_service or ReportService()
         self._analysis_service = analysis_service or AnalysisService()
         self._werkplaats = werkplaats
@@ -103,10 +158,6 @@ class ReportDialog(QDialog):
         self._chart_png_base64: str | None = None
         self._grafiek_beschikbaar: bool = False
 
-        # Sinds 8D: lees de rapportage-instellingen één keer in voor
-        # laatste_rapportmap en exportmap_openen_na_export. De
-        # grafiek_default komt NIET uit deze instellingen — die komt
-        # uit de parameter, zodat de dialoog deterministisch is.
         try:
             self._instellingen = laad_instellingen()
         except (OSError, ValueError):
@@ -120,30 +171,27 @@ class ReportDialog(QDialog):
         self._laad_bundle()
         self._render_preview()
 
-    # ------------------------------------------------------------------
-    # i18n
-    # ------------------------------------------------------------------
-
     def _t(self, sleutel: str, **kwargs) -> str:
         return vertaal(sleutel, taal=self.taal, **kwargs)
-
-    # ------------------------------------------------------------------
-    # UI
-    # ------------------------------------------------------------------
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(14, 14, 14, 14)
         root.setSpacing(10)
 
-        # Kop met meet-id en titel
-        self.kop_label = QLabel(
-            self._t("report.meting_kop", measurement_id=self._measurement_id)
-        )
+        if len(self._measurement_ids) == 1:
+            kop_tekst = self._t(
+                "report.meting_kop", measurement_id=self._measurement_id
+            )
+        else:
+            kop_tekst = self._t(
+                "report.dialoog.meerdere_metingen_kop",
+                aantal=len(self._measurement_ids),
+            )
+        self.kop_label = QLabel(kop_tekst)
         self.kop_label.setStyleSheet("font-size: 15px; font-weight: bold;")
         root.addWidget(self.kop_label)
 
-        # Preview
         preview_kop = QLabel(self._t("report.dialoog.preview_titel"))
         preview_kop.setStyleSheet("color: #BDBDBD;")
         root.addWidget(preview_kop)
@@ -156,7 +204,6 @@ class ReportDialog(QDialog):
         )
         root.addWidget(self.preview, 1)
 
-        # Grafiek-checkbox — startwaarde komt uit de parameter.
         self.grafiek_checkbox = QCheckBox(self._t("report.dialoog.grafiek_checkbox"))
         self.grafiek_checkbox.setChecked(self._grafiek_default)
         self.grafiek_checkbox.stateChanged.connect(self._on_grafiek_toggled)
@@ -166,7 +213,6 @@ class ReportDialog(QDialog):
         self.grafiek_hint.setStyleSheet("color: #9E9E9E; font-size: 10px;")
         root.addWidget(self.grafiek_hint)
 
-        # Knoppen
         knoppen = QHBoxLayout()
         knoppen.addStretch(1)
 
@@ -184,32 +230,47 @@ class ReportDialog(QDialog):
 
         root.addLayout(knoppen)
 
-    # ------------------------------------------------------------------
-    # Data laden
-    # ------------------------------------------------------------------
-
     def _laad_bundle(self) -> None:
         try:
-            self._bundle = self._report_service.build_bundle(
-                self._measurement_id,
-                taal=self.taal,
-                werkplaats=self._werkplaats,
-            )
+            if len(self._measurement_ids) == 1:
+                self._bundle = self._report_service.build_bundle(
+                    self._measurement_id,
+                    taal=self.taal,
+                    werkplaats=self._werkplaats,
+                    auteur=self._auteur,
+                    scope=self._scope,
+                )
+            else:
+                self._bundle = self._report_service.build_bundle_for_measurements(
+                    list(self._measurement_ids),
+                    taal=self.taal,
+                    werkplaats=self._werkplaats,
+                    auteur=self._auteur,
+                    scope=self._scope,
+                )
         except ValueError as exc:
             self._toon_fout(str(exc))
             self._bundle = None
             return
 
-        # Bepaal of er een grafiek beschikbaar is voor deze meting.
-        detail = self._bundle.detail
-        measurement = detail.get("measurement")
-        tool_key = str(getattr(measurement, "tool_key", "") or "")
-        self._grafiek_beschikbaar = tool_key == "ESR_CAPACITOR"
+        self._grafiek_beschikbaar = False
+        if len(self._measurement_ids) == 1:
+            detail = self._bundle.detail
+            measurement = detail.get("measurement")
+            tool_key = str(getattr(measurement, "tool_key", "") or "")
+            self._grafiek_beschikbaar = tool_key == "ESR_CAPACITOR"
 
         if not self._grafiek_beschikbaar:
             self.grafiek_checkbox.setEnabled(False)
             self.grafiek_checkbox.setChecked(False)
-            self.grafiek_hint.setText(self._t("report.dialoog.grafiek_niet_beschikbaar"))
+            if len(self._measurement_ids) > 1:
+                self.grafiek_hint.setText(
+                    self._t("report.dialoog.grafiek_meerdere_niet_beschikbaar")
+                )
+            else:
+                self.grafiek_hint.setText(
+                    self._t("report.dialoog.grafiek_niet_beschikbaar")
+                )
         else:
             self.grafiek_hint.setText("")
 
@@ -236,10 +297,6 @@ class ReportDialog(QDialog):
             return
 
         self.preview.setHtml(self._html)
-
-    # ------------------------------------------------------------------
-    # Grafiek
-    # ------------------------------------------------------------------
 
     def _on_grafiek_toggled(self, _state: int) -> None:
         if not self._grafiek_beschikbaar:
@@ -270,57 +327,19 @@ class ReportDialog(QDialog):
         self._render_preview()
 
     # ------------------------------------------------------------------
-    # Opslaan
+    # Opslaan — 11A.3: alle map-logica via de centrale helper.
     # ------------------------------------------------------------------
 
     def _start_directory(self) -> str:
-        """Beste startmap voor de opslaandialoog.
-
-        Sinds 8D bestaat laatste_rapportmap. We lezen hem direct uit de
-        instellingen (geen getattr meer nodig) en vallen terug op
-        standaard_exportmap als hij leeg is.
-        """
-        if self._instellingen is None:
-            return ""
-
-        kandidaten = [
-            self._instellingen.algemeen.laatste_rapportmap,
-            self._instellingen.algemeen.standaard_exportmap,
-        ]
-        for kandidaat in kandidaten:
-            if not kandidaat:
-                continue
-            try:
-                pad = Path(kandidaat).expanduser()
-            except (OSError, ValueError):
-                continue
-            if pad.is_dir():
-                return str(pad)
-        return ""
+        """Beste startmap via de centrale helper (categorie 'rapport')."""
+        map_ = _beste_startmap_helper("rapport")
+        return str(map_) if map_ is not None else ""
 
     def _onthoud_map(self, bestand: Path) -> None:
-        """Werk laatste_rapportmap bij na een geslaagde opslag.
-
-        Sinds 8D bestaat de instelling; we schrijven hem rechtstreeks.
-        """
-        try:
-            nieuwe_map = str(bestand.parent)
-            instellingen = laad_instellingen()
-            if instellingen.algemeen.laatste_rapportmap == nieuwe_map:
-                return
-            bijgewerkt = replace(
-                instellingen,
-                algemeen=replace(
-                    instellingen.algemeen,
-                    laatste_rapportmap=nieuwe_map,
-                ),
-            )
-            sla_instellingen_op(bijgewerkt)
-        except (OSError, ValueError):
-            pass
+        """Onthoud de map via de centrale helper (categorie 'rapport')."""
+        _onthoud_startmap_helper("rapport", bestand)
 
     def _open_map_indien_gewenst(self, bestand: Path) -> None:
-        """Open de map van het opgeslagen rapport als de instelling dat vraagt."""
         if self._instellingen is None:
             return
         if not self._instellingen.algemeen.exportmap_openen_na_export:
@@ -333,18 +352,22 @@ class ReportDialog(QDialog):
             else:
                 subprocess.Popen(["xdg-open", str(bestand.parent)])
         except OSError:
-            # Map openen is gemak, geen must. Stil falen.
             pass
+
+    def _default_bestandsnaam(self, extensie: str) -> str:
+        if len(self._measurement_ids) == 1:
+            return f"rapport_{self._measurement_id}.{extensie}"
+        return f"rapport_{len(self._measurement_ids)}metingen.{extensie}"
 
     def _opslaan_html(self) -> None:
         if not self._html:
             return
-        start = self._start_directory()
-        standaard = f"rapport_{self._measurement_id}.html"
+        standaard = self._default_bestandsnaam("html")
+        startpad = _startpad_voor_bestand_helper("rapport", standaard)
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             self._t("report.dialoog.opslaan_titel"),
-            str(Path(start) / standaard) if start else standaard,
+            startpad,
             self._t("report.dialoog.html_filter"),
         )
         if not file_path:
@@ -365,12 +388,12 @@ class ReportDialog(QDialog):
     def _opslaan_pdf(self) -> None:
         if not self._html:
             return
-        start = self._start_directory()
-        standaard = f"rapport_{self._measurement_id}.pdf"
+        standaard = self._default_bestandsnaam("pdf")
+        startpad = _startpad_voor_bestand_helper("rapport", standaard)
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             self._t("report.dialoog.opslaan_titel"),
-            str(Path(start) / standaard) if start else standaard,
+            startpad,
             self._t("report.dialoog.pdf_filter"),
         )
         if not file_path:
@@ -391,10 +414,6 @@ class ReportDialog(QDialog):
         self._onthoud_map(Path(file_path))
         self._open_map_indien_gewenst(Path(file_path))
         self._toon_succes(self._t("report.dialoog.geslaagd_pdf", pad=file_path))
-
-    # ------------------------------------------------------------------
-    # Meldingen
-    # ------------------------------------------------------------------
 
     def _toon_fout(self, bericht: str) -> None:
         QMessageBox.warning(

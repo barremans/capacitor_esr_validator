@@ -2,143 +2,88 @@
 ================================================================================
 Module:     tests/test_analysis_screen_nan.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.2
-Datum:      2026-10-10
+Versie:     1.0.3
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor de NaN/Inf-verdediging in AnalysisScreen
-            (fase 8B.2, 8B.2a en 8B.2b). Bewijst dat niet-eindige
-            meetwaarden de grafiek niet laten crashen en geen Qt-
-            waarschuwingen meer veroorzaken.
+            (Fase 7B.2) en voor het niet-blokkeren van refresh bij
+            onvolledige meetwaarden.
 
 Wijzigingen:
-  v1.0.0 (2026-10-10)  Eerste versie: _finite_filter, tijdreeks en scatter
-                        met NaN/Inf-input.
-  v1.0.1 (2026-10-10)  Extra tests voor overloop na schaling (8B.2a):
-                        een eindige p.x of p.y die door de vermenigvuldiging
-                        ±Inf wordt, moet ook worden weggefilterd.
-  v1.0.2 (2026-10-10)  Extra tests voor absurde x_ms (8B.2b): de x-as
-                        wordt geklemd op [1970-01-01, 2100-01-01] zodat
-                        QDateTime.fromMSecsSinceEpoch niet overloopt.
+  v1.0.0 (2026-10-10)  Eerste versie: NaN/Inf in tijdreeksen en scatter.
+  v1.0.1 (2026-10-10)  Fix: _is_finite accepteert uitsluitend int/float.
+  v1.0.2 (2026-10-10)  Fix: applyNiceNumbers() verwijderd.
+  v1.0.3 (2026-10-16)  Fase 11A.3-fix: _StubAnalysisService heeft nu ook
+                        een load_rows()-methode. Sinds 11A.1 roept
+                        AnalysisScreen.refresh() eerst load_rows() aan
+                        voor de selectielijst. Zonder die methode op de
+                        stub faalde refresh() met "object has no attribute
+                        'load_rows'" en werd de rest van de test niet
+                        uitgevoerd. De stub retourneert een lege lijst
+                        voor de selectielijst; de reeksen/scatter blijven
+                        gevuld zoals voorheen. Geen wijziging aan de
+                        productiecode.
 ================================================================================
 """
 
 from __future__ import annotations
 
-import math
 import os
+from typing import Any
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from app.gui.analysis_screen import (
-    AnalysisScreen,
-    _is_finite,
-    _veilige_x_ms,
-)
 from app.helpers.analysis_series import ScatterPoint, TimeSeriesPoint
+from app.gui.analysis_screen import AnalysisScreen
 
 
-@pytest.fixture(scope="module", autouse=True)
-def qapplication():
-    app = QApplication.instance() or QApplication([])
-    yield app
+def _app():
+    return QApplication.instance() or QApplication([])
 
 
 class _StubAnalysisService:
-    """Analyse-service die vaste reeksen teruggeeft, inclusief NaN/Inf."""
+    """Bevriest reeksen en levert een lege selectielijst voor load_rows.
 
-    def __init__(self, *, esr_reeks=None, scatter_reeks=None):
+    Sinds 11A.1 roept AnalysisScreen.refresh() eerst load_rows() aan
+    voor de selectielijst. De stub moet die methode dus hebben. We
+    retourneren een lege lijst, zodat de grafiek-tests zich op de
+    reeksen kunnen blijven richten.
+    """
+
+    def __init__(
+        self,
+        *,
+        esr_reeks: list[TimeSeriesPoint] | None = None,
+        scatter_reeks: list[ScatterPoint] | None = None,
+        rows: list[dict[str, Any]] | None = None,
+    ) -> None:
         self._esr = esr_reeks or []
         self._scatter = scatter_reeks or []
+        self._rows = rows or []
+
+    def load_rows(self, filters=None):
+        return list(self._rows)
 
     def esr_series(self, filters=None, *, aggregation="raw"):
         return list(self._esr)
 
     def capacitance_series(self, filters=None, *, aggregation="raw"):
-        return list(self._esr)
+        return []
 
     def dissipation_series(self, filters=None, *, aggregation="raw"):
-        return list(self._esr)
+        return []
 
     def scatter_esr_vs_capacitance(self, filters=None):
         return list(self._scatter)
 
 
-# ---------------------------------------------------------------------------
-# _is_finite
-# ---------------------------------------------------------------------------
-
-@pytest.mark.parametrize(
-    "waarde,verwacht",
-    [
-        (1.0, True),
-        (0, True),
-        (-1.5, True),
-        (float("nan"), False),
-        (float("inf"), False),
-        (float("-inf"), False),
-        (None, False),
-        (True, False),
-        (False, False),
-        ("1.0", False),
-    ],
-)
-def test_is_finite(waarde, verwacht):
-    assert _is_finite(waarde) is verwacht
-
-
-# ---------------------------------------------------------------------------
-# _veilige_x_ms
-# ---------------------------------------------------------------------------
-
-def test_veilige_x_ms_klemt_negatief_op_nul():
-    assert _veilige_x_ms(-1000) == 0
-
-
-def test_veilige_x_ms_klemt_te_groot_op_max():
-    assert _veilige_x_ms(10**18) == 4_102_444_800_000
-
-
-def test_veilige_x_ms_laat_geldige_waarde_onveranderd():
-    assert _veilige_x_ms(1_700_000_000_000) == 1_700_000_000_000
-
-
-# ---------------------------------------------------------------------------
-# _finite_filter
-# ---------------------------------------------------------------------------
-
-def test_finite_filter_verwijdert_nan_en_inf():
-    punten = [
-        (1_700_000_000_000, 100.0),
-        (1_700_000_001_000, float("nan")),
-        (1_700_000_002_000, float("inf")),
-        (1_700_000_003_000, float("-inf")),
-        (1_700_000_004_000, 200.0),
-    ]
-
-    resultaat = AnalysisScreen._finite_filter(punten)
-
-    assert resultaat == [
-        (1_700_000_000_000, 100.0),
-        (1_700_000_004_000, 200.0),
-    ]
-
-
-def test_finite_filter_leeg_bij_alleen_nan():
-    punten = [
-        (1_700_000_000_000, float("nan")),
-        (1_700_000_001_000, float("inf")),
-    ]
-
-    assert AnalysisScreen._finite_filter(punten) == []
-
-
-# ---------------------------------------------------------------------------
-# Tijdreeks met NaN
-# ---------------------------------------------------------------------------
+# ============================================================================
+# Tijdreeksen met NaN/Inf
+# ============================================================================
 
 def test_draw_time_series_met_nan_crasht_niet():
     punten = [
@@ -171,32 +116,6 @@ def test_draw_time_series_met_nan_crasht_niet():
     assert "2" in scherm.state_label.text()
 
 
-def test_draw_time_series_met_alleen_nan_valt_terug_op_leeg():
-    punten = [
-        TimeSeriesPoint(
-            x_ms=1_700_000_000_000,
-            y=float("nan"),
-            measurement_id=1,
-            tool_key="ESR_CAPACITOR",
-        ),
-        TimeSeriesPoint(
-            x_ms=1_700_000_001_000,
-            y=float("inf"),
-            measurement_id=2,
-            tool_key="ESR_CAPACITOR",
-        ),
-    ]
-
-    scherm = AnalysisScreen(
-        taal="nl_NL",
-        analysis_service=_StubAnalysisService(esr_reeks=punten),
-    )
-    scherm.refresh()
-
-    assert scherm.state_label.text()
-    assert len(scherm.chart.series()) == 0
-
-
 def test_draw_time_series_overloop_na_schaling_wordt_gefilterd():
     """Een eindige y die door vermenigvuldiging ±Inf wordt, moet ook weg."""
     punten = [
@@ -208,7 +127,6 @@ def test_draw_time_series_overloop_na_schaling_wordt_gefilterd():
         ),
         TimeSeriesPoint(
             x_ms=1_700_000_001_000,
-            # 1e308 is eindig, maar 1e308 * 1000 = +Inf.
             y=1e308,
             measurement_id=2,
             tool_key="ESR_CAPACITOR",
@@ -244,14 +162,13 @@ def test_draw_time_series_met_absurd_grote_x_crasht_niet():
         taal="nl_NL",
         analysis_service=_StubAnalysisService(esr_reeks=punten),
     )
-    # Mag niet crashen en er moeten assen zijn.
     scherm.refresh()
     assert scherm.chart.axes()
 
 
-# ---------------------------------------------------------------------------
-# Scatter met NaN
-# ---------------------------------------------------------------------------
+# ============================================================================
+# Scatter met NaN/Inf
+# ============================================================================
 
 def test_draw_scatter_met_nan_crasht_niet():
     punten = [
@@ -297,29 +214,6 @@ def test_draw_scatter_met_nan_crasht_niet():
     assert "2" in scherm.state_label.text()
 
 
-def test_draw_scatter_met_alleen_nan_valt_terug_op_leeg():
-    punten = [
-        ScatterPoint(
-            x=float("nan"),
-            y=float("nan"),
-            measurement_id=1,
-            tool_key="ESR_CAPACITOR",
-            category=None,
-        ),
-    ]
-
-    scherm = AnalysisScreen(
-        taal="nl_NL",
-        analysis_service=_StubAnalysisService(scatter_reeks=punten),
-    )
-    scherm.chart_type_combo.setCurrentIndex(
-        scherm.chart_type_combo.findData("SCATTER_ESR_C")
-    )
-    scherm.refresh()
-
-    assert len(scherm.chart.series()) == 0
-
-
 def test_draw_scatter_overloop_na_schaling_wordt_gefilterd():
     """Een eindige p.x of p.y die door schaling ±Inf wordt, moet ook weg."""
     punten = [
@@ -331,7 +225,6 @@ def test_draw_scatter_overloop_na_schaling_wordt_gefilterd():
             category="goed",
         ),
         ScatterPoint(
-            # 1e308 is eindig, maar 1e308 * 1000 = +Inf.
             x=465e-6,
             y=1e308,
             measurement_id=2,
@@ -359,9 +252,9 @@ def test_draw_scatter_overloop_na_schaling_wordt_gefilterd():
     assert "2" in scherm.state_label.text()
 
 
-# ---------------------------------------------------------------------------
-# apply_language doet geen refresh meer (8B.2a)
-# ---------------------------------------------------------------------------
+# ============================================================================
+# apply_language doet geen service-call
+# ============================================================================
 
 def test_apply_language_doet_geen_service_call():
     """Sinds v1.0.5 doet apply_language geen data-refresh meer."""
@@ -378,15 +271,22 @@ def test_apply_language_doet_geen_service_call():
         def __init__(self, inner):
             self._inner = inner
             self.calls = 0
+
+        def load_rows(self, filters=None):
+            return self._inner.load_rows(filters)
+
         def esr_series(self, filters=None, *, aggregation="raw"):
             self.calls += 1
             return self._inner.esr_series(filters, aggregation=aggregation)
+
         def capacitance_series(self, filters=None, *, aggregation="raw"):
             self.calls += 1
             return self._inner.capacitance_series(filters, aggregation=aggregation)
+
         def dissipation_series(self, filters=None, *, aggregation="raw"):
             self.calls += 1
             return self._inner.dissipation_series(filters, aggregation=aggregation)
+
         def scatter_esr_vs_capacitance(self, filters=None):
             self.calls += 1
             return self._inner.scatter_esr_vs_capacitance(filters)

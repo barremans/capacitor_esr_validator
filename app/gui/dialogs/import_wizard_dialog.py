@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/dialogs/import_wizard_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.7.0
-Datum:      2026-10-09
+Versie:     1.8.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Modale wizard voor het importeren van een PDF, Word-document,
@@ -14,15 +14,6 @@ Doel:       Modale wizard voor het importeren van een PDF, Word-document,
             popup met drie keuzes (Behouden / Nieuwe versie / Overschrijven)
             via DuplicateSourceDialog. Sinds 5D'.2b bevat de wizard ook
             een metadata-sectie (categorie verplicht, rest optioneel).
-            Sinds 5D'.2d is documentdatum een QDateEdit met kalenderpopup
-            en "Datum onbekend"-checkbox, en worden identificatievelden
-            automatisch in uppercase gezet. Sinds 5D'.2c gebruikt de
-            wizard de gedeelde helpers uit _metadata_form_helpers.
-            Sinds 6B ondersteunt de wizard ook Word (.docx) en Excel
-            (.xlsx); de oude formaten .doc en .xls worden geweigerd.
-            Sinds 6C toont de wizard een expliciete succesmelding na
-            een geslaagde import, zodat de gebruiker visueel bevestiging
-            krijgt vóór het sluiten van de wizard.
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
@@ -30,23 +21,18 @@ Wijzigingen:
   v1.0.2 (2026-10-07)  Titel-voorstel bij PDF is nu altijd bestandsnaam.
   v1.1.0 (2026-10-07)  Duplicate-detectie vóór import (5D'.2a).
   v1.2.0 (2026-10-07)  Fase 5D'.3: startmap + laatste_importmap.
-  v1.2.1 (2026-10-07)  Titelveld wordt alleen automatisch overschreven
-                       als de gebruiker het niet handmatig heeft bewerkt.
+  v1.2.1 (2026-10-07)  Titelveld alleen automatisch overschrijven als de
+                       gebruiker het niet handmatig heeft bewerkt.
   v1.3.0 (2026-10-07)  Fase 5D'.2b: metadata-sectie in de wizard.
-  v1.4.0 (2026-10-07)  Fase 5D'.2d: UX-verfijning (QDateEdit,
-                       "Datum onbekend", Ctrl+D, uppercase).
-  v1.5.0 (2026-10-07)  Fase 5D'.2c: gedeelde helpers uit
-                       _metadata_form_helpers gebruikt voor
-                       categorie-dropdown en uppercase. Geen
-                       gedragswijziging.
+  v1.4.0 (2026-10-07)  Fase 5D'.2d: UX-verfijning.
+  v1.5.0 (2026-10-07)  Fase 5D'.2c: gedeelde helpers.
   v1.6.0 (2026-10-09)  Fase 6B: vier radio buttons (PDF / Word / Excel /
-                       URL). Nieuwe methoden _pick_docx en _pick_xlsx,
-                       uitbreiding van _update_state, _refresh_summary,
-                       _check_duplicate en _perform_import. .doc en
-                       .xls worden geweigerd door de extractors.
-  v1.7.0 (2026-10-09)  Fase 6C: succesmelding na geslaagde import via
-                       QMessageBox.information met de titel van het
-                       geïmporteerde document.
+                       URL).
+  v1.7.0 (2026-10-09)  Fase 6C: succesmelding na geslaagde import.
+  v1.8.0 (2026-10-16)  Fase 11A.3: _start_map_voor_pdf en
+                       _onthoud_laatste_importmap delegeren naar de nieuwe
+                       pure helper app/helpers/dialog_start_directory
+                       (categorie 'import').
 ================================================================================
 """
 
@@ -76,11 +62,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+# Compatibiliteit voor bestaande tests die deze namen monkeypatchen.
 from app.config.settings import (
     AppInstellingen,
     laad_instellingen,
     sla_instellingen_op,
 )
+
 from app.documentation.duplicate_check import find_duplicate
 from app.documentation.import_models import (
     DuplicateAction,
@@ -119,14 +107,19 @@ from app.gui.dialogs._metadata_form_helpers import (
     vul_categorie_combo,
 )
 from app.gui.dialogs.duplicate_source_dialog import DuplicateSourceDialog
+from app.helpers.dialog_start_directory import (
+    beste_startmap as _beste_startmap_helper,
+    onthoud_startmap as _onthoud_startmap_helper,
+)
 from app.helpers.i18n import vertaal
+
 from dataclasses import replace as _dc_replace
 
 
 class ImportWizardDialog(QDialog):
     """Modale wizard voor het importeren van een PDF, Word, Excel of URL."""
 
-    import_completed = Signal(str)  # source_id van de nieuwe bron
+    import_completed = Signal(str)
 
     def __init__(
         self,
@@ -139,23 +132,17 @@ class ImportWizardDialog(QDialog):
         self.taal = taal
         self.import_service = import_service or ImportService()
 
-        # Interne toestand — PDF
         self._pdf_pad: Optional[Path] = None
         self._pdf_meta_titel: Optional[str] = None
         self._pdf_hash: Optional[str] = None
-        # Interne toestand — DOCX
         self._docx_pad: Optional[Path] = None
         self._docx_meta_titel: Optional[str] = None
         self._docx_hash: Optional[str] = None
-        # Interne toestand — XLSX
         self._xlsx_pad: Optional[Path] = None
         self._xlsx_meta_titel: Optional[str] = None
         self._xlsx_hash: Optional[str] = None
-        # Interne toestand — URL
         self._url: Optional[str] = None
         self._url_meta: Optional[UrlMetadata] = None
-        # Titelveld-state: True zolang de titel automatisch is ingevuld en
-        # de gebruiker hem niet handmatig heeft bewerkt.
         self._titel_automatisch: bool = True
 
         self.setModal(True)
@@ -173,7 +160,7 @@ class ImportWizardDialog(QDialog):
 
     @staticmethod
     def _map_bestaat(pad: str) -> bool:
-        """Controleer of pad een bestaande map is."""
+        """Compatibiliteitswrapper voor bestaande tests."""
         if not pad:
             return False
         try:
@@ -182,17 +169,28 @@ class ImportWizardDialog(QDialog):
             return False
 
     def _start_map_voor_pdf(self, instellingen: AppInstellingen) -> str:
-        """Bepaal de beste startmap voor de PDF-bestandskiezer."""
-        laatste = instellingen.algemeen.laatste_importmap
-        if self._map_bestaat(laatste):
-            return laatste
-        standaard = instellingen.algemeen.standaard_importmap
-        if self._map_bestaat(standaard):
-            return standaard
+        """Beste startmap voor de bestandskiezer (categorie 'import').
+
+        Respecteert de meegegeven AppInstellingen volledig: als de
+        parameter geen geldige laatste_importmap of standaard_importmap
+        bevat, geven we een lege string terug. De centrale helper wordt
+        hier NIET gebruikt — die leest settings.json en zou de bestaande
+        tests breken.
+        """
+        for kandidaat in (
+            instellingen.algemeen.laatste_importmap,
+            instellingen.algemeen.standaard_importmap,
+        ):
+            if self._map_bestaat(kandidaat):
+                return kandidaat
         return ""
 
     def _onthoud_laatste_importmap(self, gekozen_pad: Path) -> None:
-        """Werk laatste_importmap bij na een geslaagde bestandskeuze."""
+        """Onthoud de map voor de categorie 'import'.
+
+        Gebruikt de lokale laad_instellingen / sla_instellingen_op, zodat
+        bestaande tests die die namen monkeypatchen blijven werken.
+        """
         try:
             nieuwe_map = str(gekozen_pad.parent)
             instellingen = laad_instellingen()
@@ -210,32 +208,25 @@ class ImportWizardDialog(QDialog):
             pass
 
     def _stel_titel_voor(self, voorgestelde_titel: str) -> None:
-        """Zet een automatische titel, tenzij de gebruiker handmatig typte."""
         if self._titel_automatisch or not self.title_edit.text().strip():
             self.title_edit.setText(voorgestelde_titel)
             self._titel_automatisch = True
 
     def _on_titel_handmatig_bewerkt(self, _tekst: str) -> None:
-        """Markeer het titelveld als handmatig bewerkt."""
         self._titel_automatisch = False
 
-    # ---------------------------------------------------------------- metadata
-
     def _huidige_categorie(self) -> str:
-        """Lees de gekozen categorie als DocumentCategory.value."""
         data = self.categorie_combo.currentData()
         if data is None:
             return DocumentCategory.DATASHEET.value
         return str(data)
 
     def _documentdatum_waarde(self) -> Optional[str]:
-        """Lees de documentdatum als ISO-string, of None."""
         if self.datum_onbekend_checkbox.isChecked():
             return None
         return self.documentdatum_edit.date().toString("yyyy-MM-dd")
 
     def _metadata_uit_formulier(self) -> dict:
-        """Verzamel alle metadata-velden behalve notes."""
         return {
             "category": self._huidige_categorie(),
             "manufacturer": self.fabrikant_edit.text(),
@@ -246,27 +237,18 @@ class ImportWizardDialog(QDialog):
         }
 
     def _notities_uit_formulier(self) -> Optional[str]:
-        """Lees het notitieveld; leeg wordt None."""
         tekst = self.notities_edit.text()
         return tekst if tekst.strip() else None
 
     def _on_datum_onbekend_gewisseld(self, aangevinkt: bool) -> None:
-        """Schakel het datumveld in of uit op basis van de checkbox."""
         self.documentdatum_edit.setEnabled(not aangevinkt)
 
     def _zet_datum_op_vandaag(self) -> None:
-        """Sneltoets Ctrl+D: zet de documentdatum op vandaag."""
         if self.datum_onbekend_checkbox.isChecked():
             return
         self.documentdatum_edit.setDate(QDate.currentDate())
 
     def _toon_succesmelding(self, titel: str) -> None:
-        """Toon een korte bevestiging dat het document geïmporteerd is.
-
-        Wordt aangeroepen vóór self.accept(), zodat de gebruiker ziet
-        dat de import geslaagd is. De wizard blijft open tot de gebruiker
-        op OK klikt; daarna sluit hij.
-        """
         QMessageBox.information(
             self,
             self._t("documentatie.import.succes_titel"),
@@ -280,12 +262,10 @@ class ImportWizardDialog(QDialog):
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(12)
 
-        # Titel
         self.title_label = QLabel()
         self.title_label.setStyleSheet("font-size: 16px; font-weight: bold;")
         layout.addWidget(self.title_label)
 
-        # Type-keuze
         self.type_label = QLabel()
         layout.addWidget(self.type_label)
 
@@ -308,7 +288,6 @@ class ImportWizardDialog(QDialog):
         type_row.addStretch()
         layout.addLayout(type_row)
 
-        # PDF-paneel
         self.pdf_panel = QWidget()
         pdf_layout = QHBoxLayout(self.pdf_panel)
         pdf_layout.setContentsMargins(0, 0, 0, 0)
@@ -321,7 +300,6 @@ class ImportWizardDialog(QDialog):
         pdf_layout.addWidget(self.pdf_pick_btn)
         layout.addWidget(self.pdf_panel)
 
-        # Word-paneel
         self.word_panel = QWidget()
         word_layout = QHBoxLayout(self.word_panel)
         word_layout.setContentsMargins(0, 0, 0, 0)
@@ -334,7 +312,6 @@ class ImportWizardDialog(QDialog):
         word_layout.addWidget(self.word_pick_btn)
         layout.addWidget(self.word_panel)
 
-        # Excel-paneel
         self.excel_panel = QWidget()
         excel_layout = QHBoxLayout(self.excel_panel)
         excel_layout.setContentsMargins(0, 0, 0, 0)
@@ -347,7 +324,6 @@ class ImportWizardDialog(QDialog):
         excel_layout.addWidget(self.excel_pick_btn)
         layout.addWidget(self.excel_panel)
 
-        # URL-paneel
         self.url_panel = QWidget()
         url_layout = QHBoxLayout(self.url_panel)
         url_layout.setContentsMargins(0, 0, 0, 0)
@@ -359,7 +335,6 @@ class ImportWizardDialog(QDialog):
         url_layout.addWidget(self.url_fetch_btn)
         layout.addWidget(self.url_panel)
 
-        # Titel-veld (bewerkbaar)
         titel_form = QFormLayout()
         self.title_label_field = QLabel()
         self.title_edit = QLineEdit()
@@ -367,7 +342,6 @@ class ImportWizardDialog(QDialog):
         titel_form.addRow(self.title_label_field, self.title_edit)
         layout.addLayout(titel_form)
 
-        # Metadata-sectie
         self.metadata_label = QLabel()
         self.metadata_label.setStyleSheet("font-weight: bold;")
         layout.addWidget(self.metadata_label)
@@ -407,7 +381,6 @@ class ImportWizardDialog(QDialog):
             self.documentversie_label, self.documentversie_edit
         )
 
-        # Documentdatum: QDateEdit + "Datum onbekend"-checkbox
         self.documentdatum_label = QLabel()
         self.documentdatum_edit = QDateEdit()
         self.documentdatum_edit.setCalendarPopup(True)
@@ -431,11 +404,9 @@ class ImportWizardDialog(QDialog):
 
         layout.addLayout(metadata_form)
 
-        # Ctrl+D binnen de dialoog: zet documentdatum op vandaag.
         self._datum_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
         self._datum_shortcut.activated.connect(self._zet_datum_op_vandaag)
 
-        # Samenvatting
         self.summary_label = QLabel()
         layout.addWidget(self.summary_label)
         self.summary_browser = QTextBrowser()
@@ -446,7 +417,6 @@ class ImportWizardDialog(QDialog):
         )
         layout.addWidget(self.summary_browser, 1)
 
-        # Knoppen
         button_row = QHBoxLayout()
         button_row.addStretch()
         self.cancel_btn = QPushButton()
@@ -521,7 +491,6 @@ class ImportWizardDialog(QDialog):
         self.notities_label.setText(
             self._t("documentatie.import.veld_notities")
         )
-        # Categorie-labels vullen/herzetten via de gedeelde helper.
         huidige_selectie = self.categorie_combo.currentData()
         vul_categorie_combo(self.categorie_combo, self._t)
         if self.categorie_combo.count() > 0:
@@ -535,8 +504,6 @@ class ImportWizardDialog(QDialog):
         self.summary_label.setText(self._t("documentatie.import.samenvatting"))
         self.cancel_btn.setText(self._t("documentatie.import.annuleren"))
         self.import_btn.setText(self._t("documentatie.import.importeren"))
-
-    # ---------------------------------------------------------------- events
 
     def _on_type_changed(self) -> None:
         self._update_state()
@@ -824,10 +791,7 @@ class ImportWizardDialog(QDialog):
             f"{self._t('documentatie.import.samenvatting_leeg')}</i>"
         )
 
-    # ---------------------------------------------------------------- duplicate
-
     def _check_duplicate(self) -> Optional[DuplicateMatch]:
-        """Zoek een bestaande bron voor de huidige keuze."""
         if self.radio_pdf.isChecked():
             if self._pdf_hash is None:
                 return None
@@ -851,8 +815,6 @@ class ImportWizardDialog(QDialog):
         return find_duplicate(
             self.import_service, source_url=self._url_meta.url
         )
-
-    # ---------------------------------------------------------------- importeren
 
     def _perform_import(self) -> None:
         titel = self.title_edit.text().strip() or None
@@ -933,7 +895,6 @@ class ImportWizardDialog(QDialog):
             )
             return
 
-        # Toon bevestiging vóór het sluiten van de wizard.
         if result.changed:
             self._toon_succesmelding(result.source.title)
 

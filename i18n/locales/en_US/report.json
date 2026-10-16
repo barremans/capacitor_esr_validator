@@ -45,6 +45,8 @@
       "preview_titel": "Preview",
       "grafiek_checkbox": "Include chart",
       "grafiek_niet_beschikbaar": "No chart available for this measurement.",
+      "grafiek_meerdere_niet_beschikbaar": "Chart is only available for a single measurement.",
+      "meerdere_metingen_kop": "{aantal} measurements",
       "opslaan_html": "Save as HTML…",
       "opslaan_pdf": "Save as PDF…",
       "sluiten": "Close",
