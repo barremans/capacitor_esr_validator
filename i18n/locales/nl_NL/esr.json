@@ -118,7 +118,9 @@
     "mogelijke_inconsistentie": "mogelijke inconsistentie tussen C, ESR en D gesignaleerd",
     "geen_verlagende_factoren": "geen verlagende factoren",
     "one_leg": "meting met één aansluiting los: betrouwbaarheid maximaal middel",
-    "referentietype_wijkt_af": "referentietype wijkt af van condensatortype"
+    "referentietype_wijkt_af": "referentietype wijkt af van condensatortype",
+    "categorie_inhoudelijk": "inhoudelijke verlager",
+    "categorie_administratief": "administratieve verlager"
   },
   "eindstatus_reden": {
     "invoer_onvolledig": "Invoer onvolledig of geen meting gestart.",
@@ -129,6 +131,7 @@
     "open_verbinding_vermoed": "Open verbinding of kortsluiting vermoed.",
     "betrouwbaarheid_label": "Betrouwbaarheid: {niveau}.",
     "betrouwbaarheid_met_factoren": "Betrouwbaarheid: {niveau} ({factoren}).",
+    "betrouwbaarheid_laag_administratief": "Betrouwbaarheid: {niveau} door administratieve factoren ({factoren}); geen inhoudelijke verlagers gevonden, dus toch als waarschijnlijk goed beoordeeld.",
     "meerdere_criteria": "Meerdere onafhankelijke criteria wijzen op een defect:",
     "geen_striktere_regel": "Geen van de striktere regels was eenduidig van toepassing; voorzichtigheidshalve als aandachtspunt beoordeeld.",
     "buiten_bereik": "Minstens één meetwaarde ligt buiten het meetbereik of wordt als OL weergegeven."
@@ -192,7 +195,9 @@
     "meetfrequentie": "Meetfrequentie",
     "referentiebron": "Referentiebron",
     "referentieniveau": "Referentieniveau",
-    "referentiefrequentie": "Referentiefrequentie"
+    "referentiefrequentie": "Referentiefrequentie",
+    "inhoudelijke_verlagers": "Inhoudelijke verlagers",
+    "administratieve_verlagers": "Administratieve verlagers"
   },
   "opslag": {
     "meting_opgeslagen_titel": "Meting opgeslagen",

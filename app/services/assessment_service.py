@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/services/assessment_service.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.4.0
-Datum:      2026-10-15
+Versie:     1.5.0
+Datum:      2026-10-16
 Auteur:     Ontwikkelaar
 
 Doel:       Kernlogica van de indicatieve beoordeling: capaciteitsvalidatie,
@@ -31,6 +31,20 @@ Wijzigingen:
                        werkelijke referentiefrequentie te tonen i.p.v. een
                        aangenomen 100 kHz. Geen wijziging aan de drempels
                        of aan de beoordelingslogica zelf.
+  v1.5.0 (2026-10-16)  Fase 11B: onderscheid tussen inhoudelijke en
+                       administratieve betrouwbaarheidsverlagers.
+                       `BetrouwbaarheidsResultaat` krijgt het extra veld
+                       `inhoudelijke_verlagers`. `bepaal_eindstatus` gebruikt
+                       niet langer `betrouwbaarheid.niveau == LAAG` als
+                       trigger voor AANDACHTSPUNT, maar de aanwezigheid van
+                       minstens één inhoudelijke verlager (frequentieverschil,
+                       in-circuit/one-leg, type-mismatch, inconsistentie,
+                       onbekend/niet-elektrolytisch condensatortype).
+                       Administratieve verlagers (fabrikant/serie onbekend,
+                       temperatuur onbekend, typische referentiewaarde) verlagen
+                       de betrouwbaarheid wel, maar verhogen het minimum van de
+                       eindstatus niet. Geen wijziging aan drempels of aan de
+                       ESR-classificatie zelf.
 
 Referentie: docs/validation_rules.md (volledig), in het bijzonder:
             §2 referentiehiërarchie, §3 capaciteitsvalidatie,
@@ -199,8 +213,23 @@ class ConsistentieResultaat:
 
 @dataclass(frozen=True)
 class BetrouwbaarheidsResultaat:
+    """Betrouwbaarheid met onderscheid tussen inhoudelijke en administratieve
+    verlagers (fase 11B).
+
+    ``verlagende_factoren`` bevat alle verlagende factoren, in dezelfde
+    volgorde als ze toegepast zijn. ``inhoudelijke_verlagers`` is de
+    deelverzameling die de meetcontext zelf raakt (frequentieverschil,
+    in-circuit/one-leg, type-mismatch, inconsistentie, onbekend of
+    niet-elektrolytisch condensatortype). Alleen die deelverzameling
+    verhoogt het minimum van de eindstatus; administratieve verlagers
+    (fabrikant/serie onbekend, temperatuur onbekend, typische
+    referentiewaarde) verlagen de betrouwbaarheid wel, maar niet het
+    minimum van de eindstatus.
+    """
+
     niveau: Betrouwbaarheid
     verlagende_factoren: tuple[str, ...]
+    inhoudelijke_verlagers: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -490,6 +519,22 @@ def controleer_consistentie(
 
 # ---------------------------------------------------------------------------
 # §6 — Betrouwbaarheid
+#
+# Fase 11B: elke verlagende factor wordt geclassificeerd als inhoudelijk
+# (raakt de meetcontext zelf) of administratief (raakt enkel de documentatie
+# van de referentie/omgeving). Alleen inhoudelijke verlagers verhogen het
+# minimum van de eindstatus.
+#
+# Classificatie:
+#   inhoudelijk:
+#     - referentiefrequentie wijkt af van meetfrequentie
+#     - condensatortype onbekend of niet-elektrolytisch
+#     - referentietype wijkt af van condensatortype
+#     - mogelijke inconsistentie tussen C, ESR en D
+#     - meetmethode ONE_LEG of IN_CIRCUIT
+#   administratief:
+#     - omgevingstemperatuur onbekend
+#     - referentiewaarde is typisch i.p.v. maximaal#     - fabrikant en/of serie onbekend
 # ---------------------------------------------------------------------------
 def bepaal_betrouwbaarheid(
     referentieniveau: Optional[int],
@@ -513,6 +558,10 @@ def bepaal_betrouwbaarheid(
     IN_CIRCUIT -> betrouwbaarheid maximaal LAAG.
 
     Andere verlagende factoren blijven cumulatief van toepassing.
+
+    Elke verlagende factor wordt geclassificeerd als inhoudelijk of
+    administratief (fase 11B). Alleen inhoudelijke verlagers komen in
+    ``inhoudelijke_verlagers`` terecht.
     """
 
     try:
@@ -530,15 +579,16 @@ def bepaal_betrouwbaarheid(
         start_niveau = Betrouwbaarheid.LAAG
 
     verlagende_factoren: list[str] = []
+    inhoudelijke_verlagers: list[str] = []
 
     if referentiefrequentie_hz is None:
         # Zonder bekende referentiefrequentie is een ESR-vergelijking niet
         # voldoende onderbouwd; betrouwbaarheid blijft daarom maximaal LAAG.
         start_niveau = Betrouwbaarheid.LAAG
     elif referentiefrequentie_hz != meetfrequentie_hz:
-        verlagende_factoren.append(
-            vertaal("betrouwbaarheid_factor.referentiefrequentie_wijkt_af", taal=taal)
-        )
+        tekst = vertaal("betrouwbaarheid_factor.referentiefrequentie_wijkt_af", taal=taal)
+        verlagende_factoren.append(tekst)
+        inhoudelijke_verlagers.append(tekst)
 
     if omgevingstemperatuur_c is None:
         verlagende_factoren.append(
@@ -546,17 +596,17 @@ def bepaal_betrouwbaarheid(
         )
 
     if condensatortype != "Aluminium elektrolytisch":
-        verlagende_factoren.append(
-            vertaal("betrouwbaarheid_factor.condensatortype_onbekend", taal=taal)
-        )
+        tekst = vertaal("betrouwbaarheid_factor.condensatortype_onbekend", taal=taal)
+        verlagende_factoren.append(tekst)
+        inhoudelijke_verlagers.append(tekst)
 
     if (
         referentie_condensatortype
         and referentie_condensatortype != condensatortype
     ):
-        verlagende_factoren.append(
-            vertaal("betrouwbaarheid_factor.referentietype_wijkt_af", taal=taal)
-        )
+        tekst = vertaal("betrouwbaarheid_factor.referentietype_wijkt_af", taal=taal)
+        verlagende_factoren.append(tekst)
+        inhoudelijke_verlagers.append(tekst)
 
     if referentie_typisch_of_maximaal == "typisch":
         verlagende_factoren.append(
@@ -572,22 +622,22 @@ def bepaal_betrouwbaarheid(
         ConsistentieStatus.MOGELIJKE_INCONSISTENTIE,
         ConsistentieStatus.STERKE_AANWIJZING_EENHEDENFOUT,
     ):
-        verlagende_factoren.append(
-            vertaal("betrouwbaarheid_factor.mogelijke_inconsistentie", taal=taal)
-        )
+        tekst = vertaal("betrouwbaarheid_factor.mogelijke_inconsistentie", taal=taal)
+        verlagende_factoren.append(tekst)
+        inhoudelijke_verlagers.append(tekst)
 
     ordinaal = _BETROUWBAARHEID_ORDINAAL[start_niveau] - len(verlagende_factoren)
     ordinaal = max(0, ordinaal)
 
     if methode == Meetmethode.ONE_LEG:
-        verlagende_factoren.append(
-            vertaal("betrouwbaarheid_factor.one_leg", taal=taal)
-        )
+        tekst = vertaal("betrouwbaarheid_factor.one_leg", taal=taal)
+        verlagende_factoren.append(tekst)
+        inhoudelijke_verlagers.append(tekst)
         ordinaal = min(ordinaal, _BETROUWBAARHEID_ORDINAAL[Betrouwbaarheid.MIDDEL])
     elif methode == Meetmethode.IN_CIRCUIT:
-        verlagende_factoren.append(
-            vertaal("betrouwbaarheid_factor.in_circuit", taal=taal)
-        )
+        tekst = vertaal("betrouwbaarheid_factor.in_circuit", taal=taal)
+        verlagende_factoren.append(tekst)
+        inhoudelijke_verlagers.append(tekst)
         ordinaal = _BETROUWBAARHEID_ORDINAAL[Betrouwbaarheid.LAAG]
 
     # Een bewust gekozen referentie van een ander condensatortype is nooit
@@ -603,11 +653,18 @@ def bepaal_betrouwbaarheid(
     return BetrouwbaarheidsResultaat(
         niveau=eind_niveau,
         verlagende_factoren=tuple(verlagende_factoren),
+        inhoudelijke_verlagers=tuple(inhoudelijke_verlagers),
     )
 
 
 # ---------------------------------------------------------------------------
 # §7 — Eindstatus
+#
+# Fase 11B: de regel "betrouwbaarheid LAAG -> minimaal AANDACHTSPUNT" is
+# vervangen door "minstens één inhoudelijke verlager -> minimaal
+# AANDACHTSPUNT". Administratieve verlagers (fabrikant/serie onbekend,
+# temperatuur onbekend, typische referentiewaarde) verlagen de
+# betrouwbaarheid wel, maar niet het minimum van de eindstatus.
 # ---------------------------------------------------------------------------
 def bepaal_eindstatus(
     capaciteit: CapaciteitsResultaat,
@@ -713,10 +770,12 @@ def bepaal_eindstatus(
             vertaal("eindstatus_vervolgstap.vergelijk_of_ontkoppel", taal=taal),
         )
 
+    # Fase 11B: niet langer "betrouwbaarheid.niveau == LAAG" als trigger,
+    # maar de aanwezigheid van minstens één inhoudelijke verlager.
     if (
         capaciteit.status == CapaciteitsStatus.OP_GRENS
         or esr.status == EsrStatus.AANDACHTSPUNT
-        or betrouwbaarheid.niveau == Betrouwbaarheid.LAAG
+        or betrouwbaarheid.inhoudelijke_verlagers
     ):
         niveau_label = status_label("status.betrouwbaarheid", betrouwbaarheid.niveau.value, taal)
         factoren_tekst = ", ".join(betrouwbaarheid.verlagende_factoren) or vertaal(
@@ -741,8 +800,31 @@ def bepaal_eindstatus(
         capaciteit.status == CapaciteitsStatus.BINNEN_TOLERANTIE
         and esr.status == EsrStatus.WAARSCHIJNLIJK_NORMAAL
         and not sterke_inconsistentie
-        and betrouwbaarheid.niveau != Betrouwbaarheid.LAAG
     ):
+        # Fase 11B: een lage betrouwbaarheid door uitsluitend administratieve
+        # verlagers (fabrikant/serie onbekend, temperatuur onbekend, typische
+        # referentiewaarde) verhindert "waarschijnlijk goed" niet meer.
+        if betrouwbaarheid.niveau == Betrouwbaarheid.LAAG:
+            niveau_label = status_label(
+                "status.betrouwbaarheid", betrouwbaarheid.niveau.value, taal
+            )
+            factoren_tekst = ", ".join(betrouwbaarheid.verlagende_factoren) or vertaal(
+                "betrouwbaarheid_factor.geen_verlagende_factoren", taal=taal
+            )
+            return (
+                Eindstatus.WAARSCHIJNLIJK_GOED,
+                (
+                    capaciteit.toelichting,
+                    esr.toelichting,
+                    vertaal(
+                        "eindstatus_reden.betrouwbaarheid_laag_administratief",
+                        taal=taal,
+                        niveau=niveau_label,
+                        factoren=factoren_tekst,
+                    ),
+                ),
+                vertaal("eindstatus_vervolgstap.geen_actie", taal=taal),
+            )
         return (
             Eindstatus.WAARSCHIJNLIJK_GOED,
             (capaciteit.toelichting, esr.toelichting),

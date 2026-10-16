@@ -77,7 +77,66 @@ and the reference are on the same frequency.
   `zoek_referentie` and displays the actual reference frequency.
 - New i18n key: `resultaat.referentiefrequentie` (NL + EN).
 - New analysis script: `scripts/herbereken_steekproef.py`.
-- Baseline: 1297 passed.
+
+### UX polish (phase 11A, 16 October 2026)
+
+**Export now respects the selection**
+
+In **History** and **Analysis** you can use a scope dropdown to choose
+what to export: **current filters** or **selection**. If you check one
+or more measurements in the table, the app exports only those. Without
+a selection, the app exports the full filter result.
+
+**Selection and report in the Analysis page**
+
+The **Analysis** page has a compact selection list below the chart.
+If you check one or more measurements there, you can:
+
+- **Export…** — as overview CSV, detail CSV, or both.
+- **Create report…** — a report for exactly that selection.
+
+**Report with scope "selection"**
+
+The measurement report now supports a report over **multiple
+measurements**. The report header shows the scope ("Singlemeasurement" or "Selection"). The chart section is only available for
+a single measurement.
+
+**Menu "Create report…" is disabled without a selection**
+
+In the **File** menu, the item **Create report…** is now disabled
+while no measurement is selected. A tooltip explains why. On the
+**Analysis** page, the item becomes active as soon as you have a
+checkbox selection.
+
+**Folder preferences are respected everywhere**
+
+A new pure helper (`app/helpers/dialog_start_directory.py`) determines
+the best start folder for every `QFileDialog`:
+
+- **Export** — `laatste_exportmap` → `standaard_exportmap`.
+- **Import** — `laatste_importmap` → `standaard_importmap`.
+- **Report** — `laatste_rapportmap` → `standaard_exportmap`.
+
+After a successful export/import/report, the folder used is
+automatically remembered for next time.
+
+**For developers**
+
+- `app/gui/analysis_screen.py` — compact selection list below the
+  chart via `QSplitter`, checkbox column, scope dropdown, type
+  dropdown, export button and `report_btn`. New signals
+  `selection_changed` and `back_requested`.
+- `app/gui/history_screen.py` — new `selection_changed` signal with
+  snapshot deduplication. `report_btn` respects the checkbox
+  selection.
+- `app/gui/main_window.py` — `_open_report_dialog()` chooses the scope
+  based on the active page and selection.
+- `app/gui/dialogs/report_dialog.py` — new classmethod
+  `for_measurements(measurement_ids, ...)`.
+- **New:** `app/helpers/dialog_start_directory.py` (v1.0.0).
+- New i18n keys: 24 under `analyse.selectie.*`, `analyse.export.*`,
+  `analyse.rapport.*` and `menu.rapport_tooltip` (NL + EN).
+- Baseline: **1347 passed** (was 1297).
 
 ## Version 1.1.1 — Update check at startup and via Help (15 October 2026)
 
@@ -504,9 +563,10 @@ metadata of imported documents.
 - **Version 1.2.0 — UX/documentation polish.** All small points left
   over from earlier phases:
   - **11A** — Export, import and selection: export respects
-    selection, import of measurements from another device, folder
-    preferences respected, visual selection in Analysis,
-    report scope "selection".
+    selection, visual selection in Analysis, report scope "selection",
+    menu item disabled without selection, folder preferences
+    respected. **Completed on 16 October 2026.** The remaining points
+    from §11A (import of measurements from another device) stay open.
   - **11B** — Reliability rule revised: distinction between
     substantive and administrative reliability reducers.
   - **11C** — Icons for all windows.

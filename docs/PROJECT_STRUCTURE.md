@@ -275,8 +275,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Modale wizard voor het importeren van een PDF, Word-document,
           # Auteur: Bart Bossuyt
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-          # Versie: 1.7.0
-          # Datum: 2026-10-09
+          # Versie: 1.8.0
+          # Datum: 2026-10-16
           ```
         - 📄 **/app/gui/dialogs/report_dialog.py**
           ```text
@@ -284,8 +284,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Modale dialoog voor het maken en opslaan van meetrapporten.
           # Auteur: Bart Bossuyt
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-          # Versie: 1.2.0
-          # Datum: 2026-10-11
+          # Versie: 1.4.0
+          # Datum: 2026-10-16
           ```
         - 📄 **/app/gui/dialogs/search_help_dialog.py**
           ```text
@@ -302,8 +302,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Modale Settings-dialoog met tabs Algemeen, ESR / Condensator en
           # Auteur: Bart Bossuyt
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-          # Versie: 1.4.0
-          # Datum: 2026-10-14
+          # Versie: 1.5.0
+          # Datum: 2026-10-16
           ```
       - 📄 **/app/gui/__init__.py**
         ```text
@@ -318,8 +318,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Read-only Analyse-pagina binnen het hoofdvenster.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.0.6
-        # Datum: 2026-10-10
+        # Versie: 1.3.0
+        # Datum: 2026-10-16
         ```
       - 📄 **/app/gui/documentation_screen.py**
         ```text
@@ -345,8 +345,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Compacte centrale read-only weergave van opgeslagen meethistoriek.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.14.0
-        # Datum: 2026-10-10
+        # Versie: 1.17.1
+        # Datum: 2026-10-16
         ```
       - 📄 **/app/gui/main_window.py**
         ```text
@@ -354,8 +354,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Hoofdvenster van de Tool Hub met één-venster-navigatie.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 2.14.0
-        # Datum: 2026-10-15
+        # Versie: 2.16.0
+        # Datum: 2026-10-16
         ```
       - 📄 **/app/gui/styles.py**
         ```text
@@ -382,6 +382,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
         # Versie: 1.0.1
         # Datum: 2026-10-09
+        ```
+      - 📄 **/app/helpers/dialog_start_directory.py**
+        ```text
+        # Bestandsnaam: app/helpers/dialog_start_directory.py
+        # Beschrijving: GUI-onafhankelijke helper voor de beste startmap van QFileDialog-
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.0
+        # Datum: 2026-10-16
         ```
       - 📄 **/app/helpers/document_source_paths.py**
         ```text
@@ -737,11 +746,11 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     - 📄 **/tests/test_analysis_screen.py**
       ```text
       # Bestandsnaam: tests/test_analysis_screen.py
-      # Beschrijving: GUI-regressietests voor AnalysisScreen (Fase 7B).
+      # Beschrijving: GUI-regressietests voor AnalysisScreen.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.2
-      # Datum: 2026-10-09
+      # Versie: 1.3.1
+      # Datum: 2026-10-16
       ```
     - 📄 **/tests/test_analysis_screen_nan.py**
       ```text
@@ -749,8 +758,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor de NaN/Inf-verdediging in AnalysisScreen
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.2
-      # Datum: 2026-10-10
+      # Versie: 1.0.3
+      # Datum: 2026-10-16
       ```
     - 📄 **/tests/test_analysis_series.py**
       ```text
@@ -796,6 +805,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
       # Versie: 1.0.1
       # Datum: 2026-10-14
+      ```
+    - 📄 **/tests/test_dialog_start_directory.py**
+      ```text
+      # Bestandsnaam: tests/test_dialog_start_directory.py
+      # Beschrijving: Regressietests voor app/helpers/dialog_start_directory.
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-16
       ```
     - 📄 **/tests/test_document_source_paths.py**
       ```text
@@ -1124,11 +1142,11 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     - 📄 **/tests/test_history_screen_report_button.py**
       ```text
       # Bestandsnaam: tests/test_history_screen_report_button.py
-      # Beschrijving: Regressietests voor de "Rapport"-knop in HistoryScreen (Fase 8C).
+      # Beschrijving: Regressietests voor de "Rapport"-knop in HistoryScreen.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.0
-      # Datum: 2026-10-10
+      # Versie: 1.2.0
+      # Datum: 2026-10-16
       ```
     - 📄 **/tests/test_history_service.py**
       ```text
@@ -1268,11 +1286,11 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     - 📄 **/tests/test_main_window_report_menu.py**
       ```text
       # Bestandsnaam: tests/test_main_window_report_menu.py
-      # Beschrijving: Regressietests voor het menu-item "Rapport maken…" (Fase 8C).
+      # Beschrijving: Regressietests voor het menu-item "Rapport maken…".
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.4
-      # Datum: 2026-10-10
+      # Versie: 1.2.0
+      # Datum: 2026-10-16
       ```
     - 📄 **/tests/test_main_window_reporting_menu.py**
       ```text
@@ -1352,8 +1370,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: GUI-regressietests voor ReportDialog.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.1.0
-      # Datum: 2026-10-11
+      # Versie: 1.2.0
+      # Datum: 2026-10-16
       ```
     - 📄 **/tests/test_report_pdf.py**
       ```text

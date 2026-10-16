@@ -118,7 +118,9 @@
     "mogelijke_inconsistentie": "possible inconsistency between C, ESR, and D flagged",
     "geen_verlagende_factoren": "no reducing factors",
     "one_leg": "one terminal disconnected: reliability capped at medium",
-    "referentietype_wijkt_af": "reference type differs from capacitor type"
+    "referentietype_wijkt_af": "reference type differs from capacitor type",
+    "categorie_inhoudelijk": "content-related reducer",
+    "categorie_administratief": "administrative reducer"
   },
   "eindstatus_reden": {
     "invoer_onvolledig": "Input incomplete or no measurement started.",
@@ -129,6 +131,7 @@
     "open_verbinding_vermoed": "Open connection or short circuit suspected.",
     "betrouwbaarheid_label": "Reliability: {niveau}.",
     "betrouwbaarheid_met_factoren": "Reliability: {niveau} ({factoren}).",
+    "betrouwbaarheid_laag_administratief": "Reliability: {niveau} due to administrative factors ({factoren}); no content-related reducers found, so still assessed as likely good.",
     "meerdere_criteria": "Multiple independent criteria indicate a defect:",
     "geen_striktere_regel": "None of the stricter rules clearly applied; conservatively assessed as a point of attention.",
     "buiten_bereik": "At least one measurement is outside the instrument range or displayed as OL."
@@ -192,7 +195,9 @@
     "meetfrequentie": "Measurement frequency",
     "referentiebron": "Reference source",
     "referentieniveau": "Reference level",
-    "referentiefrequentie": "Reference frequency"
+    "referentiefrequentie": "Reference frequency",
+    "inhoudelijke_verlagers": "Content-related reducers",
+    "administratieve_verlagers": "Administrative reducers"
   },
   "opslag": {
     "meting_opgeslagen_titel": "Measurement saved",

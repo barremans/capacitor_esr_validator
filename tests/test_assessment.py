@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_assessment.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.4.0
-Datum:      2026-10-15
+Versie:     1.5.0
+Datum:      2026-10-16
 Auteur:     Ontwikkelaar
 
 Doel:       Unit tests voor de assessment_service. Test alle 20 testgevallen
@@ -25,6 +25,22 @@ Wijzigingen:
                        ontbrekende referentiefrequentie.
   v1.4.0 (2026-10-15)  Fase 10B: tests voor het nieuwe veld
                        `referentiefrequentie_hz` in Beoordeling.
+  v1.5.0 (2026-10-16)  Fase 11B: tests voor het onderscheid tussen
+                       inhoudelijke en administratieve verlagers, en voor
+                       het feit dat administratieve verlagers alleen
+                       "waarschijnlijk goed" niet meer blokkeren.
+                       In het bijzonder:
+                       - condensatortype_onbekend is inhoudelijk;
+                       - test_meerdere_verlagende_factoren verwacht nu
+                         4 inhoudelijke verlagers;
+                       - test_bepaal_betrouwbaarheid_splitst_correct
+                         verwacht 3 verlagende factoren;
+                       - test_bepaal_betrouwbaarheid_alleen_administratief
+                         verwacht 2 verlagende factoren;
+                       - test_gebruiksscenario_1_goed gebruikt D=None,
+                         zodat de consistentiecontrole niet tussenbeide
+                         komt en de test het frequentieverschil als
+                         enige inhoudelijke verlager test.
 ================================================================================
 """
 
@@ -249,17 +265,237 @@ class TestBetrouwbaarheid(unittest.TestCase):
 
         self.assertEqual(r.niveau, Betrouwbaarheid.LAAG)
 
-        # In v1.3 telt IN_CIRCUIT als expliciete extra verlagende factor.
         # Dit scenario bevat minimaal:
-        # - frequentieverschil
-        # - temperatuur onbekend
-        # - condensatortype afwijkend/onbekend
-        # - typische referentiewaarde
-        # - fabrikant/serie onbekend
-        # - mogelijke C-ESR-D-inconsistentie
-        # - in-circuit meetmethode
+        # - frequentieverschil (inhoudelijk)
+        # - temperatuur onbekend (administratief)
+        # - condensatortype "Anders" (inhoudelijk)
+        # - typische referentiewaarde (administratief)
+        # - fabrikant/serie onbekend (administratief)
+        # - mogelijke C-ESR-D-inconsistentie (inhoudelijk)
+        # - in-circuit meetmethode (inhoudelijk)
         self.assertGreaterEqual(len(r.verlagende_factoren), 7)
+        # Inhoudelijke verlagers: frequentie, type, inconsistentie, in-circuit.
+        self.assertGreaterEqual(len(r.inhoudelijke_verlagers), 4)
 
+
+class TestInhoudelijkeVsAdministratieveVerlagers(unittest.TestCase):
+    """Fase 11B: alleen inhoudelijke verlagers verhogen het minimum van de
+    eindstatus. Administratieve verlagers verlagen de betrouwbaarheid wel."""
+
+    def _ref(self, freq_hz=1000, type_="Aluminium elektrolytisch"):
+        return ReferentieContext(
+            esr_waarde=100,
+            eenheid="mΩ",
+            bron="Test",
+            referentieniveau=1,
+            frequentie_hz=freq_hz,
+            typisch_of_maximaal="maximaal",
+            condensatortype=type_,
+        )
+
+    def test_alleen_administratieve_verlagers_geven_waarschijnlijk_goed(self):
+        """Goede C + normale ESR + lage betrouwbaarheid door alleen
+        fabrikant/serie onbekend -> WAARSCHIJNLIJK_GOED."""
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=100,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=100,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=80,
+            eenheid_gemeten_esr="mΩ",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=self._ref(),
+            fabrikant_bekend=False,
+            serie_bekend=False,
+        )
+        # Referentieniveau 1 -> start HOOG. Eén administratieve verlager
+        # (fabrikant/serie onbekend) -> MIDDEL. Geen inhoudelijke verlagers.
+        self.assertEqual(resultaat.betrouwbaarheid.niveau, Betrouwbaarheid.MIDDEL)
+        self.assertEqual(resultaat.betrouwbaarheid.inhoudelijke_verlagers, ())
+        self.assertEqual(resultaat.eindstatus, Eindstatus.WAARSCHIJNLIJK_GOED)
+
+    def test_alleen_administratieve_verlagers_meerdere_geven_waarschijnlijk_goed(self):
+        """Idem, maar met meerdere administratieve verlagers zodat het
+        niveau tot LAAG zakt. Eindstatus blijft WAARSCHIJNLIJK_GOED."""
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=100,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=100,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=80,
+            eenheid_gemeten_esr="mΩ",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=None,  # administratief
+            veiligheid_bevestigd=True,
+            referentie=self._ref(),
+            fabrikant_bekend=False,  # administratief
+            serie_bekend=False,      # administratief
+        )
+        # HOOG - 3 administratieve = LAAG, geen inhoudelijke verlagers.
+        self.assertEqual(resultaat.betrouwbaarheid.niveau, Betrouwbaarheid.LAAG)
+        self.assertEqual(resultaat.betrouwbaarheid.inhoudelijke_verlagers, ())
+        self.assertEqual(resultaat.eindstatus, Eindstatus.WAARSCHIJNLIJK_GOED)
+
+    def test_inhoudelijke_verlager_frequentieverschil_geeft_aandachtspunt(self):
+        """Idem, maar met frequentieverschil (inhoudelijk) -> AANDACHTSPUNT."""
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=100,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=100,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=80,
+            eenheid_gemeten_esr="mΩ",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=self._ref(freq_hz=100000),  # inhoudelijk verschil
+            fabrikant_bekend=False,
+            serie_bekend=False,
+        )
+        self.assertTrue(resultaat.betrouwbaarheid.inhoudelijke_verlagers)
+        self.assertEqual(resultaat.eindstatus, Eindstatus.AANDACHTSPUNT)
+
+    def test_inhoudelijke_verlager_in_circuit_geeft_aandachtspunt(self):
+        """Idem, maar in-circuit (inhoudelijk) -> AANDACHTSPUNT."""
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=100,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=100,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=80,
+            eenheid_gemeten_esr="mΩ",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.IN_CIRCUIT,  # inhoudelijk
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=self._ref(),
+            fabrikant_bekend=True,
+            serie_bekend=True,
+        )
+        self.assertTrue(resultaat.betrouwbaarheid.inhoudelijke_verlagers)
+        self.assertEqual(resultaat.eindstatus, Eindstatus.AANDACHTSPUNT)
+
+    def test_inhoudelijke_verlager_type_mismatch_geeft_aandachtspunt(self):
+        """Idem, maar met type-mismatch (inhoudelijk) -> AANDACHTSPUNT."""
+        resultaat = beoordeel_meting(
+            nominale_capaciteit=100,
+            eenheid_nominaal="µF",
+            tolerantie_percent=20,
+            gemeten_capaciteit=100,
+            eenheid_gemeten_capaciteit="µF",
+            gemeten_esr=80,
+            eenheid_gemeten_esr="mΩ",
+            meetfrequentie_hz=1000,
+            D=None,
+            condensatortype="Anders",  # mismatch t.o.v. referentie
+            meetmethode=Meetmethode.EX_SITU,
+            omgevingstemperatuur_c=20,
+            veiligheid_bevestigd=True,
+            referentie=self._ref(type_="Aluminium elektrolytisch"),
+            fabrikant_bekend=True,
+            serie_bekend=True,
+        )
+        self.assertTrue(resultaat.betrouwbaarheid.inhoudelijke_verlagers)
+        self.assertEqual(resultaat.eindstatus, Eindstatus.AANDACHTSPUNT)
+
+    def test_bepaal_betrouwbaarheid_splitst_correct(self):
+        """Directe test op bepaal_betrouwbaarheid: de classificatie van
+        factoren in inhoudelijk vs. administratief.
+
+        Scenario: referentieniveau 1, frequentieverschil (inhoudelijk),
+        temperatuur onbekend (administratief), fabrikant/serie onbekend
+        (administratief). Condensatortype is elektrolytisch, dus geen
+        type-verlager.
+        """
+        r = bepaal_betrouwbaarheid(
+            referentieniveau=1,
+            referentiefrequentie_hz=100000,  # inhoudelijk verschil
+            meetfrequentie_hz=1000,
+            omgevingstemperatuur_c=None,     # administratief
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            referentie_typisch_of_maximaal="maximaal",
+            fabrikant_bekend=False,          # administratief
+            serie_bekend=False,              # administratief
+            consistentie_status=ConsistentieStatus.CONSISTENT,
+        )
+        self.assertEqual(len(r.inhoudelijke_verlagers), 1)
+        self.assertIn("frequentie", r.inhoudelijke_verlagers[0].lower())
+        # Drie verlagende factoren: frequentie, temperatuur, fabrikant/serie.
+        self.assertEqual(len(r.verlagende_factoren), 3)
+
+    def test_bepaal_betrouwbaarheid_alleen_administratief(self):
+        """Directe test: alleen administratieve verlagers -> lege
+        inhoudelijke_verlagers.
+
+        Scenario: temperatuur onbekend + fabrikant/serie onbekend.
+        Twee verlagende factoren, beide administratief.
+        """
+        r = bepaal_betrouwbaarheid(
+            referentieniveau=1,
+            referentiefrequentie_hz=1000,
+            meetfrequentie_hz=1000,
+            omgevingstemperatuur_c=None,     # administratief
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            referentie_typisch_of_maximaal="maximaal",
+            fabrikant_bekend=False,          # administratief
+            serie_bekend=False,              # administratief
+            consistentie_status=ConsistentieStatus.CONSISTENT,
+        )
+        self.assertEqual(r.inhoudelijke_verlagers, ())
+        self.assertEqual(len(r.verlagende_factoren), 2)
+
+    def test_bepaal_betrouwbaarheid_typische_referentie_is_administratief(self):
+        """Een typische referentiewaarde is administratief, niet inhoudelijk."""
+        r = bepaal_betrouwbaarheid(
+            referentieniveau=1,
+            referentiefrequentie_hz=1000,
+            meetfrequentie_hz=1000,
+            omgevingstemperatuur_c=20,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            referentie_typisch_of_maximaal="typisch",  # administratief
+            fabrikant_bekend=True,
+            serie_bekend=True,
+            consistentie_status=ConsistentieStatus.CONSISTENT,
+        )
+        self.assertEqual(r.inhoudelijke_verlagers, ())
+        self.assertEqual(len(r.verlagende_factoren), 1)
+
+    def test_bepaal_betrouwbaarheid_inconsistentie_is_inhoudelijk(self):
+        """Een C-ESR-D-inconsistentie is inhoudelijk."""
+        r = bepaal_betrouwbaarheid(
+            referentieniveau=1,
+            referentiefrequentie_hz=1000,
+            meetfrequentie_hz=1000,
+            omgevingstemperatuur_c=20,
+            condensatortype="Aluminium elektrolytisch",
+            meetmethode=Meetmethode.EX_SITU,
+            referentie_typisch_of_maximaal="maximaal",
+            fabrikant_bekend=True,
+            serie_bekend=True,
+            consistentie_status=ConsistentieStatus.MOGELIJKE_INCONSISTENTIE,
+        )
+        self.assertEqual(len(r.inhoudelijke_verlagers), 1)
+        self.assertEqual(len(r.verlagende_factoren), 1)
 
 
 class TestReferentieValidatie(unittest.TestCase):
@@ -404,7 +640,13 @@ class TestVolledigeMeting(unittest.TestCase):
     """Testgevallen voor de volledige beoordelingsketen."""
 
     def test_gebruiksscenario_1_goed(self):
-        """470µF/25V condensator, goede meting."""
+        """470µF/25V condensator, goede meting.
+
+        D=None zodat de consistentiecontrole niet tussenbeide komt; de
+        test toont zo dat het frequentieverschil (inhoudelijk) de enige
+        reden is dat de eindstatus AANDACHTSPUNT is in plaats van
+        WAARSCHIJNLIJK_GOED.
+        """
         ref = ReferentieContext(
             esr_waarde=120, eenheid="mΩ", bron="Peak Atlas ESR70",
             referentieniveau=5, frequentie_hz=100000,
@@ -419,7 +661,7 @@ class TestVolledigeMeting(unittest.TestCase):
             gemeten_esr=0.1,
             eenheid_gemeten_esr="Ω",
             meetfrequentie_hz=1000,
-            D=0.05,
+            D=None,
             condensatortype="Aluminium elektrolytisch",
             meetmethode=Meetmethode.EX_SITU,
             omgevingstemperatuur_c=20,
@@ -430,8 +672,11 @@ class TestVolledigeMeting(unittest.TestCase):
         )
         # ESR factor = 0.1Ω / 0.12Ω = 0.83 -> normaal
         # Capaciteit: 465 vs 470 -> binnen tolerantie
+        # Referentie-frequentie 100 kHz vs meetfrequentie 1 kHz -> inhoudelijke
+        # verlager, dus eindstatus AANDACHTSPUNT (niet WAARSCHIJNLIJK_GOED).
         self.assertEqual(resultaat.capaciteit.status, CapaciteitsStatus.BINNEN_TOLERANTIE)
         self.assertEqual(resultaat.esr.status, EsrStatus.WAARSCHIJNLIJK_NORMAAL)
+        self.assertEqual(resultaat.eindstatus, Eindstatus.AANDACHTSPUNT)
 
     def test_gebruiksscenario_2_defect(self):
         """470µF/25V condensator, zeer hoge ESR."""

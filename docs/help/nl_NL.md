@@ -22,6 +22,61 @@ Uitgebreide uitleg over:
 
 wordt in een latere ontwikkelfase toegevoegd.
 
+## Historiek
+
+De **Historiek** toont de opgeslagen metingen uit de lokale database.
+Je kunt filteren op fabrikant, serie, meetmethode, instrument,
+frequentie, datum en status. Elke meting heeft een detailweergave met
+de volledige opgeslagen meetketen en beoordeling.
+
+Selecteer een rij om de knoppen **Rapport**, **Meting herhalen** en
+**Details** te activeren. Je kunt ook een of meer metingen aanvinken
+via de checkboxkolom om een selectie te maken voor export of rapport.
+
+## Analyse
+
+De **Analyse**-pagina toont grafieken en trends van je opgeslagen
+metingen. Er zijn vier grafiektypes:
+
+- ESR over tijd;
+- capaciteit over tijd;
+- D over tijd;
+- ESR vs. capaciteit (spreidingsdiagram, gekleurd per eindstatus).
+
+Met de aggregatie-dropdown kies je **ruwe metingen**, **gemiddelde
+per dag**, **per week** of **per maand**. De filterbalk gebruikt
+dezelfde velden als de Historiek. De pagina is volledig read-only.
+
+Onder de grafiek staat een compacte **selectielijst** met dezelfde
+metingen. Vink een of meer metingen aan om ze te exporteren of er een
+rapport van te maken.
+
+## Rapporten maken
+
+Vanuit de **Historiek** kun je voor één meting een meetrapport maken
+via de knop **Rapport** of via **Ctrl+P** in het Bestand-menu. Vanuit
+de **Analyse** kun je een rapport maken voor je volledige
+checkbox-selectie.
+
+Het rapport bevat componentidentificatie, meetcontext, ruwe
+meetwaarden, assessment-snapshots, referentie-snapshots en optioneel
+een grafiek (alleen bij één meting). Je kunt het opslaan als **HTML**
+of als **PDF**. Het rapport is read-only: er worden geen historische
+metingen of beoordelingen opnieuw berekend.
+
+## Exporteren en selectie
+
+In de **Historiek** en in de **Analyse** kun je met een selectie-DDL
+kiezen wat je exporteert:
+
+- **Huidige filters** — alle metingen die aan de actieve filters
+  voldoen.
+- **Selectie** — alleen de metingen die je hebt aangevinkt in de
+  checkboxkolom.
+
+Zonder selectie exporteert de app de volledige filter-selectie. Je kunt
+kiezen tussen een **overzicht-CSV**, een **detail-CSV** of **beide**.
+
 ## Documentatiebibliotheek
 
 Naast deze algemene help bevat de applicatie een meertalige
@@ -60,13 +115,16 @@ beschikbaar.
 
 ## Sneltoetsen
 
-- **Globaal:** Ctrl+Q (afsluiten), Ctrl+E (ESR-test), F1 (help).
+- **Globaal:** Ctrl+Q (afsluiten), Ctrl+E (ESR-test),
+  Ctrl+I (Document importeren), Ctrl+P (Rapport maken), F1 (help).
 - **ESR-scherm:** Esc (terug), Ctrl+Enter (beoordelen), Ctrl+S (opslaan),
   Ctrl+W (wissen), Ctrl+I (meetinstructies).
 - **Historiek:** Esc (terug), Ctrl+R (verversen), Ctrl+F (filters),
   Ctrl+D (details), Ctrl+H (herhaal meting).
+- **Analyse:** Esc (terug), Ctrl+R (verversen), Ctrl+F (filters).
 - **Hoofdmenu:** Ctrl+D (Diagnose), Ctrl+H (Historiek),
-  Ctrl+K (Documentatie), Esc (afsluiten met bevestiging).
+  Ctrl+K (Documentatie), Ctrl+A (Analyse), Esc (afsluiten met
+  bevestiging).
 
 ## Talen
 

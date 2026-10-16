@@ -78,7 +78,66 @@ referentie op dezelfde frequentie staan.
   `zoek_referentie` en toont de werkelijke referentiefrequentie.
 - Nieuwe i18n-key: `resultaat.referentiefrequentie` (NL + EN).
 - Nieuw analysedraaiboek: `scripts/herbereken_steekproef.py`.
-- Baseline: 1297 passed.
+
+### UX-afwerking (fase 11A, 16 oktober 2026)
+
+**Export respecteert nu de selectie**
+
+In de **Historiek** en de **Analyse** kun je met een selectie-DDL kiezen
+wat je exporteert: **huidige filters** of **selectie**. Vink je in de
+tabel een of meer metingen aan, dan exporteert de app alleen die
+metingen. Zonder selectie exporteert de app de volledige filter-selectie.
+
+**Selectie en rapport in de Analyse-pagina**
+
+De **Analyse**-pagina heeft onder de grafiek een compacte selectielijst.
+Vink je daar een of meer metingen aan, dan kun je:
+
+- **Exporteren…** — als overzicht-CSV, detail-CSV, of beide.
+- **Rapport maken…** — een rapport voor precies die selectie.
+
+**Rapport met scope "selectie"**
+
+Het meetrapport ondersteunt nu een rapport over **meerdere metingen**.
+De rapportkop toont de scope ("Eén meting" of "Selectie"). De
+grafieksectie is alleen beschikbaar voor één meting.
+
+**Menu "Rapport maken…" is disabled zonder selectie**
+
+In het **Bestand**-menu is het item **Rapport maken…** nu disabled
+zolang je geen meting geselecteerd hebt. Een tooltip legt uit waarom.
+Op de **Analyse**-pagina wordt het item actief zodra je een
+checkbox-selectie hebt.
+
+**Mapvoorkeuren worden overal gerespecteerd**
+
+Een nieuwe pure helper
+(`app/helpers/dialog_start_directory.py`) bepaalt de beste startmap
+voor elke `QFileDialog`:
+
+- **Export** — `laatste_exportmap` → `standaard_exportmap`.
+- **Import** — `laatste_importmap` → `standaard_importmap`.
+- **Rapport** — `laatste_rapportmap` → `standaard_exportmap`.
+
+Na een geslaagde export/import/rapport wordt de gebruikte map
+automatisch onthouden voor de volgende keer.
+
+**Voor ontwikkelaars**
+
+- `app/gui/analysis_screen.py` — compacte selectielijst onder de
+  grafiek via `QSplitter`, checkbox-kolom, scope-DDL, type-DDL,
+  exportknop en `report_btn`. Nieuwe signalen `selection_changed` en
+  `back_requested`.
+- `app/gui/history_screen.py` — nieuw `selection_changed`-signaal met
+  snapshot-dedup. `report_btn` respecteert de checkbox-selectie.
+- `app/gui/main_window.py` — `_open_report_dialog()` kiest de scope op
+  basis van de actieve pagina en selectie.
+- `app/gui/dialogs/report_dialog.py` — nieuwe classmethod
+  `for_measurements(measurement_ids, ...)`.
+- **Nieuw:** `app/helpers/dialog_start_directory.py` (v1.0.0).
+- Nieuwe i18n-keys: 24 onder `analyse.selectie.*`, `analyse.export.*`,
+  `analyse.rapport.*` en `menu.rapport_tooltip` (NL + EN).
+- Baseline: **1347 passed** (was 1297).
 
 ## Versie 1.1.1 — Update-controle bij opstarten en via Help (15 oktober 2026)
 
@@ -501,8 +560,10 @@ van geïmporteerde documenten.
 - **Versie 1.2.0 — UX/documentatie-afwerking.** Alle kleine punten die
   in eerdere fases zijn blijven liggen:
   - **11A** — Export, import en selectie: export respecteert selectie,
-    import van metingen uit een ander toestel, mapvoorkeuren
-    respecteren, visuele selectie in Analyse, rapport-scope "selectie".
+    visuele selectie in Analyse, rapport-scope "selectie",
+    menu-item disabled zonder selectie, mapvoorkeuren respecteren.
+    **Afgerond op 16 oktober 2026.** De resterende punten uit §11A
+    (import van metingen uit een ander toestel) blijven open.
   - **11B** — Betrouwbaarheidsregel herzien: onderscheid tussen
     inhoudelijke en administratieve betrouwbaarheidsverlagers.
   - **11C** — Iconen voor alle vensters.
