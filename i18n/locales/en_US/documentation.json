@@ -128,6 +128,8 @@
       "kies_excel_titel": "Choose an Excel workbook",
       "url_placeholder": "https://…",
       "metadata_ophalen": "Fetch metadata",
+      "bezig_metadata": "Fetching metadata…",
+      "bezig_import": "Importing…",
       "veld_titel": "Title",
       "metadata_sectie": "Metadata",
       "veld_categorie": "Category",

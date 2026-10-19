@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/config/settings.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.6.0
-Datum:      2026-10-14
+Versie:     1.7.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Centrale, aanpasbare instellingen voor de app.
@@ -25,16 +25,15 @@ Wijzigingen:
                        leeg.
   v1.5.0 (2026-10-11)  Fase 8D: laatste_rapportmap toegevoegd aan
                        AlgemeneInstellingen; auteur toegevoegd aan
-                       RapportageInstellingen. Backward-compatible: oude
-                       settings.json blijft geldig, ontbrekende keys worden
-                       leeg.
+                       RapportageInstellingen. Backward-compatible.
   v1.6.0 (2026-10-14)  Fase 9H: controleer_updates_bij_opstarten toegevoegd
-                       aan AlgemeneInstellingen (default True). Backward-
-                       compatible: oude settings.json blijft geldig, de
-                       ontbrekende key valt terug op True.
-
-Referentie: docs/validation_rules.md §11, docs/data_model.md §9 en
-            functional_design_multitool_questionnaire.md §14.
+                       aan AlgemeneInstellingen (default True).
+  v1.7.0 (2026-10-16)  Fase 11E.3: qa_modus toegevoegd aan
+                       AlgemeneInstellingen (default False). Wanneer True,
+                       toont het Help-menu een extra item om de
+                       drie-knoppen update-melding te forceren voor QA.
+                       Backward-compatible: oude settings.json blijft
+                       geldig, ontbrekende key valt terug op False.
 ================================================================================
 """
 
@@ -49,9 +48,6 @@ from typing import Any, TypeVar
 SETTINGS_PATH = Path("settings.json")
 
 
-# ---------------------------------------------------------------------------
-# Vaste keuzelijsten (docs/data_model.md §9)
-# ---------------------------------------------------------------------------
 EENHEDEN_CAPACITEIT = ("pF", "nF", "µF", "mF")
 EENHEDEN_ESR = ("mΩ", "Ω")
 MEETFREQUENTIES_HZ = (100, 1_000, 10_000)
@@ -78,9 +74,6 @@ V_LOSS_EENHEDEN = ("V", "mV", "%", "dimensieloos", "onbekend")
 STABILITEIT_OPTIES = ("stabiel", "schommelt licht", "schommelt sterk", "onbekend")
 MEETMETHODEN = ("EX_SITU", "ONE_LEG", "IN_CIRCUIT")
 
-# Vermenigvuldigingsfactoren t.o.v. de basiseenheid (F voor capaciteit,
-# Ω voor ESR) — gebruikt door app/helpers/units.py, hier gecentraliseerd
-# zodat er precies één bron van waarheid is voor eenheidsconversie.
 CAPACITEIT_FACTOR_NAAR_FARAD = {
     "pF": 1e-12,
     "nF": 1e-9,
@@ -93,9 +86,6 @@ ESR_FACTOR_NAAR_OHM = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Configureerbare beoordelingsdrempels (docs/validation_rules.md §11)
-# ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class BeoordelingsInstellingen:
     """Configureerbare grenswaarden voor de indicatieve beoordeling."""
@@ -108,25 +98,14 @@ class BeoordelingsInstellingen:
     consistentie_eenhedenfout_drempel: float = 100.0
 
 
-# ---------------------------------------------------------------------------
-# Gebruikersinstellingen per Settings-tab
-# ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class AlgemeneInstellingen:
     """Algemene voorkeuren; donker thema is voorlopig het ondersteunde thema.
 
-    ``standaard_importmap`` en ``standaard_exportmap`` zijn door de gebruiker
-    ingestelde startmappen. ``laatste_importmap`` en ``laatste_exportmap``
-    worden automatisch bijgehouden door de wizard en het exportdialoog, zodat
-    de volgende keer in dezelfde map wordt gestart (fase 5D'.3).
-
-    ``laatste_rapportmap`` wordt sinds fase 8D automatisch bijgehouden door
-    het rapportdialoog, analoog aan laatste_exportmap.
-
-    ``controleer_updates_bij_opstarten`` (sinds 9H) bepaalt of de
-    applicatie bij het opstarten eenmalig en niet-blokkerend controleert
-    op een nieuwere versie. De handmatige check via het Help-menu blijft
-    altijd beschikbaar.
+    ``qa_modus`` (sinds 11E.3) is een verborgen schakelaar voor QA: als
+    True toont het Help-menu een extra item om de drie-knoppen
+    update-melding te forceren, ook als er geen nieuwe versie is.
+    Standaard False. Niet bedoeld voor eindgebruikers.
     """
 
     thema: str = "dark"
@@ -138,6 +117,7 @@ class AlgemeneInstellingen:
     laatste_rapportmap: str = ""
     exportmap_openen_na_export: bool = False
     controleer_updates_bij_opstarten: bool = True
+    qa_modus: bool = False
 
 
 @dataclass(frozen=True)
@@ -160,15 +140,7 @@ class EsrCondensatorInstellingen:
 
 @dataclass(frozen=True)
 class RapportageInstellingen:
-    """Voorkeuren voor meetrapporten (fase 8).
-
-    ``grafiek_opnemen`` bepaalt de startwaarde van de grafiek-checkbox in
-    het rapportdialoog. De dialoog schrijft niet terug, dus de instelling
-    blijft de persoonlijke default.
-
-    ``auteur`` (sinds 8D) is een optioneel vrij veld dat in de rapportkop
-    wordt getoond. Leeg laten betekent: geen auteur in het rapport.
-    """
+    """Voorkeuren voor meetrapporten (fase 8)."""
 
     grafiek_opnemen: bool = False
     technische_details_opnemen: bool = True
@@ -219,10 +191,8 @@ def _dataclass_from_dict(cls: type[T], data: Any) -> T:
 def laad_instellingen() -> AppInstellingen:
     """Laadt settings.json, of veilige defaults wanneer laden niet lukt.
 
-    Oude bestanden zonder de nieuwste velden (laatste_importmap,
-    laatste_exportmap, laatste_rapportmap, auteur,
-    controleer_updates_bij_opstarten) blijven geldig; die velden vallen
-    terug op hun dataclass-default.
+    Oude bestanden zonder de nieuwste velden blijven geldig; die velden
+    vallen terug op hun dataclass-default.
     """
     if SETTINGS_PATH.exists():
         try:

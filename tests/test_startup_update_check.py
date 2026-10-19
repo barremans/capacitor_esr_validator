@@ -2,15 +2,25 @@
 ================================================================================
 Module:     tests/test_startup_update_check.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-14
+Versie:     1.1.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor de niet-blokkerende opstartcheck in
             ToolHubWindow (fase 9H). Geen qtbot; offscreen.
 
+            Sinds v1.1.0 (fase 11E.1) gebruikt de GUI de async variant
+            _do_update_check_async(on_result). De tests monkeypatchen
+            die methode en roepen de callback zelf aan, zodat de
+            GUI-logica deterministisch getest wordt zonder echte
+            threads. De bestaande synchrone _do_update_check blijft
+            bestaan en wordt apart getest in
+            test_main_window_update_menu.py.
+
 Wijzigingen:
   v1.0.0 (2026-10-14)  Fase 9H. Eerste versie.
+  v1.1.0 (2026-10-16)  Fase 11E.1: tests gebruiken de async variant
+                        _do_update_check_async(on_result).
 ================================================================================
 """
 
@@ -86,7 +96,10 @@ def test_run_startup_update_check_geen_melding_bij_geen_update(monkeypatch):
         remote_version = "1.0.4"
         download_url = None
 
-    monkeypatch.setattr(window, "_do_update_check", lambda: _FakeInfo())
+    def _fake_async(on_result):
+        on_result(_FakeInfo())
+
+    monkeypatch.setattr(window, "_do_update_check_async", _fake_async)
 
     from PySide6.QtWidgets import QMessageBox
     gemeld = {"n": 0}
@@ -120,7 +133,10 @@ def test_run_startup_update_check_melding_bij_update(monkeypatch):
         remote_version = "1.0.5"
         download_url = "https://example.com/setup.exe"
 
-    monkeypatch.setattr(window, "_do_update_check", lambda: _FakeInfo())
+    def _fake_async(on_result):
+        on_result(_FakeInfo())
+
+    monkeypatch.setattr(window, "_do_update_check_async", _fake_async)
 
     gemeld = {"n": 0}
 
@@ -144,7 +160,10 @@ def test_run_startup_update_check_fout_geen_melding(monkeypatch):
     _app()
     window = ToolHubWindow(taal="nl_NL", check_on_startup=False)
 
-    monkeypatch.setattr(window, "_do_update_check", lambda: None)
+    def _fake_async(on_result):
+        on_result(None)
+
+    monkeypatch.setattr(window, "_do_update_check_async", _fake_async)
 
     gemeld = {"n": 0}
 

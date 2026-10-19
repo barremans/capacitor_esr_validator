@@ -16,6 +16,88 @@ Note on version numbering:
 - For the current version: see `app/version.py` or Help → About.
 -->
 
+### Phase 11E — Async network (16 October 2026)
+
+**Motivation**
+
+The update check, the release-notes fetch and the URL import in the
+import wizard performed their network traffic **synchronously on the
+GUI thread**. On a slow or unreachable server the GUI froze briefly.
+That was not functionally wrong, but it does not feel like a
+diagnostic instrument.
+
+**Solution: three sub-phases**
+
+- **11E.1 — Async update check.** New module
+  `app/helpers/async_worker.py` (v2.0.0) with a generic
+  `AsyncWorker(QRunnable)` and `run_async()` helper, based on
+  `QThreadPool`. `app/helpers/updater.py` (v1.2.0) gains
+  `check_for_update_async()` and `fetch_release_notes_async()`.
+  `app/gui/main_window.py` (v2.18.0) uses those async variants for
+  the startup check and the manual check. The existing synchronous
+  APIs remain unchanged for tests and non-GUI use.
+- **11E.2 — Async URL fetch in the import wizard.**
+  `app/documentation/url_fetch.py` (v1.2.0) gains
+  `fetch_url_metadata_async()` and `fetch_url_content_async()`.
+  `app/gui/dialogs/import_wizard_dialog.py` (v2.0.0) uses those
+  async variants; while waiting, the buttons are disabled and the
+  summary shows a "Busy…" text. New i18n keys:
+  `documentatie.import.bezig_metadata` and
+  `documentatie.import.bezig_import` (NL + EN).
+- **11E.3 — Force three-button message for QA.**
+  `app/config/settings.py` (v1.7.0) gains `algemeen.qa_modus`
+  (default `False`). `app/gui/main_window.py` (v2.19.0) shows a
+  hidden QA menu item in the Help menu when `qa_modus` is True.
+  That item calls `_toon_update_melding_voor_qa()`, which passes a
+  synthetic `UpdateInfo` (version 99.99.99) to the existing
+  three-button message (Download / What's new? / Later). New i18n
+  key: `menu.qa_toon_update_melding` (NL + EN).
+
+**Important bugfix in 11E.1**
+
+The first versions of `async_worker.py` failed with
+`RuntimeError: Signal source has been deleted`. Cause: the
+`WorkerSignals` was cleaned up before the emit had finished. The
+final solution (v2.0.0): `WorkerSignals` as a strong Python attribute
+on the `AsyncWorker`, `setAutoDelete(False)`, no registry. **The
+caller is the owner** and must keep the return value. In the GUI,
+`main_window.py` does so via `self._update_check_worker` and
+`self._release_notes_worker`; in the wizard via
+`self._url_fetch_worker` and `self._import_worker`. In tests via
+`_bewaarde_workers`.
+
+**Small bugfix in 11E.3**
+
+`app/gui/main_window.py` (v2.19.1) uses a double `getattr` in
+`_build_menu()` and `_apply_settings()`, so that a test or an older
+`settings.json` without an `algemeen` namespace does not cause an
+`AttributeError`.
+
+**For developers**
+
+- **New:** `app/helpers/async_worker.py` (v2.0.0) — generic
+  `AsyncWorker` + `run_async()`. No network logic.
+- **Changed:** `app/helpers/updater.py` (v1.2.0) — async variants
+  added; synchronous APIs unchanged.
+- **Changed:** `app/documentation/url_fetch.py` (v1.2.0) — async
+  variants added; synchronous APIs unchanged.
+- **Changed:** `app/gui/main_window.py` (v2.19.1) — async update
+  check, QA mode, double `getattr` fix.
+- **Changed:** `app/gui/dialogs/import_wizard_dialog.py` (v2.0.0)
+  — async URL fetch and async URL import; PDF/Word/Excel remain
+  synchronous.
+- **Changed:** `app/config/settings.py` (v1.7.0) — `qa_modus`.
+- **New tests:** `tests/test_async_worker.py` (9 tests), extension
+  of `tests/test_updater.py` (+4 async tests),
+  `tests/test_startup_update_check.py` (rewritten for async),
+  `tests/test_main_window_update_menu.py` (v1.3.0, +3 QA tests),
+  `tests/test_documentation_url_fetch.py` (v1.1.0, +6 async tests),
+  `tests/test_import_wizard_dialog.py` (v1.8.0, +3 async tests).
+- **New i18n keys:** `documentatie.import.bezig_metadata`,
+  `documentatie.import.bezig_import`, `menu.qa_toon_update_melding`
+  (NL + EN).
+- **Baseline:** 1366 → **1395 passed** (+29 tests).
+
 ### Phase 11D — Resolving i18n mixing (16 October 2026)
 
 **Motivation**
@@ -770,7 +852,8 @@ metadata of imported documents.
     **Completed on 16 October 2026.** Baseline 1339 → **1358 passed**.
   - **11D** — i18n mixing in Diagnostics/Result resolved.
     **Completed on 16 October 2026.** Baseline 1358 → **1366 passed**.
-  - **11E** — Async network (URL fetch, release notes). **Next.**
+  - **11E** — Async network (URL fetch, release notes).
+    **Completed on 16 October 2026.** Baseline 1366 → **1395 passed**.
   - **11F** — Documentation extension (reasons, filters, bulk edit).
   - **11G** — Dark theme visuals (checkboxes, scrollbar).
   - **11H** — Light theme.

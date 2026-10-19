@@ -17,6 +17,87 @@ Opmerking over de versienummering:
 - Voor de actuele versie: zie `app/version.py` of Help → Over.
 -->
 
+### Fase 11E — Async netwerk (16 oktober 2026)
+
+**Waarom deze wijziging**
+
+De update-check, de release-notes-fetch en de URL-import in de
+import-wizard deden hun netwerkverkeer **synchroon in de GUI-thread**.
+Bij een trage of onbereikbare server bevroor de GUI heel even. Dat was
+functioneel niet fout, maar het voelt niet als een diagnose-instrument.
+
+**Oplossing: drie sub-fases**
+
+- **11E.1 — Async update-check.** Nieuwe module
+  `app/helpers/async_worker.py` (v2.0.0) met een generieke
+  `AsyncWorker(QRunnable)` en `run_async()`-helper, gebaseerd op
+  `QThreadPool`. `app/helpers/updater.py` (v1.2.0) krijgt
+  `check_for_update_async()` en `fetch_release_notes_async()`.
+  `app/gui/main_window.py` (v2.18.0) gebruikt die async-varianten voor
+  de startup-check en de handmatige check. De bestaande synchrone
+  API's blijven ongewijzigd voor tests en niet-GUI-gebruik.
+- **11E.2 — Async URL-fetch in de import-wizard.**
+  `app/documentation/url_fetch.py` (v1.2.0) krijgt
+  `fetch_url_metadata_async()` en `fetch_url_content_async()`.
+  `app/gui/dialogs/import_wizard_dialog.py` (v2.0.0) gebruikt die
+  async-varianten; tijdens het wachten zijn de knoppen disabled en
+  toont de samenvatting een "Bezig…"-tekst. Nieuwe i18n-keys:
+  `documentatie.import.bezig_metadata` en
+  `documentatie.import.bezig_import` (NL + EN).
+- **11E.3 — Drie-knoppenmelding forceren voor QA.**
+  `app/config/settings.py` (v1.7.0) krijgt `algemeen.qa_modus`
+  (default `False`). `app/gui/main_window.py` (v2.19.0) toont een
+  verborgen QA-menu-item in het Help-menu als `qa_modus` True is.
+  Dat item roept `_toon_update_melding_voor_qa()` aan, dat een
+  kunstmatige `UpdateInfo` (versie 99.99.99) doorgeeft aan de
+  bestaande drie-knoppenmelding (Downloaden / Wat is er nieuw? /
+  Later). Nieuwe i18n-key: `menu.qa_toon_update_melding` (NL + EN).
+
+**Belangrijke bugfix in 11E.1**
+
+De eerste versies van `async_worker.py` faalden met
+`RuntimeError: Signal source has been deleted`. Oorzaak: de
+`WorkerSignals` werd opgeruimd voordat de emit klaar was. De
+definitieve oplossing (v2.0.0): `WorkerSignals` als sterk
+Python-attribuut op de `AsyncWorker`, `setAutoDelete(False)`, geen
+registry. **De aanroeper is eigenaar** en moet de return-waarde
+bewaren. In de GUI doet `main_window.py` dat via
+`self._update_check_worker` en `self._release_notes_worker`; in de
+wizard via `self._url_fetch_worker` en `self._import_worker`. In
+tests via `_bewaarde_workers`.
+
+**Kleine bugfix in 11E.3**
+
+`app/gui/main_window.py` (v2.19.1) gebruikt dubbele `getattr` in
+`_build_menu()` en `_apply_settings()`, zodat een test of een oudere
+`settings.json` zonder `algemeen`-namespace geen `AttributeError`
+veroorzaakt.
+
+**Voor ontwikkelaars**
+
+- **Nieuw:** `app/helpers/async_worker.py` (v2.0.0) — generieke
+  `AsyncWorker` + `run_async()`. Geen netwerklogica.
+- **Gewijzigd:** `app/helpers/updater.py` (v1.2.0) — async-varianten
+  toegevoegd; synchrone API's ongewijzigd.
+- **Gewijzigd:** `app/documentation/url_fetch.py` (v1.2.0) —
+  async-varianten toegevoegd; synchrone API's ongewijzigd.
+- **Gewijzigd:** `app/gui/main_window.py` (v2.19.1) — async
+  update-check, QA-modus, dubbele `getattr`-fix.
+- **Gewijzigd:** `app/gui/dialogs/import_wizard_dialog.py` (v2.0.0)
+  — async URL-fetch en async URL-import; PDF/Word/Excel blijven
+  synchroon.
+- **Gewijzigd:** `app/config/settings.py` (v1.7.0) — `qa_modus`.
+- **Nieuwe tests:** `tests/test_async_worker.py` (9 tests),
+  uitbreiding `tests/test_updater.py` (+4 async-tests),
+  `tests/test_startup_update_check.py` (herschreven voor async),
+  `tests/test_main_window_update_menu.py` (v1.3.0, +3 QA-tests),
+  `tests/test_documentation_url_fetch.py` (v1.1.0, +6 async-tests),
+  `tests/test_import_wizard_dialog.py` (v1.8.0, +3 async-tests).
+- **Nieuwe i18n-keys:** `documentatie.import.bezig_metadata`,
+  `documentatie.import.bezig_import`, `menu.qa_toon_update_melding`
+  (NL + EN).
+- **Baseline:** 1366 → **1395 passed** (+29 tests).
+
 ### Fase 11D — i18n-menging oplossen (16 oktober 2026)
 
 **Waarom deze wijziging**
@@ -762,7 +843,8 @@ van geïmporteerde documenten.
     **Afgerond op 16 oktober 2026.** Baseline 1339 → **1358 passed**.
   - **11D** — i18n-menging in Diagnose/Result oplossen.
     **Afgerond op 16 oktober 2026.** Baseline 1358 → **1366 passed**.
-  - **11E** — Async netwerk (URL-fetch, release notes). **Volgende.**
+  - **11E** — Async netwerk (URL-fetch, release notes).
+    **Afgerond op 16 oktober 2026.** Baseline 1366 → **1395 passed**.
   - **11F** — Documentatie-uitbreiding (redenen, filters, bulk-edit).
   - **11G** — Visueel donker thema (checkboxen, scrollbar).
   - **11H** — Light theme.

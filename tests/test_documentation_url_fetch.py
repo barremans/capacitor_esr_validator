@@ -2,21 +2,30 @@
 ================================================================================
 Module:     tests/test_documentation_url_fetch.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-06
+Versie:     1.1.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor url_fetch: metadata-parsing, snapshot opslaan,
             foutpaden. Netwerk wordt gemockt via een fake requests.get.
             Geen echte HTTP-verzoeken in deze tests.
 
+            Sinds v1.1.0 (fase 11E.2) ook tests voor de async-varianten
+            fetch_url_metadata_async() en fetch_url_content_async().
+            De async-tests bewaren hun worker in _bewaarde_workers,
+            zodat de WorkerSignals blijft leven tot de callback is
+            aangeroepen.
+
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
+  v1.1.0 (2026-10-16)  Fase 11E.2: async-varianten.
 ================================================================================
 """
 
 from __future__ import annotations
 
+import os
+import time
 from pathlib import Path
 
 import pytest
@@ -250,3 +259,158 @@ def test_default_snapshots_dir_onder_localappdata(monkeypatch):
     assert str(pad).startswith("C:\\TestLocal")
     assert "ElectronicsDiagnosticToolHub" in str(pad)
     assert "snapshots" in str(pad)
+
+
+# ===========================================================================
+# v1.1.0 — async-varianten (fase 11E.2)
+# ===========================================================================
+# Deze tests draaien de async-varianten in een echte QThreadPool. Ze
+# gebruiken een lokale _app() en wachten met processEvents() tot de
+# specifieke callback is aangeroepen. De aanroeper is eigenaar van de
+# worker; we bewaren de worker in _bewaarde_workers zodat de
+# WorkerSignals blijft leven tot de callback is aangeroepen.
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+
+# Bewaar de async-workers tot het einde van de sessie. Zonder deze
+# referentie kan de WorkerSignals worden opgeruimd voordat de callback
+# is aangeroepen.
+_bewaarde_workers: list = []
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _ruim_workers_op_aan_einde():
+    yield
+    _bewaarde_workers.clear()
+
+
+def _app():
+    from PySide6.QtWidgets import QApplication
+    return QApplication.instance() or QApplication([])
+
+
+def _wacht_op(conditie, timeout_s: float = 3.0, wat: str = "callback") -> None:
+    """Laat de event loop draaien tot `conditie()` True teruggeeft."""
+    app = _app()
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        app.processEvents()
+        if conditie():
+            return
+        time.sleep(0.005)
+    raise AssertionError(f"{wat} werd niet klaar binnen de timeout")
+
+
+def test_fetch_url_metadata_async_gelukkig_pad(monkeypatch):
+    _app()
+    response = _FakeResponse(inhoud=_maak_html(titel="Async Titel"))
+    _installeer_fake_get(monkeypatch, response)
+
+    ontvangen: list[UrlMetadata] = []
+
+    worker = url_fetch_module.fetch_url_metadata_async(
+        "https://example.com/async",
+        on_success=lambda meta: ontvangen.append(meta),
+    )
+    _bewaarde_workers.append(worker)
+    _wacht_op(lambda: len(ontvangen) == 1, wat="on_success")
+
+    meta = ontvangen[0]
+    assert meta.url == "https://example.com/async"
+    assert meta.title == "Async Titel"
+    assert meta.http_status == 200
+
+
+def test_fetch_url_metadata_async_roept_on_error(monkeypatch):
+    _app()
+    _installeer_fake_get(
+        monkeypatch, requests.exceptions.Timeout("te langzaam")
+    )
+
+    fouten: list[tuple[str, str]] = []
+
+    worker = url_fetch_module.fetch_url_metadata_async(
+        "https://example.com/async",
+        on_success=lambda meta: None,
+        on_error=lambda kort, tb: fouten.append((kort, tb)),
+    )
+    _bewaarde_workers.append(worker)
+    _wacht_op(lambda: len(fouten) == 1, wat="on_error")
+
+    kort, tb = fouten[0]
+    assert "UrlFetchError" in kort
+    assert "timeout" in kort.lower()
+
+
+def test_fetch_url_metadata_async_ongeldige_url_roept_on_error():
+    _app()
+    fouten: list[tuple[str, str]] = []
+
+    worker = url_fetch_module.fetch_url_metadata_async(
+        "",
+        on_success=lambda meta: None,
+        on_error=lambda kort, tb: fouten.append((kort, tb)),
+    )
+    _bewaarde_workers.append(worker)
+    _wacht_op(lambda: len(fouten) == 1, wat="on_error")
+
+    assert "UrlFetchError" in fouten[0][0]
+
+
+def test_fetch_url_content_async_gelukkig_pad(monkeypatch):
+    _app()
+    html = _maak_html(titel="Async Inhoud")
+    _installeer_fake_get(monkeypatch, _FakeResponse(inhoud=html))
+
+    ontvangen: list[str] = []
+
+    worker = url_fetch_module.fetch_url_content_async(
+        "https://example.com/content",
+        on_success=lambda tekst: ontvangen.append(tekst),
+    )
+    _bewaarde_workers.append(worker)
+    _wacht_op(lambda: len(ontvangen) == 1, wat="on_success")
+
+    assert "Async Inhoud" in ontvangen[0]
+    assert ontvangen[0].startswith("<!DOCTYPE html>")
+
+
+def test_fetch_url_content_async_roept_on_error(monkeypatch):
+    _app()
+    _installeer_fake_get(
+        monkeypatch, requests.exceptions.ConnectionError("DNS faalde")
+    )
+
+    fouten: list[tuple[str, str]] = []
+
+    worker = url_fetch_module.fetch_url_content_async(
+        "https://example.com/content",
+        on_success=lambda tekst: None,
+        on_error=lambda kort, tb: fouten.append((kort, tb)),
+    )
+    _bewaarde_workers.append(worker)
+    _wacht_op(lambda: len(fouten) == 1, wat="on_error")
+
+    kort, tb = fouten[0]
+    assert "UrlFetchError" in kort
+    assert "verbinding" in kort.lower()
+
+
+def test_fetch_url_metadata_async_zonder_on_error_werkt(monkeypatch):
+    """on_error is optioneel. Bij succes wordt on_success gewoon
+    aangeroepen."""
+    _app()
+    response = _FakeResponse(inhoud=_maak_html(titel="Zonder Fout"))
+    _installeer_fake_get(monkeypatch, response)
+
+    ontvangen: list[UrlMetadata] = []
+
+    worker = url_fetch_module.fetch_url_metadata_async(
+        "https://example.com/ok",
+        on_success=lambda meta: ontvangen.append(meta),
+    )
+    _bewaarde_workers.append(worker)
+    _wacht_op(lambda: len(ontvangen) == 1, wat="on_success")
+
+    assert ontvangen[0].title == "Zonder Fout"

@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.17.0
+Versie:     2.19.1
 Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
@@ -10,21 +10,20 @@ Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
             ESR-test draait als interne pagina binnen hetzelfde hoofdvenster.
 
 Wijzigingen:
-  v2.2.1 (2026-09-27)  Settings-dialoog gekoppeld; Apply/OK bewaren alle
-                       settings en taalwissel behoudt overige voorkeuren.
-  v1.0.0 (2026-08-11)  Initiele versie — QMainWindow met centrale widget.
+  v2.2.1 (2026-09-27)  Settings-dialoog gekoppeld.
+  v1.0.0 (2026-08-11)  Initiele versie.
   v2.0.0 (2026-08-13)  Herontworpen naar ToolHubWindow.
   v2.1.0 (2026-09-26)  Eén-venster-navigatie met QStackedWidget.
-  v2.1.1 (2026-09-26)  Sluitknop (X) gedraagt zich contextueel.
-  v2.1.2 (2026-09-27)  Leesbaarheid van Tool Hub en markdown-dialogen verbeterd.
-  v2.1.3 (2026-09-27)  Dubbele algemene dark-theme styling verwijderd.
-  v2.2.0 (2026-09-27)  Navigatie uitgebreid naar Hoofdmenu -> Diagnose -> ESR.
-  v2.3.0 (2026-10-01)  Read-only Historiek als interne pagina toegevoegd.
-  v2.4.0 (2026-10-01)  Historiek "Herhaal meting" gekoppeld aan ESR-pagina.
+  v2.1.1 (2026-09-26)  Sluitknop contextueel.
+  v2.1.2 (2026-09-27)  Leesbaarheid verbeterd.
+  v2.1.3 (2026-09-27)  Dubbele dark-theme styling verwijderd.
+  v2.2.0 (2026-09-27)  Navigatie uitgebreid.
+  v2.3.0 (2026-10-01)  Read-only Historiek als interne pagina.
+  v2.4.0 (2026-10-01)  "Herhaal meting" gekoppeld aan ESR-pagina.
   v2.4.1 (2026-10-01)  Live taalwissel vervolledigd.
-  v2.6.0 (2026-10-03)  Dynamische taalontdekking voor het Talenmenu.
-  v2.7.0 (2026-10-03)  ESR-contextdocumentatie gekoppeld aan centrale viewer.
-  v2.7.1 (2026-10-05)  Globale F1 (Help-menu) expliciet op WindowShortcut.
+  v2.6.0 (2026-10-03)  Dynamische taalontdekking.
+  v2.7.0 (2026-10-03)  ESR-contextdocumentatie gekoppeld.
+  v2.7.1 (2026-10-05)  Globale F1 expliciet op WindowShortcut.
   v2.7.2 (2026-10-05)  Help-menu uitgebreid met "Documentatie zoeken…".
   v2.7.3 (2026-10-05)  Fix: _apply_language() lekte menu's.
   v2.8.0 (2026-10-05)  Sneltoetsen op het Hoofdmenu (Fase 4F).
@@ -46,27 +45,29 @@ Wijzigingen:
   v2.12.0 (2026-10-14) Fase 9G: bug/feature-rapportage naar GitHub.
   v2.13.0 (2026-10-14) Fase 9H: update-check.
   v2.14.0 (2026-10-15) Fase 9H-afronding.
-  v2.15.0 (2026-10-16) Fase 11A.1: menu-item "Rapport maken…" wordt
-                        disabled zonder selectie op Historiek.
+  v2.15.0 (2026-10-16) Fase 11A.1: menu-item "Rapport maken…" disabled
+                        zonder selectie op Historiek.
   v2.16.0 (2026-10-16) Fase 11A.2: menu-item wordt ook enabled op Analyse
-                        met een checkbox-selectie. _open_report_dialog()
-                        bepaalt de scope op basis van de actieve pagina:
-                          - Historiek + checkbox-selectie -> scope 'selectie'
-                          - Historiek + rij-selectie -> scope 'enkel'
-                          - Analyse + checkbox-selectie -> scope 'selectie'
-                        De bestaande informatieve melding blijft voor de
-                        gevallen waarin geen selectie is.
-  v2.17.0 (2026-10-16) Fase 11C (iconen):
-                        - Hub-knoppen (Diagnose, Historiek, Documentatie,
-                          Analyse) krijgen een icoon.
-                        - Diagnose-ESR-knop gebruikt esr.png (kleine
-                          letter) in plaats van ESR.png.
-                        - Menu-items krijgen een icoon via de centrale
-                          helper app/helpers/icon_paths.
-                        - Elke dialoog krijgt een venstericoon via
-                          _zet_dialoog_icoon().
-                        - Geen wijziging aan bestaande navigatie, taalwissel
-                          of selectielogica.
+                        met een checkbox-selectie.
+  v2.17.0 (2026-10-16) Fase 11C (iconen).
+  v2.18.0 (2026-10-16) Fase 11E.1 (async update-check).
+  v2.19.0 (2026-10-16) Fase 11E.3 (QA-modus):
+                        - Nieuwe instelling algemeen.qa_modus (default
+                          False).
+                        - Als qa_modus True is, verschijnt een verborgen
+                          menu-item in het Help-menu om de drie-knoppen
+                          update-melding te forceren.
+                        - Nieuwe methode _toon_update_melding_voor_qa()
+                          die een kunstmatige UpdateInfo (versie 99.99.99)
+                          doorgeeft aan _toon_update_melding().
+                        - _apply_settings() bouwt het menu opnieuw op
+                          als qa_modus wijzigt, zodat het QA-item
+                          verschijnt/verdwijnt.
+  v2.19.1 (2026-10-16)  Bugfix: AttributeError wanneer een test of
+                        oudere settings.json een instellingen-object
+                        zonder 'algemeen' aanlevert. Opgelost met
+                        dubbele getattr in _build_menu() en
+                        _apply_settings().
 ================================================================================
 """
 
@@ -99,6 +100,8 @@ class ToolHubWindow(QMainWindow):
         self.instellingen = laad_instellingen()
         self.taal = taal if taal else self.instellingen.taal
         self.rapport_action: QAction | None = None
+        self._update_check_worker = None
+        self._release_notes_worker = None
         self._build_ui()
         self._apply_language()
 
@@ -113,7 +116,6 @@ class ToolHubWindow(QMainWindow):
     # ------------------------------------------------------------------
     @staticmethod
     def _zet_icoon_op_knop(knop: QPushButton, naam: str, grootte: int = 32) -> None:
-        """Zet een icoon op een knop als het bestaat; anders niets."""
         icoon = laad_icoon(naam)
         if icoon is not None:
             knop.setIcon(icoon)
@@ -121,14 +123,12 @@ class ToolHubWindow(QMainWindow):
 
     @staticmethod
     def _zet_icoon_op_action(action: QAction, naam: str) -> None:
-        """Zet een icoon op een QAction als het bestaat; anders niets."""
         icoon = laad_icoon(naam)
         if icoon is not None:
             action.setIcon(icoon)
 
     @staticmethod
     def _zet_dialoog_icoon(dialoog: QDialog) -> None:
-        """Zet het applicatie-icoon op een dialoog."""
         zet_venster_icoon(dialoog)
 
     # ------------------------------------------------------------------
@@ -322,7 +322,6 @@ class ToolHubWindow(QMainWindow):
         self.esr_btn.setToolTip(self._t("tool.esr_omschrijving"))
         self.esr_btn.clicked.connect(self._open_esr_test)
 
-        # 11C: gebruik esr.png (kleine letter) via de centrale helper.
         esr_icoon = laad_icoon("esr")
         if esr_icoon is None:
             self.esr_btn.setText(self._t("tool.esr"))
@@ -512,6 +511,18 @@ class ToolHubWindow(QMainWindow):
         self._zet_icoon_op_action(update_action, "update")
         help_menu.addAction(update_action)
 
+        # 11E.3: verborgen QA-menu-item om de drie-knoppen update-melding
+        # te forceren zonder echte update. Dubbele getattr: een test of
+        # oudere settings.json kan een instellingen-object zonder
+        # 'algemeen' aanleveren; dat mag niet crashen.
+        algemeen = getattr(self.instellingen, "algemeen", None)
+        if getattr(algemeen, "qa_modus", False):
+            qa_action = QAction(
+                self._t("menu.qa_toon_update_melding"), help_menu
+            )
+            qa_action.triggered.connect(self._toon_update_melding_voor_qa)
+            help_menu.addAction(qa_action)
+
         help_menu.addSeparator()
 
         about_action = QAction(self._t("menu.over"), help_menu)
@@ -610,13 +621,6 @@ class ToolHubWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _update_report_action_state(self) -> None:
-        """Zet het menu-item 'Rapport maken…' enabled/disabled.
-
-        Enabled als:
-          - Historiek actief is met een rij-selectie, of
-          - Analyse actief is met een checkbox-selectie.
-        Alle andere pagina's: disabled.
-        """
         if self.rapport_action is None:
             return
         current = self.stack.currentWidget() if hasattr(self, "stack") else None
@@ -662,18 +666,8 @@ class ToolHubWindow(QMainWindow):
         self.documentation_page.select_document_by_id(source_id)
 
     def _open_report_dialog(self) -> None:
-        """Open de rapport-dialoog met de juiste scope.
-
-        Bepaalt de scope op basis van de actieve pagina en de actieve
-        selectie:
-          - Historiek met checkbox-selectie -> scope 'selectie'.
-          - Historiek met rij-selectie -> scope 'enkel'.
-          - Analyse met checkbox-selectie -> scope 'selectie'.
-          - Anders -> informatieve melding (bestaand gedrag).
-        """
         current = self.stack.currentWidget() if hasattr(self, "stack") else None
 
-        # Historiek
         if current is getattr(self, "history_page", None):
             checkbox_ids = self.history_page._selected_measurement_ids()
             if checkbox_ids:
@@ -690,7 +684,6 @@ class ToolHubWindow(QMainWindow):
             self._open_single_report_dialog(measurement_id)
             return
 
-        # Analyse
         if current is getattr(self, "analysis_page", None):
             ids = self.analysis_page._selected_measurement_ids()
             if not ids:
@@ -703,7 +696,6 @@ class ToolHubWindow(QMainWindow):
             self._open_multi_report_dialog(ids)
             return
 
-        # Andere pagina's: geen selectie mogelijk.
         QMessageBox.information(
             self,
             self._t("report.dialoog.titel"),
@@ -765,15 +757,58 @@ class ToolHubWindow(QMainWindow):
         show_github_cases(self)
 
     # ------------------------------------------------------------------
-    # Update-check (9H)
+    # Update-check (9H) — synchrone laag (blijft voor tests)
     # ------------------------------------------------------------------
-    def _run_startup_update_check(self) -> None:
-        info = self._do_update_check()
+    def _do_update_check(self):
+        try:
+            from app.helpers.updater import check_for_update
+        except ImportError:
+            return None
+        try:
+            return check_for_update(__version__)
+        except Exception:
+            return None
+
+    # ------------------------------------------------------------------
+    # Update-check (11E.1) — async laag
+    # ------------------------------------------------------------------
+    def _do_update_check_async(self, on_result) -> None:
+        try:
+            from app.helpers.updater import check_for_update_async
+        except ImportError:
+            on_result(None)
+            return
+
+        def _success(info):
+            on_result(info)
+
+        def _error(_kort, _tb):
+            on_result(None)
+
+        try:
+            self._update_check_worker = check_for_update_async(
+                __version__,
+                on_success=_success,
+                on_error=_error,
+            )
+        except Exception:
+            on_result(None)
+
+    def _on_update_check_resultaat(self, info) -> None:
+        modus = getattr(self, "_update_check_modus", "startup")
+        try:
+            if modus == "handmatig":
+                self._verwerk_handmatige_update_check(info)
+            else:
+                self._verwerk_startup_update_check(info)
+        finally:
+            self._update_check_modus = "startup"
+
+    def _verwerk_startup_update_check(self, info) -> None:
         if info is not None and info.is_newer:
             self._toon_update_melding(info)
 
-    def _check_for_updates_manually(self) -> None:
-        info = self._do_update_check()
+    def _verwerk_handmatige_update_check(self, info) -> None:
         if info is None:
             QMessageBox.warning(
                 self,
@@ -794,16 +829,18 @@ class ToolHubWindow(QMainWindow):
                 ),
             )
 
-    def _do_update_check(self):
-        try:
-            from app.helpers.updater import check_for_update
-        except ImportError:
-            return None
-        try:
-            return check_for_update(__version__)
-        except Exception:
-            return None
+    def _run_startup_update_check(self) -> None:
+        self._update_check_modus = "startup"
+        self._do_update_check_async(self._on_update_check_resultaat)
 
+    def _check_for_updates_manually(self) -> None:
+        self._update_check_modus = "handmatig"
+        self._do_update_check_async(self._on_update_check_resultaat)
+
+    # ------------------------------------------------------------------
+    # Update-melding (blijft synchroon; wordt vanuit async-callbacks
+    # aangeroepen).
+    # ------------------------------------------------------------------
     def _toon_update_melding(self, info) -> None:
         box = QMessageBox(self)
         box.setWindowTitle(self._t("update.titel"))
@@ -833,7 +870,25 @@ class ToolHubWindow(QMainWindow):
         if geklikt is download_btn and info.download_url:
             webbrowser.open(info.download_url)
         elif geklikt is whatsnew_btn:
-            self._toon_release_notes()
+            self._toon_release_notes_async()
+
+    def _toon_update_melding_voor_qa(self) -> None:
+        """11E.3: toon de drie-knoppen update-melding met een
+        kunstmatige UpdateInfo, ook als er geen echte update is.
+        Alleen bereikbaar via het verborgen QA-menu-item in het
+        Help-menu (verschijnt alleen als algemeen.qa_modus True is).
+        """
+        from app.helpers.updater import UpdateInfo
+        info = UpdateInfo(
+            current_version=__version__,
+            remote_version="99.99.99",
+            is_newer=True,
+            download_url=(
+                "https://github.com/barremans/capacitor_esr_validator/"
+                "releases/latest"
+            ),
+        )
+        self._toon_update_melding(info)
 
     def _toon_release_notes(self) -> None:
         fallback_url = (
@@ -854,6 +909,41 @@ class ToolHubWindow(QMainWindow):
 
         body = (notes.get("body") or "").strip()
         html_url = notes.get("html_url") or fallback_url
+
+        if not body:
+            self._toon_release_notes_fout(html_url)
+            return
+
+        self._toon_release_notes_dialoog(body, html_url)
+
+    def _toon_release_notes_async(self) -> None:
+        fallback_url = (
+            "https://github.com/barremans/capacitor_esr_validator/"
+            "releases/latest"
+        )
+        try:
+            from app.helpers.updater import fetch_release_notes_async
+        except ImportError:
+            self._toon_release_notes_fout(fallback_url)
+            return
+
+        def _success(notes):
+            self._on_release_notes_resultaat(notes, fallback_url)
+
+        def _error(_kort, _tb):
+            self._toon_release_notes_fout(fallback_url)
+
+        try:
+            self._release_notes_worker = fetch_release_notes_async(
+                on_success=_success,
+                on_error=_error,
+            )
+        except Exception:
+            self._toon_release_notes_fout(fallback_url)
+
+    def _on_release_notes_resultaat(self, notes, fallback_url: str) -> None:
+        body = (notes.get("body") or "").strip() if notes else ""
+        html_url = (notes.get("html_url") if notes else None) or fallback_url
 
         if not body:
             self._toon_release_notes_fout(html_url)
@@ -962,6 +1052,7 @@ class ToolHubWindow(QMainWindow):
         dialog.exec()
 
     def _apply_settings(self, instellingen):
+        vorige_instellingen = self.instellingen
         vorige_taal = self.taal
         self.instellingen = instellingen
         self.taal = instellingen.taal
@@ -969,6 +1060,17 @@ class ToolHubWindow(QMainWindow):
 
         if self.taal != vorige_taal:
             self._update_lang_checks()
+            self._apply_language()
+            return
+
+        # 11E.3: als qa_modus is gewijzigd, menu opnieuw opbouwen.
+        # Dubbele getattr: een test of oudere settings.json kan een
+        # instellingen-object zonder 'algemeen' aanleveren.
+        nieuw_algemeen = getattr(instellingen, "algemeen", None)
+        oud_algemeen = getattr(vorige_instellingen, "algemeen", None)
+        if getattr(nieuw_algemeen, "qa_modus", False) != getattr(
+            oud_algemeen, "qa_modus", False
+        ):
             self._apply_language()
 
     def _show_help(self):

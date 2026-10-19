@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/helpers/updater.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-15
+Versie:     1.2.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Pure, GUI-onafhankelijke update-check tegen GitHub.
@@ -20,8 +20,18 @@ Doel:       Pure, GUI-onafhankelijke update-check tegen GitHub.
             Releases API, zodat de GUI een "Wat is er nieuw?"-venster kan
             tonen. Die tekst vult de gebruiker manueel in op GitHub.
 
-            Geen Qt-imports. Geen token. De repo is publiek; de raw-URL,
-            de Contents API en de Releases API werken anoniem.
+            Sinds v1.2.0 ook async-varianten:
+              - check_for_update_async(...)
+              - fetch_release_notes_async(...)
+            Die draaien de bestaande synchrone functies in een
+            achtergrondthread via app/helpers/async_worker. De synchrone
+            functies blijven ongewijzigd en blijven de primaire API voor
+            pure tests en niet-GUI-gebruik.
+
+            Geen Qt-imports op moduleniveau in de synchrone laag. De
+            async-varianten importeren Qt pas bij gebruik (via
+            async_worker), zodat pure tests zonder QApplication blijven
+            werken.
 
 Wijzigingen:
   v1.0.0 (2026-10-14)  Fase 9H. Eerste versie, afgeleid van
@@ -42,12 +52,19 @@ Wijzigingen:
                         vangt fouten af en toont een nette fallback.
                         Nieuwe constanten RELEASES_API_LATEST en
                         _headers_releases_api().
+  v1.2.0 (2026-10-16)  Fase 11E.1: async-varianten toegevoegd:
+                        check_for_update_async() en
+                        fetch_release_notes_async(). Beide draaien de
+                        bestaande synchrone functies in een
+                        achtergrondthread via app/helpers/async_worker.
+                        De synchrone functies blijven ongewijzigd.
 ================================================================================
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, Callable, Optional
 
 import requests
 from packaging.version import InvalidVersion, parse as parse_version
@@ -234,3 +251,71 @@ def check_for_update(
             is_newer=False,
             download_url=None,
         )
+
+
+# ---------------------------------------------------------------------------
+# v1.2.0 — async-varianten (fase 11E.1)
+# ---------------------------------------------------------------------------
+# Deze functies draaien de bestaande synchrone functies in een
+# achtergrondthread via app/helpers/async_worker. De synchrone functies
+# hierboven blijven ongewijzigd en blijven de primaire API voor pure
+# tests en niet-GUI-gebruik.
+#
+# Belangrijk: check_for_update() vangt zelf alle fouten af en retourneert
+# altijd een UpdateInfo. Voor de async-variant betekent dat: on_error
+# wordt alleen aangeroepen bij een fout die check_for_update() zelf niet
+# afvangt — in de praktijk gebeurt dat niet, maar de aanroeper mag er
+# niet op vertrouwen dat on_error nooit komt. fetch_release_notes()
+# werpt wél exceptions; daar is on_error functioneel.
+
+def check_for_update_async(
+    current_version: str,
+    *,
+    on_success: Callable[[UpdateInfo], None],
+    on_error: Optional[Callable[[str, str], None]] = None,
+    timeout: int = DEFAULT_TIMEOUT,
+) -> Any:
+    """Asynchrone variant van check_for_update().
+
+    Roept on_success(info) aan in de GUI-thread met het UpdateInfo-object.
+    on_error is optioneel en wordt in de praktijk niet aangeroepen, omdat
+    check_for_update() zelf alle fouten afvangt.
+
+    Retourneert de gestarte AsyncWorker. De aanroeper hoeft die normaal
+    niet te bewaren.
+    """
+    from app.helpers.async_worker import run_async
+
+    return run_async(
+        check_for_update,
+        current_version,
+        timeout=timeout,
+        on_success=on_success,
+        on_error=on_error,
+    )
+
+
+def fetch_release_notes_async(
+    *,
+    on_success: Callable[[dict], None],
+    on_error: Optional[Callable[[str, str], None]] = None,
+    timeout: int = DEFAULT_TIMEOUT,
+) -> Any:
+    """Asynchrone variant van fetch_release_notes().
+
+    Roept on_success(notes) aan in de GUI-thread met het dict-resultaat
+    van fetch_release_notes(). Roept on_error(kort, traceback) aan als
+    het ophalen faalt — dat is hier functioneel, want
+    fetch_release_notes() werpt wél exceptions.
+
+    Retourneert de gestarte AsyncWorker. De aanroeper hoeft die normaal
+    niet te bewaren.
+    """
+    from app.helpers.async_worker import run_async
+
+    return run_async(
+        fetch_release_notes,
+        timeout=timeout,
+        on_success=on_success,
+        on_error=on_error,
+    )

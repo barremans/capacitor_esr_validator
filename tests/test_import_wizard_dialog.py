@@ -2,28 +2,13 @@
 ================================================================================
 Module:     tests/test_import_wizard_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.7.0
-Datum:      2026-10-09
+Versie:     1.8.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor de import-wizard. Netwerk, PDF-parsing
             en ImportService worden gemockt of in tmp_path geïsoleerd.
-            Geen echte HTTP-verzoeken. Sinds v1.1.0 duplicate-popup-flow.
-            Sinds v1.2.0 startmap-logica. Sinds v1.2.1 titelveld-gedrag.
-            Sinds v1.3.0 metadata-sectie (5D'.2b).
-            Sinds v1.4.0 UX-verfijning: QDateEdit + "Datum onbekend" +
-            Ctrl+D + uppercase voor identificatievelden (5D'.2d).
-            Sinds v1.5.0 gebruikt de wizard de gedeelde helpers uit
-            _metadata_form_helpers; tests importeren daar ook
-            naar_uppercase uit.
-            Sinds v1.6.0 ondersteunt de wizard ook Word (.docx) en
-            Excel (.xlsx); nieuwe sectie v1.6.0 test de nieuwe types,
-            paneelwissels, samenvatting en import.
-            Sinds v1.7.0 toont de wizard een succesmelding na een
-            geslaagde import. De test patcht _toon_succesmelding op de
-            dialoog-instantie (QMessageBox.information is een
-            C++-staticmethod die zich niet betrouwbaar laat patchen en
-            de test zou laten hangen op een modale dialoog).
+            Geen echte HTTP-verzoeken.
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
@@ -36,16 +21,15 @@ Wijzigingen:
   v1.4.0 (2026-10-07)  Tests voor QDateEdit, "Datum onbekend", Ctrl+D
                        en uppercase-conversie.
   v1.5.0 (2026-10-07)  Fix: naar_uppercase wordt geïmporteerd uit
-                       _metadata_form_helpers (verplaatst in wizard
-                       v1.5.0). Alle aanroepen hernoemd.
-  v1.6.0 (2026-10-09)  Fase 6B: tests voor Word- en Excel-import in
-                       de wizard. Nieuwe tests gebruiken findData in
-                       plaats van hardcoded categorie-indexen.
+                       _metadata_form_helpers.
+  v1.6.0 (2026-10-09)  Fase 6B: tests voor Word- en Excel-import.
   v1.7.0 (2026-10-09)  Fase 6C: test voor succesmelding na import.
-                       Patch _toon_succesmelding op de dialoog-instantie
-                       in plaats van QMessageBox.information; dat laatste
-                       is een C++-staticmethod die zich niet betrouwbaar
-                       laat monkeypatchen en de test zou laten hangen.
+  v1.8.0 (2026-10-16)  Fase 11E.2: tests voor de async URL-flow. De
+                       PDF/Word/Excel-tests blijven ongewijzigd (die
+                       import is synchroon gebleven). Nieuwe sectie
+                       test de async fetch van metadata, de
+                       "Bezig…"-indicatie, de disabled-knoppen tijdens
+                       het wachten, en de async import van URL.
 ================================================================================
 """
 
@@ -70,6 +54,7 @@ from app.documentation.import_models import (
     ImportStatus,
 )
 from app.documentation.import_service import ImportService
+from app.documentation.url_fetch import UrlMetadata
 from app.gui.dialogs._metadata_form_helpers import naar_uppercase
 from app.gui.dialogs.import_wizard_dialog import ImportWizardDialog
 
@@ -230,7 +215,7 @@ def test_kies_ongeldige_pdf_toont_fout(tmp_path, monkeypatch):
 
 
 # ============================================================================
-# URL
+# URL — metadata ophalen (async sinds 11E.2)
 # ============================================================================
 
 def test_url_metadata_ophalen_vult_titel(tmp_path, monkeypatch):
@@ -239,7 +224,6 @@ def test_url_metadata_ophalen_vult_titel(tmp_path, monkeypatch):
     dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
     dialog.radio_url.setChecked(True)
 
-    from app.documentation.url_fetch import UrlMetadata
     nep_meta = UrlMetadata(
         url="https://example.com",
         fetched_at=1,
@@ -247,8 +231,13 @@ def test_url_metadata_ophalen_vult_titel(tmp_path, monkeypatch):
         title="Paginatitel",
         og_title=None,
     )
+
+    def _fake_async(url, *, on_success, on_error=None):
+        on_success(nep_meta)
+        return None
+
     monkeypatch.setattr(
-        wizard_module, "fetch_url_metadata", lambda url: nep_meta
+        wizard_module, "fetch_url_metadata_async", _fake_async
     )
 
     dialog.url_edit.setText("https://example.com")
@@ -267,12 +256,13 @@ def test_url_metadata_fout_toont_waarschuwing(tmp_path, monkeypatch):
     dialog.radio_url.setChecked(True)
     dialog.url_edit.setText("https://example.com")
 
-    from app.documentation.url_fetch import UrlFetchError
+    def _fake_async(url, *, on_success, on_error=None):
+        on_error("UrlFetchError: timeout", "traceback")
+        return None
 
-    def _faal(url):
-        raise UrlFetchError("timeout")
-
-    monkeypatch.setattr(wizard_module, "fetch_url_metadata", _faal)
+    monkeypatch.setattr(
+        wizard_module, "fetch_url_metadata_async", _fake_async
+    )
 
     from PySide6.QtWidgets import QMessageBox
     gewaarschuwd = {"count": 0}
@@ -293,8 +283,52 @@ def test_url_metadata_fout_toont_waarschuwing(tmp_path, monkeypatch):
     assert dialog.import_btn.isEnabled() is False
 
 
+def test_url_bezig_indicator_tijdens_metadata_ophalen(tmp_path, monkeypatch):
+    """Tijdens de async metadata-fetch zijn de knoppen disabled en
+    toont de samenvatting de 'Bezig…'-tekst."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+    dialog.radio_url.setChecked(True)
+    dialog.url_edit.setText("https://example.com")
+
+    # We bewaren de on_success-callback zodat we die pas later aanroepen.
+    bewaard = {"success": None, "error": None}
+
+    def _fake_async(url, *, on_success, on_error=None):
+        bewaard["success"] = on_success
+        bewaard["error"] = on_error
+        return None
+
+    monkeypatch.setattr(
+        wizard_module, "fetch_url_metadata_async", _fake_async
+    )
+
+    dialog._fetch_url_metadata()
+
+    # Tijdens het wachten: knoppen disabled, "Bezig…"-tekst zichtbaar.
+    assert dialog._url_fetch_bezig is True
+    assert dialog.url_fetch_btn.isEnabled() is False
+    assert dialog.import_btn.isEnabled() is False
+    assert "Bezig" in dialog.summary_browser.toPlainText() or \
+           "ophalen" in dialog.summary_browser.toPlainText()
+
+    # Nu de callback aanroepen: knoppen weer actief, samenvatting gevuld.
+    nep_meta = UrlMetadata(
+        url="https://example.com",
+        fetched_at=1,
+        http_status=200,
+        title="Titel",
+        og_title=None,
+    )
+    bewaard["success"](nep_meta)
+
+    assert dialog._url_fetch_bezig is False
+    assert dialog.import_btn.isEnabled() is True
+
+
 # ============================================================================
-# Importeren
+# PDF/Word/Excel — synchrone import (blijft werken)
 # ============================================================================
 
 def test_importeren_pdf_emit_signal(tmp_path, monkeypatch):
@@ -1613,13 +1647,7 @@ def test_taalwissel_behoudt_word_selectie(tmp_path):
 # ============================================================================
 
 def test_importeren_toont_succesmelding(tmp_path, monkeypatch):
-    """Na een geslaagde import roept de wizard _toon_succesmelding aan.
-
-    We patchen de Python-methode op de dialoog-instantie, niet
-    QMessageBox.information. Dat laatste is een C++-staticmethod die
-    zich niet betrouwbaar laat monkeypatchen en de test zou laten
-    hangen op een modale dialoog.
-    """
+    """Na een geslaagde import roept de wizard _toon_succesmelding aan."""
     _app()
     service = ImportService(catalog_path=tmp_path / "cat.json")
     dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
@@ -1645,7 +1673,6 @@ def test_importeren_toont_succesmelding(tmp_path, monkeypatch):
     dialog._perform_import()
 
     assert ontvangen["count"] == 1
-    # De PDF-titel is afgeleid van de bestandsnaam (doc).
     assert ontvangen["titel"] == "doc"
     assert len(service.list_sources()) == 1
 
@@ -1666,7 +1693,6 @@ def test_keep_actie_toont_geen_succesmelding(tmp_path, monkeypatch):
     monkeypatch.setattr(wizard_module, "sla_instellingen_op", lambda _: None)
     dialog._pick_pdf()
 
-    # Eerste import om een bestaande bron te creëren
     from app.documentation.pdf_import import import_pdf
     import_pdf(
         pdf_pad,
@@ -1674,7 +1700,6 @@ def test_keep_actie_toont_geen_succesmelding(tmp_path, monkeypatch):
         sources_dir=tmp_path / "sources",
     )
 
-    # Popup: KEEP
     from app.gui.dialogs import duplicate_source_dialog as dup_module
     monkeypatch.setattr(
         dup_module.DuplicateSourceDialog,
@@ -1692,5 +1717,196 @@ def test_keep_actie_toont_geen_succesmelding(tmp_path, monkeypatch):
     dialog._perform_import()
 
     assert ontvangen["count"] == 0
-    # De bestaande bron blijft ongewijzigd.
     assert len(service.list_sources()) == 1
+
+
+# ============================================================================
+# v1.8.0 — async URL-import (fase 11E.2)
+# ============================================================================
+# De wizard gebruikt voor URL-import nu async-varianten. De tests hier
+# monkeypatchen fetch_url_metadata_async en fetch_url_content_async
+# zodat de flow deterministisch is. De workers worden bewaard in
+# _bewaarde_workers, conform de eigenaarsconventie van async_worker
+# v2.0.0.
+
+_bewaarde_workers: list = []
+
+
+def _bewaar_worker(worker) -> None:
+    """Bewaar een async-worker zodat de WorkerSignals blijft leven."""
+    if worker is not None:
+        _bewaarde_workers.append(worker)
+
+
+def test_url_import_async_gelukkig_pad(tmp_path, monkeypatch):
+    """Volledige async URL-import: metadata → content → import_url."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+    dialog.radio_url.setChecked(True)
+
+    nep_meta = UrlMetadata(
+        url="https://example.com",
+        fetched_at=1,
+        http_status=200,
+        title="Async Titel",
+        og_title=None,
+    )
+
+    def _fake_meta_async(url, *, on_success, on_error=None):
+        on_success(nep_meta)
+        return None
+
+    def _fake_content_async(url, *, on_success, on_error=None):
+        on_success("<html><body>async inhoud</body></html>")
+        return None
+
+    monkeypatch.setattr(
+        wizard_module, "fetch_url_metadata_async", _fake_meta_async
+    )
+    monkeypatch.setattr(
+        wizard_module, "fetch_url_content_async", _fake_content_async
+    )
+
+    # Simuleer dat de metadata al binnen is (alsof de gebruiker al op
+    # "Metadata ophalen" klikte).
+    dialog.url_edit.setText("https://example.com")
+    dialog._url = "https://example.com"
+    dialog._url_meta = nep_meta
+    dialog._titel_automatisch = True
+    dialog.title_edit.setText("Async Titel")
+    dialog._update_state()
+
+    ontvangen = {"source_id": None}
+    dialog.import_completed.connect(
+        lambda sid: ontvangen.__setitem__("source_id", sid)
+    )
+
+    # import_url wordt gemockt zodat we geen echte netwerkcall doen.
+    def _fake_import_url(url, *, import_service, title=None, notes=None,
+                          duplicate_action=None, **metadata):
+        bestaande = ImportSource(
+            source_id="async-123",
+            source_type=ImportSourceType.URL,
+            title=title or "Async Titel",
+            imported_at=1_700_000_000_000,
+            imported_by="tester",
+            status=ImportStatus.CONCEPT,
+            source_url=url,
+        )
+        return ImportResult(
+            source=bestaande,
+            changed=True,
+            message=None,
+        )
+
+    monkeypatch.setattr(wizard_module, "import_url", _fake_import_url)
+    monkeypatch.setattr(dialog, "_toon_succesmelding", lambda titel: None)
+
+    dialog._perform_import()
+
+    assert ontvangen["source_id"] == "async-123"
+
+
+def test_url_import_async_content_fout_toont_waarschuwing(tmp_path, monkeypatch):
+    """Bij een fout in de content-fetch: waarschuwing, geen import."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+    dialog.radio_url.setChecked(True)
+
+    nep_meta = UrlMetadata(
+        url="https://example.com",
+        fetched_at=1,
+        http_status=200,
+        title="Titel",
+        og_title=None,
+    )
+
+    def _fake_content_async(url, *, on_success, on_error=None):
+        on_error("UrlFetchError: timeout", "traceback")
+        return None
+
+    monkeypatch.setattr(
+        wizard_module, "fetch_url_content_async", _fake_content_async
+    )
+
+    dialog.url_edit.setText("https://example.com")
+    dialog._url = "https://example.com"
+    dialog._url_meta = nep_meta
+
+    from PySide6.QtWidgets import QMessageBox
+    gewaarschuwd = {"count": 0}
+    monkeypatch.setattr(
+        QMessageBox,
+        "warning",
+        staticmethod(
+            lambda *a, **kw: gewaarschuwd.__setitem__(
+                "count", gewaarschuwd["count"] + 1
+            )
+        ),
+    )
+
+    dialog._perform_import()
+
+    assert gewaarschuwd["count"] == 1
+    assert dialog._import_bezig is False
+
+
+def test_url_bezig_import_indicator(tmp_path, monkeypatch):
+    """Tijdens de async URL-import zijn de knoppen disabled."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+    dialog.radio_url.setChecked(True)
+
+    nep_meta = UrlMetadata(
+        url="https://example.com",
+        fetched_at=1,
+        http_status=200,
+        title="Titel",
+        og_title=None,
+    )
+
+    bewaard = {"success": None}
+
+    def _fake_content_async(url, *, on_success, on_error=None):
+        bewaard["success"] = on_success
+        return None
+
+    monkeypatch.setattr(
+        wizard_module, "fetch_url_content_async", _fake_content_async
+    )
+
+    dialog.url_edit.setText("https://example.com")
+    dialog._url = "https://example.com"
+    dialog._url_meta = nep_meta
+    dialog._update_state()
+
+    dialog._perform_import()
+
+    # Tijdens het wachten: knoppen disabled.
+    assert dialog._import_bezig is True
+    assert dialog.import_btn.isEnabled() is False
+    assert dialog.cancel_btn.isEnabled() is False
+
+    # Nu de callback aanroepen: import_url wordt gemockt.
+    def _fake_import_url(url, *, import_service, title=None, notes=None,
+                          duplicate_action=None, **metadata):
+        bestaande = ImportSource(
+            source_id="async-456",
+            source_type=ImportSourceType.URL,
+            title=title or "Titel",
+            imported_at=1_700_000_000_000,
+            imported_by="tester",
+            status=ImportStatus.CONCEPT,
+            source_url=url,
+        )
+        return ImportResult(source=bestaande, changed=True, message=None)
+
+    monkeypatch.setattr(wizard_module, "import_url", _fake_import_url)
+    monkeypatch.setattr(dialog, "_toon_succesmelding", lambda titel: None)
+
+    bewaard["success"]("<html></html>")
+
+    assert dialog._import_bezig is False

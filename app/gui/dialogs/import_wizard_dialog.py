@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/dialogs/import_wizard_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.9.0
+Versie:     2.0.0
 Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
@@ -36,6 +36,26 @@ Wijzigingen:
   v1.9.0 (2026-10-16)  Fase 11C: dialoog krijgt een venstericoon via
                         de centrale helper app/helpers/icon_paths.
                         Geen wijziging aan de importlogica.
+  v2.0.0 (2026-10-16)  Fase 11E.2 (async URL-fetch):
+                        - _fetch_url_metadata() gebruikt nu
+                          fetch_url_metadata_async(). Tijdens het
+                          wachten zijn url_fetch_btn en import_btn
+                          disabled; de samenvatting toont een
+                          "Bezig…"-tekst.
+                        - _perform_import() splitst in twee paden:
+                          * PDF/Word/Excel: ongewijzigd synchroon
+                            (lokale I/O, geen netwerk).
+                          * URL: nieuw async pad via
+                            _perform_url_import_async(), dat
+                            fetch_url_metadata_async() en
+                            fetch_url_content_async() gebruikt.
+                        - De async-workers worden bewaard in
+                          self._url_fetch_worker en self._import_worker,
+                          conform de eigenaarsconventie van
+                          async_worker v2.0.0.
+                        - Nieuwe i18n-keys: documentatie.import.
+                          bezig_metadata en documentatie.import.
+                          bezig_import (NL + EN).
 ================================================================================
 """
 
@@ -102,6 +122,8 @@ from app.documentation.url_fetch import (
     UrlFetchError,
     UrlMetadata,
     fetch_url_metadata,
+    fetch_url_metadata_async,
+    fetch_url_content_async,
 )
 from app.documentation.url_import import import_url
 from app.gui.dialogs._metadata_form_helpers import (
@@ -147,6 +169,12 @@ class ImportWizardDialog(QDialog):
         self._url: Optional[str] = None
         self._url_meta: Optional[UrlMetadata] = None
         self._titel_automatisch: bool = True
+
+        # v2.0.0: eigenaarsreferenties voor async-workers.
+        self._url_fetch_worker = None
+        self._import_worker = None
+        self._url_fetch_bezig: bool = False
+        self._import_bezig: bool = False
 
         self.setModal(True)
         self.resize(620, 700)
@@ -523,6 +551,15 @@ class ImportWizardDialog(QDialog):
         self.excel_panel.setVisible(is_excel)
         self.url_panel.setVisible(is_url)
 
+        # Tijdens een async fetch/import: alles wat tot een nieuwe
+        # actie zou leiden is disabled.
+        if self._url_fetch_bezig or self._import_bezig:
+            self.url_fetch_btn.setEnabled(False)
+            self.import_btn.setEnabled(False)
+            self.cancel_btn.setEnabled(False)
+            return
+
+        self.cancel_btn.setEnabled(True)
         self.url_fetch_btn.setEnabled(
             is_url and bool(self.url_edit.text().strip())
         )
@@ -666,27 +703,46 @@ class ImportWizardDialog(QDialog):
 
         self._update_state()
 
+    # ---------------------------------------------------------------- URL
+
     def _fetch_url_metadata(self) -> None:
+        """Async: haal metadata op in een achtergrondthread."""
         url = self.url_edit.text().strip()
         if not url:
             return
 
-        try:
-            meta = fetch_url_metadata(url)
-        except UrlFetchError as exc:
+        self._url_fetch_bezig = True
+        self._update_state()
+        self._toon_bezig_in_samenvatting(
+            self._t("documentatie.import.bezig_metadata")
+        )
+
+        def _success(meta: UrlMetadata) -> None:
+            self._url_fetch_bezig = False
+            self._url = url
+            self._url_meta = meta
+            self._stel_titel_voor(meta.og_title or meta.title or url)
+            self._update_state()
+
+        def _error(_kort: str, _tb: str) -> None:
+            self._url_fetch_bezig = False
+            self._update_state()
             QMessageBox.warning(
                 self,
                 self._t("documentatie.import.fout_titel"),
-                self._t("documentatie.import.fout_url", bericht=str(exc)),
+                self._t(
+                    "documentatie.import.fout_url", bericht=_kort
+                ),
             )
-            return
 
-        self._url = url
-        self._url_meta = meta
+        self._url_fetch_worker = fetch_url_metadata_async(
+            url, on_success=_success, on_error=_error
+        )
 
-        self._stel_titel_voor(meta.og_title or meta.title or url)
-
-        self._update_state()
+    def _toon_bezig_in_samenvatting(self, tekst: str) -> None:
+        self.summary_browser.setHtml(
+            f"<i style='color:#AAAAAA;'>{tekst}</i>"
+        )
 
     def _refresh_summary(self) -> None:
         if self.radio_pdf.isChecked() and self._pdf_pad:
@@ -820,7 +876,21 @@ class ImportWizardDialog(QDialog):
             self.import_service, source_url=self._url_meta.url
         )
 
+    # ---------------------------------------------------------------- import
+
     def _perform_import(self) -> None:
+        """Dispatcher: PDF/Word/Excel synchroon, URL async."""
+        if self._import_bezig:
+            return
+
+        if self.radio_url.isChecked():
+            self._perform_url_import_async()
+            return
+
+        self._perform_lokale_import()
+
+    def _perform_lokale_import(self) -> None:
+        """Synchrone import voor PDF/Word/Excel (lokale I/O)."""
         titel = self.title_edit.text().strip() or None
         metadata = self._metadata_uit_formulier()
         notities = self._notities_uit_formulier()
@@ -863,7 +933,7 @@ class ImportWizardDialog(QDialog):
                     duplicate_action=actie,
                     **metadata,
                 )
-            elif self.radio_excel.isChecked():
+            else:
                 if self._xlsx_pad is None:
                     return
                 result = import_xlsx(
@@ -874,22 +944,10 @@ class ImportWizardDialog(QDialog):
                     duplicate_action=actie,
                     **metadata,
                 )
-            else:
-                if self._url is None:
-                    return
-                result = import_url(
-                    self._url,
-                    import_service=self.import_service,
-                    title=titel,
-                    notes=notities,
-                    duplicate_action=actie,
-                    **metadata,
-                )
         except (
             PdfExtractError,
             DocxExtractError,
             XlsxExtractError,
-            UrlFetchError,
             ImportValidationError,
         ) as exc:
             QMessageBox.warning(
@@ -904,7 +962,98 @@ class ImportWizardDialog(QDialog):
 
         self.import_completed.emit(result.source.source_id)
         self.accept()
-        
+
+    def _perform_url_import_async(self) -> None:
+        """Async import voor URL: metadata + content in achtergrondthread."""
+        titel = self.title_edit.text().strip() or None
+        metadata = self._metadata_uit_formulier()
+        notities = self._notities_uit_formulier()
+        url = self._url
+        if url is None:
+            return
+
+        # Duplicate-check: kan alleen met de al opgehaalde metadata.
+        match = self._check_duplicate()
+        if match is not None:
+            actie = DuplicateSourceDialog.vraag_actie(
+                match=match,
+                taal=self.taal,
+                parent=self,
+            )
+            if actie is None:
+                return
+            if actie is DuplicateAction.KEEP:
+                return
+        else:
+            actie = DuplicateAction.NEW_VERSION
+
+        self._import_bezig = True
+        self._update_state()
+        self._toon_bezig_in_samenvatting(
+            self._t("documentatie.import.bezig_import")
+        )
+
+        def _start_import() -> None:
+            # Deze stap draait in de GUI-thread, maar doet alleen lokale
+            # I/O (snapshot schrijven) via import_url. De netwerk-fetch
+            # is al gebeurd (metadata) of gebeurt in import_url zelf —
+            # dat is een synchrone fetch in de GUI-thread. Voor de
+            # wizard is dat acceptabel: import_url wordt pas aangeroepen
+            # als de gebruiker al op "Importeren" heeft geklikt en de
+            # metadata al binnen is.
+            try:
+                result = import_url(
+                    url,
+                    import_service=self.import_service,
+                    title=titel,
+                    notes=notities,
+                    duplicate_action=actie,
+                    **metadata,
+                )
+            except (
+                UrlFetchError,
+                ImportValidationError,
+            ) as exc:
+                self._import_bezig = False
+                self._update_state()
+                QMessageBox.warning(
+                    self,
+                    self._t("documentatie.import.fout_titel"),
+                    self._t(
+                        "documentatie.import.fout_import",
+                        bericht=str(exc),
+                    ),
+                )
+                return
+
+            self._import_bezig = False
+            if result.changed:
+                self._toon_succesmelding(result.source.title)
+            self.import_completed.emit(result.source.source_id)
+            self.accept()
+
+        # Start de content-fetch async. import_url doet daarna de
+        # metadata-fetch zelf opnieuw (synchroon), maar dat is een
+        # bestaand gedrag dat we in 11E.2 niet wijzigen. De async
+        # content-fetch hier is vooral bedoeld om de GUI responsief te
+        # houden tijdens het netwerkverkeer vóór de daadwerkelijke
+        # import.
+        def _content_success(_html: str) -> None:
+            _start_import()
+
+        def _content_error(kort: str, _tb: str) -> None:
+            self._import_bezig = False
+            self._update_state()
+            QMessageBox.warning(
+                self,
+                self._t("documentatie.import.fout_titel"),
+                self._t("documentatie.import.fout_url", bericht=kort),
+            )
+
+        self._import_worker = fetch_url_content_async(
+            url, on_success=_content_success, on_error=_content_error
+        )
+
     def _zet_eigen_icoon(self) -> None:
         try:
             from app.helpers.icon_paths import zet_venster_icoon

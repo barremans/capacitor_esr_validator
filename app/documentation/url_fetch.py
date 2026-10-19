@@ -2,15 +2,29 @@
 ================================================================================
 Module:     app/documentation/url_fetch.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-07
+Versie:     1.2.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-onafhankelijke URL-hulpfuncties voor de import-wizard:
             metadata ophalen (titel, meta description, Open Graph),
             HTML-inhoud downloaden als snapshot en lokaal bewaren.
             Dit is de ENIGE module in het project die netwerktoegang doet.
-            Geen Qt, geen assessment.
+            Geen Qt, geen assessment in de synchrone laag.
+
+            Sinds v1.2.0 ook async-varianten:
+              - fetch_url_metadata_async(...)
+              - fetch_url_content_async(...)
+            Die draaien de bestaande synchrone functies in een
+            achtergrondthread via app/helpers/async_worker. De
+            synchrone functies blijven ongewijzigd en blijven de
+            primaire API voor pure tests en niet-GUI-gebruik.
+
+            **Eigenaarschap:** de aanroeper van de async-varianten is
+            eigenaar van de teruggegeven AsyncWorker en moet die
+            bewaren zolang de worker bezig is. Zonder die referentie
+            kan de WorkerSignals worden opgeruimd en faalt de emit met
+            "Signal source has been deleted".
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie: fetch_url_metadata, fetch_url_content,
@@ -19,6 +33,10 @@ Wijzigingen:
                        restore_old_snapshot toegevoegd voor atomair
                        overschrijven in fase 5D'.2a. Bestaande functies
                        ongewijzigd.
+  v1.2.0 (2026-10-16)  Fase 11E.2: async-varianten
+                        fetch_url_metadata_async() en
+                        fetch_url_content_async() toegevoegd. De
+                        synchrone functies blijven ongewijzigd.
 ================================================================================
 """
 
@@ -28,7 +46,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Callable, Optional
 from urllib.parse import urlparse
 
 import requests
@@ -325,3 +343,66 @@ def restore_old_snapshot(old_pad: Path, origineel_pad: Path) -> None:
         raise UrlFetchError(
             f"rollback van oud-bestand faalde: {exc}"
         ) from exc
+
+
+# ---------------------------------------------------------------------------
+# v1.2.0 — async-varianten (fase 11E.2)
+# ---------------------------------------------------------------------------
+# Deze functies draaien de bestaande synchrone functies in een
+# achtergrondthread via app/helpers/async_worker. De synchrone functies
+# hierboven blijven ongewijzigd en blijven de primaire API voor pure
+# tests en niet-GUI-gebruik.
+#
+# **Eigenaarschap:** de aanroeper is eigenaar van de teruggegeven
+# AsyncWorker en moet die bewaren zolang de worker bezig is. Zonder die
+# referentie kan de WorkerSignals worden opgeruimd en faalt de emit met
+# "Signal source has been deleted".
+
+def fetch_url_metadata_async(
+    url: str,
+    *,
+    on_success: Callable[[UrlMetadata], None],
+    on_error: Optional[Callable[[str, str], None]] = None,
+) -> Any:
+    """Asynchrone variant van fetch_url_metadata().
+
+    Roept on_success(meta) aan in de GUI-thread met het UrlMetadata-
+    object. Roept on_error(kort, traceback) aan als het ophalen faalt —
+    dat is hier functioneel, want fetch_url_metadata() werpt
+    UrlFetchError.
+
+    Retourneert de gestarte AsyncWorker. **De aanroeper MOET deze
+    referentie bewaren zolang de worker bezig is.**
+    """
+    from app.helpers.async_worker import run_async
+
+    return run_async(
+        fetch_url_metadata,
+        url,
+        on_success=on_success,
+        on_error=on_error,
+    )
+
+
+def fetch_url_content_async(
+    url: str,
+    *,
+    on_success: Callable[[str], None],
+    on_error: Optional[Callable[[str, str], None]] = None,
+) -> Any:
+    """Asynchrone variant van fetch_url_content().
+
+    Roept on_success(html) aan in de GUI-thread met de ruwe HTML-string.
+    Roept on_error(kort, traceback) aan als het ophalen faalt.
+
+    Retourneert de gestarte AsyncWorker. **De aanroeper MOET deze
+    referentie bewaren zolang de worker bezig is.**
+    """
+    from app.helpers.async_worker import run_async
+
+    return run_async(
+        fetch_url_content,
+        url,
+        on_success=on_success,
+        on_error=on_error,
+    )

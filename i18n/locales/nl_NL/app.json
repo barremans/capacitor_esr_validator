@@ -23,7 +23,8 @@
     "rapport_tooltip": "Selecteer eerst een meting in de historiek.",
     "bug_melden": "🐞 Bug of feature melden…",
     "open_cases": "Open cases tonen",
-    "controleren_op_updates": "Controleren op updates…"
+    "controleren_op_updates": "Controleren op updates…",
+    "qa_toon_update_melding": "QA: toon update-melding"
   },
   "tool": {
     "diagnose": "Diagnose",

@@ -1,6 +1,6 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 2.9.0
+**Versie:** 3.0.0
 **Datum:** 2026-10-16
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
@@ -15,26 +15,25 @@ Wijzigingen:
                        11A.1; rapport-scope "selectie" is opgelost in
                        11A.2. §2.28 blijft open (export/import tussen
                        toestellen).
-  v2.7.0 (2026-10-16)  §2.26 gemarkeerd als opgelost in 11B
-                       (onderscheid inhoudelijke vs. administratieve
-                       betrouwbaarheidsverlagers). Nieuwe subsectie 4.18
-                       toegevoegd met de opgeloste punten in 11B.
-  v2.8.0 (2026-10-16)  §2.27 gemarkeerd als opgelost in 11C (iconen voor
-                       alle vensters). Nieuwe subsectie 4.20 toegevoegd
-                       met de opgeloste punten in 11C. Nieuwe subsectie
-                       4.21 met een kleine inconsistentie in
-                       test_icon_paths.py (lokale _app-fixture).
+  v2.7.0 (2026-10-16)  §2.26 gemarkeerd als opgelost in 11B.
+                       Subsectie 4.18 toegevoegd.
+  v2.8.0 (2026-10-16)  §2.27 gemarkeerd als opgelost in 11C.
+                       Subsectie 4.20 en 4.21 toegevoegd.
   v2.9.0 (2026-10-16)  §2.21 (i18n-menging) gemarkeerd als opgelost in
-                       11D. Nieuwe subsectie 4.22 met de opgeloste punten
-                       in 11D. Nieuwe subsectie 4.23 met een cosmetische
-                       inconsistentie in de teststub _fake_translate van
-                       test_gui_language_switch.py.
+                       11D. Subsectie 4.22 en 4.23 toegevoegd.
+  v3.0.0 (2026-10-16)  §2.6 (async URL-fetch) en §2.24 (async
+                       release-notes, drie-knoppenmelding forceren)
+                       gemarkeerd als opgelost in 11E. Nieuwe subsectie
+                       4.24 met de opgeloste punten in 11E en 4.25 met
+                       een nieuwe observatie: de async-eigenaarsconventie
+                       is nu expliciet en moet in toekomstige async-modules
+                       worden gerespecteerd.
 
 ---
 
 ## 1. Uit Fase 4I — Zoektaal-observaties
 
-Onveranderd t.o.v. v2.8.0.
+Onveranderd t.o.v. v2.9.0.
 
 ---
 
@@ -46,7 +45,10 @@ Zie eerdere versies.
 
 ### 2.6 Nieuwe openstaande punten (na 5D'.2e)
 
-Onveranderd t.o.v. v2.8.0.
+- **Async URL-fetch.** **Opgelost in 11E.2.** `fetch_url_metadata_async()`
+  en `fetch_url_content_async()` zijn beschikbaar; de import-wizard
+  gebruikt ze. De synchrone API's blijven ongewijzigd.
+- De overige punten uit §2.6 blijven open; zie eerdere versies.
 
 ### 2.7 t/m 2.13 — beantwoord
 
@@ -73,78 +75,46 @@ Zie eerdere versies.
   open voor fase 11G.
 - **Checkbox-zichtbaarheid in donker thema.** Open; fase 11G.
 - **i18n-menging in Diagnose/Result en Resultaatdetails.** **Opgelost
-  in 11D.** `Beoordeling` draagt nu zijn eigen taal; het ESR-scherm
-  toont na een live taalwissel een nette banner in plaats van een
-  stille mengeling. De `*`-toelichting bij een frequentieverschil
-  loopt nu via i18n-keys.
+  in 11D.**
 
-### 2.22 t/m 2.24 — beantwoord
+### 2.22 t/m 2.23 — beantwoord
 
 Zie eerdere versies.
 
+### 2.24 Update-melding cosmetica (na 9H)
+
+- **Async `fetch_release_notes()`.** **Opgelost in 11E.1.** Nieuwe
+  `fetch_release_notes_async()`; `main_window.py` gebruikt die.
+- **Drie-knoppenmelding forceren voor QA.** **Opgelost in 11E.3.**
+  Via `algemeen.qa_modus` en een verborgen Help-menu-item.
+- De overige punten uit §2.24 blijven open; zie eerdere versies.
+
 ### 2.25 Export respecteert de selectie niet (toegevoegd 2026-10-15)
 
-- **Status:** **opgelost in 11A.1.** De Historiek en de Analyse
-  bieden nu een scope-DDL met `FILTERED` en `SELECTED`. De export
-  respecteert de checkbox-selectie.
+- **Status:** **opgelost in 11A.1.**
 
 ### 2.26 Betrouwbaarheidsregel verbergt goede resultaten (toegevoegd 2026-10-15)
 
 - **Status:** **opgelost in 11B.**
-- **Wat was:** in `assessment_service.bepaal_eindstatus` stond de regel
-  dat `betrouwbaarheid.niveau == LAAG` de eindstatus altijd minstens
-  naar `AANDACHTSPUNT` duwde — ook als C binnen tolerantie was en ESR
-  waarschijnlijk normaal. Een goede condensator zonder fabrikant/serie
-  kreeg dus nooit "waarschijnlijk goed".
-- **Oplossing:** onderscheid tussen **inhoudelijke** en
-  **administratieve** betrouwbaarheidsverlagers.
-  - Inhoudelijk (frequentieverschil, type onbekend/niet-elektrolytisch,
-    type-mismatch, inconsistentie, ONE_LEG/IN_CIRCUIT) → verlaagt
-    betrouwbaarheid én verhoogt minimum-eindstatus.
-  - Administratief (temperatuur onbekend, typische referentiewaarde,
-    fabrikant/serie onbekend) → verlaagt betrouwbaarheid, maar verhoogt
-    het minimum van de eindstatus niet.
-- **Concreet:** "waarschijnlijk goed, betrouwbaarheid laag door
-  administratieve factoren" is nu mogelijk, met een expliciete reden in
-  `eindstatus_reden.betrouwbaarheid_laag_administratief`.
-- **Gewijzigd:** `app/services/assessment_service.py` (v1.5.0),
-  `i18n/locales/nl_NL/esr.json`, `i18n/locales/en_US/esr.json`,
-  `tests/test_assessment.py` (v1.5.0, 10 nieuwe tests).
-- **Baseline:** 1329 → 1339 passed.
 
 ### 2.27 Alle vensters een gepast icoon (toegevoegd 2026-10-15)
 
 - **Status:** **opgelost in 11C.**
-- **Wat was:** de applicatie had geen icoon op de vensters en geen
-  thematische iconen voor de hub-knoppen, diagnose-knoppen en
-  menu-items.
-- **Oplossing:** één applicatie-icoon (`app.png`, `logo.ico`) plus
-  twaalf thematische iconen, alle in `assets/icons/`, met een pure
-  helper (`app/helpers/icon_paths.py`) die de paden bepaalt en stil
-  terugvalt op `None` als een icoon ontbreekt. De GUI laat het icoon
-  dan weg.
-- **Gewijzigd:** `main.py` (v1.5.0), `app/gui/main_window.py`
-  (v2.17.0), `app/gui/esr_test_screen.py` (v1.13.0), alle dialogen in
-  `app/gui/dialogs/`, `assets/icons/README.md`. Nieuw:
-  `app/helpers/icon_paths.py` (v1.0.0),
-  `scripts/genereer_placeholders.py` (v1.0.0),
-  `tests/test_icon_paths.py` (16 tests),
-  `tests/test_main_icon.py` (1 test).
-- **Baseline:** 1339 → 1358 passed (+19 tests).
 
 ### 2.28 Metingen exporteren/importeren voor samenvoegen tussen toestellen (toegevoegd 2026-10-15)
 
-- **Status:** open; **fase 11A** (uitgesteld naar latere sub-fase).
+- **Status:** open; uitgesteld naar een latere sub-fase (niet 11E).
 
 ### 2.29 Mapvoorkeuren respecteren (toegevoegd 2026-10-15)
 
-- **Status:** **opgelost in 11A.3** via `app/helpers/dialog_start_directory.py`.
+- **Status:** **opgelost in 11A.3** via
+  `app/helpers/dialog_start_directory.py`.
 
 ---
 
 ## 3. Uit vroegere contextdocumenten (nog steeds relevant)
 
-Onveranderd t.o.v. v2.8.0.
+Onveranderd t.o.v. v2.9.0.
 
 ---
 
@@ -154,91 +124,82 @@ Onveranderd t.o.v. v2.7.0, plus:
 
 ### 4.16 Nieuwe openvragen na 11A
 
-- §2.28 — export/import tussen toestellen (uitgesteld).
-- §2.26 — betrouwbaarheidsregel (opgelost in 11B).
-- Overige fase 11-sub-fases.
+Zie v2.6.0.
 
 ### 4.17 Opgeloste punten in 11A
 
-- §2.25 — export respecteert selectie.
-- §2.29 — mapvoorkeuren.
-- §2.14 — menu-item disabled zonder selectie.
-- §2.14 — rapport-scope "selectie".
-- §2.21 — visuele selectie in Analyse (deels).
+Zie v2.6.0.
 
 ### 4.18 Opgeloste punten in 11B (2026-10-16)
 
-- **§2.26 — betrouwbaarheidsregel herzien.** Inhoudelijke verlagers
-  verhogen het minimum van de eindstatus; administratieve verlagers
-  verlagen de betrouwbaarheid wel, maar blokkeren "waarschijnlijk goed"
-  niet meer.
-- **Baselinecorrectie.** De gedocumenteerde baseline van 1347 in
-  `overdracht.md` v5.3.0 kwam niet overeen met de werkelijke teststand.
-  Werkelijke baseline: 1329 vóór 11B, 1339 ná 11B.
+Zie v2.7.0.
 
 ### 4.19 Nieuwe openvragen na 11B
 
-- Geen nieuwe openvragen toegevoegd door 11B zelf.
-- De GUI toont de opsplitsing inhoudelijk/administratief nog niet in de
-  resultaatdetails. Dat is een mogelijke cosmetische aanvulling voor een
-  latere fase (11D of 11F), geen open vraag.
+Zie v2.7.0.
 
 ### 4.20 Opgeloste punten in 11C (2026-10-16)
 
-- **§2.27 — iconen voor alle vensters.** Eén applicatie-icoon plus
-  twaalf thematische iconen. Pure helper `icon_paths` met veilige
-  fallback. Baseline 1339 → 1358 passed.
-- **Help-sneltoetsen gecontroleerd.** De NL Help en EN Help zijn nu
-  consistent: `Ctrl+I`, `Ctrl+P` en `Ctrl+A` staan in beide onder
-  "Globaal".
-- **Changelogs bijgewerkt** voor 11B en 11C.
+Zie v2.8.0.
 
 ### 4.21 Kleine inconsistentie: `test_icon_paths.py` gebruikt een
 lokale `_app`-fixture
 
-- **Status:** open; lage prioriteit.
-- **Wat:** `tests/test_icon_paths.py` definieert een lokale
-  `_app`-fixture met `@pytest.fixture(scope="module")`. De
-  projectafspraak zegt: **geen fixture, `QApplication` lokaal ophalen
-  in de testfunctie**. De fixture werkt, maar wijkt af van de
-  afspraak.
-- **Wanneer opruimen:** een latere cosmetische fase (11F of 11I).
-  Geen functionele impact.
+- **Status:** open; lage prioriteit. Zie v2.8.0.
 
 ### 4.22 Opgeloste punten in 11D (2026-10-16)
 
-- **§2.21 — i18n-menging in Diagnose/Result en Resultaatdetails.**
-  `Beoordeling` krijgt een `taal`-veld. Het ESR-scherm toont na een
-  live taalwissel een nette banner en gebruikt `resultaat.taal` voor
-  alle resultaat-specifieke labels. Geen stille mengeling meer.
-- **`*`-toelichting bij frequentieverschil** loopt nu via i18n-keys
-  (`resultaat.esr_factor_frequentie_indicatief` en
-  `resultaat.esr_factor_frequentie_indicatief_kort`) in NL én EN.
-- **Bugfix in `apply_language`.** De conditie
-  `result_group.isVisible()` is vervangen door
-  `_laatste_resultaat is not None`. In offscreen/headless situaties
-  (tests, pagina's die nog niet actief zijn in de `QStackedWidget`) is
-  `isVisible()` False en werd de banner nooit getoond. `isVisible()`
-  was ook in productie niet de juiste check.
-- **Baseline:** 1358 → 1366 passed (+8 tests: 5 in `test_assessment.py`,
-  3 in `test_gui_language_switch.py`).
+Zie v2.9.0.
 
 ### 4.23 Cosmetische inconsistentie: `_fake_translate` in
 `test_gui_language_switch.py` plakt kwargs achter de sleutel
 
-- **Status:** open; lage prioriteit.
-- **Wat:** de teststub `_fake_translate` retourneert
-  `f"{taal}:{key}"` en plakt eventuele kwargs achter de sleutel als
-  `[k=v,...]`. Dat is genoeg om te controleren dat kwargs worden
-  doorgegeven, maar het is geen echte simulatie van `vertaal()`. De
-  drie 11D-tests vertrouwen erop dat `{oude_taal}` en `{nieuwe_taal}`
-  in de bannertekst voorkomen; de stub doet dat op een eigen,
-  afwijkende manier.
-- **Wanneer opruimen:** een latere cosmetische fase (11F of 11I). Geen
-  functionele impact.
-- **Alternatief:** de stub laten retourneren wat `vertaal()` in
-  productie zou doen (met echte format-vervanging), of de drie tests
-  herschrijven zodat ze niet van de stub-output afhangen.
+- **Status:** open; lage prioriteit. Zie v2.9.0.
+
+### 4.24 Opgeloste punten in 11E (2026-10-16)
+
+- **§2.6 — async URL-fetch.** `fetch_url_metadata_async()` en
+  `fetch_url_content_async()` in `url_fetch.py` (v1.2.0). De wizard
+  (v2.0.0) gebruikt ze; knoppen worden disabled, "Bezig…"-tekst
+  verschijnt in de samenvatting.
+- **§2.24 — async `fetch_release_notes()`.** Nieuwe
+  `fetch_release_notes_async()` in `updater.py` (v1.2.0).
+  `main_window.py` (v2.18.0) gebruikt die.
+- **§2.24 — drie-knoppenmelding forceren voor QA.** Nieuwe instelling
+  `algemeen.qa_modus` (default `False`). Bij `True` verschijnt een
+  verborgen QA-menu-item in het Help-menu.
+- **Nieuwe module `async_worker.py` (v2.0.0).** Generieke
+  `AsyncWorker(QRunnable)` + `run_async()`. Geen netwerklogica.
+- **Bugfix "Signal source has been deleted".** Opgelost door
+  `WorkerSignals` als sterk Python-attribuut op de `AsyncWorker` te
+  houden, `setAutoDelete(False)`, en **de aanroeper eigenaar te maken**
+  van de worker. De GUI bewaart de worker in
+  `self._update_check_worker`, `self._release_notes_worker`,
+  `self._url_fetch_worker` en `self._import_worker`. Tests bewaren de
+  worker in `_bewaarde_workers`.
+- **Baseline:** 1366 → **1395 passed** (+29 tests).
+
+### 4.25 Nieuwe observatie: async-eigenaarsconventie is nu expliciet
+
+- **Status:** open; lage prioriteit. Geen actie nodig voor 11E.
+- **Wat:** sinds 11E.1 v2.0.0 is de eigenaarsconventie van
+  `AsyncWorker` expliciet: **de aanroeper is eigenaar** en moet de
+  return-waarde van `run_async()` bewaren zolang de worker bezig is.
+  Dit is de standaard Qt-conventie voor `QRunnable` met
+  `setAutoDelete(False)`.
+- **Waarom belangrijk:** als een toekomstige async-module de worker
+  lokaal vasthoudt en daarna laat vallen, kan de `WorkerSignals`
+  worden opgeruimd vóór de emit klaar is. Dat geeft
+  `RuntimeError: Signal source has been deleted`.
+- **Conventie voor volgende async-modules:**
+  - Bewaar de return-waarde in een sterk attribuut op de aanroeper
+    (`self._xxx_worker = run_async(...)`).
+  - In tests: bewaar de worker in een module-level lijst
+    `_bewaarde_workers` tot het einde van de sessie.
+  - Nooit de worker in een lokale variabele laten vallen zonder
+    referentie.
+- **Wanneer opruimen:** geen actie nodig; dit is een
+  documentatie-afspraak, geen bug.
 
 ---
 

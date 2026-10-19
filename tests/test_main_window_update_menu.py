@@ -2,17 +2,33 @@
 ================================================================================
 Module:     tests/test_main_window_update_menu.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-15
+Versie:     1.3.0
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor het Help-menu-item "Controleren op
             updates…" in ToolHubWindow (fase 9H). Geen qtbot; offscreen.
 
+            Sinds v1.2.0 (fase 11E.1) gebruikt de GUI de async variant
+            _do_update_check_async(on_result). De tests monkeypatchen
+            die methode en roepen de callback zelf aan, zodat de
+            GUI-logica deterministisch getest wordt zonder echte
+            threads. De bestaande synchrone _do_update_check blijft
+            bestaan en wordt apart getest.
+
 Wijzigingen:
   v1.0.0 (2026-10-14)  Fase 9H. Eerste versie.
   v1.1.0 (2026-10-15)  Fase 9H-afronding: tests voor de derde knop
                         "Wat is er nieuw?" en de release-notes-dialoog.
+  v1.2.0 (2026-10-16)  Fase 11E.1: handmatige check gebruikt de async
+                        variant _do_update_check_async(on_result).
+  v1.3.0 (2026-10-16)  Fase 11E.3: tests voor de QA-modus (verborgen
+                        Help-menu-item, drie-knoppenmelding forceren).
+                        In test_qa_menu_item_zichtbaar_met_qa_modus
+                        wordt de module via sys.modules opgehaald in
+                        plaats van opnieuw geïmporteerd, zodat
+                        monkeypatch gegarandeerd op de geladen module
+                        werkt.
 ================================================================================
 """
 
@@ -126,7 +142,10 @@ def test_handmatige_check_zonder_update_toont_information(monkeypatch):
         remote_version = "1.0.4"
         download_url = None
 
-    monkeypatch.setattr(window, "_do_update_check", lambda: _FakeInfo())
+    def _fake_async(on_result):
+        on_result(_FakeInfo())
+
+    monkeypatch.setattr(window, "_do_update_check_async", _fake_async)
 
     captured = {}
 
@@ -150,7 +169,10 @@ def test_handmatige_check_met_fout_toont_warning(monkeypatch):
     _app()
     window = ToolHubWindow(taal="nl_NL", check_on_startup=False)
 
-    monkeypatch.setattr(window, "_do_update_check", lambda: None)
+    def _fake_async(on_result):
+        on_result(None)
+
+    monkeypatch.setattr(window, "_do_update_check_async", _fake_async)
 
     captured = {}
 
@@ -208,6 +230,34 @@ def test_do_update_check_vangt_exception(monkeypatch):
     try:
         assert window._do_update_check() is None
     finally:
+        window.close()
+        window.deleteLater()
+        _app().processEvents()
+
+
+def test_do_update_check_async_importfout_geeft_none(monkeypatch):
+    """_do_update_check_async mag nooit een exception laten doorwerken;
+    bij importfout komt None via de callback."""
+    _app()
+    window = ToolHubWindow(taal="nl_NL", check_on_startup=False)
+
+    import builtins
+    originele_import = builtins.__import__
+
+    def _fake_import(name, *args, **kwargs):
+        if name == "app.helpers.updater":
+            raise ImportError("gesimuleerd")
+        return originele_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _fake_import)
+
+    ontvangen: list[object] = []
+
+    try:
+        window._do_update_check_async(lambda info: ontvangen.append(info))
+        assert ontvangen == [None]
+    finally:
+        monkeypatch.undo()
         window.close()
         window.deleteLater()
         _app().processEvents()
@@ -380,6 +430,152 @@ def test_markdown_naar_html_ondersteunt_koppen_en_vet(monkeypatch):
         assert "<h2>Sectie</h2>" in html
         assert "<b>vet</b>" in html
         assert "<code>code</code>" in html
+    finally:
+        window.close()
+        window.deleteLater()
+        _app().processEvents()
+
+
+# ============================================================================
+# v1.2.0 — async release notes en release notes via de async-route
+# ============================================================================
+
+def test_toon_release_notes_async_roept_dialoog_aan(monkeypatch):
+    """_toon_release_notes_async() roept de dialoog aan bij een geldige body."""
+    _app()
+    window = ToolHubWindow(taal="nl_NL", check_on_startup=False)
+
+    from app.helpers import updater as updater_module
+
+    def _fake_async(*, on_success, on_error=None, timeout=5):
+        on_success({
+            "tag_name": "v1.2.0",
+            "body": "## Nieuw\n- Async\n",
+            "html_url": "https://example.com/rel/v1.2.0",
+        })
+        return None
+
+    monkeypatch.setattr(
+        updater_module, "fetch_release_notes_async", _fake_async
+    )
+
+    gevangen = {"body": None, "url": None}
+
+    def _fake_dialoog(body, html_url):
+        gevangen["body"] = body
+        gevangen["url"] = html_url
+
+    monkeypatch.setattr(window, "_toon_release_notes_dialoog", _fake_dialoog)
+
+    try:
+        window._toon_release_notes_async()
+        assert gevangen["body"] is not None
+        assert "Async" in gevangen["body"]
+        assert gevangen["url"].endswith("/v1.2.0")
+    finally:
+        window.close()
+        window.deleteLater()
+        _app().processEvents()
+
+
+def test_toon_release_notes_async_bij_fout_toont_fallback(monkeypatch):
+    """_toon_release_notes_async() valt bij een fout terug op de foutmelding."""
+    _app()
+    window = ToolHubWindow(taal="nl_NL", check_on_startup=False)
+
+    from app.helpers import updater as updater_module
+
+    def _fake_async(*, on_success, on_error=None, timeout=5):
+        on_error("ConnectionError: geen netwerk", "traceback")
+        return None
+
+    monkeypatch.setattr(
+        updater_module, "fetch_release_notes_async", _fake_async
+    )
+
+    gevangen = {"url": None}
+
+    def _fake_fout(html_url):
+        gevangen["url"] = html_url
+
+    monkeypatch.setattr(window, "_toon_release_notes_fout", _fake_fout)
+
+    try:
+        window._toon_release_notes_async()
+        assert gevangen["url"] is not None
+        assert "releases/latest" in gevangen["url"]
+    finally:
+        window.close()
+        window.deleteLater()
+        _app().processEvents()
+
+
+# ============================================================================
+# v1.3.0 — QA-modus (fase 11E.3)
+# ============================================================================
+
+def test_qa_menu_item_verborgen_standaard():
+    """Zonder qa_modus: geen QA-item in het Help-menu."""
+    _app()
+    window = ToolHubWindow(taal="nl_NL", check_on_startup=False)
+    try:
+        labels = _help_action_labels(window)
+        assert window._t("menu.qa_toon_update_melding") not in labels
+    finally:
+        window.close()
+        window.deleteLater()
+        _app().processEvents()
+
+
+def test_qa_menu_item_zichtbaar_met_qa_modus(monkeypatch):
+    """Met qa_modus=True: QA-item zichtbaar in het Help-menu."""
+    _app()
+
+    from dataclasses import replace as dc_replace
+    from app.config.settings import laad_instellingen
+
+    originele = laad_instellingen()
+    gewijzigd = dc_replace(
+        originele,
+        algemeen=dc_replace(originele.algemeen, qa_modus=True),
+    )
+    import sys
+    main_window_module = sys.modules["app.gui.main_window"]
+    monkeypatch.setattr(
+        main_window_module, "laad_instellingen", lambda: gewijzigd
+    )
+
+    window = ToolHubWindow(taal="nl_NL", check_on_startup=False)
+    try:
+        labels = _help_action_labels(window)
+        assert window._t("menu.qa_toon_update_melding") in labels
+    finally:
+        window.close()
+        window.deleteLater()
+        _app().processEvents()
+
+
+def test_qa_modus_toont_drie_knoppen(monkeypatch):
+    """_toon_update_melding_voor_qa() toont de melding met drie knoppen."""
+    _app()
+    window = ToolHubWindow(taal="nl_NL", check_on_startup=False)
+
+    knoppen: list[str] = []
+    originele_addButton = QMessageBox.addButton
+
+    def _fake_addButton(self, *args, **kwargs):
+        if args and isinstance(args[0], str):
+            knoppen.append(args[0])
+        return originele_addButton(self, *args, **kwargs)
+
+    monkeypatch.setattr(QMessageBox, "addButton", _fake_addButton)
+    monkeypatch.setattr(QMessageBox, "exec", lambda self: 0)
+
+    try:
+        window._toon_update_melding_voor_qa()
+        assert "Downloaden" in knoppen
+        assert "Wat is er nieuw?" in knoppen
+        assert "Later" in knoppen
     finally:
         window.close()
         window.deleteLater()

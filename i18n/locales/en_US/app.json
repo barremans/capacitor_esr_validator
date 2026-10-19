@@ -23,7 +23,8 @@
     "rapport_tooltip": "Select a measurement in the history first.",
     "bug_melden": "🐞 Report a bug or feature…",
     "open_cases": "Show open cases",
-    "controleren_op_updates": "Check for updates…"
+    "controleren_op_updates": "Check for updates…",
+    "qa_toon_update_melding": "QA: show update dialog"
   },
   "tool": {
     "diagnose": "Diagnostics",

@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_updater.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-15
+Versie:     1.2.2
+Datum:      2026-10-16
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor app/helpers/updater.py (fase 9H).
@@ -12,12 +12,22 @@ Doel:       Regressietests voor app/helpers/updater.py (fase 9H).
 
 Wijzigingen:
   v1.0.0 (2026-10-14)  Fase 9H. Eerste versie.
-  v1.1.0 (2026-10-15)  Fase 9H-afronding: tests voor fetch_release_notes()
-                        (GitHub Releases API).
+  v1.1.0 (2026-10-15)  Fase 9H-afronding: tests voor fetch_release_notes().
+  v1.2.0 (2026-10-16)  Fase 11E.1: tests voor de async-varianten.
+  v1.2.1 (2026-10-16)  _wacht_tot_klaar wacht op de specifieke callback
+                        i.p.v. op pool.activeThreadCount() == 0.
+  v1.2.2 (2026-10-16)  Async-workers worden bewaard in
+                        _bewaarde_workers, zodat de WorkerSignals
+                        blijft leven tot de callback is aangeroepen.
+                        Zonder die referentie faalt de emit met
+                        "Signal source has been deleted".
 ================================================================================
 """
 
 from __future__ import annotations
+
+import os
+import time
 
 import pytest
 import requests
@@ -106,7 +116,7 @@ def test_asset_url_formaat():
 
 
 # ---------------------------------------------------------------------------
-# check_for_update — met monkeypatch op fetch_version_txt
+# check_for_update
 # ---------------------------------------------------------------------------
 def test_check_for_update_uitkomst_nieuwer(monkeypatch):
     monkeypatch.setattr(
@@ -166,7 +176,7 @@ def test_check_for_update_ongeldige_remote_versie(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# fetch_version_txt — raw lukt
+# fetch_version_txt
 # ---------------------------------------------------------------------------
 class _FakeResponse:
     def __init__(self, ok: bool, text: str, status_code: int = 200):
@@ -223,11 +233,9 @@ def test_fetch_version_txt_raw_exception_contents_lukt(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# v1.1.0 — fetch_release_notes (fase 9H-afronding)
+# fetch_release_notes
 # ---------------------------------------------------------------------------
 class _FakeJsonResponse:
-    """Response met een .json()-methode voor de Releases API."""
-
     def __init__(self, ok: bool, data: dict | None = None,
                  status_code: int = 200, text: str = ""):
         self.ok = ok
@@ -297,3 +305,121 @@ def test_fetch_release_notes_netwerkfout_werpt_requestexception(monkeypatch):
     monkeypatch.setattr(updater.requests, "get", _raise)
     with pytest.raises(requests.ConnectionError):
         updater.fetch_release_notes()
+
+
+# ===========================================================================
+# v1.2.0 — async-varianten (fase 11E.1)
+# ===========================================================================
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+
+# Bewaar de async-workers. De aanroeper is eigenaar; zonder deze lijst
+# kan de WorkerSignals worden opgeruimd voordat de callback is
+# aangeroepen.
+_bewaarde_workers: list = []
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _ruim_workers_op_aan_einde():
+    yield
+    _bewaarde_workers.clear()
+
+
+def _app():
+    from PySide6.QtWidgets import QApplication
+    return QApplication.instance() or QApplication([])
+
+
+def _wacht_op(conditie, timeout_s: float = 3.0, wat: str = "callback") -> None:
+    """Laat de event loop draaien tot `conditie()` True teruggeeft."""
+    app = _app()
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        app.processEvents()
+        if conditie():
+            return
+        time.sleep(0.005)
+    raise AssertionError(f"{wat} werd niet klaar binnen de timeout")
+
+
+def test_check_for_update_async_roept_on_success(monkeypatch):
+    _app()
+    monkeypatch.setattr(
+        updater,
+        "fetch_version_txt",
+        lambda timeout=5: "1.0.5\nhttps://example.com/setup_1.0.5.exe\n",
+    )
+    ontvangen: list[updater.UpdateInfo] = []
+
+    worker = updater.check_for_update_async(
+        "1.0.4",
+        on_success=lambda info: ontvangen.append(info),
+    )
+    _bewaarde_workers.append(worker)
+    _wacht_op(lambda: len(ontvangen) == 1, wat="on_success")
+
+    info = ontvangen[0]
+    assert info.is_newer is True
+    assert info.remote_version == "1.0.5"
+
+
+def test_check_for_update_async_zonder_on_error_werkt(monkeypatch):
+    _app()
+    monkeypatch.setattr(
+        updater,
+        "fetch_version_txt",
+        lambda timeout=5: "1.0.4\n",
+    )
+    ontvangen: list[updater.UpdateInfo] = []
+
+    worker = updater.check_for_update_async(
+        "1.0.4",
+        on_success=lambda info: ontvangen.append(info),
+    )
+    _bewaarde_workers.append(worker)
+    _wacht_op(lambda: len(ontvangen) == 1, wat="on_success")
+
+    assert ontvangen[0].is_newer is False
+
+
+def test_fetch_release_notes_async_roept_on_success(monkeypatch):
+    _app()
+    data = {
+        "tag_name": "v1.2.0",
+        "body": "## Nieuw\n- Async\n",
+        "html_url": "https://example.com/rel/v1.2.0",
+    }
+    monkeypatch.setattr(
+        updater.requests, "get",
+        lambda *a, **k: _FakeJsonResponse(True, data),
+    )
+    ontvangen: list[dict] = []
+
+    worker = updater.fetch_release_notes_async(
+        on_success=lambda notes: ontvangen.append(notes),
+    )
+    _bewaarde_workers.append(worker)
+    _wacht_op(lambda: len(ontvangen) == 1, wat="on_success")
+
+    assert ontvangen[0]["tag_name"] == "v1.2.0"
+    assert "Async" in ontvangen[0]["body"]
+
+
+def test_fetch_release_notes_async_roept_on_error(monkeypatch):
+    _app()
+    def _raise(*a, **k):
+        raise requests.ConnectionError("geen netwerk")
+
+    monkeypatch.setattr(updater.requests, "get", _raise)
+    fouten: list[tuple[str, str]] = []
+
+    worker = updater.fetch_release_notes_async(
+        on_success=lambda notes: None,
+        on_error=lambda kort, tb: fouten.append((kort, tb)),
+    )
+    _bewaarde_workers.append(worker)
+    _wacht_op(lambda: len(fouten) == 1, wat="on_error")
+
+    kort, tb = fouten[0]
+    assert "ConnectionError" in kort
+    assert "geen netwerk" in kort
