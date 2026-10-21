@@ -1,7 +1,4 @@
 {
-  "dialog": {
-    "documentatie_placeholder": "De documentatiesectie wordt in een latere fase verder uitgewerkt."
-  },
   "documentatie": {
     "titel": "Documentatie",
     "zoeken": "Zoeken",
@@ -28,6 +25,15 @@
       "versie": "Versie"
     },
     "status_kolom": {
+      "concept": "Concept",
+      "actief": "Actief",
+      "gearchiveerd": "Gearchiveerd",
+      "gearchiveerd_met_reden": "Gearchiveerd: {reden}"
+    },
+    "status_filter": {
+      "label": "Status",
+      "tooltip": "Filter op levenscyclusstatus. 'Alle' toont ook gearchiveerde imports.",
+      "alle": "Alle",
       "concept": "Concept",
       "actief": "Actief",
       "gearchiveerd": "Gearchiveerd"
@@ -64,8 +70,41 @@
     "status_wijzigen_fout_bericht": "Status kon niet worden gewijzigd: {bericht}",
     "status_wijzigen_bevestiging_archiveren": "Weet je zeker dat je deze bron wilt archiveren? De bron verdwijnt uit de standaardlijst maar blijft bewaard.",
     "status_wijzigen_bevestiging_terug": "Weet je zeker dat je deze bron terug wilt zetten naar Concept? De bron verschijnt opnieuw in de standaardlijst.",
-    "toon_gearchiveerd": "Toon gearchiveerde",
-    "toon_gearchiveerd_tooltip": "Toon ook gearchiveerde imports in de lijst.",
+    "status_wijzigen_reden": {
+      "reden_label": "Reden (optioneel)",
+      "reden_placeholder": "Waarom archiveer je deze bron?",
+      "reden_tooltip": "De reden wordt bewaard en getoond als tooltip bij de status."
+    },
+    "bulk_edit": {
+      "knop": "Bulk bewerken…",
+      "knop_tooltip": "Metadata van de geselecteerde eigen imports in één keer wijzigen",
+      "knop_tooltip_uit": "Selecteer minstens één eigen import om bulk-bewerken te gebruiken",
+      "titel": "Metadata van meerdere imports bewerken",
+      "subtitel": "Pas de metadata van {aantal} geselecteerde imports aan. Vink per veld aan wat je wilt wijzigen; niet-aangevinkte velden blijven ongewijzigd.",
+      "wijzigen": "Wijzigen",
+      "wijzigen_tooltip": "Vink aan om dit veld voor alle geselecteerde imports te wijzigen.",
+      "opslaan": "Toepassen",
+      "annuleren": "Annuleren",
+      "fout_titel": "Fout bij toepassen",
+      "titel_leeg": "De titel mag niet leeg zijn als je die wilt wijzigen."
+    },
+    "bulk_status": {
+      "knop": "Bulk status…",
+      "knop_tooltip": "Status van de geselecteerde eigen imports in één keer wijzigen",
+      "knop_tooltip_uit": "Selecteer minstens één eigen import om bulk-status te gebruiken",
+      "titel": "Status van meerdere imports wijzigen",
+      "subtitel": "Kies de nieuwe status voor {aantal} geselecteerde imports. Rijen waarvan de overgang niet is toegelaten, worden overgeslagen.",
+      "opslaan": "Toepassen",
+      "annuleren": "Annuleren",
+      "bevestiging_archiveren": "Weet je zeker dat je {aantal} geselecteerde bron(nen) wilt archiveren? Ze verdwijnen uit de standaardlijst maar blijven bewaard.",
+      "bevestiging_concept": "Weet je zeker dat je {aantal} geselecteerde bron(nen) terug wilt zetten naar Concept? Ze verschijnen opnieuw in de standaardlijst."
+    },
+    "bulk_resultaat": {
+      "titel": "Bulk-actie voltooid",
+      "samenvatting": "{gelukt} gelukt, {overgeslagen} overgeslagen, {mislukt} mislukt.",
+      "fout_titel": "Fout bij bulk-actie",
+      "fout_bericht": "Kon de selectie niet lezen: {bericht}"
+    },
     "document_fout": "Document kon niet worden geopend: {bericht}",
     "document_titels": {
       "esr_safe_discharge": "Condensator veilig ontladen vóór meting",
@@ -90,7 +129,6 @@
       "notities": "Notities",
       "bron_url": "Bron-URL",
       "locator": "Locatie in bron",
-      "ondersteunt": "Ondersteunt",
       "bron_notitie": "Bronnotitie"
     },
     "help": {
@@ -107,7 +145,7 @@
       "tips_titel": "Tips",
       "tips": "Begin breed en verfijn daarna. Een leeg zoekveld toont alles. Combineer het zoekveld met de filter-dropdowns voor categorie en tool om verder te verfijnen.",
       "filters_titel": "Verschil met filters",
-      "filters_tekst": "Het zoekveld zoekt in menselijke metadata. De filter-dropdowns (categorie, tool) filteren op gestructureerde context. Beide werken samen.",
+      "filters_tekst": "Het zoekveld zoekt in menselijke metadata. De filter-dropdowns (categorie, tool, status) filteren op gestructureerde context. Beide werken samen.",
       "sluiten": "Sluiten"
     },
     "import": {

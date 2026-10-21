@@ -35,6 +35,15 @@
       "capaciteit_uf": "Capacitance (µF)",
       "d": "D"
     },
+    "zoom": {
+      "reset_knop": "Reset zoom",
+      "reset_tooltip": "Restore the original view (Ctrl+0)"
+    },
+    "scope": {
+      "selectie": "Selection only",
+      "filters": "Current filters",
+      "tooltip": "Determines whether the chart and export show only the checked measurements."
+    },
     "selectie": {
       "titel": "Selection",
       "kolom": {

@@ -1,7 +1,7 @@
 # Wat nu? — Electronics Diagnostic Tool Hub
 
-**Versie:** 1.4.0
-**Datum:** 2026-10-16
+**Versie:** 2.1.0
+**Datum:** 2026-10-20
 **Auteur:** Bart Bossuyt
 **Doel:** beknopte gids voor "wat is de volgende stap" na een
 afgeronde fase. Geen volledige overdracht — die staat in
@@ -11,10 +11,10 @@ afgeronde fase. Geen volledige overdracht — die staat in
 
 ## Huidige staat
 
-- **Baseline tests:** 1358 passed.
+- **Baseline tests:** 1494 passed.
 - **Huidige versie:** `1.2.0`.
-- **Laatste afgeronde fase:** 11C — iconen voor alle vensters.
-- **Volgende fase:** 11D — i18n-menging oplossen.
+- **Laatste afgeronde fase:** 11G.7 — filter-checkbox zichtbaarheid.
+- **Volgende fase:** 11H — light theme.
 
 Dit bestand wordt bijgewerkt na elke fase.
 
@@ -79,15 +79,19 @@ Dit bestand wordt bijgewerkt na elke fase.
 - **Voor leesbare PDF's:** `QT_QPA_FONTDIR` wordt sinds 9A automatisch
   gezet in `main.py`.
 - **De ArticleSearch-flow is de bewezen build-flow.** Wijk daar niet
-  meer van af. Concreet:
-  - `build_installer.bat` genereert `dist\installer.iss`.
-  - `build_and_publish.ps1` orkestreert de hele keten.
-  - `publish.ps1` doet de GitHub-release met release-gate op
-    Authenticode-handtekening.
+  meer van af.
 - **Publiceren naar GitHub** gaat via `.\publish.ps1` vanuit de
   repo-root. De release-gate weigert ongesigneerde installers.
-  `publish.ps1` werkt `releases/latest/version.txt` bij en pusht
-  `app/version.py` + `version.txt` naar `origin/main`.
+- **`QChart.zoomReset()` herstelt de range die actief was op het
+  moment van de reset, niet de oorspronkelijke.** Bewaar de originele
+  range per as en herstel die expliciet.
+- **De `export_scope_combo` in `analysis_screen.py` stuurt zowel de
+  grafiek als de export aan.** De attribuutnaam is ongewijzigd
+  gebleven voor backward-compat.
+- **Gebruik `_sluit_app()` voor expliciet afsluiten.**
+  `closeEvent` accepteert het event alleen als `_force_close` True is;
+  anders blijft het contextuele "terug naar hub"-gedrag voor de
+  venster-X op een subpagina.
 
 ---
 

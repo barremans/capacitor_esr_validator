@@ -35,6 +35,15 @@
       "capaciteit_uf": "Capaciteit (µF)",
       "d": "D"
     },
+    "zoom": {
+      "reset_knop": "Zoom herstellen",
+      "reset_tooltip": "Herstel de oorspronkelijke weergave (Ctrl+0)"
+    },
+    "scope": {
+      "selectie": "Alleen selectie",
+      "filters": "Huidige filters",
+      "tooltip": "Bepaalt of de grafiek en export alleen de aangevinkte metingen tonen."
+    },
     "selectie": {
       "titel": "Selectie",
       "kolom": {

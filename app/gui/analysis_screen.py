@@ -2,27 +2,41 @@
 ================================================================================
 Module:     app/gui/analysis_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.3.0
-Datum:      2026-10-16
+Versie:     1.6.3
+Datum:      2026-10-20
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only Analyse-pagina binnen het hoofdvenster.
 
 Wijzigingen:
-  v1.0.0 (2026-10-09)  Eerste versie: filters, vier grafiektypes,
-                        aggregatie-dropdown, QtCharts-weergave.
-  v1.0.1 (2026-10-09)  Fix: __init__ roept nu apply_language() aan.
-  v1.0.2 (2026-10-09)  Fix: apply_language() roept refresh() niet langer
-                        zelf aan.
+  v1.0.0 (2026-10-09)  Eerste versie.
+  v1.0.1 (2026-10-09)  Fix: __init__ roept apply_language() aan.
+  v1.0.2 (2026-10-09)  Fix: apply_language() roept refresh() niet aan.
   v1.0.3 (2026-10-10)  Fix: NaN/Inf in meetwaarden.
-  v1.0.4 (2026-10-10)  Fix: _is_finite accepteert uitsluitend int en float.
-  v1.0.5 (2026-10-10)  Fix: scatter schaalt nu vóór het filteren.
+  v1.0.4 (2026-10-10)  Fix: _is_finite accepteert uitsluitend int/float.
+  v1.0.5 (2026-10-10)  Fix: scatter schaalt vóór het filteren.
   v1.0.6 (2026-10-10)  Fix: applyNiceNumbers() verwijderd.
-  v1.1.0 (2026-10-16)  Fase 11A.1: compacte selectielijst, scope-DDL,
-                        exportknop voor CSV.
-  v1.2.0 (2026-10-16)  Fase 11A.2: knop "Rapport maken…" naast exportknop.
-  v1.3.0 (2026-10-16)  Fase 11A.3: map-logica delegeert naar de nieuwe
-                        pure helper app/helpers/dialog_start_directory.
+  v1.1.0 (2026-10-16)  Fase 11A.1: selectielijst, scope-DDL, export.
+  v1.2.0 (2026-10-16)  Fase 11A.2: rapport-knop.
+  v1.3.0 (2026-10-16)  Fase 11A.3: map-logica via centrale helper.
+  v1.4.0 (2026-10-20)  Fase 11G.3: as-schaling en tickformaat.
+  v1.5.0 (2026-10-20)  Fase 11G.4: zoom/pan.
+  v1.5.1 (2026-10-20)  Fix: RectangleRubberBand.
+  v1.6.0 (2026-10-20)  Fase 11G.5: klikbare datapunten + selectie-
+                        gedreven analyse.
+  v1.6.1 (2026-10-20)  Fix: refresh(preserve_selection=True) bewaart
+                        de selectie bij scope SELECTED.
+  v1.6.2 (2026-10-20)  Fix: "Selectie gewist"-melding weer bij gewone
+                        refresh; scatter-klik-tests met expliciete
+                        refresh.
+  v1.6.3 (2026-10-20)  Fix: _category_label en _category_color waren
+                        per ongeluk verdwenen bij het herstructureren
+                        van _draw_scatter in v1.6.0. Daardoor faalde
+                        elke scatter-tekening met AttributeError,
+                        werd de fout afgevangen door refresh() en bleef
+                        chart.series() leeg. Beide methodes zijn
+                        teruggezet op hun oorspronkelijke plek (direct
+                        na _draw_scatter, vóór _on_scatter_clicked).
 ================================================================================
 """
 
@@ -41,8 +55,15 @@ from PySide6.QtCharts import (
     QScatterSeries,
     QValueAxis,
 )
-from PySide6.QtCore import QDateTime, Qt, Signal
-from PySide6.QtGui import QColor, QKeySequence, QPainter, QPen, QShortcut
+from PySide6.QtCore import QDateTime, QPointF, Qt, Signal
+from PySide6.QtGui import (
+    QColor,
+    QKeySequence,
+    QPainter,
+    QPen,
+    QShortcut,
+    QWheelEvent,
+)
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -115,6 +136,15 @@ _SCATTER_NEUTRAL_COLOR = "#B0B0B0"
 _MIN_MS = 0
 _MAX_MS = 4_102_444_800_000
 
+_Y_AS_MARGE_FRACTIE = 0.05
+
+_MS_PER_DAG = 24 * 60 * 60 * 1000
+_DATETIME_KORT_BEREIK_MS = 2 * _MS_PER_DAG
+_DATETIME_MIDDEL_BEREIK_MS = 60 * _MS_PER_DAG
+
+_ZOOM_FACTOR_IN = 0.85
+_ZOOM_FACTOR_OUT = 1.0 / _ZOOM_FACTOR_IN
+
 
 def _is_finite(value: Any) -> bool:
     if value is None or isinstance(value, bool):
@@ -135,6 +165,26 @@ def _veilige_x_ms(value: int) -> int:
     return int(value)
 
 
+def _tick_formaat_voor(chart_type: str) -> str:
+    if chart_type == _CHART_TYPE_ESR:
+        return "%.0f"
+    if chart_type == _CHART_TYPE_CAPACITANCE:
+        return "%.1f"
+    if chart_type == _CHART_TYPE_DISSIPATION:
+        return "%.3f"
+    if chart_type == _CHART_TYPE_SCATTER:
+        return "%.0f"
+    return "%.0f"
+
+
+def _datetime_formaat_voor(bereik_ms: int) -> str:
+    if bereik_ms < _DATETIME_KORT_BEREIK_MS:
+        return "dd-MM HH:mm"
+    if bereik_ms < _DATETIME_MIDDEL_BEREIK_MS:
+        return "dd-MM-yyyy"
+    return "MM-yyyy"
+
+
 class AnalysisScreen(QWidget):
     """Read-only analyse-pagina met QtCharts-visualisaties."""
 
@@ -152,6 +202,15 @@ class AnalysisScreen(QWidget):
         self.taal = taal
         self._analysis_service = analysis_service or AnalysisService()
         self._current_rows: list[dict[str, Any]] = []
+
+        self._originele_x_range: tuple[float, float] | None = None
+        self._originele_y_range: tuple[float, float] | None = None
+        self._originele_x_datetime_range: tuple[int, int] | None = None
+
+        self._scatter_point_to_id: list[list[int]] = []
+        self._te_herstellen_selectie: set[int] = set()
+        self._laatste_scatter_klikpunt: QPointF | None = None
+
         self._build_ui()
         self._install_shortcuts()
         self._apply_static_labels(self.taal)
@@ -187,6 +246,10 @@ class AnalysisScreen(QWidget):
         self.aggregation_combo.currentIndexChanged.connect(self.refresh)
         top.addWidget(self.aggregation_combo)
 
+        self.reset_zoom_btn = QPushButton()
+        self.reset_zoom_btn.clicked.connect(self.reset_zoom)
+        top.addWidget(self.reset_zoom_btn)
+
         self.refresh_btn = QPushButton()
         self.refresh_btn.clicked.connect(self.refresh)
         top.addWidget(self.refresh_btn)
@@ -196,10 +259,10 @@ class AnalysisScreen(QWidget):
         export_row.addStretch()
 
         self.export_scope_combo = QComboBox()
-        self._fill_export_scope_combo()
+        self._fill_scope_combo()
         self.export_scope_combo.setMinimumWidth(190)
         self.export_scope_combo.currentIndexChanged.connect(
-            lambda _i: self._update_selection_count()
+            self._on_scope_changed
         )
         export_row.addWidget(self.export_scope_combo)
 
@@ -298,6 +361,9 @@ class AnalysisScreen(QWidget):
         self.chart_view = QChartView(self.chart)
         self.chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.chart_view.setStyleSheet("background-color: #1E1E1E;")
+        self.chart_view.setRubberBand(
+            QChartView.RubberBand.RectangleRubberBand
+        )
         self.splitter.addWidget(self.chart_view)
 
         self.selection_panel = QWidget()
@@ -345,10 +411,58 @@ class AnalysisScreen(QWidget):
         self.sc_focus_filter.setContext(ctx)
         self.sc_focus_filter.activated.connect(self._focus_filters)
 
+        self.sc_reset_zoom = QShortcut(QKeySequence("Ctrl+0"), self)
+        self.sc_reset_zoom.setContext(ctx)
+        self.sc_reset_zoom.activated.connect(self.reset_zoom)
+
     def _focus_filters(self) -> None:
         self.filter_group.setChecked(True)
         self.filter_body.setVisible(True)
         self.filter_manufacturer.setFocus()
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                factor = _ZOOM_FACTOR_IN
+            elif delta < 0:
+                factor = _ZOOM_FACTOR_OUT
+            else:
+                factor = 1.0
+            if factor != 1.0:
+                self.chart.zoom(factor)
+                event.accept()
+                return
+        super().wheelEvent(event)
+
+    def reset_zoom(self) -> None:
+        self.chart.zoomReset()
+
+        for axis in self.chart.axes():
+            if isinstance(axis, QDateTimeAxis) and self._originele_x_datetime_range:
+                eerste_ms, laatste_ms = self._originele_x_datetime_range
+                axis.setRange(
+                    QDateTime.fromMSecsSinceEpoch(eerste_ms),
+                    QDateTime.fromMSecsSinceEpoch(laatste_ms),
+                )
+            elif isinstance(axis, QValueAxis):
+                if axis.alignment() & Qt.AlignmentFlag.AlignBottom:
+                    if self._originele_x_range is not None:
+                        axis.setRange(*self._originele_x_range)
+                elif axis.alignment() & Qt.AlignmentFlag.AlignLeft:
+                    if self._originele_y_range is not None:
+                        axis.setRange(*self._originele_y_range)
+
+    def _bewaar_oorspronkelijke_range(
+        self,
+        *,
+        x_range: tuple[float, float] | None = None,
+        y_range: tuple[float, float] | None = None,
+        x_datetime_range: tuple[int, int] | None = None,
+    ) -> None:
+        self._originele_x_range = x_range
+        self._originele_y_range = y_range
+        self._originele_x_datetime_range = x_datetime_range
 
     def _fill_chart_type_combo(self) -> None:
         current = (
@@ -426,7 +540,7 @@ class AnalysisScreen(QWidget):
         finally:
             self.filter_frequency.blockSignals(False)
 
-    def _fill_export_scope_combo(self) -> None:
+    def _fill_scope_combo(self) -> None:
         current = (
             self.export_scope_combo.currentData()
             if self.export_scope_combo.count()
@@ -487,7 +601,7 @@ class AnalysisScreen(QWidget):
         for index in range(self.export_scope_combo.count()):
             data = self.export_scope_combo.itemData(index)
             self.export_scope_combo.setItemText(
-                index, self._export_scope_label(data)
+                index, self._scope_label(data)
             )
 
         for index in range(self.export_type_combo.count()):
@@ -514,10 +628,10 @@ class AnalysisScreen(QWidget):
         }
         return self._t(mapping.get(data, data))
 
-    def _export_scope_label(self, data: str) -> str:
+    def _scope_label(self, data: str) -> str:
         mapping = {
-            _EXPORT_SCOPE_SELECTED: "analyse.export.scope_selectie",
-            _EXPORT_SCOPE_FILTERED: "analyse.export.scope_filters",
+            _EXPORT_SCOPE_SELECTED: "analyse.scope.selectie",
+            _EXPORT_SCOPE_FILTERED: "analyse.scope.filters",
         }
         return self._t(mapping.get(data, data))
 
@@ -538,6 +652,9 @@ class AnalysisScreen(QWidget):
         self.back_btn.setText(self._t("knop.terug"))
         self.title_label.setText(self._t("analyse.titel"))
         self.refresh_btn.setText(self._t("knop.verversen"))
+        self.reset_zoom_btn.setText(self._t("analyse.zoom.reset_knop"))
+        self.reset_zoom_btn.setToolTip(self._t("analyse.zoom.reset_tooltip"))
+        self.export_scope_combo.setToolTip(self._t("analyse.scope.tooltip"))
         self.export_btn.setText(self._t("analyse.export.knop"))
         self.report_btn.setText(self._t("analyse.rapport.knop"))
         self.filter_group.setTitle(self._t("historiek.filter.titel"))
@@ -629,6 +746,18 @@ class AnalysisScreen(QWidget):
             measured_to_ms=measured_to_ms,
         )
 
+    def _scope_measurement_ids(self) -> list[int] | None:
+        if self.export_scope_combo.currentData() != _EXPORT_SCOPE_SELECTED:
+            return None
+        if self._te_herstellen_selectie:
+            return sorted(self._te_herstellen_selectie)
+        ids = self._selected_measurement_ids()
+        return ids if ids else None
+
+    def _on_scope_changed(self, _index: int) -> None:
+        self._update_selection_count()
+        self.refresh(preserve_selection=True)
+
     def _populate_selection_table(self, rows: list[dict[str, Any]]) -> None:
         rows_sorted = sorted(
             rows,
@@ -650,7 +779,11 @@ class AnalysisScreen(QWidget):
                     | Qt.ItemFlag.ItemIsSelectable
                     | Qt.ItemFlag.ItemIsUserCheckable
                 )
-                select_item.setCheckState(Qt.CheckState.Unchecked)
+                select_item.setCheckState(
+                    Qt.CheckState.Checked
+                    if int(measurement.id) in self._te_herstellen_selectie
+                    else Qt.CheckState.Unchecked
+                )
                 select_item.setData(Qt.ItemDataRole.UserRole, measurement.id)
                 select_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 self.selection_table.setItem(row_index, 0, select_item)
@@ -673,6 +806,7 @@ class AnalysisScreen(QWidget):
         finally:
             self.selection_table.blockSignals(False)
 
+        self._te_herstellen_selectie.clear()
         self._apply_selection_headers()
         self._update_selection_count()
 
@@ -707,6 +841,18 @@ class AnalysisScreen(QWidget):
             self.selection_table.blockSignals(False)
         return gewist
 
+    def _select_measurement_row_by_id(self, measurement_id: int) -> bool:
+        for row in range(self.selection_table.rowCount()):
+            item = self.selection_table.item(row, 0)
+            if item is None:
+                continue
+            value = item.data(Qt.ItemDataRole.UserRole)
+            if value is not None and int(value) == int(measurement_id):
+                if item.checkState() != Qt.CheckState.Checked:
+                    item.setCheckState(Qt.CheckState.Checked)
+                return True
+        return False
+
     def _update_selection_count(self) -> None:
         aantal = len(self._selected_measurement_ids())
         self.selection_count_label.setText(
@@ -715,8 +861,27 @@ class AnalysisScreen(QWidget):
         self.report_btn.setEnabled(aantal > 0)
         self.selection_changed.emit()
 
-    def refresh(self) -> None:
-        had_selectie = self._clear_selection()
+    def refresh(self, preserve_selection: bool = False) -> None:
+        """Herlaad de grafiek en selectietabel.
+
+        ``preserve_selection`` (11G.5): als True blijven aangevinkte
+        metingen bewaard over de refresh heen. De GUI gebruikt dit bij
+        scope-wissel en scatter-klik, zodat de scope-selectie effect
+        heeft. Bij een gewone refresh (filterwijziging, verversen) is
+        de default False en wordt de selectie gewist, zoals voorheen.
+        """
+        had_selectie = bool(self._selected_measurement_ids())
+
+        if preserve_selection:
+            self._te_herstellen_selectie = set(
+                self._selected_measurement_ids()
+            )
+        else:
+            self._te_herstellen_selectie = set()
+        self._clear_selection()
+
+        self._bewaar_oorspronkelijke_range()
+
         try:
             filters = self._active_filters()
         except ValueError as exc:
@@ -724,15 +889,21 @@ class AnalysisScreen(QWidget):
             self._replace_chart_empty(self._t("analyse.geen_gegevens"))
             self.selection_table.setRowCount(0)
             self._current_rows = []
+            self._te_herstellen_selectie.clear()
             return
 
+        measurement_ids = self._scope_measurement_ids()
+
         try:
-            rows = self._analysis_service.load_rows(filters)
+            rows = self._analysis_service.load_rows(
+                filters, measurement_ids=measurement_ids
+            )
         except Exception as exc:
             self.state_label.setText(self._t("analyse.fout", bericht=str(exc)))
             self._replace_chart_empty(self._t("analyse.geen_gegevens"))
             self.selection_table.setRowCount(0)
             self._current_rows = []
+            self._te_herstellen_selectie.clear()
             return
 
         self._current_rows = list(rows)
@@ -742,17 +913,21 @@ class AnalysisScreen(QWidget):
 
         try:
             if chart_type == _CHART_TYPE_SCATTER:
-                points = self._analysis_service.scatter_esr_vs_capacitance(filters)
+                points = self._analysis_service.scatter_esr_vs_capacitance(
+                    filters, measurement_ids=measurement_ids
+                )
                 self._draw_scatter(points)
             else:
-                series = self._analysis_service_for(chart_type, aggregation, filters)
+                series = self._analysis_service_for(
+                    chart_type, aggregation, filters, measurement_ids
+                )
                 self._draw_time_series(series, chart_type)
         except Exception as exc:
             self.state_label.setText(self._t("analyse.fout", bericht=str(exc)))
             self._replace_chart_empty(self._t("analyse.geen_gegevens"))
 
         self._populate_selection_table(self._current_rows)
-        if had_selectie:
+        if had_selectie and not preserve_selection:
             self.state_label.setText(
                 self._t("analyse.selectie.gewijzigd_bij_verversen")
             )
@@ -762,16 +937,25 @@ class AnalysisScreen(QWidget):
         chart_type: str,
         aggregation: str,
         filters: dict[str, Any],
+        measurement_ids: list[int] | None,
     ) -> list[TimeSeriesPoint]:
         if chart_type == _CHART_TYPE_ESR:
-            return self._analysis_service.esr_series(filters, aggregation=aggregation)
+            return self._analysis_service.esr_series(
+                filters,
+                aggregation=aggregation,
+                measurement_ids=measurement_ids,
+            )
         if chart_type == _CHART_TYPE_CAPACITANCE:
             return self._analysis_service.capacitance_series(
-                filters, aggregation=aggregation
+                filters,
+                aggregation=aggregation,
+                measurement_ids=measurement_ids,
             )
         if chart_type == _CHART_TYPE_DISSIPATION:
             return self._analysis_service.dissipation_series(
-                filters, aggregation=aggregation
+                filters,
+                aggregation=aggregation,
+                measurement_ids=measurement_ids,
             )
         return []
 
@@ -781,6 +965,8 @@ class AnalysisScreen(QWidget):
             self.chart.removeAxis(axis)
         self.chart.setTitle(message)
         self.chart.legend().setVisible(False)
+        self._bewaar_oorspronkelijke_range()
+        self._scatter_point_to_id = []
 
     def _prepare_chart(self, *, title: str, show_legend: bool) -> None:
         self.chart.removeAllSeries()
@@ -788,6 +974,7 @@ class AnalysisScreen(QWidget):
             self.chart.removeAxis(axis)
         self.chart.setTitle(title)
         self.chart.legend().setVisible(show_legend)
+        self._scatter_point_to_id = []
 
     @staticmethod
     def _finite_filter(
@@ -834,8 +1021,17 @@ class AnalysisScreen(QWidget):
             series.append(float(x_ms), float(y))
         self.chart.addSeries(series)
 
+        eerste_ms = _veilige_x_ms(scaled[0][0])
+        laatste_ms = _veilige_x_ms(scaled[-1][0])
+        if eerste_ms == laatste_ms:
+            eerste_ms = _veilige_x_ms(eerste_ms - 60_000)
+            laatste_ms = _veilige_x_ms(laatste_ms + 60_000)
+        if eerste_ms >= laatste_ms:
+            laatste_ms = eerste_ms + 60_000
+        bereik_ms = laatste_ms - eerste_ms
+
         axis_x = QDateTimeAxis()
-        axis_x.setFormat("dd-MM-yyyy")
+        axis_x.setFormat(_datetime_formaat_voor(bereik_ms))
         axis_x.setTitleText(self._t("analyse.as.datum"))
         axis_x.setTickCount(min(6, max(2, len(scaled))))
         axis_x.setLabelsColor(QColor("#F0F0F0"))
@@ -844,6 +1040,8 @@ class AnalysisScreen(QWidget):
 
         axis_y = QValueAxis()
         axis_y.setTitleText(y_label)
+        axis_y.setLabelFormat(_tick_formaat_voor(chart_type))
+        axis_y.setTickCount(6)
         axis_y.setLabelsColor(QColor("#F0F0F0"))
         axis_y.setTitleBrush(QColor("#F0F0F0"))
         axis_y.setGridLineColor(QColor("#3A3A3A"))
@@ -853,26 +1051,28 @@ class AnalysisScreen(QWidget):
         series.attachAxis(axis_x)
         series.attachAxis(axis_y)
 
-        first_ms = _veilige_x_ms(scaled[0][0])
-        last_ms = _veilige_x_ms(scaled[-1][0])
-        if first_ms == last_ms:
-            first_ms = _veilige_x_ms(first_ms - 60_000)
-            last_ms = _veilige_x_ms(last_ms + 60_000)
-        if first_ms >= last_ms:
-            last_ms = first_ms + 60_000
         axis_x.setRange(
-            QDateTime.fromMSecsSinceEpoch(first_ms),
-            QDateTime.fromMSecsSinceEpoch(last_ms),
+            QDateTime.fromMSecsSinceEpoch(eerste_ms),
+            QDateTime.fromMSecsSinceEpoch(laatste_ms),
         )
 
         y_values = [y for _, y in scaled]
         y_min = min(y_values)
         y_max = max(y_values)
         if y_min == y_max:
-            margin = abs(y_min) * 0.1 or 1.0
-            y_min -= margin
-            y_max += margin
+            marge = abs(y_min) * 0.1 or 1.0
+            y_min -= marge
+            y_max += marge
+        else:
+            marge = (y_max - y_min) * _Y_AS_MARGE_FRACTIE
+            y_min -= marge
+            y_max += marge
         axis_y.setRange(y_min, y_max)
+
+        self._bewaar_oorspronkelijke_range(
+            y_range=(y_min, y_max),
+            x_datetime_range=(eerste_ms, laatste_ms),
+        )
 
         self.state_label.setText(
             self._t("analyse.aantal", aantal=len(scaled))
@@ -924,6 +1124,27 @@ class AnalysisScreen(QWidget):
             key=lambda c: (c is None, c or ""),
         )
 
+        axis_x = QValueAxis()
+        axis_x.setTitleText(self._t("analyse.as.capaciteit_uf"))
+        axis_x.setLabelFormat("%.0f")
+        axis_x.setTickCount(6)
+        axis_x.setLabelsColor(QColor("#F0F0F0"))
+        axis_x.setTitleBrush(QColor("#F0F0F0"))
+        axis_x.setGridLineColor(QColor("#3A3A3A"))
+
+        axis_y = QValueAxis()
+        axis_y.setTitleText(self._t("analyse.as.esr_mohm"))
+        axis_y.setLabelFormat("%.0f")
+        axis_y.setTickCount(6)
+        axis_y.setLabelsColor(QColor("#F0F0F0"))
+        axis_y.setTitleBrush(QColor("#F0F0F0"))
+        axis_y.setGridLineColor(QColor("#3A3A3A"))
+
+        self.chart.addAxis(axis_x, Qt.AlignmentFlag.AlignBottom)
+        self.chart.addAxis(axis_y, Qt.AlignmentFlag.AlignLeft)
+
+        self._scatter_point_to_id = []
+
         for category in ordered_categories:
             group = per_categorie[category]
             series = QScatterSeries()
@@ -931,34 +1152,57 @@ class AnalysisScreen(QWidget):
             series.setName(self._category_label(category))
             series.setColor(QColor(self._category_color(category)))
             series.setBorderColor(QColor("#1E1E1E"))
+
+            ids_voor_deze_reeks: list[int] = []
             for point in group:
                 series.append(point.x * 1e6, point.y * 1000.0)
+                ids_voor_deze_reeks.append(int(point.measurement_id))
+
             self.chart.addSeries(series)
-
-        axis_x = QValueAxis()
-        axis_x.setTitleText(self._t("analyse.as.capaciteit_uf"))
-        axis_x.setLabelsColor(QColor("#F0F0F0"))
-        axis_x.setTitleBrush(QColor("#F0F0F0"))
-        axis_x.setGridLineColor(QColor("#3A3A3A"))
-
-        axis_y = QValueAxis()
-        axis_y.setTitleText(self._t("analyse.as.esr_mohm"))
-        axis_y.setLabelsColor(QColor("#F0F0F0"))
-        axis_y.setTitleBrush(QColor("#F0F0F0"))
-        axis_y.setGridLineColor(QColor("#3A3A3A"))
-
-        self.chart.addAxis(axis_x, Qt.AlignmentFlag.AlignBottom)
-        self.chart.addAxis(axis_y, Qt.AlignmentFlag.AlignLeft)
-        for series in self.chart.series():
             series.attachAxis(axis_x)
             series.attachAxis(axis_y)
 
-        axis_x.setRange(min(x_geschaald), max(x_geschaald))
-        axis_y.setRange(min(y_geschaald), max(y_geschaald))
+            self._scatter_point_to_id.append(ids_voor_deze_reeks)
+
+            series.clicked.connect(
+                lambda _punt, reeks=series: self._on_scatter_clicked(reeks)
+            )
+
+        x_min = min(x_geschaald)
+        x_max = max(x_geschaald)
+        if x_min == x_max:
+            x_min -= 1.0
+            x_max += 1.0
+        else:
+            marge = (x_max - x_min) * _Y_AS_MARGE_FRACTIE
+            x_min -= marge
+            x_max += marge
+
+        y_min = min(y_geschaald)
+        y_max = max(y_geschaald)
+        if y_min == y_max:
+            y_min -= 1.0
+            y_max += 1.0
+        else:
+            marge = (y_max - y_min) * _Y_AS_MARGE_FRACTIE
+            y_min -= marge
+            y_max += marge
+
+        axis_x.setRange(x_min, x_max)
+        axis_y.setRange(y_min, y_max)
+
+        self._bewaar_oorspronkelijke_range(
+            x_range=(x_min, x_max),
+            y_range=(y_min, y_max),
+        )
 
         self.state_label.setText(
             self._t("analyse.aantal", aantal=len(geldige_punten))
         )
+
+    # ------------------------------------------------------------------
+    # Categorie-labels en -kleuren (11G.5, hersteld in v1.6.3)
+    # ------------------------------------------------------------------
 
     def _category_label(self, category: str | None) -> str:
         if not category:
@@ -975,9 +1219,42 @@ class AnalysisScreen(QWidget):
             return _SCATTER_NEUTRAL_COLOR
         return STATUS_COLORS.get(category, _UNKNOWN_STATUS_COLOR)
 
-    # ------------------------------------------------------------------
-    # Rapport
-    # ------------------------------------------------------------------
+    def _on_scatter_clicked(self, series: QScatterSeries) -> None:
+        if series.count() == 0:
+            return
+        reeks_index = -1
+        for i, s in enumerate(self.chart.series()):
+            if s is series:
+                reeks_index = i
+                break
+        if reeks_index < 0 or reeks_index >= len(self._scatter_point_to_id):
+            return
+        ids = self._scatter_point_to_id[reeks_index]
+        if not ids:
+            return
+
+        klik_punt = self._laatste_scatter_klikpunt
+
+        gekozen_index = 0
+        if klik_punt is not None:
+            beste_afstand = None
+            for i in range(series.count()):
+                punt = series.at(i)
+                dx = punt.x() - klik_punt.x()
+                dy = punt.y() - klik_punt.y()
+                afstand = dx * dx + dy * dy
+                if beste_afstand is None or afstand < beste_afstand:
+                    beste_afstand = afstand
+                    gekozen_index = i
+
+        if gekozen_index >= len(ids):
+            return
+        measurement_id = ids[gekozen_index]
+        if not self._select_measurement_row_by_id(measurement_id):
+            return
+
+        if self.export_scope_combo.currentData() == _EXPORT_SCOPE_SELECTED:
+            self.refresh(preserve_selection=True)
 
     def _open_report_for_selection(self) -> None:
         selected_ids = self._selected_measurement_ids()
@@ -1006,10 +1283,6 @@ class AnalysisScreen(QWidget):
             parent=self,
         )
         dialog.exec()
-
-    # ------------------------------------------------------------------
-    # Export
-    # ------------------------------------------------------------------
 
     def _export_selected_type(self) -> None:
         export_type = self.export_type_combo.currentData()
@@ -1076,11 +1349,9 @@ class AnalysisScreen(QWidget):
         )
 
     def _beste_export_start_directory(self) -> Path | None:
-        """Beste startmap via de centrale helper (categorie 'export')."""
         return _beste_startmap_helper("export")
 
     def _onthoud_laatste_exportmap(self, doel_pad: Path) -> None:
-        """Onthoud de map via de centrale helper (categorie 'export')."""
         _onthoud_startmap_helper("export", doel_pad)
 
     def _export_start_path(self, default_filename: str) -> str:

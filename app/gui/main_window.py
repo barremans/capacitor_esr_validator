@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.19.1
-Datum:      2026-10-16
+Versie:     2.20.0
+Datum:      2026-10-20
 Auteur:     Bart Bossuyt
 
 Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
@@ -51,23 +51,25 @@ Wijzigingen:
                         met een checkbox-selectie.
   v2.17.0 (2026-10-16) Fase 11C (iconen).
   v2.18.0 (2026-10-16) Fase 11E.1 (async update-check).
-  v2.19.0 (2026-10-16) Fase 11E.3 (QA-modus):
-                        - Nieuwe instelling algemeen.qa_modus (default
-                          False).
-                        - Als qa_modus True is, verschijnt een verborgen
-                          menu-item in het Help-menu om de drie-knoppen
-                          update-melding te forceren.
-                        - Nieuwe methode _toon_update_melding_voor_qa()
-                          die een kunstmatige UpdateInfo (versie 99.99.99)
-                          doorgeeft aan _toon_update_melding().
-                        - _apply_settings() bouwt het menu opnieuw op
-                          als qa_modus wijzigt, zodat het QA-item
-                          verschijnt/verdwijnt.
+  v2.19.0 (2026-10-16) Fase 11E.3 (QA-modus).
   v2.19.1 (2026-10-16)  Bugfix: AttributeError wanneer een test of
                         oudere settings.json een instellingen-object
                         zonder 'algemeen' aanlevert. Opgelost met
                         dubbele getattr in _build_menu() en
                         _apply_settings().
+  v2.20.0 (2026-10-20)  Fase 11G.6: expliciet afsluiten sluit de app,
+                        niet het venster.
+                        - Nieuwe vlag self._force_close.
+                        - Nieuwe methode _sluit_app(): zet de vlag en
+                          roept self.close() aan. Menu "Afsluiten"
+                          (Ctrl+Q) en de bevestigingsdialoog op de hub
+                          gebruiken deze methode.
+                        - closeEvent controleert de vlag: True ->
+                          event.accept() en de app sluit; anders het
+                          bestaande contextuele "terug naar hub"-gedrag.
+                        - De venster-X op een subpagina blijft "terug
+                          naar hub". De venster-X op de hub sluit de
+                          app (bestaand gedrag).
 ================================================================================
 """
 
@@ -102,6 +104,9 @@ class ToolHubWindow(QMainWindow):
         self.rapport_action: QAction | None = None
         self._update_check_worker = None
         self._release_notes_worker = None
+        # 11G.6: vlag om expliciet afsluiten te onderscheiden van het
+        # contextuele "terug naar hub"-gedrag van de venster-X.
+        self._force_close: bool = False
         self._build_ui()
         self._apply_language()
 
@@ -278,7 +283,7 @@ class ToolHubWindow(QMainWindow):
             QMessageBox.StandardButton.No,
         )
         if antwoord == QMessageBox.StandardButton.Yes:
-            self.close()
+            self._sluit_app()
 
     def _build_diagnose_page(self):
         page = QWidget()
@@ -425,7 +430,7 @@ class ToolHubWindow(QMainWindow):
 
         exit_action = QAction(self._t("menu.afsluiten"), file_menu)
         exit_action.setShortcut(QKeySequence("Ctrl+Q"))
-        exit_action.triggered.connect(self.close)
+        exit_action.triggered.connect(self._sluit_app)
         self._zet_icoon_op_action(exit_action, "exit")
         file_menu.addAction(exit_action)
 
@@ -837,10 +842,6 @@ class ToolHubWindow(QMainWindow):
         self._update_check_modus = "handmatig"
         self._do_update_check_async(self._on_update_check_resultaat)
 
-    # ------------------------------------------------------------------
-    # Update-melding (blijft synchroon; wordt vanuit async-callbacks
-    # aangeroepen).
-    # ------------------------------------------------------------------
     def _toon_update_melding(self, info) -> None:
         box = QMessageBox(self)
         box.setWindowTitle(self._t("update.titel"))
@@ -1019,7 +1020,22 @@ class ToolHubWindow(QMainWindow):
             f'{html}</body>'
         )
 
+    def _sluit_app(self) -> None:
+        """11G.6: expliciet afsluiten (menu Afsluiten, Ctrl+Q,
+        bevestiging op de hub). Zet de vlag en roept close() aan,
+        zodat closeEvent de app daadwerkelijk sluit in plaats van
+        terug te keren naar de hub.
+        """
+        self._force_close = True
+        self.close()
+
     def closeEvent(self, event):
+        # 11G.6: expliciet afsluiten -> altijd accepteren.
+        if self._force_close:
+            self._force_close = False
+            event.accept()
+            return
+
         if hasattr(self, "stack"):
             current = self.stack.currentWidget()
             if current is self.esr_page:
@@ -1063,9 +1079,6 @@ class ToolHubWindow(QMainWindow):
             self._apply_language()
             return
 
-        # 11E.3: als qa_modus is gewijzigd, menu opnieuw opbouwen.
-        # Dubbele getattr: een test of oudere settings.json kan een
-        # instellingen-object zonder 'algemeen' aanleveren.
         nieuw_algemeen = getattr(instellingen, "algemeen", None)
         oud_algemeen = getattr(vorige_instellingen, "algemeen", None)
         if getattr(nieuw_algemeen, "qa_modus", False) != getattr(

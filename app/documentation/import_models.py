@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/documentation/import_models.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.3.0
-Datum:      2026-10-09
+Versie:     1.4.0
+Datum:      2026-10-19
 Auteur:     Bart Bossuyt
 
 Doel:       Immutable modellen en vaste enumwaarden voor de import van
@@ -27,6 +27,10 @@ Wijzigingen:
                        validatie in __post_init__ aangepast: DOCX en XLSX
                        gedragen zich als PDF (verplicht original_filename,
                        geen source_url). Backward-compatible.
+  v1.4.0 (2026-10-19)  Fase 11F.1: optioneel veld archive_reason op
+                       ImportSource. Wordt gezet door ImportService.archive
+                       en bewaard bij revoke. Backward-compatible via
+                       from_dict .get().
 ================================================================================
 """
 
@@ -159,6 +163,9 @@ class ImportSource:
     Sinds v1.3.0 ondersteunt source_type ook DOCX en XLSX. Die gedragen
     zich in de validatie identiek aan PDF: verplicht original_filename,
     geen source_url.
+
+    Sinds v1.4.0 heeft elke bron een optionele ``archive_reason``. Die
+    wordt gezet door ImportService.archive en blijft bewaard bij revoke.
     """
 
     source_id: str
@@ -179,6 +186,9 @@ class ImportSource:
     part_number: Optional[str] = None
     document_version: Optional[str] = None
     document_date: Optional[str] = None
+
+    # Fase 11F.1 — optionele reden bij archiveren.
+    archive_reason: Optional[str] = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_type, ImportSourceType):
@@ -258,6 +268,13 @@ class ImportSource:
             "notes",
             _normaliseer_optionele_tekst(self.notes, "notes"),
         )
+        object.__setattr__(
+            self,
+            "archive_reason",
+            _normaliseer_optionele_tekst(
+                self.archive_reason, "archive_reason"
+            ),
+        )
 
     def to_dict(self) -> dict:
         """Serialiseer naar een JSON-vriendelijk dict."""
@@ -279,6 +296,7 @@ class ImportSource:
             "part_number": self.part_number,
             "document_version": self.document_version,
             "document_date": self.document_date,
+            "archive_reason": self.archive_reason,
         }
 
     @classmethod
@@ -286,9 +304,9 @@ class ImportSource:
         """Lees een ImportSource uit een JSON-dict met validatie.
 
         Backward-compatible: ontbrekende metadata-velden (uit catalogi
-        van vóór 5D'.2b) worden None. Onbekende source_type-waarden
-        (bv. "docx" uit een catalogus die door een nieuwere app-versie
-        is geschreven) worden geweigerd met een duidelijke fout.
+        van vóór 5D'.2b) worden None. Ontbrekende archive_reason (van
+        vóór 11F.1) wordt None. Onbekende source_type-waarden worden
+        geweigerd met een duidelijke fout.
         """
 
         if not isinstance(data, dict):
@@ -326,6 +344,7 @@ class ImportSource:
                 part_number=data.get("part_number"),
                 document_version=data.get("document_version"),
                 document_date=data.get("document_date"),
+                archive_reason=data.get("archive_reason"),
             )
         except KeyError as exc:
             raise ImportValidationError(

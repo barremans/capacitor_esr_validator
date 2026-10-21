@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_import_wizard_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.8.0
-Datum:      2026-10-16
+Versie:     1.8.1
+Datum:      2026-10-20
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor de import-wizard. Netwerk, PDF-parsing
@@ -30,6 +30,11 @@ Wijzigingen:
                        test de async fetch van metadata, de
                        "Bezig…"-indicatie, de disabled-knoppen tijdens
                        het wachten, en de async import van URL.
+  v1.8.1 (2026-10-20)  Fase 11G.2: één test toegevoegd die controleert
+                       dat de summary_browser een QTextBrowser is zonder
+                       eigen afwijkende stylesheet, zodat de globale
+                       donkere QScrollBar-stijl uit styles.py erop van
+                       toepassing is.
 ================================================================================
 """
 
@@ -41,7 +46,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QDate, Qt
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QTextBrowser
 
 import app.gui.dialogs.import_wizard_dialog as wizard_module
 from app.config.settings import AppInstellingen
@@ -1910,3 +1915,31 @@ def test_url_bezig_import_indicator(tmp_path, monkeypatch):
     bewaard["success"]("<html></html>")
 
     assert dialog._import_bezig is False
+
+
+# ============================================================================
+# v1.8.1 — donkere scrollbar in summary_browser (fase 11G.2)
+# ============================================================================
+
+def test_summary_browser_is_qtxtbrowser_zonder_eigen_scrollbar_stijl(
+    tmp_path,
+) -> None:
+    """De summary_browser erft de globale donkere QScrollBar-stijl (11G.2).
+
+    De wizard zet geen eigen scrollbar-stylesheet op de browser; de
+    donkere QScrollBar-regels in styles.py gelden globaal. Deze test
+    bewijst dat de browser een QTextBrowser is (zodat de globale regel
+    erop van toepassing is) en dat er geen afwijkende lokale
+    scrollbar-regel op staat.
+    """
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    dialog = ImportWizardDialog(taal="nl_NL", import_service=service)
+
+    assert isinstance(dialog.summary_browser, QTextBrowser)
+
+    # De browser heeft een eigen, beperkte stylesheet (achtergrond en
+    # rand), maar géén QScrollBar-regel. De donkere scrollbar komt uit
+    # de globale stylesheet van de QApplication.
+    lokale_stijl = dialog.summary_browser.styleSheet()
+    assert "QScrollBar" not in lokale_stijl

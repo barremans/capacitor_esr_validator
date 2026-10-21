@@ -1,16 +1,16 @@
 # OVERDRACHT — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie overdracht:** 5.7.0
-**Datum:** 2026-10-16
+**Versie overdracht:** 6.1.0
+**Datum:** 2026-10-20
 **Auteur:** Bart Bossuyt
-**Vorige versie:** 5.6.0 (2026-10-16)
+**Vorige versie:** 6.0.0 (2026-10-20)
 **Doel:** volledig overdrachtsdocument voor een nieuwe ChatGPT-sessie of
 nieuwe ontwikkelaar. Bevat projectstaat, architectuur, regels, changelog,
 teststructuur en startprompt. Alles in één bestand.
 
-**Huidige baseline:** 1395 passed
-**Laatste afgeronde fase:** 11E — async netwerk
-**Volgende fase:** 11F — documentatie-uitbreiding
+**Huidige baseline:** 1494 passed
+**Laatste afgeronde fase:** 11G.7 — filter-checkbox zichtbaarheid
+**Volgende fase:** 11H — light theme
 
 ---
 
@@ -20,7 +20,7 @@ teststructuur en startprompt. Alles in één bestand.
 2. Context — projectstaat en architectuur
 3. Kernregels — bindende afspraken
 4. Stappenplan — chronologisch overzicht
-5. Wat is nieuw sinds versie 5.6.0
+5. Wat is nieuw sinds versie 6.0.0
 6. Openstaande vragen voor de nieuwe chat
 7. Teststatus — baseline en teststructuur
 8. Bestanden die de nieuwe chat moet opvragen
@@ -40,9 +40,10 @@ iets doet.
 
 - Projectmap: `C:\PY\capacitor_esr_validator`.
 - Technologie: Python 3.12 + PySide6 (Qt6, Fusion-stijl), volledig offline.
-- Baseline: **1395 passed**.
-- Laatste afgeronde fase: **11E — async netwerk** (2026-10-16).
-- Volgende fase: **11F — documentatie-uitbreiding**.
+- Baseline: **1494 passed**.
+- Laatste afgeronde fase: **11G.7 — filter-checkbox zichtbaarheid**
+  (2026-10-20). Daarmee is **11G volledig afgerond** (11G.1 t/m 11G.7).
+- Volgende fase: **11H — light theme**.
 
 **Werkafspraken die je strikt volgt:**
 
@@ -103,6 +104,13 @@ iets doet.
   `self._xxx_worker`; in tests via `_bewaarde_workers`. Zonder die
   referentie kan de `WorkerSignals` worden opgeruimd en faalt de emit
   met `Signal source has been deleted`.
+- **Testtelling bijhouden per fase:** tel nieuwe tests per bestand
+  (gerichte `pytest --collect-only -q`), niet op basis van een schatting.
+  De som van de betrokken bestanden moet overeenkomen met de
+  volledige `pytest -q`. Bij afwijking: eerst uitzoeken, dan doorgaan.
+- **Bij het herschrijven van een test-sectie: `Compare-Object` tegen
+  de vorige versie.** Dit heeft in 11F.2 twee per ongeluk verwijderde
+  tests opgespoord.
 
 **Wat ik nu van je vraag:**
 
@@ -137,72 +145,32 @@ eerst. Geen aannames.
 | Database | SQLite op `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\measurements.sqlite3` |
 | GitHub-repo | `https://github.com/barremans/capacitor_esr_validator` |
 | Huidige versie | `1.2.0` |
-| Huidige baseline | **1395 passed** |
-| Laatste afgeronde fase | 11E — async netwerk |
-| Volgende fase | 11F — documentatie-uitbreiding |
+| Huidige baseline | **1494 passed** |
+| Laatste afgeronde fase | 11G.7 — filter-checkbox zichtbaarheid |
+| Volgende fase | 11H — light theme |
 
 ### 2.2 Huidige applicatiearchitectuur
 
-**Eén-venster-navigatie (ToolHubWindow):** QStackedWidget met pagina's
-hub, diagnose, ESR, historiek, documentatie, analyse.
+Zie v6.0.0 §2.2 voor de volledige architectuurbeschrijving. Nieuw
+sinds v6.0.0:
 
-**Nieuwe module sinds 11A.3:**
-- `app/helpers/dialog_start_directory.py` (v1.0.0) — pure helper voor
-  QFileDialog-startmappen en het onthouden van de laatst gebruikte map
-  per categorie (`export`, `import`, `rapport`).
-
-**Gewijzigd in 11B:**
-- `app/services/assessment_service.py` (v1.4.0 → v1.5.0) — onderscheid
-  tussen inhoudelijke en administratieve betrouwbaarheidsverlagers.
-
-**Nieuw in 11C:**
-- `app/helpers/icon_paths.py` (v1.0.0) — pure padresolutie plus dunne
-  Qt-wrappers voor alle iconen. Fallback-keten: `app.png` → `logo.ico`
-  → `None`. Geen harde Qt-import op moduleniveau.
-- `scripts/genereer_placeholders.py` (v1.0.0) — genereert alle PNG's en
-  `logo.ico` met `QPainter`.
-- `assets/icons/` bevat nu: `app.png`, `logo.ico`, en 11 thematische
-  iconen (`diagnose`, `esr`, `history`, `documentation`, `analysis`,
-  `report`, `settings`, `help`, `bug`, `update`, `exit`).
-
-**Gewijzigd in 11D:**
-- `app/services/assessment_service.py` (v1.5.0 → v1.6.0) — `Beoordeling`
-  krijgt het veld `taal`, gevuld door `beoordeel_meting`.
-- `app/gui/esr_test_screen.py` (v1.13.0 → v1.14.0) — `_show_result` en
-  `_build_result_html` gebruiken `resultaat.taal`; banner
-  `result_language_banner` voor taal-mismatch; bugfix in
-  `apply_language` (`_laatste_resultaat is not None`).
-
-**Nieuw in 11E:**
-- `app/helpers/async_worker.py` (v2.0.0) — generieke `AsyncWorker` +
-  `run_async()`. **Eigenaarsconventie:** de aanroeper bewaart de worker.
-- `app/helpers/updater.py` (v1.2.0) — async-varianten
-  `check_for_update_async()` en `fetch_release_notes_async()`.
-- `app/documentation/url_fetch.py` (v1.2.0) — async-varianten
-  `fetch_url_metadata_async()` en `fetch_url_content_async()`.
-- `app/gui/main_window.py` (v2.19.1) — async update-check, QA-modus,
-  dubbele `getattr`-fix.
-- `app/gui/dialogs/import_wizard_dialog.py` (v2.0.0) — async URL-flow;
-  PDF/Word/Excel blijven synchroon.
-- `app/config/settings.py` (v1.7.0) — `qa_modus`.
-
-Zie v5.0.0 en v5.1.0 van dit document voor de volledige
-architectuurbeschrijving.
+**Gewijzigd in 11G.7:**
+- `app/gui/styles.py` (v1.5.0 → **v1.6.0**) — `QGroupBox::indicator`
+  duidelijker zichtbaar in donker thema. Unchecked-state: achtergrond
+  `#3C3C3C` (was `#2A2A2A`), rand 2px `#B0B0B0` (was 1px `#8A8A8A`).
+  Checked-state: blauw `#0078D7` met 2px rand `#4AA3FF`. Hover en
+  disabled consistent. Lost het visuele probleem op waarbij de
+  checkbox links van "Filters" nauwelijks zichtbaar was.
+- `tests/test_styles.py` (v1.1.0 → **v1.2.0**) — drie nieuwe tests.
 
 ### 2.3 Belangrijke recente bugfixes
 
-Zie v5.0.0, v5.1.0, v5.2.0. Nieuw sinds v5.6.0:
-- **"Signal source has been deleted" in `async_worker.py`.** Opgelost
-  in 11E.1 v2.0.0: `WorkerSignals` als sterk Python-attribuut op de
-  `AsyncWorker`, `setAutoDelete(False)`, geen registry; de aanroeper
-  is eigenaar.
-- **`AttributeError` bij ontbrekende `algemeen`-namespace in
-  `main_window.py`.** Opgelost in 11E.3 v2.19.1 met dubbele `getattr`.
+Zie v6.0.0 §2.3. Nieuw sinds v6.0.0: geen functionele bugfixes,
+alleen de visuele verbetering in 11G.7.
 
 ### 2.4 Openstaande werkpunten en fase 11-indeling
 
-Volgende fase is **11F — documentatie-uitbreiding**. De scope staat in
-`docs/openvragen.md` §2.6 en §2.14.
+Volgende fase is **11H — light theme**.
 
 Sub-fase-indeling fase 11 (geactualiseerd):
 
@@ -212,24 +180,33 @@ Sub-fase-indeling fase 11 (geactualiseerd):
 | **11B** | Betrouwbaarheidsregel herzien (§2.26) | ✅ afgerond |
 | **11C** | Iconen voor alle vensters (§2.27) | ✅ afgerond |
 | **11D** | i18n-menging in Diagnose/Result en Resultaatdetails (§2.21) | ✅ afgerond |
-| **11E** | Async netwerk: async URL-fetch, async `fetch_release_notes()`, drie-knoppenmelding forceren voor QA | **✅ afgerond** |
-| **11F** | Documentatie-uitbreiding: reden bij archiveren, filter gearchiveerde, bulk-edit, bulk-statuswijziging, datum-parsing verfijnen, cosmetische opruiming i18n-keys (§2.6, §2.14) | **Volgende** |
-| 11G | Visueel donker thema: checkbox-zichtbaarheid, scrollbar Word-samenvatting, Analyse-pagina cosmetica | Gepland |
-| 11H | Light theme | Gepland |
-| 11I | Build en cosmetica: `Architecture identifier "x64"`, `[rename] Fallback via robocopy`, `build_log.txt`, externe links changelog, release-notes tabellen, certificaten opruimen, pandas/numpy pins heroverwegen | Gepland |
+| **11E** | Async netwerk | ✅ afgerond |
+| **11F.1** | Archiefreden | ✅ afgerond |
+| **11F.2** | Statusfilter | ✅ afgerond |
+| **11F.3** | Bulk-edit en bulk-statuswijziging | ✅ afgerond |
+| **11F.4** | Datum-parsing + cosmetische punten + i18n-opruiming | ✅ afgerond |
+| **11G.1** | Checkbox- en radio-zichtbaarheid in donker thema | ✅ afgerond |
+| **11G.2** | Donkere scrollbar in Word-samenvatting | ✅ afgerond |
+| **11G.3** | Analyse: as-schaling en tickformaat | ✅ afgerond |
+| **11G.4** | Analyse: zoom/pan | ✅ afgerond |
+| **11G.5** | Analyse: klikbare datapunten + selectie-gedreven analyse | ✅ afgerond |
+| **11G.6** | Afsluiten via menu sluit de app, niet het venster | ✅ afgerond |
+| **11G.7** | Filter-checkbox zichtbaarheid | ✅ afgerond |
+| **11H** | Light theme | **Volgende** |
+| 11I | Build en cosmetica | Gepland |
 
 Daarna volgen fase 12 (AI-extractie), 13 (menselijke validatie),
 14 (fabrikantdata koppelen) en 15 (Resistor).
 
 ### 2.5 Werkafspraken voor een nieuwe sessie
 
-Onveranderd t.o.v. v5.6.0. Zie §9.
+Onveranderd t.o.v. v6.0.0.
 
 ---
 
 ## 3. KERNREGELS — BINDENDE AFSPRAKEN
 
-Onveranderd t.o.v. v5.6.0. Zie §3.1 t/m §3.4 van dat document.
+Onveranderd t.o.v. v5.9.0. Zie §3.1 t/m §3.4 van dat document.
 
 ---
 
@@ -247,10 +224,10 @@ Onveranderd t.o.v. v5.6.0. Zie §3.1 t/m §3.4 van dat document.
 | 11B | Betrouwbaarheidsregel herzien | ✅ |
 | 11C | Iconen voor alle vensters | ✅ |
 | 11D | i18n-menging oplossen | ✅ |
-| **11E** | **Async netwerk** | **✅ afgerond** |
-| **11F** | **Documentatie-uitbreiding** | **Volgende** |
-| 11G | Visueel donker thema | Gepland |
-| 11H | Light theme | Gepland |
+| 11E | Async netwerk | ✅ afgerond |
+| 11F.1 t/m 11F.4 | Documentatie-uitbreiding | ✅ afgerond |
+| 11G.1 t/m 11G.7 | Visueel donker thema | ✅ afgerond |
+| **11H** | **Light theme** | **Volgende** |
 | 11I | Build en cosmetica | Gepland |
 | 12 | AI-extractie uit fabrikantdocumenten | Gepland |
 | 13 | Menselijke validatie van AI-output | Gepland |
@@ -259,122 +236,86 @@ Onveranderd t.o.v. v5.6.0. Zie §3.1 t/m §3.4 van dat document.
 
 ---
 
-## 5. WAT IS NIEUW SINDS VERSIE 5.6.0
+## 5. WAT IS NIEUW SINDS VERSIE 6.0.0
 
-### 5.1 Fase 11E — Async netwerk
+### 5.1 Fase 11G.7 — Filter-checkbox zichtbaarheid
 
-**Aanleiding:** update-check, release-notes-fetch en URL-import deden
-netwerkverkeer synchroon in de GUI-thread. Bij trage servers bevroor
-de GUI even.
+**Aanleiding:** de checkbox links van het woord "Filters" in de
+Analyse- en Historiek-pagina (de checkable `QGroupBox`) was nauwelijks
+zichtbaar in het donkere thema. Het indicator-vierkantje had een
+achtergrond (`#2A2A2A`) die bijna gelijk was aan de groupbox-
+achtergrond (`#2D2D30`), en een dunne rand (1px `#8A8A8A`) die wegviel
+naast de groupbox-rand.
 
-**Oplossing in drie sub-fases:**
+**Oplossing:**
 
-- **11E.1 — Async update-check.** Nieuwe module
-  `app/helpers/async_worker.py` (v2.0.0). `app/helpers/updater.py`
-  (v1.2.0) krijgt `check_for_update_async()` en
-  `fetch_release_notes_async()`. `app/gui/main_window.py` (v2.18.0)
-  gebruikt die.
-- **11E.2 — Async URL-fetch in de wizard.**
-  `app/documentation/url_fetch.py` (v1.2.0) krijgt
-  `fetch_url_metadata_async()` en `fetch_url_content_async()`.
-  `app/gui/dialogs/import_wizard_dialog.py` (v2.0.0) gebruikt die;
-  knoppen worden disabled, "Bezig…"-tekst verschijnt.
-- **11E.3 — Drie-knoppenmelding forceren voor QA.**
-  `app/config/settings.py` (v1.7.0) krijgt `algemeen.qa_modus`
-  (default `False`). `app/gui/main_window.py` (v2.19.0) toont een
-  verborgen QA-menu-item in het Help-menu.
+- `styles.py` v1.6.0 — `QGroupBox::indicator` krijgt een lichtere
+  achtergrond (`#3C3C3C`) en een dikkere rand (2px `#B0B0B0`) in
+  unchecked-state. Checked-state is blauw (`#0078D7`) met 2px rand
+  (`#4AA3FF`). Hover en disabled zijn consistent. Geen wijziging aan
+  de GUI-bestanden — alleen `styles.py`.
+- `tests/test_styles.py` v1.2.0 — drie nieuwe tests.
 
-**Bugfix 11E.1:** `RuntimeError: Signal source has been deleted` is
-opgelost door `WorkerSignals` als sterk Python-attribuut op de
-`AsyncWorker` te houden, `setAutoDelete(False)`, geen registry, en de
-aanroeper eigenaar te maken.
+### 5.2 Baselinecorrectie 11G.7
 
-**Bugfix 11E.3:** `AttributeError` bij ontbrekende `algemeen`-namespace
-in `main_window.py`. Opgelost met dubbele `getattr` (v2.19.1).
+| Sub-fase | Baseline vóór | Baseline ná | Nieuw |
+|---|---|---|---|
+| 11G.7 | 1491 | **1494** | +3 |
 
-### 5.2 Baselinecorrectie 11E
+**Totaal 11G.1 t/m 11G.7:** 1462 → 1494 (+32 tests).
 
-Baseline vóór 11E: **1366**. Baseline ná 11E: **1395**. Toename:
-**+29 tests** (9 in `test_async_worker.py`, 4 in `test_updater.py`,
-3 in `test_main_window_update_menu.py`, 6 in
-`test_documentation_url_fetch.py`, 3 in `test_import_wizard_dialog.py`,
-plus herschreven tests in `test_startup_update_check.py`).
-
-### 5.3 Gewijzigde bestanden sinds 5.6.0
+### 5.3 Gewijzigde bestanden sinds 6.0.0
 
 | Bestand | Versie / status |
 |---|---|
-| `app/helpers/async_worker.py` | **nieuw** (v2.0.0) |
-| `app/helpers/updater.py` | v1.1.0 → v1.2.0 |
-| `app/documentation/url_fetch.py` | v1.1.0 → v1.2.0 |
-| `app/gui/main_window.py` | v2.17.0 → v2.19.1 |
-| `app/gui/dialogs/import_wizard_dialog.py` | v1.9.0 → v2.0.0 |
-| `app/config/settings.py` | v1.6.0 → v1.7.0 |
-| `i18n/locales/nl_NL/app.json` | +1 key (`menu.qa_toon_update_melding`) |
-| `i18n/locales/en_US/app.json` | +1 key |
-| `i18n/locales/nl_NL/documentation.json` | +2 keys (`documentatie.import.bezig_*`) |
-| `i18n/locales/en_US/documentation.json` | +2 keys |
-| `tests/test_async_worker.py` | **nieuw** (9 tests) |
-| `tests/test_updater.py` | v1.2.1 → v1.2.2, +4 async-tests |
-| `tests/test_startup_update_check.py` | v1.0.0 → v1.1.0 (async) |
-| `tests/test_main_window_update_menu.py` | v1.2.0 → v1.3.0, +3 QA-tests |
-| `tests/test_documentation_url_fetch.py` | v1.0.0 → v1.1.0, +6 async-tests |
-| `tests/test_import_wizard_dialog.py` | v1.7.0 → v1.8.0, +3 async-tests |
-| `tests/test_gui_language_switch.py` | v1.2.0 (alleen `sys.modules`-fix in `test_main_window_update_menu.py`) |
-| `docs/changelog/nl_NL.md` | 11E-sectie toegevoegd |
-| `docs/changelog/en_US.md` | 11E-sectie toegevoegd |
-| `docs/openvragen.md` | v2.9.0 → v3.0.0 |
+| `app/gui/styles.py` | v1.5.0 → **v1.6.0** |
+| `tests/test_styles.py` | v1.1.0 → **v1.2.0** (9 → 12 tests) |
 
 ### 5.4 Teststatus
 
-**Baseline: 1395 passed.** Was 1366 vóór 11E. De toename is +29 tests,
-alle additief of herschreven-zonder-vermindering.
+**Baseline: 1494 passed.** Was 1491 vóór 11G.7. De toename is +3 tests.
 
 ### 5.5 Bekende beperkingen (bijgewerkt)
 
-- De icoonbestanden zijn **placeholders** (zie 11C).
-- `test_icon_paths.py` gebruikt een **lokale `_app`-fixture** met
-  `@pytest.fixture(scope="module")`. Afwijkend van de projectafspraak;
-  opruimen in een latere cosmetische fase (11F of 11I).
-- `_fake_translate` in `tests/test_gui_language_switch.py` plakt
-  kwargs achter de sleutel als `[k=v,...]` in plaats van de echte
-  format-vervanging te doen. Cosmetisch; opruimen in 11F of 11I.
-- **Async-eigenaarsconventie** is nu expliciet (zie §1 werkafspraken
-  en `docs/openvragen.md` §4.25). Nieuwe async-modules moeten de
-  worker bewaren in `self._xxx_worker` of `_bewaarde_workers`.
+Onveranderd t.o.v. v6.0.0.
 
 ---
 
 ## 6. OPENSTAANDE VRAGEN VOOR DE NIEUWE CHAT
 
-Zie `docs/openvragen.md` v3.0.0 voor de volledige, levende lijst.
-Samenvatting van de belangrijkste punten voor fase 11F:
+Zie `docs/openvragen.md` v3.4.0 voor de volledige, levende lijst.
+Samenvatting van de belangrijkste punten voor fase 11H:
 
-- §2.6 — resterende documentatie- en UX-punten (async URL-fetch is
-  opgelost in 11E).
-- §2.14 — Rapportage: scope "filters" in de Rapportage-GUI;
-  cosmetische opruiming i18n-keys.
-- §2.20 — relatief `icon_path` verfijnen, `Architecture identifier "x64"`,
+- §4.4 — light theme (11H).
+- §2.14 — Rapportage: scope "filters" in de Rapportage-GUI.
+- §2.16 — pandas/numpy pins heroverwegen (11I).
+- §2.20 — relatief `icon_path`, `Architecture identifier "x64"`,
   `[rename] Fallback via robocopy`, `build_log.txt`, certificaten
-  opruimen.
-- §2.9 — cosmetische scrollbar in Word-samenvatting.
-- §2.11 — Analyse-pagina: as-schaling, tickformaat, zoom/pan.
-- §2.16 — pandas/numpy pins heroverwegen.
+  opruimen (11I).
 - §2.28 — export/import tussen toestellen.
-- §4.4 — light theme.
 
 Opgelost in 11B: §2.26.
 Opgelost in 11C: §2.27.
-Opgelost in 11D: §2.21.
-Opgelost in 11E: §2.6 (async URL-fetch), §2.24 (async
-release-notes, drie-knoppenmelding forceren).
+Opgelost in 11D: §2.21 (i18n-menging).
+Opgelost in 11E: §2.6 (async URL-fetch), §2.24 (async release-notes).
+Opgelost in 11F.1: §2.6 (archiefreden).
+Opgelost in 11F.2: §2.14 (statusfilter).
+Opgelost in 11F.3: bulk-edit en bulk-status.
+Opgelost in 11F.4: §4.21, §4.23, i18n-opruiming.
+Opgelost in 11G.1: §2.21 (checkbox-zichtbaarheid, focus-states).
+Opgelost in 11G.2: §2.9 (scrollbar Word-samenvatting).
+Opgelost in 11G.3: §2.11 (as-schaling, tickformaat).
+Opgelost in 11G.4: §2.11 (zoom/pan).
+Opgelost in 11G.5: §2.21 (klikbare datapunten in Analyse).
+Opgelost in 11G.6: nieuwe todo (afsluiten via menu sluit de app).
+Opgelost in 11G.7: §2.30 (filter-checkbox zichtbaarheid).
 
 ---
 
 ## 7. TESTSTATUS — BASELINE EN TESTSTRUCTUUR
 
-**Datum:** 2026-10-16
-**Baseline:** 1395 passed
+**Datum:** 2026-10-20
+**Baseline:** 1494 passed
 **Werkwijze:** eerst gerichte tests, dan volledige `pytest -q`.
 
 ### 7.1 Commando's
@@ -383,37 +324,16 @@ release-notes, drie-knoppenmelding forceren).
 # Eerst gerichte tests van de fase
 pytest tests/test_<fase>.py -q
 
+# Tel nieuwe tests per bestand
+pytest tests/test_<fase>.py --collect-only -q
+
 # Daarna volledige suite
 pytest -q
 ```
 
 ### 7.2 GUI-tests
 
-GUI-tests gebruiken:
-
-```python
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-```
-
-en een lokale `_app()`-helper:
-
-```python
-def _app():
-    return QApplication.instance() or QApplication([])
-```
-
-**Geen `pytest-qt`, geen `qtbot`.**
-
-**Belangrijk:** bewaar nooit een `QMenu`- of `QAction`-pointer tussen
-twee `processEvents()`-rondes.
-
-**Belangrijk:** gebruik `isHidden()`, niet `isVisible()`, om de
-`setVisible()`-status van een kind te controleren in een test waarin
-het scherm nooit `show()` krijgt.
-
-**Belangrijk (sinds 11E):** async-workers worden bewaard in
-`_bewaarde_workers` (module-level lijst) tot het einde van de sessie.
-In de GUI: `self._xxx_worker`.
+Onveranderd t.o.v. v6.0.0 §7.2.
 
 ### 7.3 Voor leesbare PDF's
 
@@ -448,44 +368,23 @@ Voor een nieuwe sessie heeft de chat meestal nodig:
 - `docs/python_header_standard.md`
 - `docs/markdown_levering.md`
 
-**Voor fase 11F (documentatie-uitbreiding):**
+**Voor fase 11H (light theme):**
 
-- `app/documentation/import_service.py` — statuswijzigingen,
-  archiveren, bulk-operaties
-- `app/documentation/import_models.py` — `DuplicateAction`,
-  `ImportStatus`, `ImportSource`
-- `app/gui/documentation_screen.py` — de documentatiebibliotheek-GUI
-- `app/gui/dialogs/change_status_dialog.py` — statuswijzigingsdialoog
-- `app/gui/dialogs/edit_metadata_dialog.py` — metadata-editor
-- `app/gui/dialogs/import_wizard_dialog.py` — sinds 11E.2 v2.0.0
-- `i18n/locales/nl_NL/documentation.json`
-- `i18n/locales/en_US/documentation.json`
-- `tests/test_documentation_import_service.py`
-- `tests/test_documentation_edit_metadata_service.py`
-- `tests/test_documentation_screen.py`
-- `tests/test_change_status_dialog.py`
-- `tests/test_edit_metadata_dialog.py`
+- `app/gui/styles.py` — centrale stijldefinities (v1.6.0)
+- `app/gui/main_window.py` — thema-aanpassing (v2.20.0)
+- `app/config/settings.py` — `algemeen.thema` (v1.7.0)
+- `app/gui/dialogs/settings_dialog.py` — thema-keuze (v1.6.0)
+- `tests/test_styles.py` — pure stylesheet-tests (v1.2.0)
+- `tests/test_settings.py` — thema-instelling
+- `tests/test_settings_dialog.py` — thema-keuze in de dialoog
+- `i18n/locales/nl_NL/settings.json`, `i18n/locales/en_US/settings.json`
+  — labels voor de thema-keuze
 
-Enzovoort, afhankelijk van de gekozen sub-fase.
+De exacte bestanden hangen af van de sub-fase-indeling van 11H. Vraag
+die eerst na.
 
 ---
 
 ## 9. WERKAFSPRAKEN IN EEN NIEUWE SESSIE
 
-Onveranderd t.o.v. v5.6.0. Toevoeging:
-
-- **Offscreen GUI-tests en `isVisible()`:** in een test waarin het
-  scherm nooit `show()` krijgt, is `isVisible()` altijd `False`, ook
-  als `setVisible(True)` op een kind is aangeroepen. Gebruik
-  `isHidden()` voor "is dit kind zichtbaar binnen zijn ouder?".
-- **Gebruik in productie nooit `isVisible()` als conditie voor "is er
-  ooit iets gebeurd?".** Gebruik daarvoor een expliciet statusveld.
-  `isVisible()` is alleen betrouwbaar als het hele venster zichtbaar
-  is, wat in offscreen tests en in niet-actieve
-  `QStackedWidget`-pagina's niet zo is.
-- **Async-eigenaarsconventie (sinds 11E):** de aanroeper van
-  `run_async()` is eigenaar van de teruggegeven `AsyncWorker` en moet
-  die bewaren zolang de worker bezig is. In de GUI via
-  `self._xxx_worker`; in tests via `_bewaarde_workers`. Zonder die
-  referentie kan de `WorkerSignals` worden opgeruimd en faalt de emit
-  met `Signal source has been deleted`.
+Onveranderd t.o.v. v6.0.0 §9.

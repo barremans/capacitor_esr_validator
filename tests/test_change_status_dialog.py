@@ -2,18 +2,20 @@
 ================================================================================
 Module:     tests/test_change_status_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-08
+Versie:     1.1.0
+Datum:      2026-10-19
 Auteur:     Bart Bossuyt
 
-Doel:       GUI-regressietests voor ChangeStatusDialog (fase 5D'.2e).
-            ImportService.set_status wordt via de echte service in
-            tmp_path getest. Geen echte %LOCALAPPDATA%-catalogus.
-            QMessageBox.question wordt gemockt zodat de tests niet
-            blokkeren.
+Doel:       GUI-regressietests voor ChangeStatusDialog (fase 5D'.2e en
+            11F.1). ImportService.set_status / archive wordt via de echte
+            service in tmp_path getest. Geen echte %LOCALAPPDATA%-
+            catalogus. QMessageBox.question wordt gemockt zodat de tests
+            niet blokkeren.
 
 Wijzigingen:
   v1.0.0 (2026-10-08)  Eerste versie.
+  v1.1.0 (2026-10-19)  Fase 11F.1: tests voor het redenveld bij
+                        archiveren.
 ================================================================================
 """
 
@@ -358,3 +360,135 @@ def test_save_btn_disabled_zonder_selectie(tmp_path):
     # Deze test controleert dat er minstens één optie is.
     assert dialog.status_combo.count() >= 1
     assert dialog.save_btn.isEnabled() is True
+
+
+# ============================================================================
+# v1.1.0 — redenveld bij archiveren (fase 11F.1)
+# ============================================================================
+
+def test_redenveld_verborgen_bij_activeren(tmp_path):
+    """CONCEPT → ACTIEF: redenveld is verborgen."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    bron = _maak_bron(service, status=ImportStatus.CONCEPT)
+
+    dialog = ChangeStatusDialog(
+        bron=bron, taal="nl_NL", import_service=service
+    )
+    dialog.status_combo.setCurrentIndex(
+        dialog.status_combo.findData("actief")
+    )
+
+    assert dialog.reden_edit.isHidden() is True
+    assert dialog.reden_label.isHidden() is True
+
+
+def test_redenveld_zichtbaar_bij_archiveren(tmp_path):
+    """CONCEPT → GEARCHIVEERD: redenveld is zichtbaar."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    bron = _maak_bron(service, status=ImportStatus.CONCEPT)
+
+    dialog = ChangeStatusDialog(
+        bron=bron, taal="nl_NL", import_service=service
+    )
+    dialog.status_combo.setCurrentIndex(
+        dialog.status_combo.findData("gearchiveerd")
+    )
+
+    assert dialog.reden_edit.isHidden() is False
+    assert dialog.reden_label.isHidden() is False
+
+
+def test_redenveld_verborgen_bij_terug_naar_concept(tmp_path):
+    """GEARCHIVEERD → CONCEPT: redenveld is verborgen."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    bron = _maak_bron(service, status=ImportStatus.GEARCHIVEERD)
+
+    dialog = ChangeStatusDialog(
+        bron=bron, taal="nl_NL", import_service=service
+    )
+    dialog.status_combo.setCurrentIndex(
+        dialog.status_combo.findData("concept")
+    )
+
+    assert dialog.reden_edit.isHidden() is True
+    assert dialog.reden_label.isHidden() is True
+
+
+def test_archiveren_met_reden_slaat_reden_op(tmp_path, monkeypatch):
+    """Bij archiveren met reden: archive_reason wordt gezet."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    bron = _maak_bron(service, status=ImportStatus.CONCEPT)
+
+    monkeypatch.setattr(
+        QMessageBox, "question",
+        staticmethod(lambda *a, **kw: QMessageBox.StandardButton.Yes),
+    )
+
+    dialog = ChangeStatusDialog(
+        bron=bron, taal="nl_NL", import_service=service
+    )
+    dialog.status_combo.setCurrentIndex(
+        dialog.status_combo.findData("gearchiveerd")
+    )
+    dialog.reden_edit.setText("Achterhaald door v2")
+
+    dialog._save()
+
+    terug = service.get(bron.source_id)
+    assert terug.status is ImportStatus.GEARCHIVEERD
+    assert terug.archive_reason == "Achterhaald door v2"
+
+
+def test_archiveren_zonder_reden_laat_reason_none(tmp_path, monkeypatch):
+    """Bij archiveren zonder reden: archive_reason blijft None."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    bron = _maak_bron(service, status=ImportStatus.CONCEPT)
+
+    monkeypatch.setattr(
+        QMessageBox, "question",
+        staticmethod(lambda *a, **kw: QMessageBox.StandardButton.Yes),
+    )
+
+    dialog = ChangeStatusDialog(
+        bron=bron, taal="nl_NL", import_service=service
+    )
+    dialog.status_combo.setCurrentIndex(
+        dialog.status_combo.findData("gearchiveerd")
+    )
+    # reden_edit leeg laten
+
+    dialog._save()
+
+    terug = service.get(bron.source_id)
+    assert terug.status is ImportStatus.GEARCHIVEERD
+    assert terug.archive_reason is None
+
+
+def test_activeren_raakt_archive_reason_niet_aan(tmp_path, monkeypatch):
+    """Bij activeren blijft archive_reason ongemoeid."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    bron = _maak_bron(service, status=ImportStatus.CONCEPT)
+
+    # Eerst archiveren met reden, dan terug naar concept, dan activeren.
+    service.archive(bron.source_id, reason="Oude reden")
+    service.revoke(bron.source_id)
+    bron = service.get(bron.source_id)
+
+    dialog = ChangeStatusDialog(
+        bron=bron, taal="nl_NL", import_service=service
+    )
+    dialog.status_combo.setCurrentIndex(
+        dialog.status_combo.findData("actief")
+    )
+
+    dialog._save()
+
+    terug = service.get(bron.source_id)
+    assert terug.status is ImportStatus.ACTIEF
+    assert terug.archive_reason == "Oude reden"

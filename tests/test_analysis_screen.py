@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_analysis_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.3.1
-Datum:      2026-10-16
+Versie:     1.6.2
+Datum:      2026-10-20
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor AnalysisScreen.
@@ -14,13 +14,23 @@ Wijzigingen:
   v1.0.2 (2026-10-09)  Fix: tests inspecteren laatste aanroep.
   v1.1.0 (2026-10-16)  Fase 11A.1: selectielijst, teller, wissen, export.
   v1.3.0 (2026-10-16)  Fase 11A.2: rapport-knop naast export-knop.
-  v1.3.1 (2026-10-16)  Fase 11A.2-fix: test_rapport_knop_zonder_selectie_
-                        toont_boodschap monkeypatchte _open_report_for_
-                        selection en riep daarna precies die methode aan.
-                        De echte implementatie draaide dus nooit en de
-                        statusbalk bleef op de aantal-tekst staan.
-                        Monkeypatch verwijderd; de test roept nu de echte
-                        methode aan en controleert de melding.
+  v1.3.1 (2026-10-16)  Fase 11A.2-fix: echte implementatie testen.
+  v1.4.0 (2026-10-20)  Fase 11G.3: vijf tests voor as-schaling en
+                        tickformaat.
+  v1.5.0 (2026-10-20)  Fase 11G.4: vijf tests voor zoom/pan.
+  v1.6.0 (2026-10-20)  Fase 11G.5: zes tests voor selectie-gedreven
+                        grafiek en klikbare scatter-punten.
+  v1.6.1 (2026-10-20)  Fase 11G.5-fix: drie tests aangepast aan de
+                        nieuwe refresh(preserve_selection=True)-flow.
+  v1.6.2 (2026-10-20)  Fase 11G.5-fix: de scatter-klik-tests roepen nu
+                        expliciet widget.refresh() aan na het zetten van
+                        chart_type SCATTER, zodat de scatter-series
+                        gegarandeerd getekend zijn vóór de klik. Zonder
+                        die expliciete refresh bleef widget.chart.series()
+                        leeg in de offscreen-testomgeving. De bestaande
+                        test_selectie_wordt_gewist_bij_refresh is
+                        ongewijzigd; de productiecode uit v1.6.2 zet de
+                        "gewist"-melding weer bij een gewone refresh.
 ================================================================================
 """
 
@@ -34,6 +44,7 @@ from typing import Any
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
+from PySide6.QtCharts import QDateTimeAxis, QValueAxis
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QApplication
@@ -128,26 +139,42 @@ class _StubAnalysisService:
         self._d = dissipation_series or []
         self._scatter = scatter or []
         self.calls: list[tuple[str, dict[str, Any], str]] = []
+        self.measurement_id_calls: list[list[int] | None] = []
         self.detail_calls: list[int] = []
 
-    def load_rows(self, filters=None):
+    def load_rows(self, filters=None, *, measurement_ids=None):
         self.calls.append(("load_rows", dict(filters or {}), ""))
+        self.measurement_id_calls.append(
+            list(measurement_ids) if measurement_ids is not None else None
+        )
         return list(self._rows)
 
-    def esr_series(self, filters, *, aggregation):
+    def esr_series(self, filters, *, aggregation, measurement_ids=None):
         self.calls.append(("esr", dict(filters or {}), aggregation))
+        self.measurement_id_calls.append(
+            list(measurement_ids) if measurement_ids is not None else None
+        )
         return list(self._esr)
 
-    def capacitance_series(self, filters, *, aggregation):
+    def capacitance_series(self, filters, *, aggregation, measurement_ids=None):
         self.calls.append(("c", dict(filters or {}), aggregation))
+        self.measurement_id_calls.append(
+            list(measurement_ids) if measurement_ids is not None else None
+        )
         return list(self._c)
 
-    def dissipation_series(self, filters, *, aggregation):
+    def dissipation_series(self, filters, *, aggregation, measurement_ids=None):
         self.calls.append(("d", dict(filters or {}), aggregation))
+        self.measurement_id_calls.append(
+            list(measurement_ids) if measurement_ids is not None else None
+        )
         return list(self._d)
 
-    def scatter_esr_vs_capacitance(self, filters):
+    def scatter_esr_vs_capacitance(self, filters, *, measurement_ids=None):
         self.calls.append(("scatter", dict(filters or {}), ""))
+        self.measurement_id_calls.append(
+            list(measurement_ids) if measurement_ids is not None else None
+        )
         return list(self._scatter)
 
     def _history(self):
@@ -433,13 +460,8 @@ def test_rapport_knop_enabled_met_selectie(screen: AnalysisScreen) -> None:
 def test_rapport_knop_zonder_selectie_toont_boodschap(
     screen: AnalysisScreen,
 ) -> None:
-    """Zonder selectie toont de knop-handler een melding in de statusbalk.
-
-    Let op: geen monkeypatch hier. We willen de echte implementatie van
-    _open_report_for_selection() testen, niet een stub.
-    """
+    """Zonder selectie toont de knop-handler een melding in de statusbalk."""
     screen.refresh()
-    # Geen enkele checkbox aan.
     screen._open_report_for_selection()
     text = screen.state_label.text().lower()
     assert "selecteer" in text or "select" in text
@@ -565,3 +587,410 @@ def test_export_beide_schrijft_twee_bestanden(
     details = list(tmp_path.glob("analyse_detail_*.csv"))
     assert len(overzichten) == 1
     assert len(details) == 1
+
+
+# ============================================================================
+# v1.4.0 — as-schaling en tickformaat (fase 11G.3)
+# ============================================================================
+
+def _y_axis(screen: AnalysisScreen) -> QValueAxis | None:
+    for axis in screen.chart.axes():
+        if isinstance(axis, QValueAxis):
+            return axis
+    return None
+
+
+def _x_datetime_axis(screen: AnalysisScreen) -> QDateTimeAxis | None:
+    for axis in screen.chart.axes():
+        if isinstance(axis, QDateTimeAxis):
+            return axis
+    return None
+
+
+def test_esr_y_as_heeft_tickformaat() -> None:
+    """ESR in mΩ gebruikt %.0f (geen decimalen)."""
+    _app()
+    stub = _StubAnalysisService(
+        esr_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.2, 2, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.refresh()
+        axis_y = _y_axis(widget)
+        assert axis_y is not None
+        assert axis_y.labelFormat() == "%.0f"
+        assert axis_y.tickCount() == 6
+    finally:
+        widget.deleteLater()
+
+
+def test_capaciteit_y_as_heeft_tickformaat() -> None:
+    _app()
+    stub = _StubAnalysisService(
+        capacitance_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 470e-6, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 480e-6, 2, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.chart_type_combo.setCurrentIndex(
+            widget.chart_type_combo.findData(_CHART_TYPE_CAPACITANCE)
+        )
+        axis_y = _y_axis(widget)
+        assert axis_y is not None
+        assert axis_y.labelFormat() == "%.1f"
+    finally:
+        widget.deleteLater()
+
+
+def test_dissipation_y_as_heeft_tickformaat() -> None:
+    _app()
+    stub = _StubAnalysisService(
+        dissipation_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.01, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.02, 2, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.chart_type_combo.setCurrentIndex(
+            widget.chart_type_combo.findData(_CHART_TYPE_DISSIPATION)
+        )
+        axis_y = _y_axis(widget)
+        assert axis_y is not None
+        assert axis_y.labelFormat() == "%.3f"
+    finally:
+        widget.deleteLater()
+
+
+def test_y_as_range_heeft_marge() -> None:
+    _app()
+    stub = _StubAnalysisService(
+        esr_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.2, 2, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.refresh()
+        axis_y = _y_axis(widget)
+        assert axis_y is not None
+        assert axis_y.min() < 100.0
+        assert axis_y.max() > 200.0
+    finally:
+        widget.deleteLater()
+
+
+def test_datetime_as_formaat_kort_bereik() -> None:
+    _app()
+    stub = _StubAnalysisService(
+        esr_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.2, 2, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.refresh()
+        axis_x = _x_datetime_axis(widget)
+        assert axis_x is not None
+        assert axis_x.format() == "dd-MM HH:mm"
+    finally:
+        widget.deleteLater()
+
+
+# ============================================================================
+# v1.5.0 — zoom/pan (fase 11G.4)
+# ============================================================================
+
+def test_reset_zoom_knop_bestaat(screen: AnalysisScreen) -> None:
+    screen.refresh()
+    assert screen.reset_zoom_btn.text() != ""
+    assert screen.reset_zoom_btn.isEnabled() is True
+
+
+def test_reset_zoom_herstelt_oorspronkelijke_range() -> None:
+    _app()
+    stub = _StubAnalysisService(
+        esr_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.2, 2, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.refresh()
+        axis_y = _y_axis(widget)
+        assert axis_y is not None
+        origineel_min = axis_y.min()
+        origineel_max = axis_y.max()
+
+        axis_y.setRange(origineel_min + 10, origineel_max - 10)
+        assert axis_y.min() > origineel_min
+
+        widget.reset_zoom()
+
+        assert axis_y.min() == pytest.approx(origineel_min)
+        assert axis_y.max() == pytest.approx(origineel_max)
+    finally:
+        widget.deleteLater()
+
+
+def test_ctrl_0_reset_zoom() -> None:
+    _app()
+    stub = _StubAnalysisService(
+        esr_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.2, 2, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.refresh()
+        axis_y = _y_axis(widget)
+        assert axis_y is not None
+        origineel_min = axis_y.min()
+        origineel_max = axis_y.max()
+
+        axis_y.setRange(origineel_min + 10, origineel_max - 10)
+        widget.sc_reset_zoom.activated.emit()
+
+        assert axis_y.min() == pytest.approx(origineel_min)
+        assert axis_y.max() == pytest.approx(origineel_max)
+    finally:
+        widget.deleteLater()
+
+
+def test_refresh_reset_zoom() -> None:
+    _app()
+    stub = _StubAnalysisService(
+        esr_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.2, 2, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.refresh()
+        axis_y = _y_axis(widget)
+        assert axis_y is not None
+        origineel_min = axis_y.min()
+        origineel_max = axis_y.max()
+
+        axis_y.setRange(origineel_min + 10, origineel_max - 10)
+        widget.refresh()
+
+        axis_y = _y_axis(widget)
+        assert axis_y is not None
+        assert axis_y.min() == pytest.approx(origineel_min)
+        assert axis_y.max() == pytest.approx(origineel_max)
+    finally:
+        widget.deleteLater()
+
+
+def test_zoom_reset_knop_i18n() -> None:
+    _app()
+    stub = _StubAnalysisService()
+
+    widget_nl = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        assert widget_nl.reset_zoom_btn.text() != "analyse.zoom.reset_knop"
+        assert widget_nl.reset_zoom_btn.toolTip() != "analyse.zoom.reset_tooltip"
+    finally:
+        widget_nl.deleteLater()
+
+    widget_en = AnalysisScreen(taal="en_US", analysis_service=stub)
+    try:
+        assert widget_en.reset_zoom_btn.text() != "analyse.zoom.reset_knop"
+        assert widget_en.reset_zoom_btn.toolTip() != "analyse.zoom.reset_tooltip"
+        assert widget_en.reset_zoom_btn.text() == "Reset zoom"
+    finally:
+        widget_en.deleteLater()
+
+
+# ============================================================================
+# v1.6.0 — selectie-gedreven grafiek en klikbare scatter-punten (11G.5)
+# ============================================================================
+
+def test_scope_selectie_beperkt_grafiek_tot_selectie() -> None:
+    """Scope SELECTED + 1 aangevinkte meting -> service krijgt die ids.
+
+    Volgt de echte GUI-flow: eerst refresh (selectie leeg), dan een
+    meting aanvinken, dan refresh(preserve_selection=True) zoals de
+    GUI doet bij scope-wissel of scatter-klik.
+    """
+    _app()
+    stub = _StubAnalysisService(
+        rows=[
+            _row(1, _ms(2026, 10, 1), esr_ohm=0.1),
+            _row(2, _ms(2026, 10, 2), esr_ohm=0.2),
+            _row(3, _ms(2026, 10, 3), esr_ohm=0.3),
+        ],
+        esr_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.2, 2, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.refresh()
+        # Rij 0 is de meest recente meting (id=3) vanwege de sortering.
+        widget.selection_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        stub.measurement_id_calls.clear()
+
+        widget.refresh(preserve_selection=True)
+
+        assert any(
+            ids == [3] for ids in stub.measurement_id_calls
+        ), stub.measurement_id_calls
+    finally:
+        widget.deleteLater()
+
+
+def test_scope_filters_geeft_measurement_ids_none() -> None:
+    """Scope FILTERED -> service krijgt measurement_ids=None."""
+    _app()
+    stub = _StubAnalysisService(
+        rows=[_row(1, _ms(2026, 10, 1))],
+        esr_series=[TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR")],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.export_scope_combo.setCurrentIndex(
+            widget.export_scope_combo.findData(_EXPORT_SCOPE_FILTERED)
+        )
+        stub.measurement_id_calls.clear()
+
+        widget.refresh(preserve_selection=True)
+
+        assert all(
+            ids is None for ids in stub.measurement_id_calls
+        ), stub.measurement_id_calls
+    finally:
+        widget.deleteLater()
+
+
+def test_klik_op_scatter_punt_selecteert_rij() -> None:
+    """Klik op een scatter-punt -> bijbehorende rij staat aangevinkt."""
+    _app()
+    stub = _StubAnalysisService(
+        rows=[
+            _row(1, _ms(2026, 10, 1), esr_ohm=0.1, capacitance_f=470e-6),
+            _row(2, _ms(2026, 10, 2), esr_ohm=0.2, capacitance_f=480e-6),
+        ],
+        scatter=[
+            ScatterPoint(470e-6, 0.1, 1, "ESR_CAPACITOR", None),
+            ScatterPoint(480e-6, 0.2, 2, "ESR_CAPACITOR", None),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        # Zet eerst de scope op FILTERED zodat de klik-route niet
+        # door een refresh() wordt overschreven.
+        widget.export_scope_combo.setCurrentIndex(
+            widget.export_scope_combo.findData(_EXPORT_SCOPE_FILTERED)
+        )
+        widget.chart_type_combo.setCurrentIndex(
+            widget.chart_type_combo.findData(_CHART_TYPE_SCATTER)
+        )
+        # Expliciete refresh: garantie dat de scatter getekend is,
+        # ongeacht of de signalen in de testomgeving al zijn verwerkt.
+        widget.refresh()
+
+        from PySide6.QtCharts import QScatterSeries
+        reeksen = [s for s in widget.chart.series() if isinstance(s, QScatterSeries)]
+        assert reeksen, "verwacht minstens één QScatterSeries"
+
+        widget._on_scatter_clicked(reeksen[0])
+
+        aangevinkt = widget._selected_measurement_ids()
+        assert len(aangevinkt) == 1
+    finally:
+        widget.deleteLater()
+
+
+def test_klik_op_scatter_punt_zonder_scope_selectie_hertekent_niet() -> None:
+    """Scope FILTERED: een klik selecteert wel, maar hertekent niet."""
+    _app()
+    stub = _StubAnalysisService(
+        rows=[
+            _row(1, _ms(2026, 10, 1), esr_ohm=0.1, capacitance_f=470e-6),
+            _row(2, _ms(2026, 10, 2), esr_ohm=0.2, capacitance_f=480e-6),
+        ],
+        scatter=[
+            ScatterPoint(470e-6, 0.1, 1, "ESR_CAPACITOR", None),
+            ScatterPoint(480e-6, 0.2, 2, "ESR_CAPACITOR", None),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.export_scope_combo.setCurrentIndex(
+            widget.export_scope_combo.findData(_EXPORT_SCOPE_FILTERED)
+        )
+        widget.chart_type_combo.setCurrentIndex(
+            widget.chart_type_combo.findData(_CHART_TYPE_SCATTER)
+        )
+        widget.refresh()
+
+        from PySide6.QtCharts import QScatterSeries
+        reeksen = [s for s in widget.chart.series() if isinstance(s, QScatterSeries)]
+        assert reeksen, "verwacht minstens één QScatterSeries"
+        stub.calls.clear()
+
+        widget._on_scatter_clicked(reeksen[0])
+
+        # Geen nieuwe service-calls (geen refresh).
+        assert stub.calls == []
+    finally:
+        widget.deleteLater()
+
+
+def test_scope_combo_i18n_nl_en() -> None:
+    """De nieuwe analyse.scope.*-keys bestaan in NL en EN."""
+    _app()
+    stub = _StubAnalysisService()
+
+    widget_nl = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        labels_nl = [
+            widget_nl.export_scope_combo.itemText(i)
+            for i in range(widget_nl.export_scope_combo.count())
+        ]
+        assert all(lbl for lbl in labels_nl)
+        assert "analyse.scope" not in " ".join(labels_nl)
+    finally:
+        widget_nl.deleteLater()
+
+    widget_en = AnalysisScreen(taal="en_US", analysis_service=stub)
+    try:
+        labels_en = [
+            widget_en.export_scope_combo.itemText(i)
+            for i in range(widget_en.export_scope_combo.count())
+        ]
+        assert all(lbl for lbl in labels_en)
+        assert any("selection" in lbl.lower() for lbl in labels_en)
+    finally:
+        widget_en.deleteLater()
+
+
+def test_scope_wijziging_hertekent_grafiek() -> None:
+    """Bij scope-wissel wordt refresh() aangeroepen (service opnieuw)."""
+    _app()
+    stub = _StubAnalysisService(
+        rows=[_row(1, _ms(2026, 10, 1))],
+        esr_series=[TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR")],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        stub.calls.clear()
+        widget.export_scope_combo.setCurrentIndex(
+            widget.export_scope_combo.findData(_EXPORT_SCOPE_FILTERED)
+        )
+        assert any(call[0] == "esr" for call in stub.calls)
+    finally:
+        widget.deleteLater()

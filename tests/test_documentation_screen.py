@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.11.0
-Datum:      2026-10-08
+Versie:     1.14.0
+Datum:      2026-10-20
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor de read-only Documentatiebibliotheek.
@@ -30,6 +30,33 @@ Wijzigingen:
                        Toon gearchiveerde-checkbox en Status-kolom.
                        Bestaande kolomindices aangepast (fabrikant van
                        kolom 2 → 3, enz.).
+  v1.12.0 (2026-10-19) Fase 11F.1: test dat de Status-kolom bij een
+                       gearchiveerde gebruikersimport met een
+                       archive_reason een tooltip toont met die reden.
+  v1.12.1 (2026-10-20) Fix: test_status_kolom_bij_niet_gearchiveerd_heeft_
+                       geen_tooltip importeert nu lokaal ImportStatus.
+                       Geen productiecodewijziging.
+  v1.13.0 (2026-10-20) Fase 11F.2: de checkbox "Toon gearchiveerde" is
+                       vervangen door een statusfilter-dropdown. De twee
+                       checkbox-tests zijn herschreven naar tests voor
+                       status_filter_combo. Nieuwe tests: dropdown
+                       bestaat, standaard "Alle", filter op concept/
+                       actief/gearchiveerd, taalwissel behoudt selectie,
+                       "Alle" toont alles.
+  v1.13.1 (2026-10-20) Fix: de twee tests test_status_kolom_toont_juiste_
+                       vertaling en test_kolomindices_na_toevoeging_
+                       status_kolom zijn per ongeluk verwijderd bij het
+                       herschrijven van de checkbox-sectie in v1.13.0.
+                       Hier teruggezet, ongewijzigd t.o.v. v1.12.0.
+                       Geen productiecodewijziging.
+  v1.14.0 (2026-10-20) Fase 11F.3: tests voor de twee bulk-knoppen en de
+                       multi-selectie. Dekt: bulk-knoppen bestaan, zijn
+                       disabled zonder selectie, enabled bij ≥1
+                       gebruikersimport, multi-selectie behoudt
+                       selectie na refresh, _geselecteerde_document_ids
+                       dedupliceert. Nieuwe testservice
+                       _MultiImportDocumentationService levert meerdere
+                       gebruikersimports.
 ================================================================================
 """
 
@@ -232,6 +259,52 @@ class _UserImportDocumentationService:
         ):
             return []
         return [self.get_document("import-1")]
+
+
+class _MultiImportDocumentationService:
+    """Levert meerdere importeerbare PDF-bronnen (alle is_user_import=True).
+
+    Wordt gebruikt in de bulk-tests (11F.3).
+    """
+
+    def __init__(self, *, aantallen: int = 3):
+        self._documenten = [
+            DocumentMetadata(
+                document_id=f"import-{i}",
+                title=f"Import {i}",
+                title_key=None,
+                category=DocumentCategory.DATASHEET,
+                source_type=DocumentSourceType.FILE,
+                source_path=f"sources/import-{i}.pdf",
+                source_url=None,
+                tool_key=None,
+                manufacturer=None,
+                series=None,
+                part_number=None,
+                document_version=None,
+                document_date=None,
+                notes=None,
+                is_user_import=True,
+                import_status="concept",
+            )
+            for i in range(1, aantallen + 1)
+        ]
+
+    def get_document(self, document_id):
+        for doc in self._documenten:
+            if doc.document_id == document_id:
+                return doc
+        raise AssertionError(f"Onbekend document: {document_id}")
+
+    def list_documents(
+        self,
+        *,
+        search_text=None,
+        category=None,
+        tool_key=None,
+        include_archived=False,
+    ):
+        return list(self._documenten)
 
 
 def _fake_translate(key: str, taal: str = "nl_NL", **kwargs) -> str:
@@ -783,11 +856,9 @@ def test_edit_btn_tooltip_wisselt_met_selectie():
         taal="nl_NL",
         documentation_service=_UserImportDocumentationService(),
     )
-    # Geen selectie: tooltip = "alleen eigen"
     assert "alleen" in screen.edit_btn.toolTip().lower() or \
         "eigen" in screen.edit_btn.toolTip().lower()
 
-    # Selectie van een import: tooltip = "bewerken"
     screen.table.selectRow(0)
     assert "bewerken" in screen.edit_btn.toolTip().lower()
 
@@ -868,7 +939,6 @@ def test_edit_selected_document_opent_editor(tmp_path, monkeypatch):
         document_version="V1.1",
     )
 
-    # DocService die hetzelfde source_id levert als de ImportService.
     doc = DocumentMetadata(
         document_id=r.source.source_id,
         title="Eigen import",
@@ -903,7 +973,6 @@ def test_edit_selected_document_opent_editor(tmp_path, monkeypatch):
 
     geopend = {"count": 0, "bron": None}
 
-    # Fake editor: een echt Qt-signaal op klasse-niveau, en exec die telt.
     class _FakeEditor(QObject):
         metadata_saved = Signal(str)
 
@@ -954,10 +1023,8 @@ def test_import_service_lazy_aangemaakt(tmp_path):
         taal="nl_NL",
         documentation_service=_FakeDocumentationService(),
     )
-    # Nog geen klik op Bewerken geweest
     assert screen._import_service_cache is None
 
-    # Eigenschap zorgt voor luie aanmaak
     service = screen._import_service()
     assert service is not None
     assert screen._import_service_cache is service
@@ -1161,32 +1228,9 @@ def test_on_status_changed_ververst_en_behoudt_selectie(monkeypatch):
     assert screen._selected_document_id() == "import-1"
 
 
-def test_toon_gearchiveerd_checkbox_bestaat_en_is_standaard_uit():
-    _app()
-    screen = DocumentationScreen(
-        taal="nl_NL",
-        documentation_service=_FakeDocumentationService(),
-    )
-    assert screen.toon_gearchiveerd_checkbox is not None
-    assert screen.toon_gearchiveerd_checkbox.isChecked() is False
-
-
-def test_toon_gearchiveerd_toont_gearchiveerde_documenten():
-    """Met checkbox aan worden gearchiveerde imports zichtbaar."""
-    _app()
-    service = _UserImportDocumentationService(import_status="gearchiveerd")
-
-    screen = DocumentationScreen(
-        taal="nl_NL",
-        documentation_service=service,
-    )
-    # Standaard verborgen
-    assert screen.table.rowCount() == 0
-
-    # Checkbox aan → zichtbaar
-    screen.toon_gearchiveerd_checkbox.setChecked(True)
-    assert screen.table.rowCount() == 1
-
+# ============================================================================
+# v1.11.0 — Status-kolom en kolomindices
+# ============================================================================
 
 def test_status_kolom_toont_juiste_vertaling(monkeypatch):
     _app()
@@ -1199,7 +1243,6 @@ def test_status_kolom_toont_juiste_vertaling(monkeypatch):
         ),
     )
 
-    # De Status-kolom is index 2
     assert screen.table.item(0, 2).text() == (
         "nl_NL:documentatie.status_kolom.concept"
     )
@@ -1226,3 +1269,374 @@ def test_kolomindices_na_toevoeging_status_kolom(monkeypatch):
     assert headers[3] == "nl_NL:documentatie.kolom.fabrikant"
     assert headers[4] == "nl_NL:documentatie.kolom.serie"
     assert headers[5] == "nl_NL:documentatie.kolom.versie"
+
+
+# ============================================================================
+# v1.13.0 — Statusfilter-dropdown (voorheen checkbox)
+# ============================================================================
+
+def test_status_filter_combo_bestaat_en_standaard_op_alle():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    assert screen.status_filter_combo is not None
+    assert screen.status_filter_combo.count() == 4
+    assert screen.status_filter_combo.currentData() is None
+    assert screen.status_filter_combo.currentText() == "Alle"
+
+
+def test_status_filter_alle_toont_ook_gearchiveerde_documenten():
+    _app()
+    service = _UserImportDocumentationService(import_status="gearchiveerd")
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=service,
+    )
+    assert screen.status_filter_combo.currentData() is None
+    assert screen.table.rowCount() == 1
+
+
+def test_status_filter_gearchiveerd_toont_gearchiveerde_documenten():
+    _app()
+    service = _UserImportDocumentationService(import_status="gearchiveerd")
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=service,
+    )
+    index = screen.status_filter_combo.findData("gearchiveerd")
+    screen.status_filter_combo.setCurrentIndex(index)
+
+    assert screen.table.rowCount() == 1
+
+
+def test_status_filter_concept_sluit_gearchiveerde_uit():
+    _app()
+    service = _UserImportDocumentationService(import_status="gearchiveerd")
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=service,
+    )
+    index = screen.status_filter_combo.findData("concept")
+    screen.status_filter_combo.setCurrentIndex(index)
+
+    assert screen.table.rowCount() == 0
+
+
+def test_status_filter_actief_sluit_concept_uit():
+    _app()
+    service = _UserImportDocumentationService(import_status="concept")
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=service,
+    )
+    index = screen.status_filter_combo.findData("actief")
+    screen.status_filter_combo.setCurrentIndex(index)
+
+    assert screen.table.rowCount() == 0
+
+
+def test_status_filter_taalwissel_behoudt_selectie(monkeypatch):
+    _app()
+    monkeypatch.setattr(documentation_module, "vertaal", _fake_translate)
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    index = screen.status_filter_combo.findData("actief")
+    screen.status_filter_combo.setCurrentIndex(index)
+    assert screen.status_filter_combo.currentData() == "actief"
+
+    screen.apply_language("en_US")
+
+    assert screen.status_filter_combo.currentData() == "actief"
+
+
+def test_status_filter_tooltip_uit_i18n():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    tooltip = screen.status_filter_combo.toolTip()
+    assert tooltip != ""
+    assert tooltip.lower().startswith("filter")
+
+
+# ============================================================================
+# v1.12.0 — Status-tooltip met archive_reason (fase 11F.1)
+# ============================================================================
+
+def _maak_gearchiveerde_import_met_reden(tmp_path, *, reden):
+    from app.documentation.import_service import ImportService
+
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    r = service.register_pdf(
+        title="Eigen import",
+        original_filename="eigen.pdf",
+        file_hash="hash_z",
+    )
+    service.archive(r.source.source_id, reason=reden)
+    bron = service.get(r.source.source_id)
+
+    doc = DocumentMetadata(
+        document_id=bron.source_id,
+        title="Eigen import",
+        title_key=None,
+        category=DocumentCategory.DATASHEET,
+        source_type=DocumentSourceType.FILE,
+        source_path="sources/eigen.pdf",
+        source_url=None,
+        tool_key=None,
+        manufacturer=None,
+        series=None,
+        part_number=None,
+        document_version=None,
+        document_date=None,
+        notes=None,
+        is_user_import=True,
+        import_status="gearchiveerd",
+    )
+    return service, doc
+
+
+def test_status_kolom_heeft_tooltip_met_reden(tmp_path, monkeypatch):
+    _app()
+    monkeypatch.setattr(documentation_module, "vertaal", _fake_translate)
+
+    service, doc = _maak_gearchiveerde_import_met_reden(
+        tmp_path, reden="Achterhaald door v2"
+    )
+
+    class _Service:
+        def get_document(self, document_id):
+            return doc
+
+        def list_documents(self, **kwargs):
+            return [doc]
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_Service(),
+        import_service=service,
+    )
+
+    tooltip = screen.table.item(0, 2).toolTip()
+    assert "Achterhaald door v2" in tooltip
+
+
+def test_status_kolom_zonder_reden_heeft_geen_tooltip(tmp_path, monkeypatch):
+    _app()
+    monkeypatch.setattr(documentation_module, "vertaal", _fake_translate)
+
+    from app.documentation.import_service import ImportService
+
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    r = service.register_pdf(
+        title="Eigen import",
+        original_filename="eigen.pdf",
+    )
+    service.archive(r.source.source_id)
+
+    doc = DocumentMetadata(
+        document_id=r.source.source_id,
+        title="Eigen import",
+        title_key=None,
+        category=DocumentCategory.DATASHEET,
+        source_type=DocumentSourceType.FILE,
+        source_path="sources/eigen.pdf",
+        source_url=None,
+        tool_key=None,
+        manufacturer=None,
+        series=None,
+        part_number=None,
+        document_version=None,
+        document_date=None,
+        notes=None,
+        is_user_import=True,
+        import_status="gearchiveerd",
+    )
+
+    class _Service:
+        def get_document(self, document_id):
+            return doc
+
+        def list_documents(self, **kwargs):
+            return [doc]
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_Service(),
+        import_service=service,
+    )
+
+    tooltip = screen.table.item(0, 2).toolTip()
+    assert tooltip == ""
+
+
+def test_status_kolom_bij_niet_gearchiveerd_heeft_geen_tooltip(tmp_path, monkeypatch):
+    _app()
+    monkeypatch.setattr(documentation_module, "vertaal", _fake_translate)
+
+    from app.documentation.import_service import ImportService
+    from app.documentation.import_models import ImportStatus
+
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    r = service.register_pdf(
+        title="Eigen import",
+        original_filename="eigen.pdf",
+    )
+    service.set_status(r.source.source_id, ImportStatus.ACTIEF)
+
+    doc = DocumentMetadata(
+        document_id=r.source.source_id,
+        title="Eigen import",
+        title_key=None,
+        category=DocumentCategory.DATASHEET,
+        source_type=DocumentSourceType.FILE,
+        source_path="sources/eigen.pdf",
+        source_url=None,
+        tool_key=None,
+        manufacturer=None,
+        series=None,
+        part_number=None,
+        document_version=None,
+        document_date=None,
+        notes=None,
+        is_user_import=True,
+        import_status="actief",
+    )
+
+    class _Service:
+        def get_document(self, document_id):
+            return doc
+
+        def list_documents(self, **kwargs):
+            return [doc]
+
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_Service(),
+        import_service=service,
+    )
+
+    tooltip = screen.table.item(0, 2).toolTip()
+    assert tooltip == ""
+
+
+# ============================================================================
+# v1.14.0 — Bulk-knoppen en multi-selectie (fase 11F.3)
+# ============================================================================
+
+def test_bulk_knoppen_bestaan_en_zijn_disabled_zonder_selectie():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_MultiImportDocumentationService(),
+    )
+    assert screen.bulk_edit_btn.isEnabled() is False
+    assert screen.bulk_status_btn.isEnabled() is False
+
+
+def test_bulk_knoppen_disabled_bij_ingebouwd_document():
+    """Ingebouwde documenten hebben is_user_import=False → bulk uit."""
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_FakeDocumentationService(),
+    )
+    screen.table.selectRow(0)
+    assert screen.bulk_edit_btn.isEnabled() is False
+    assert screen.bulk_status_btn.isEnabled() is False
+
+
+def test_bulk_knoppen_enabled_bij_gebruikersimport():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_UserImportDocumentationService(),
+    )
+    screen.table.selectRow(0)
+    assert screen.bulk_edit_btn.isEnabled() is True
+    assert screen.bulk_status_btn.isEnabled() is True
+
+
+def test_bulk_knoppen_enabled_bij_meerdere_gebruikersimports():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_MultiImportDocumentationService(),
+    )
+    screen.table.selectRow(0)
+    screen.table.selectionModel().select(
+        screen.table.model().index(1, 0),
+        screen.table.selectionModel().SelectionFlag.Select
+        | screen.table.selectionModel().SelectionFlag.Rows,
+    )
+    assert screen.bulk_edit_btn.isEnabled() is True
+    assert screen.bulk_status_btn.isEnabled() is True
+
+
+def test_single_knoppen_uit_bij_meer_dan_een_selectie():
+    """Openen/Bewerken/Status zijn single-selectie; bij 2 rijen uit."""
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_MultiImportDocumentationService(),
+    )
+    screen.table.selectRow(0)
+    screen.table.selectionModel().select(
+        screen.table.model().index(1, 0),
+        screen.table.selectionModel().SelectionFlag.Select
+        | screen.table.selectionModel().SelectionFlag.Rows,
+    )
+    assert screen.open_btn.isEnabled() is False
+    assert screen.edit_btn.isEnabled() is False
+    assert screen.status_btn.isEnabled() is False
+
+
+def test_geselecteerde_document_ids_dedupliceert():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_MultiImportDocumentationService(),
+    )
+    screen.table.selectRow(0)
+    ids = screen._geselecteerde_document_ids()
+    assert ids == ["import-1"]
+
+
+def test_geselecteerde_gebruikersimports_filtert_op_vlag():
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_MultiImportDocumentationService(),
+    )
+    screen.table.selectRow(0)
+    ids = screen._geselecteerde_gebruikersimports()
+    assert ids == ["import-1"]
+
+
+def test_refresh_behoudt_multi_selectie():
+    """Na refresh blijven alle geselecteerde rijen geselecteerd."""
+    _app()
+    screen = DocumentationScreen(
+        taal="nl_NL",
+        documentation_service=_MultiImportDocumentationService(),
+    )
+    screen.table.selectRow(0)
+    screen.table.selectionModel().select(
+        screen.table.model().index(1, 0),
+        screen.table.selectionModel().SelectionFlag.Select
+        | screen.table.selectionModel().SelectionFlag.Rows,
+    )
+    screen.refresh()
+    ids = screen._geselecteerde_document_ids()
+    assert "import-1" in ids
+    assert "import-2" in ids

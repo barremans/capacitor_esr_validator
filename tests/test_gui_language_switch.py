@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_gui_language_switch.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.0
-Datum:      2026-10-16
+Versie:     1.3.1
+Datum:      2026-10-20
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor live taalwissel in Hoofdmenu/Diagnose, ESR en
@@ -26,6 +26,25 @@ Wijzigingen:
                         wordt getoetst met isHidden() i.p.v. isVisible(),
                         omdat het scherm in de offscreen-test nooit
                         getoond wordt.
+  v1.3.0 (2026-10-20)  Fase 11F.4 (§4.23): _fake_translate doet nu
+                        echte format-vervanging (zoals vertaal() in
+                        productie) in plaats van kwargs achter de
+                        sleutel te plakken. De tests blijven
+                        ongewijzigd; de asserties gebruiken nog steeds
+                        de kwargs-controle via de placeholders in de
+                        verwachte strings.
+  v1.3.1 (2026-10-20)  Fix: _fake_translate deed in v1.3.0 alleen
+                        echte format-vervanging als de sleutel-string
+                        zelf {placeholders} bevatte. Voor sleutels
+                        zoals resultaat.taal_mismatch_banner (waar de
+                        placeholders in het i18n-bestand staan, niet
+                        in de sleutel-string) gingen de kwargs
+                        verloren, waardoor de banner-assertie faalde.
+                        Nu: als de sleutel geen {placeholders} bevat,
+                        worden de kwargs alsnog als [k=v,...] achter
+                        de sleutel geplakt (oud gedrag). Voor sleutels
+                        met {placeholders} in de sleutel-string wordt
+                        echte format-vervanging gebruikt.
 ================================================================================
 """
 
@@ -60,16 +79,26 @@ def qapplication():
 
 
 def _fake_translate(key: str, taal: str = "nl_NL", **kwargs) -> str:
-    """Teststub voor vertaal(): behoudt de kwargs zodat tests die op
-    ingevulde placeholders controleren (zoals de taal-mismatch-banner)
-    realistisch blijven."""
+    """Teststub voor vertaal(): echte format-vervanging waar mogelijk.
+
+    - Als de sleutel zelf {placeholders} bevat: vervang die met kwargs
+      (echte format-vervanging, conform productie).
+    - Als de sleutel geen {placeholders} bevat: plak de kwargs als
+      [k=v,...] achter de sleutel, zoals de oude stub deed. Dit is
+      nodig voor tests die controleren dát de kwargs zijn doorgegeven
+      aan vertaal(), ook al staan de placeholders in het i18n-bestand
+      en niet in de sleutel-string (bv. resultaat.taal_mismatch_banner).
+    """
     result = f"{taal}:{key}"
-    if kwargs:
-        # Plak de kwargs achter de sleutel zodat we kunnen controleren
-        # dat ze daadwerkelijk zijn doorgegeven aan vertaal().
-        kv = ",".join(f"{k}={v}" for k, v in sorted(kwargs.items()))
-        result = f"{result}[{kv}]"
-    return result
+    if not kwargs:
+        return result
+    if "{" in result:
+        try:
+            return result.format(**kwargs)
+        except (KeyError, IndexError):
+            return result
+    kv = ",".join(f"{k}={v}" for k, v in sorted(kwargs.items()))
+    return f"{result}[{kv}]"
 
 
 def _fake_esr_settings():
@@ -259,37 +288,25 @@ def test_language_switch_na_beoordeling_toont_banner_en_behoudt_oude_strings(mon
 
     screen = EsrTestScreen(taal="nl_NL")
 
-    # Simuleer een beoordeling in NL: een echt Beoordeling-object in nl_NL.
     resultaat_nl = _maak_echt_resultaat("nl_NL")
     screen._laatste_resultaat = resultaat_nl
     screen._show_result(resultaat_nl)
 
-    # Vóór de taalwissel: geen banner, taal van het resultaat is nl_NL.
-    # isHidden() i.p.v. isVisible(): het scherm zelf is nooit getoond in de
-    # test, dus isVisible() zou altijd False zijn. isHidden() weerspiegelt
-    # de setVisible()-status van het widget zelf.
     assert screen.result_language_banner.isHidden() is True
     assert resultaat_nl.taal == "nl_NL"
 
-    # Live taalwissel naar en_US.
     screen.apply_language("en_US")
 
-    # De GUI-chrome is nu EN.
     assert screen.title_label.text() == "en_US:scherm.esr_test"
     assert screen.assess_btn.text() == "en_US:knop.beoordeel"
 
-    # De banner is zichtbaar (niet verborgen) en bevat beide taalcodes.
     assert screen.result_language_banner.isHidden() is False
     banner_tekst = screen.result_language_banner.text()
     assert "nl_NL" in banner_tekst
     assert "en_US" in banner_tekst
     assert banner_tekst.startswith("en_US:resultaat.taal_mismatch_banner")
 
-    # Het resultaatobject is niet opnieuw beoordeeld: nog steeds nl_NL.
     assert screen._laatste_resultaat.taal == "nl_NL"
-
-    # De samenvatting is niet opnieuw in het EN gezet: de reeds vertaalde
-    # strings uit het Beoordeling-object zijn nog steeds de NL-versie.
     assert screen.result_summary.text().startswith("nl_NL:")
 
 
@@ -308,7 +325,6 @@ def test_banner_verbergt_na_nieuwe_beoordeling_in_nieuwe_taal(monkeypatch):
     screen.apply_language("en_US")
     assert screen.result_language_banner.isHidden() is False
 
-    # Nieuwe beoordeling in en_US: banner moet verdwijnen.
     resultaat_en = _maak_echt_resultaat("en_US")
     screen._laatste_resultaat = resultaat_en
     screen._show_result(resultaat_en)

@@ -2,16 +2,21 @@
 ================================================================================
 Module:     app/gui/dialogs/change_status_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-08
+Versie:     1.2.0
+Datum:      2026-10-19
 Auteur:     Bart Bossuyt
 
 Doel:       Modale dialoog waarmee de gebruiker de status van een eigen
             import kan wijzigen. Toont alleen de toegelaten overgangen
             (concept → actief → gearchiveerd, en terug) op basis van
             ImportStatus en _ALLOWED_TRANSITIONS uit import_models.
-            Roept ImportService.set_status aan. De bron en de metadata
-            blijven ongewijzigd; alleen de levenscyclus verandert.
+            Roept ImportService.set_status of ImportService.archive aan.
+            De bron en de metadata blijven ongewijzigd; alleen de
+            levenscyclus verandert.
+
+            Sinds 11F.1 kan de gebruiker bij archiveren een optionele
+            reden opgeven. Die reden wordt opgeslagen in archive_reason
+            en blijft bewaard bij een latere revoke.
 
             De ingebouwde catalogus is read-only. Deze dialoog wordt
             alleen getoond voor documenten met is_user_import=True.
@@ -24,6 +29,12 @@ Wijzigingen:
   v1.1.0 (2026-10-16)  Fase 11C: dialoog krijgt een venstericoon via
                         de centrale helper app/helpers/icon_paths.
                         Geen wijziging aan de statuslogica.
+  v1.2.0 (2026-10-19)  Fase 11F.1: optioneel redenveld bij archiveren.
+                        Het veld is alleen zichtbaar als de doelstatus
+                        GEARCHIVEERD is. Bij archiveren roept de dialoog
+                        ImportService.archive(reason=...) aan; bij
+                        andere overgangen blijft set_status gebruikt
+                        worden.
 ================================================================================
 """
 
@@ -38,6 +49,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPushButton,
     QVBoxLayout,
@@ -73,14 +85,15 @@ class ChangeStatusDialog(QDialog):
         self.import_service = import_service or ImportService()
 
         self.setModal(True)
-        self.resize(480, 320)
-        self.setMinimumSize(420, 280)
+        self.resize(480, 380)
+        self.setMinimumSize(420, 320)
         self._zet_eigen_icoon()
 
         self._build_ui()
         self._apply_language()
         self._laad_toegelaten_overgangen()
         self._update_save_state()
+        self._update_reden_zichtbaarheid()
 
     # ---------------------------------------------------------------- helpers
 
@@ -115,6 +128,12 @@ class ChangeStatusDialog(QDialog):
     def _update_save_state(self) -> None:
         self.save_btn.setEnabled(self._huidige_selectie() is not None)
 
+    def _update_reden_zichtbaarheid(self) -> None:
+        """Toon het redenveld alleen als de doelstatus GEARCHIVEERD is."""
+        toon = self._huidige_selectie() is ImportStatus.GEARCHIVEERD
+        self.reden_label.setVisible(toon)
+        self.reden_edit.setVisible(toon)
+
     # ---------------------------------------------------------------- UI
 
     def _build_ui(self) -> None:
@@ -141,9 +160,13 @@ class ChangeStatusDialog(QDialog):
         self.nieuwe_label = QLabel()
         self.status_combo = QComboBox()
         self.status_combo.currentIndexChanged.connect(
-            lambda _i: self._update_save_state()
+            lambda _i: self._on_status_combo_changed()
         )
         form.addRow(self.nieuwe_label, self.status_combo)
+
+        self.reden_label = QLabel()
+        self.reden_edit = QLineEdit()
+        form.addRow(self.reden_label, self.reden_edit)
 
         layout.addLayout(form)
         layout.addStretch()
@@ -159,6 +182,10 @@ class ChangeStatusDialog(QDialog):
         button_row.addWidget(self.save_btn)
         layout.addLayout(button_row)
 
+    def _on_status_combo_changed(self) -> None:
+        self._update_save_state()
+        self._update_reden_zichtbaarheid()
+
     def _apply_language(self) -> None:
         self.setWindowTitle(self._t("documentatie.status_wijzigen_titel"))
         self.header_label.setText(self._t("documentatie.status_wijzigen_titel"))
@@ -171,6 +198,15 @@ class ChangeStatusDialog(QDialog):
         self.nieuwe_label.setText(
             self._t("documentatie.status_wijzigen_nieuwe")
         )
+        self.reden_label.setText(
+            self._t("documentatie.status_wijzigen_reden.reden_label")
+        )
+        self.reden_edit.setPlaceholderText(
+            self._t("documentatie.status_wijzigen_reden.reden_placeholder")
+        )
+        self.reden_edit.setToolTip(
+            self._t("documentatie.status_wijzigen_reden.reden_tooltip")
+        )
         self.huidige_value.setText(self._status_label(self.bron.status))
         self.cancel_btn.setText(
             self._t("documentatie.status_wijzigen_annuleren")
@@ -179,11 +215,17 @@ class ChangeStatusDialog(QDialog):
 
     def _laad_toegelaten_overgangen(self) -> None:
         """Vul de dropdown met de toegelaten nieuwe statussen."""
-        self.status_combo.clear()
-        for status in self._toegelaten_doelwitten():
-            self.status_combo.addItem(self._status_label(status), status.value)
-        if self.status_combo.count() > 0:
-            self.status_combo.setCurrentIndex(0)
+        self.status_combo.blockSignals(True)
+        try:
+            self.status_combo.clear()
+            for status in self._toegelaten_doelwitten():
+                self.status_combo.addItem(
+                    self._status_label(status), status.value
+                )
+            if self.status_combo.count() > 0:
+                self.status_combo.setCurrentIndex(0)
+        finally:
+            self.status_combo.blockSignals(False)
 
     # ---------------------------------------------------------------- opslaan
 
@@ -226,9 +268,15 @@ class ChangeStatusDialog(QDialog):
             return
 
         try:
-            result = self.import_service.set_status(
-                self.bron.source_id, nieuwe_status
-            )
+            if nieuwe_status is ImportStatus.GEARCHIVEERD:
+                reden = self.reden_edit.text()
+                result = self.import_service.archive(
+                    self.bron.source_id, reason=reden or None
+                )
+            else:
+                result = self.import_service.set_status(
+                    self.bron.source_id, nieuwe_status
+                )
         except ImportValidationError as exc:
             QMessageBox.warning(
                 self,
@@ -242,7 +290,7 @@ class ChangeStatusDialog(QDialog):
 
         self.status_changed.emit(result.source.source_id)
         self.accept()
-        
+
     def _zet_eigen_icoon(self) -> None:
         try:
             from app.helpers.icon_paths import zet_venster_icoon

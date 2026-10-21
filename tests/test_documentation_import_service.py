@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_documentation_import_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.1
-Datum:      2026-10-09
+Versie:     1.4.0
+Datum:      2026-10-19
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor ImportService: registratie, statusmachine,
@@ -11,7 +11,8 @@ Doel:       Regressietests voor ImportService: registratie, statusmachine,
             atomair schrijven, duplicate-detectie, replace_source en de
             beste-match-prioriteit (ACTIEF > CONCEPT > GEARCHIVEERD).
             Sinds v1.2.0 ook metadata-uitbreiding (5D'.2b) en de
-            sentinel-logica van replace_source.
+            sentinel-logica van replace_source. Sinds v1.4.0 ook de
+            archive_reason (11F.1).
 
 Wijzigingen:
   v1.0.0 (2026-10-06)  Eerste versie.
@@ -31,7 +32,11 @@ Wijzigingen:
                         gelijk was en de sortering niet-deterministisch.
                         time.sleep(0.01) tussen de registraties maakt de
                         tests deterministisch. Geen productiecodewijziging.
-  v1.3.0 — register_docx en register_xlsx (fase 6A)                      
+  v1.3.0 — register_docx en register_xlsx (fase 6A)
+  v1.4.0 (2026-10-19)  Fase 11F.1: tests voor archive_reason.
+                        archive(reason=...), revoke behoudt reason,
+                        _replace_status behoudt reason, persistentie,
+                        backward-compat zonder archive_reason-key.
 ================================================================================
 """
 
@@ -799,7 +804,8 @@ def test_catalogus_backward_compat_zonder_metadata(tmp_path):
     assert len(items) == 1
     assert items[0].category is None
     assert items[0].manufacturer is None
-    
+    assert items[0].archive_reason is None
+
 # ============================================================================
 # v1.3.0 — register_docx en register_xlsx (fase 6A)
 # ============================================================================
@@ -893,4 +899,112 @@ def test_xlsx_persisteert_naar_disk(service):
     )
     service2 = ImportService(catalog_path=service.catalog_path)
     terug = service2.get(result.source.source_id)
-    assert terug.source_type is ImportSourceType.XLSX    
+    assert terug.source_type is ImportSourceType.XLSX
+
+
+# ============================================================================
+# v1.4.0 — archive_reason (fase 11F.1)
+# ============================================================================
+
+def test_archive_zonder_reason_laat_archive_reason_none(service):
+    r = service.register_pdf(title="A", original_filename="a.pdf")
+    result = service.archive(r.source.source_id)
+    assert result.source.status is ImportStatus.GEARCHIVEERD
+    assert result.source.archive_reason is None
+
+
+def test_archive_met_reason_bewaart_reden(service):
+    r = service.register_pdf(title="A", original_filename="a.pdf")
+    result = service.archive(r.source.source_id, reason="Achterhaald door v2")
+    assert result.source.status is ImportStatus.GEARCHIVEERD
+    assert result.source.archive_reason == "Achterhaald door v2"
+
+
+def test_archive_met_lege_reason_wordt_none(service):
+    r = service.register_pdf(title="A", original_filename="a.pdf")
+    result = service.archive(r.source.source_id, reason="   ")
+    assert result.source.status is ImportStatus.GEARCHIVEERD
+    assert result.source.archive_reason is None
+
+
+def test_archive_reason_persisteert_naar_disk(service):
+    r = service.register_pdf(title="A", original_filename="a.pdf")
+    service.archive(r.source.source_id, reason="Reden X")
+    service2 = ImportService(catalog_path=service.catalog_path)
+    terug = service2.get(r.source.source_id)
+    assert terug.archive_reason == "Reden X"
+
+
+def test_revoke_behoudt_archive_reason(service):
+    r = service.register_pdf(title="A", original_filename="a.pdf")
+    service.archive(r.source.source_id, reason="Oude reden")
+    terug = service.revoke(r.source.source_id)
+    assert terug.source.status is ImportStatus.CONCEPT
+    assert terug.source.archive_reason == "Oude reden"
+
+
+def test_set_status_behoudt_archive_reason(service):
+    r = service.register_pdf(title="A", original_filename="a.pdf")
+    service.archive(r.source.source_id, reason="Reden Y")
+    # Gearchiveerd -> Concept via set_status (niet revoke).
+    terug = service.set_status(r.source.source_id, ImportStatus.CONCEPT)
+    assert terug.source.status is ImportStatus.CONCEPT
+    assert terug.source.archive_reason == "Reden Y"
+
+
+def test_replace_source_behoudt_archive_reason(service):
+    r = service.register_pdf(title="A", original_filename="a.pdf")
+    service.archive(r.source.source_id, reason="Reden Z")
+    result = service.replace_source(
+        r.source.source_id,
+        title="Nieuwe titel",
+        file_hash=None,
+        original_filename="a.pdf",
+        notes=None,
+    )
+    assert result.source.archive_reason == "Reden Z"
+
+
+def test_update_metadata_behoudt_archive_reason(service):
+    r = service.register_pdf(title="A", original_filename="a.pdf")
+    service.archive(r.source.source_id, reason="Reden W")
+    result = service.update_metadata(r.source.source_id, title="Nieuwe titel")
+    assert result.source.archive_reason == "Reden W"
+
+
+def test_catalogus_backward_compat_zonder_archive_reason(tmp_path):
+    """Catalogus van vóór 11F.1 blijft leesbaar (archive_reason ontbreekt)."""
+    pad = tmp_path / "imported_catalog.json"
+    pad.write_text(
+        json.dumps(
+            {
+                "schema_version": CATALOG_SCHEMA_VERSION,
+                "sources": [
+                    {
+                        "source_id": "oud-2",
+                        "source_type": "pdf",
+                        "title": "Oud document",
+                        "imported_at": 1_700_000_000_000,
+                        "imported_by": "tester",
+                        "status": "gearchiveerd",
+                        "original_filename": "oud.pdf",
+                        "source_url": None,
+                        "file_hash": None,
+                        "notes": None,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    service = ImportService(catalog_path=pad)
+    items = service.list_sources()
+    assert len(items) == 1
+    assert items[0].status is ImportStatus.GEARCHIVEERD
+    assert items[0].archive_reason is None
+
+
+def test_archive_reason_wordt_niet_meegeschreven_bij_register(service):
+    """register_* zet archive_reason niet; het veld blijft None."""
+    r = service.register_pdf(title="A", original_filename="a.pdf")
+    assert r.source.archive_reason is None

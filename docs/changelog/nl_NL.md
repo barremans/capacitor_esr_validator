@@ -17,6 +17,208 @@ Opmerking over de versienummering:
 - Voor de actuele versie: zie `app/version.py` of Help → Over.
 -->
 
+### Fase 11G — Visueel donker thema (20 oktober 2026)
+
+**Waarom deze wijziging**
+
+Vijf visuele punten uit eerdere sessies stonden nog open: checkbox- en
+radiobutton-focus was onzichtbaar in het donkere thema, de scrollbar in
+de Word-samenvatting van de import-wizard was licht, de Analyse-pagina
+had geen leesbaar tickformaat, geen zoom/pan en geen klikbare
+datapunten. Daarnaast sloot de menu-optie "Afsluiten" op een subpagina
+alleen het venster in plaats van de applicatie.
+
+**Oplossing: zeven sub-fases**
+
+- **11G.1 — Checkbox- en radio-zichtbaarheid.** `styles.py` (v1.4.0)
+  krijgt `QCheckBox::indicator:focus`, `QRadioButton::indicator:focus`,
+  `QTableView::indicator` (voor selectie-checkboxen in tabellen),
+  `QGroupBox::indicator` (voor checkable group boxes) en
+  `QComboBox::drop-down:hover`. Nieuwe pure tests in
+  `tests/test_styles.py` (v1.0.0).
+- **11G.2 — Donkere scrollbar.** `styles.py` (v1.5.0) krijgt
+  `QScrollBar:vertical` en `QScrollBar:horizontal` met donkere track,
+  grijze handle, hover/pressed-states, en uitgeschakelde pijl-knoppen
+  (`add-line`/`sub-line` op `height: 0` / `width: 0`). Lost de lichte
+  scrollbar in de Word-samenvatting op zonder lokale override in de
+  wizard. `tests/test_styles.py` (v1.1.0) krijgt drie scrollbar-tests.
+- **11G.3 — As-schaling en tickformaat.** `analysis_screen.py`
+  (v1.4.0) geeft `QValueAxis` een expliciet `labelFormat` per
+  grafiektype (ESR mΩ: `%.0f`, C µF: `%.1f`, D: `%.3f`, scatter x/y:
+  `%.0f`), zet `tickCount` op 6, en geeft de y-as 5% marge aan beide
+  zijden. `QDateTimeAxis` krijgt een adaptief formaat op basis van het
+  bereik (`dd-MM HH:mm` / `dd-MM-yyyy` / `MM-yyyy`).
+  `test_analysis_screen.py` (v1.4.0) krijgt vijf tests.
+- **11G.4 — Zoom/pan.** `analysis_screen.py` (v1.5.0) zet
+  `QChartView.RubberBand.RectangleRubberBand` voor rechthoek-zoom,
+  voegt een `wheelEvent`-override toe voor Ctrl+wheel-zoom, een
+  `reset_zoom_btn` met sneltoets Ctrl+0, en een `refresh()` die de
+  zoom automatisch reset. De originele as-range wordt per as bewaard
+  in `_originele_x_range` / `_originele_y_range`, omdat
+  `QChart.zoomReset()` de range herstelt die actief was op het moment
+  van de reset, niet de oorspronkelijke. Nieuwe i18n-keys
+  `analyse.zoom.reset_knop` en `analyse.zoom.reset_tooltip` (NL + EN).
+  `test_analysis_screen.py` (v1.5.0) krijgt vijf tests.
+  **Fix in v1.5.1:** `QChartView.RubberBand.Rectangle` bestaat niet;
+  de juiste constante is `RectangleRubberBand`.
+- **11G.5 — Klikbare datapunten + selectie-gedreven analyse.** De
+  bestaande `export_scope_combo` (attribuutnaam ongewijzigd) stuurt
+  nu ook de grafiek-scope aan. Labels komen uit `analyse.scope.*`
+  (NL + EN). Bij scope SELECTED en ≥1 aangevinkte meting geeft de GUI
+  `measurement_ids=[...]` mee aan de service. `AnalysisService`
+  (v1.1.0) krijgt een optionele `measurement_ids`-parameter op
+  `load_rows()` en alle reeksfuncties. In `_draw_scatter` krijgt elke
+  `QScatterSeries` een `clicked`-connectie die de bijbehorende rij
+  aanvinkt. `test_analysis_screen.py` (v1.6.0) krijgt zes tests,
+  `test_analysis_service.py` (v1.1.0) twee.
+  **Fix in v1.6.1–v1.6.3:** `refresh(preserve_selection=True)` bewaart
+  de selectie bij scope SELECTED; de "Selectie gewist"-melding
+  verschijnt weer bij een gewone refresh; `_category_label` en
+  `_category_color` waren per ongeluk verdwenen en zijn teruggezet.
+  `test_analysis_screen_nan.py` (v1.0.4) en
+  `test_main_window_report_menu.py` (v1.4.1) krijgen de nieuwe
+  `measurement_ids`-parameter op hun stubs.
+- **11G.6 — Expliciet afsluiten sluit de app.** `main_window.py`
+  (v2.20.0) krijgt een `_force_close`-vlag en een `_sluit_app()`-
+  methode. Menu "Afsluiten" (Ctrl+Q) en de bevestigingsdialoog op de
+  hub gebruiken `_sluit_app()`. `closeEvent` accepteert het event
+  als `_force_close` True is; anders blijft het contextuele "terug
+  naar hub"-gedrag voor de venster-X op een subpagina.
+  `test_navigation_regressions.py` (v1.2.0) krijgt vijf tests.
+- **11G.7 — Checkbox-aanpassing (gepland, nog niet uitgevoerd).**
+  De gebruiker wil de checkboxen verder aanpassen. Scope wordt in de
+  volgende sessie bepaald.
+
+**Belangrijke observatie: testtelling en `--collect-only`**
+
+In 11G.1 t/m 11G.6 weken mijn eigen schattingen soms af van de
+werkelijke tellingen. De werkelijke tellingen via
+`pytest --collect-only -q` per bestand en de volledige `pytest -q`
+waren consistent. Bij elke sub-fase is de som van de gerichte
+`--collect-only` vergeleken met de volledige suite. De afspraak
+"testtelling per fase verifiëren" is in `overdracht.md` v6.0.0
+aangescherpt.
+
+**Voor ontwikkelaars**
+
+- **Gewijzigd:** `app/gui/styles.py` (v1.3.0 → v1.5.0) — focus-states,
+  tabel-indicator, groupbox-indicator, combobox-hover, donkere
+  scrollbar. Stylesheet-string verplaatst naar module-level constante
+  `DARK_THEME_STYLESHEET`.
+- **Gewijzigd:** `app/gui/analysis_screen.py` (v1.3.0 → v1.6.3) —
+  as-schaling, tickformaat, zoom/pan, klikbare scatter-punten,
+  selectie-gedreven scope.
+- **Gewijzigd:** `app/services/analysis_service.py` (v1.0.0 → v1.1.0)
+  — optionele `measurement_ids`-parameter.
+- **Gewijzigd:** `app/gui/main_window.py` (v2.19.1 → v2.20.0) —
+  `_force_close`, `_sluit_app()`, `closeEvent`-update.
+- **Nieuw:** `tests/test_styles.py` (v1.1.0, 9 tests).
+- **Gewijzigd:** `tests/test_analysis_screen.py` (v1.3.1 → v1.6.2,
+  30 → 46 tests), `tests/test_analysis_screen_nan.py`
+  (v1.0.3 → v1.0.4, 6 tests), `tests/test_analysis_service.py`
+  (v1.0.0 → v1.1.0, 7 → 9 tests),
+  `tests/test_main_window_report_menu.py` (v1.4.0 → v1.4.1),
+  `tests/test_navigation_regressions.py` (v1.1.0 → v1.2.0,
+  5 → 10 tests).
+- **Nieuwe i18n-keys:** `analyse.zoom.reset_knop`,
+  `analyse.zoom.reset_tooltip`, `analyse.scope.selectie`,
+  `analyse.scope.filters`, `analyse.scope.tooltip` (NL + EN).
+- **Baseline:** 1462 → **1491 passed** (+29 tests over 11G.1 t/m
+  11G.6).
+
+### Fase 11F — Documentatie-uitbreiding (20 oktober 2026)
+
+**Waarom deze wijziging**
+
+De documentatiebibliotheek had vier praktische beperkingen: er was geen
+plek om vast te leggen waarom een import gearchiveerd werd, de
+"Toon gearchiveerde"-checkbox was een alles-of-niets-schakelaar, je kon
+maar één import per keer bewerken of van status laten veranderen, en
+`EditMetadataDialog` accepteerde alleen ISO-datums als bestaande
+`document_date`. Daarnaast stonden er twee cosmetische punten open
+(§4.21, §4.23) en was er een aantal ongebruikte i18n-keys.
+
+**Oplossing: vier sub-fases**
+
+- **11F.1 — Archiefreden.** `ImportService.archive(source_id, *,
+  reason=None)` in `import_service.py` (v1.5.0). `ImportSource` krijgt
+  `archive_reason` (v1.4.0), backward-compatible. `revoke` behoudt de
+  reden; `replace_source` en `update_metadata` laten het veld
+  ongemoeid. `ChangeStatusDialog` (v1.2.0) toont een optioneel
+  redenveld bij archiveren. `DocumentationScreen` (v2.4.0) toont de
+  reden als tooltip op de Status-kolom bij een gearchiveerde
+  gebruikersimport.
+- **11F.2 — Statusfilter.** `DocumentationScreen` (v2.5.0) vervangt de
+  checkbox "Toon gearchiveerde" door een `status_filter_combo` met
+  vier opties (Alle / Concept / Actief / Gearchiveerd). De GUI filtert
+  op `import_status` na het ophalen uit de service. Nieuwe i18n-keys
+  onder `documentatie.status_filter.*`; de oude
+  `documentatie.toon_gearchiveerd(_tooltip)` zijn verwijderd.
+- **11F.3 — Bulk-edit en bulk-statuswijziging.** Twee nieuwe dialogen:
+  `BulkEditMetadataDialog` (v1.0.0) met een checkbox per veld, en
+  `BulkChangeStatusDialog` (v1.0.0) met een vaste doelstatuskeuze en
+  optionele reden bij archiveren. `DocumentationScreen` (v2.6.0) staat
+  op `ExtendedSelection` met twee nieuwe knoppen "Bulk bewerken…" en
+  "Bulk status…", alleen actief bij ≥1 geselecteerde gebruikersimport.
+  De GUI voert de bulk-update uit via een loop over de bestaande
+  `ImportService`-methodes en toont daarna één samenvatting met
+  aantallen gelukt/overgeslagen/mislukt. Nieuwe i18n-keys onder
+  `documentatie.bulk_edit.*`, `documentatie.bulk_status.*` en
+  `documentatie.bulk_resultaat.*`.
+- **11F.4 — Datum-parsing + cosmetische punten + i18n-opruiming.**
+  `EditMetadataDialog` (v1.2.0) heeft een nieuwe pure helper
+  `_parse_datum_naar_qdate` die naast `yyyy-MM-dd` ook `yyyy/MM/dd`,
+  `dd-MM-yyyy`, `yyyy-MM` (dag 1) en `yyyy` (1 januari) accepteert.
+  §4.21 opgelost: `test_icon_paths.py` (v1.1.0) gebruikt de
+  projectafspraak `_app()`-helper in plaats van de lokale
+  `@pytest.fixture(scope="module")`. §4.23 opgelost:
+  `_fake_translate` in `test_gui_language_switch.py` (v1.3.1) doet
+  echte format-vervanging waar de sleutel `{placeholders}` bevat;
+  voor sleutels zonder placeholders in de sleutel-string worden de
+  kwargs alsnog als `[k=v,...]` geplakt. i18n-opruiming: ongebruikte
+  keys `dialog.documentatie_placeholder` en
+  `documentatie.info.ondersteunt` verwijderd uit NL en EN.
+
+**Belangrijke observatie: testtelling en Compare-Object**
+
+In 11F.2 en 11F.4 weken mijn eigen schattingen af. De werkelijke
+tellingen via `pytest --collect-only -q` per bestand en de volledige
+`pytest -q` waren consistent. Bij het herschrijven van de
+checkbox-sectie in 11F.2 zijn twee tests per ongeluk verwijderd;
+opgespoord met `Compare-Object` tegen de vorige versie en teruggezet in
+v1.13.1. De afspraak "testtelling per fase verifiëren" is in
+`overdracht.md` v6.0.0 aangescherpt met `Compare-Object`.
+
+**Voor ontwikkelaars**
+
+- **Gewijzigd:** `app/gui/documentation_screen.py` (v2.4.0 → v2.6.0) —
+  statusfilter-dropdown, `ExtendedSelection`, twee bulk-knoppen, nieuwe
+  helpers.
+- **Gewijzigd:** `app/gui/dialogs/edit_metadata_dialog.py`
+  (v1.1.0 → v1.2.0) — `_parse_datum_naar_qdate` met fallback-keten.
+- **Nieuw:** `app/gui/dialogs/bulk_edit_metadata_dialog.py` (v1.0.0) —
+  bulk-editor voor metadata, checkbox per veld.
+- **Nieuw:** `app/gui/dialogs/bulk_change_status_dialog.py` (v1.0.0) —
+  bulk-editor voor status, vaste doelstatuskeuze.
+- **Nieuwe tests:** `tests/test_bulk_edit_metadata_dialog.py` (11
+  tests), `tests/test_bulk_change_status_dialog.py` (10 tests),
+  uitbreiding `tests/test_documentation_screen.py` (55 → 63 tests),
+  uitbreiding `tests/test_edit_metadata_dialog.py` (22 → 34 tests).
+- **Gewijzigde tests:** `tests/test_icon_paths.py` (v1.0.0 → v1.1.0,
+  helper-wissel, 18 tests), `tests/test_gui_language_switch.py`
+  (v1.2.0 → v1.3.1, helper-wissel, 7 tests).
+- **Nieuwe i18n-keys:** `documentatie.status_kolom.gearchiveerd_met_reden`,
+  `documentatie.status_wijzigen_reden.*`,
+  `documentatie.status_filter.*`, `documentatie.bulk_edit.*`,
+  `documentatie.bulk_status.*`, `documentatie.bulk_resultaat.*` (NL +
+  EN).
+- **Verwijderde i18n-keys:** `documentatie.toon_gearchiveerd`,
+  `documentatie.toon_gearchiveerd_tooltip`,
+  `dialog.documentatie_placeholder`, `documentatie.info.ondersteunt`
+  (NL + EN).
+- **Baseline:** 1395 → **1462 passed** (+67 tests over 11F.1 t/m
+  11F.4).
+
 ### Fase 11E — Async netwerk (16 oktober 2026)
 
 **Waarom deze wijziging**
@@ -34,24 +236,17 @@ functioneel niet fout, maar het voelt niet als een diagnose-instrument.
   `QThreadPool`. `app/helpers/updater.py` (v1.2.0) krijgt
   `check_for_update_async()` en `fetch_release_notes_async()`.
   `app/gui/main_window.py` (v2.18.0) gebruikt die async-varianten voor
-  de startup-check en de handmatige check. De bestaande synchrone
-  API's blijven ongewijzigd voor tests en niet-GUI-gebruik.
+  de startup-check en de handmatige check.
 - **11E.2 — Async URL-fetch in de import-wizard.**
   `app/documentation/url_fetch.py` (v1.2.0) krijgt
   `fetch_url_metadata_async()` en `fetch_url_content_async()`.
   `app/gui/dialogs/import_wizard_dialog.py` (v2.0.0) gebruikt die
   async-varianten; tijdens het wachten zijn de knoppen disabled en
-  toont de samenvatting een "Bezig…"-tekst. Nieuwe i18n-keys:
-  `documentatie.import.bezig_metadata` en
-  `documentatie.import.bezig_import` (NL + EN).
+  toont de samenvatting een "Bezig…"-tekst.
 - **11E.3 — Drie-knoppenmelding forceren voor QA.**
   `app/config/settings.py` (v1.7.0) krijgt `algemeen.qa_modus`
   (default `False`). `app/gui/main_window.py` (v2.19.0) toont een
   verborgen QA-menu-item in het Help-menu als `qa_modus` True is.
-  Dat item roept `_toon_update_melding_voor_qa()` aan, dat een
-  kunstmatige `UpdateInfo` (versie 99.99.99) doorgeeft aan de
-  bestaande drie-knoppenmelding (Downloaden / Wat is er nieuw? /
-  Later). Nieuwe i18n-key: `menu.qa_toon_update_melding` (NL + EN).
 
 **Belangrijke bugfix in 11E.1**
 
@@ -129,8 +324,7 @@ frequentieverschil hardcoded in de GUI in plaats van via i18n.
   is vervangen door `_laatste_resultaat is not None`. In
   offscreen/headless situaties (tests, pagina's die nog niet actief
   zijn in de `QStackedWidget`) is `isVisible()` False en werd de
-  banner nooit getoond. `isVisible()` was ook in productie niet de
-  juiste check.
+  banner nooit getoond.
 
 **Voor ontwikkelaars**
 
@@ -140,26 +334,14 @@ frequentieverschil hardcoded in de GUI in plaats van via i18n.
 - `app/gui/esr_test_screen.py` (v1.14.0) — `_show_result` detecteert
   taal-mismatch en toont `result_language_banner`. Nieuwe helper
   `_t_voor(taal, sleutel, **kwargs)` voor vertalingen in de taal van
-  het resultaat. `_build_result_html` gebruikt `resultaat.taal` voor
-  alle resultaat-specifieke labels. `apply_language` gebruikt
-  `_laatste_resultaat is not None` in plaats van
-  `result_group.isVisible()`.
-- Nieuwe i18n-keys onder `resultaat`:
-  - `taal_mismatch_banner` — "Dit resultaat is opgesteld in het
-    {oude_taal}. Beoordeel opnieuw om het in het {nieuwe_taal} weer te
-    geven." (EN: "This result was produced in {oude_taal}. Re-assess
-    to display it in {nieuwe_taal}.")
-  - `esr_factor_frequentie_indicatief` — "Indicatieve
-    ESR-vergelijking: meet- en referentiefrequentie verschillen."
-  - `esr_factor_frequentie_indicatief_kort` — "* indicatief:
-    frequentieverschil"
+  het resultaat.
+- Nieuwe i18n-keys onder `resultaat`: `taal_mismatch_banner`,
+  `esr_factor_frequentie_indicatief`,
+  `esr_factor_frequentie_indicatief_kort` (NL + EN).
 - `tests/test_assessment.py` (v1.5.1) — 5 nieuwe tests in
-  `TestBeoordelingTaal` die bewijzen dat `Beoordeling.taal` correct
-  gevuld wordt en dat de vertaalde strings in de opgegeven taal staan.
-- `tests/test_gui_language_switch.py` (v1.2.0) — 3 nieuwe tests die de
-  taal-mismatch-banner testen. De stub `_fake_translate` geeft nu
-  kwargs door in de output; `_fake_esr_settings` levert ook een
-  `beoordeling`-namespace.
+  `TestBeoordelingTaal`.
+- `tests/test_gui_language_switch.py` (v1.2.0) — 3 nieuwe tests voor
+  de taal-mismatch-banner.
 - **Baseline:** 1358 → **1366 passed** (+8 tests).
 
 ## Versie 1.2.0 — Frequentie-specifieke referenties en drempelvalidatie (15 oktober 2026)
@@ -174,53 +356,36 @@ werkelijke meetfrequentie ligt.
 - **Officiële ESR70-tabel** — 100 kHz. Blijft de primaire bron voor
   metingen op 100 kHz (de LCR-ST1 kan dit zelf niet, maar andere
   toestellen wel).
-- **Geschatte profielen** — 100 Hz, 1 kHz en 10 kHz. Deze zijn
-  afgeleid van de officiële ESR70-tabel via de Nichicon-
-  frequentiecoëfficiënten:
-  - 100 Hz — × 2,00
-  - 1 kHz — × 1,50
-  - 10 kHz — × 1,15
-- De geschatte profielen zijn expliciet gemarkeerd als **schatting**
-  (`is_schatting: true`) en dragen een lager betrouwbaarheidsniveau.
-  Ze zijn géén datasheet-waarde.
+- **Geschatte profielen** — 100 Hz, 1 kHz en 10 kHz, afgeleid van de
+  officiële ESR70-tabel via de Nichicon-frequentiecoëfficiënten
+  (×2,00 / ×1,50 / ×1,15). Expliciet gemarkeerd als schatting
+  (`is_schatting: true`) met lager betrouwbaarheidsniveau.
 
 **Waarom deze wijziging**
 
 De LCR-ST1 meet op 1 kHz en 10 kHz. De officiële ESR70-tabel geldt voor
 100 kHz. Omdat ESR daalt met frequentie, was de vergelijking
-structureel te streng: goede condensatoren kregen factoren die te laag
-uitvielen. Met de nieuwe profielen klopt de vergelijking weer.
+structureel te streng.
 
 **Validatie met 72 praktijkmetingen**
 
-De nieuwe referenties zijn gevalideerd tegen 72 praktijkmetingen uit de
-historiek. Voor goede condensatoren zakten de factoren naar
-**0,09–0,41** — een gezonde verdeling.
-
-**Drempels blijven ongewijzigd**
-
-De drempels `≤1,0 / ≤2,0 / ≤3,0` blijven zoals ze zijn. Met de nieuwe
-referenties betekenen ze weer wat ze moeten betekenen: een gezonde
-condensator zit ruim onder 1,0, en er is marge voor verslechtering
-voordat "aandachtspunt" wordt bereikt.
+Voor goede condensatoren zakten de factoren naar **0,09–0,41** — een
+gezonde verdeling. De drempels `≤1,0 / ≤2,0 / ≤3,0` blijven ongewijzigd.
 
 **Zichtbaar in het resultaat**
 
 Het resultaat toont nu expliciet de **referentiefrequentie** die voor
-de vergelijking gebruikt is. Zo zie je meteen of de meting en de
-referentie op dezelfde frequentie staan.
+de vergelijking gebruikt is.
 
 **Voor ontwikkelaars**
 
 - `app/data/references/esr_references.json` — nieuwe profielen
-  `algemeen_100hz_geschat`, `algemeen_1khz_geschat` en
-  `algemeen_10khz_geschat`, elk met de volledige ESR70-tabel geschaald.
+  `algemeen_100hz_geschat`, `algemeen_1khz_geschat`,
+  `algemeen_10khz_geschat`.
 - `app/data/references/__init__.py` — `zoek_referentie()` accepteert
-  `meetfrequentie_hz` en kiest het dichtstbijzijnde profiel met regels.
+  `meetfrequentie_hz`.
 - `app/services/assessment_service.py` — `Beoordeling` heeft het veld
   `referentiefrequentie_hz`.
-- `app/gui/esr_test_screen.py` — geeft `meetfrequentie_hz` door aan
-  `zoek_referentie` en toont de werkelijke referentiefrequentie.
 - Nieuwe i18n-key: `resultaat.referentiefrequentie` (NL + EN).
 - Nieuw analysedraaiboek: `scripts/herbereken_steekproef.py`.
 
@@ -229,56 +394,34 @@ referentie op dezelfde frequentie staan.
 **Export respecteert nu de selectie**
 
 In de **Historiek** en de **Analyse** kun je met een selectie-DDL kiezen
-wat je exporteert: **huidige filters** of **selectie**. Vink je in de
-tabel een of meer metingen aan, dan exporteert de app alleen die
-metingen. Zonder selectie exporteert de app de volledige filter-selectie.
+wat je exporteert: **huidige filters** of **selectie**.
 
 **Selectie en rapport in de Analyse-pagina**
 
-De **Analyse**-pagina heeft onder de grafiek een compacte selectielijst.
-Vink je daar een of meer metingen aan, dan kun je:
-
-- **Exporteren…** — als overzicht-CSV, detail-CSV, of beide.
-- **Rapport maken…** — een rapport voor precies die selectie.
+De **Analyse**-pagina heeft onder de grafiek een compacte selectielijst
+met **Exporteren…** en **Rapport maken…**.
 
 **Rapport met scope "selectie"**
 
 Het meetrapport ondersteunt nu een rapport over **meerdere metingen**.
-De rapportkop toont de scope ("Eén meting" of "Selectie"). De
-grafieksectie is alleen beschikbaar voor één meting.
 
 **Menu "Rapport maken…" is disabled zonder selectie**
 
 In het **Bestand**-menu is het item **Rapport maken…** nu disabled
-zolang je geen meting geselecteerd hebt. Een tooltip legt uit waarom.
-Op de **Analyse**-pagina wordt het item actief zodra je een
-checkbox-selectie hebt.
+zolang je geen meting geselecteerd hebt.
 
 **Mapvoorkeuren worden overal gerespecteerd**
 
-Een nieuwe pure helper
-(`app/helpers/dialog_start_directory.py`) bepaalt de beste startmap
-voor elke `QFileDialog`:
-
-- **Export** — `laatste_exportmap` → `standaard_exportmap`.
-- **Import** — `laatste_importmap` → `standaard_importmap`.
-- **Rapport** — `laatste_rapportmap` → `standaard_exportmap`.
-
-Na een geslaagde export/import/rapport wordt de gebruikte map
-automatisch onthouden voor de volgende keer.
+Een nieuwe pure helper (`app/helpers/dialog_start_directory.py`)
+bepaalt de beste startmap voor elke `QFileDialog`.
 
 **Voor ontwikkelaars**
 
-- `app/gui/analysis_screen.py` — compacte selectielijst onder de
-  grafiek via `QSplitter`, checkbox-kolom, scope-DDL, type-DDL,
-  exportknop en `report_btn`. Nieuwe signalen `selection_changed` en
-  `back_requested`.
-- `app/gui/history_screen.py` — nieuw `selection_changed`-signaal met
-  snapshot-dedup. `report_btn` respecteert de checkbox-selectie.
-- `app/gui/main_window.py` — `_open_report_dialog()` kiest de scope op
-  basis van de actieve pagina en selectie.
-- `app/gui/dialogs/report_dialog.py` — nieuwe classmethod
-  `for_measurements(measurement_ids, ...)`.
+- `app/gui/analysis_screen.py` — compacte selectielijst, scope-DDL,
+  exportknop en `report_btn`.
+- `app/gui/history_screen.py` — `selection_changed`-signaal.
+- `app/gui/main_window.py` — `_open_report_dialog()`.
+- `app/gui/dialogs/report_dialog.py` — `for_measurements(...)`.
 - **Nieuw:** `app/helpers/dialog_start_directory.py` (v1.0.0).
 - Nieuwe i18n-keys: 24 onder `analyse.selectie.*`, `analyse.export.*`,
   `analyse.rapport.*` en `menu.rapport_tooltip` (NL + EN).
@@ -286,416 +429,224 @@ automatisch onthouden voor de volgende keer.
 
 ### Betrouwbaarheidsregel herzien (fase 11B, 16 oktober 2026)
 
-**Waarom deze wijziging**
-
-De regel in `bepaal_eindstatus` gebruikte `betrouwbaarheid.niveau == LAAG`
-als trigger voor minimaal `AANDACHTSPUNT`. Daardoor kreeg een goede
-condensator zonder bekende fabrikant/serie nooit `WAARSCHIJNLIJK_GOED`,
-ook al waren C en ESR ruim binnen tolerantie.
-
 **Oplossing: inhoudelijk vs. administratief**
 
 Er is nu een onderscheid tussen **inhoudelijke** en **administratieve**
-betrouwbaarheidsverlagers.
-
-- **Inhoudelijk** (raakt de meetcontext zelf): frequentieverschil,
-  condensatortype onbekend of niet-elektrolytisch, type-mismatch van de
-  referentie, C-ESR-D-inconsistentie, meetmethode ONE_LEG of
-  IN_CIRCUIT. Deze verhogen het minimum van de eindstatus.
-- **Administratief** (raakt enkel de documentatie/omgeving):
-  omgevingstemperatuur onbekend, typische referentiewaarde,
-  fabrikant/serie onbekend. Deze verlagen de betrouwbaarheid wel, maar
-  verhogen het minimum van de eindstatus **niet**.
-
-**Concreet**
-
-"Waarschijnlijk goed, betrouwbaarheid laag door administratieve
-factoren" is nu mogelijk, met een expliciete reden in
-`eindstatus_reden.betrouwbaarheid_laag_administratief`.
+betrouwbaarheidsverlagers. Inhoudelijke verlagers verhogen het minimum
+van de eindstatus; administratieve verlagen de betrouwbaarheid wel,
+maar verhogen het minimum niet. "Waarschijnlijk goed, betrouwbaarheid
+laag door administratieve factoren" is nu mogelijk.
 
 **Voor ontwikkelaars**
 
 - `app/services/assessment_service.py` (v1.5.0) —
-  `BetrouwbaarheidsResultaat` heeft een extra veld
-  `inhoudelijke_verlagers: tuple[str, ...] = ()`.
-  `bepaal_eindstatus` gebruikt `betrouwbaarheid.inhoudelijke_verlagers`
-  in plaats van `betrouwbaarheid.niveau == Betrouwbaarheid.LAAG` als
-  trigger voor minimaal `AANDACHTSPUNT`. In het `WAARSCHIJNLIJK_GOED`-
-  blok is een extra tak toegevoegd: als de betrouwbaarheid LAAG is door
-  uitsluitend administratieve verlagers, wordt de status alsnog
-  `WAARSCHIJNLIJK_GOED` met een expliciete reden.
-- Nieuwe i18n-keys:
-  - `betrouwbaarheid_factor.categorie_inhoudelijk` — "inhoudelijke
-    verlager".
-  - `betrouwbaarheid_factor.categorie_administratief` —
-    "administratieve verlager".
-  - `eindstatus_reden.betrouwbaarheid_laag_administratief`.
-  - `resultaat.inhoudelijke_verlagers` en
-    `resultaat.administratieve_verlagers`.
-- `tests/test_assessment.py` (v1.5.0) — 10 nieuwe tests. Twee bestaande
-  tests aangepast:
-  - `test_meerdere_verlagende_factoren` — verwacht nu 4 inhoudelijke
-    verlagers (frequentie, type, inconsistentie, in-circuit).
-  - `test_gebruiksscenario_1_goed` — gebruikt `D=None`, zodat de
-    consistentiecontrole niet tussenbeide komt.
-- **Niet gewijzigd:** alle drempels in `settings.py`, de
-  ESR-classificatie, de consistentie-logica, de GUI (de GUI leest
-  `verlagende_factoren`, dat blijft gevuld), en `report_render.py`.
-- **Baseline:** 1329 → **1339 passed** (+10 tests, alle in
-  `test_assessment.py`). De eerder gedocumenteerde baseline van 1347
-  in `overdracht.md` v5.3.0 klopte niet en is in v5.4.0 gecorrigeerd.
+  `BetrouwbaarheidsResultaat` heeft `inhoudelijke_verlagers`.
+- Nieuwe i18n-keys: `betrouwbaarheid_factor.categorie_inhoudelijk`,
+  `betrouwbaarheid_factor.categorie_administratief`,
+  `eindstatus_reden.betrouwbaarheid_laag_administratief`,
+  `resultaat.inhoudelijke_verlagers`,
+  `resultaat.administratieve_verlagers` (NL + EN).
+- `tests/test_assessment.py` (v1.5.0) — 10 nieuwe tests.
+- **Baseline:** 1329 → **1339 passed** (+10 tests).
 
 ### Iconen voor alle vensters (fase 11C, 16 oktober 2026)
 
 **Eén applicatie-icoon, twaalf thematische iconen**
 
-De applicatie heeft nu een volledige iconenset:
-
-- **Eén applicatie-icoon** — `assets/icons/app.png` (256×256,
-  transparant) en `assets/icons/logo.ico` (resoluties 16, 32, 48, 64,
-  128 en 256). Het applicatie-icoon verschijnt in de vensterbalk, in
-  de taakbalk, op de EXE en in de installer.
-- **Twaalf thematische iconen** — voor Diagnose, ESR, Historiek,
-  Documentatie, Analyse, Rapport, Instellingen, Help, Bug/feature
-  melden, Update en Afsluiten. Elk icoon is 64×64 en transparant.
-
-**Waar zie je ze**
-
-- De **hub-knoppen** (Diagnose, Historiek, Documentatie, Analyse)
-  hebben elk een eigen icoon.
-- De **ESR-testknop** in de Diagnose-pagina gebruikt `esr.png`.
-- De **menu-items** in Bestand, Diagnose, Rapporteren, Instellingen en
-  Help hebben een icoon waar dat zinvol is.
-- **Elke dialoog** krijgt automatisch het applicatie-icoon, ook als
-  die ooit los van het hoofdvenster wordt gebruikt.
-
-**Placeholders, later te vervangen**
-
-De huidige iconen zijn **placeholders** die met een script zijn
-gegenereerd (`scripts/genereer_placeholders.py`). Ze zijn bewust
-eenvoudig en vlak: donkerblauw (`#1F4E79`) als hoofdkleur, cyaan
-(`#4AA3FF`) als accent. Je kunt ze op elk moment vervangen door
-definitieve ontwerpen. De bestandsnamen liggen vast; de code hoeft dan
-niet te veranderen.
-
-**Geen icoon is geen fout**
-
-`app/helpers/icon_paths.py` geeft `None` terug als een icoon niet
-bestaat. De GUI laat het icoon dan gewoon weg en blijft werken. Zo
-breekt een build nooit door een ontbrekend bestand.
+De applicatie heeft nu een volledige iconenset: `assets/icons/app.png`,
+`assets/icons/logo.ico` en twaalf thematische iconen (Diagnose, ESR,
+Historiek, Documentatie, Analyse, Rapport, Instellingen, Help,
+Bug/feature melden, Update, Afsluiten). De huidige iconen zijn
+**placeholders** die met een script zijn gegenereerd
+(`scripts/genereer_placeholders.py`). Je kunt ze later vervangen door
+definitieve ontwerpen; de bestandsnamen liggen vast.
 
 **Voor ontwikkelaars**
 
 - **Nieuw:** `app/helpers/icon_paths.py` (v1.0.0) — pure padresolutie
   plus dunne Qt-wrappers. Geen harde Qt-import op moduleniveau.
-- **Nieuw:** `scripts/genereer_placeholders.py` (v1.0.0) — genereert
-  alle PNG's en `logo.ico` met `QPainter`.
-- **Gewijzigd:** `main.py` (v1.5.0) — zet het applicatie-icoon via
-  `QApplication.setWindowIcon()`.
-- **Gewijzigd:** `app/gui/main_window.py` (v2.17.0) — iconen op
-  hub-knoppen, diagnose-knoppen en menu-items; dialogen krijgen een
-  icoon via `_zet_dialoog_icoon()`.
-- **Gewijzigd:** alle dialogen in `app/gui/dialogs/` — eigen
-  `_zet_eigen_icoon()` in `__init__`.
-- **Gewijzigd:** `app/gui/esr_test_screen.py` (v1.13.0) — expliciet
-  venstericoon, zodat het scherm ook los van het hoofdvenster het
-  juiste icoon toont.
-- **Nieuw:** `tests/test_icon_paths.py` — 16 tests voor de helper.
-- **Nieuw:** `tests/test_main_icon.py` — 1 test voor het
-  applicatie-icoon.
+- **Nieuw:** `scripts/genereer_placeholders.py` (v1.0.0).
+- **Gewijzigd:** `main.py` (v1.5.0), `app/gui/main_window.py` (v2.17.0),
+  alle dialogen in `app/gui/dialogs/`,
+  `app/gui/esr_test_screen.py` (v1.13.0).
+- **Nieuw:** `tests/test_icon_paths.py` (16 tests),
+  `tests/test_main_icon.py` (1 test).
 - **Uitgebreid:** `tests/test_main_window_help_menu.py` en
-  `tests/test_main_window_report_menu.py` — elk 1 test voor het icoon
-  op het bijhorende menu-item.
-- **Geen wijziging:** `ESR_Tester.spec` en de Inno Setup `.iss`
-  verwijzen nog steeds naar `assets/icons/logo.ico`; dat bestand is
-  vervangen, niet hernoemd.
+  `tests/test_main_window_report_menu.py` (1 test elk).
 - **Baseline:** 1339 → **1358 passed** (+19 tests).
 
 ## Versie 1.1.1 — Update-controle bij opstarten en via Help (15 oktober 2026)
 
 **Automatische controle op een nieuwere versie**
 
-De applicatie controleert bij het opstarten eenmalig en niet-blokkerend
-of er een nieuwere versie beschikbaar is op GitHub. Die controle leest
-de "latest"-pointer in `releases/latest/version.txt` en vergelijkt die
-met de versie in `app/version.py`. Je merkt niets van de controle zolang
-er geen nieuwere versie is.
+De applicatie controleert bij het opstarten eenmalig en niet-blokkerendof er een nieuwere versie beschikbaar is op GitHub.
 
 **Handmatige controle via Help**
 
 Je kunt de controle ook handmatig uitvoeren via
-**Help → Controleren op updates…**. Je krijgt dan altijd een melding:
-ofwel "Je gebruikt de nieuwste versie", ofwel een nieuwere versie met
-de knop **Downloaden**.
+**Help → Controleren op updates…**.
 
 **Wat is er nieuw?**
 
 Als er een nieuwere versie is, toont de melding ook een knop
-**Wat is er nieuw?**. Die haalt de release notes op die de ontwikkelaar
-bij de GitHub-release heeft ingevuld, en toont ze in een leesbaar
-venster. Van daaruit kun je de release-pagina op GitHub openen.
+**Wat is er nieuw?** met de release notes van de GitHub-release.
 
 **Instelling: bij opstarten controleren op updates**
 
 In **Instellingen → Algemeen** staat een nieuwe checkbox
-**Bij opstarten controleren op updates**. Standaard staat die aan. De
-handmatige controle via Help blijft altijd beschikbaar, ook als je de
-automatische controle uitzet.
+**Bij opstarten controleren op updates** (standaard aan).
 
 **Meertalige changelog**
 
 De changelog is nu beschikbaar per taal: `docs/changelog/nl_NL.md` en
-`docs/changelog/en_US.md`. Het Help-menu toont automatisch de versie
-die bij de gekozen taal hoort, met dezelfde fallback-keten als de Help
-(taal → Nederlands → algemeen).
+`docs/changelog/en_US.md`.
 
 **Voor ontwikkelaars**
 
-- Nieuwe module `app/helpers/updater.py` — pure update-check logica,
-  geen Qt, geen token. Bevat `check_for_update()` en
-  `fetch_release_notes()`.
+- Nieuwe module `app/helpers/updater.py`.
 - Nieuwe resolver `changelog_pad_voor_taal()` in
-  `app/helpers/help_paths.py`, met dezelfde fallback-keten als Help.
+  `app/helpers/help_paths.py`.
 - Nieuwe i18n-keys onder `update.*` en
   `settings.algemeen.controleer_updates` (NL + EN).
 - Nieuwe instelling `algemeen.controleer_updates_bij_opstarten` (default
-  `True`), backward-compatible met bestaande `settings.json`.
+  `True`), backward-compatible.
 
 ## Versie 1.0.3 — Publicatie, testmatrix en bug/feature-meldingen (14 oktober 2026)
 
 **De applicatie is nu publiek beschikbaar op GitHub**
 
 Op 13 oktober 2026 is de eerste publieke release **v1.0.3** verschenen
-in de repo `barremans/capacitor_esr_validator`. De installer
-(`ESR_TesterSetup_1.0.3.exe`, ongeveer 63 MB) is ondertekend en
-gepubliceerd, samen met een **stabiele "latest"-pointer** in
-`releases/latest/version.txt`. Die pointer is de basis voor de
-update-controle.
+in de repo `barremans/capacitor_esr_validator`.
 
 **Buildstraat uitgebreid met `publish.ps1` en `build_and_publish.ps1`**
 
 - **`publish.ps1`** — publiceert de installer naar GitHub, met een
-  **release-gate** op de Authenticode-handtekening. Een ongesigneerde
-  installer wordt nooit gepubliceerd.
-- **`build_and_publish.ps1`** — orchestrator die de hele keten draait:
-  versie bumpen, builden, signeren, publiceren. Vraagt de parameters
-  vooraf.
+  **release-gate** op de Authenticode-handtekening.
+- **`build_and_publish.ps1`** — orchestrator die de hele keten draait.
 
 **Intune/Defender-testmatrix**
 
-De installer is bewezen op twee soorten Windows-pc's:
-
-- **Gewone Windows-pc** — SmartScreen toont een waarschuwing, maar
-  "More info → Run anyway" werkt.
-- **Intune-beheerde pc** — de installer start zonder blokkade, dank zij
-  een **Defender Certificate Indicator** (`Allow`) voor het
-  CGK-certificaat. De app installeert en werkt.
-
-WDAC en AppLocker zijn in de doelomgeving **niet actief**; de
-Defender-indicator volstaat.
+De installer is bewezen op twee soorten Windows-pc's: gewone pc
+(SmartScreen-waarschuwing, "More info → Run anyway" werkt) en
+Intune-beheerde pc (start zonder blokkade dank zij een Defender
+Certificate Indicator voor het CGK-certificaat).
 
 **Bug- en feature-meldingen vanuit de applicatie**
 
-Het hoofdmenu heeft nu een **Rapporteren**-menu met twee opties:
-
-- **🐞 Bug of feature melden…** — opent een meldscherm waarin je een
-  bug of feature-aanvraag beschrijft. De melding wordt automatisch
-  aangemaakt als **GitHub Issue** (label `bug` of `enhancement`). Je
-  naam wordt voorgevuld met je Windows-gebruikersnaam.
-- **Open cases tonen** — toont de open bugmeldingen en
-  feature-aanvragen uit de repo.
-
-De meldingen gaan rechtstreeks naar de GitHub-repo. Er is geen
-e-mailverkeer of externe dienst nodig: de applicatie leest en schrijft
-via de GitHub REST API.
+Het hoofdmenu heeft nu een **Rapporteren**-menu met **🐞 Bug of feature
+melden…** en **Open cases tonen**. De meldingen gaan rechtstreeks naar
+de GitHub-repo via de REST API.
 
 **Voor ontwikkelaars**
 
 - Het feedbackpakket (`github_feedback.py`, `bug_report_dialog.py`,
   `github_cases.py`, `check_github_secret.py`) staat identiek in de
-  projectroot, met een app-specifieke `github_feedback_config.py`.
+  projectroot.
 - Het GitHub-token staat in `github_secret_local.py`, dat in
-  `.gitignore` staat (`*_secret_local.py`) en nooit naar GitHub gaat.
-  PyInstaller bundelt het wel mee in de exe.
-- `ESR_Tester.spec` roept vóór elke build `check_github_secret.py` aan.
-  Een build zonder geldig token stopt met een duidelijke melding, zodat
-  er nooit een installer verschijnt waarin "Bug of feature melden"
-  niet werkt.
+  `.gitignore` staat en nooit naar GitHub gaat.
 - Nieuwe i18n-keys: `menu.rapporteren`, `menu.bug_melden`,
   `menu.open_cases` (NL + EN).
 
 **Opgelost**
 
-- De `LF/CRLF`-waarschuwing bij `git add releases/latest/version.txt`
-  is opgelost via een `.gitattributes`-regel
-  (`releases/latest/version.txt text eol=lf`).
-- `ESR_Tester.spec` staat niet langer in `.gitignore`. De spec wordt nu
-  meegecommit, zodat een verse clone op een andere machine direct kan
-  bouwen (`!ESR_Tester.spec`).
+- `LF/CRLF`-waarschuwing op `releases/latest/version.txt` via
+  `.gitattributes`.
+- `ESR_Tester.spec` staat niet langer in `.gitignore`.
 
 **Documentatie**
 
 - `docs/packaging.md` — build-flow, signing, distributie, checklist.
-- `docs/testmatrix_defender_intune.md` — de volledige testmatrix met
-  bewezen status per pc-type.
+- `docs/testmatrix_defender_intune.md` — de volledige testmatrix.
 
 ## Versie 1.0.2 — Eerste Windows-build, installer en signing (13 oktober 2026)
 
 **De applicatie heeft nu een echte versie**
 
-De applicatie heeft nu één centrale versie, op één plek: `app/version.py`.
-De versie wordt getoond in de **Over**-dialoog (Help → Over) en is de
-basis voor de buildstraat en de latere update-controle.
+Centrale versie in `app/version.py`, getoond in Help → Over.
 
 **Volledige Windows-buildstraat**
 
-Je kunt de applicatie nu bouwen als een zelfstandige Windows-applicatie
-met installer. De flow volgt 1-op-1 de bewezen ArticleSearch-flow:
-
-- **`ESR_Tester.spec`** — PyInstaller-specificatie, met icoon actief.
-- **`build_installer.bat`** — bouwt de EXE, genereert `dist\installer.iss`,
-  compileert met Inno Setup 6, en tekent zowel de EXE als de installer.
-- **`bump_version.py`** — verhoogt patch, minor of major in
-  `app/version.py`. Wordt aangeroepen door de buildstraat, kan ook
-  handmatig: `python bump_version.py patch`.
+- **`ESR_Tester.spec`** — PyInstaller-specificatie.
+- **`build_installer.bat`** — bouwt de EXE, genereert
+  `dist\installer.iss`, compileert met Inno Setup 6, en tekent.
+- **`bump_version.py`** — verhoogt patch, minor of major.
 - **`build_and_publish.ps1`** — orchestrator met signing-preflight.
-  Vraagt de parameters, kiest automatisch het juiste certificaat, en
-  roept de batch aan.
-- **`publish.ps1`** — publiceert de installer naar GitHub, met een
-  release-gate op de Authenticode-handtekening.
+- **`publish.ps1`** — publiceert naar GitHub met release-gate.
 
 **Code-signing**
 
 De EXE en de installer worden ondertekend met het CGK-certificaat
-(`CN=CGK Local Signing`, geldig tot 2028-09-17). Na het ondertekenen
-wordt de handtekening automatisch geverifieerd met `signtool verify`.
+(`CN=CGK Local Signing`, geldig tot 2028-09-17).
 
 **Installer met icoon**
 
 De installer heeft nu het ESR Tester-icoon in de wizard en in de
-snelkoppelingen (Startmenu en optioneel bureaublad). De app start na
-installatie met gebruikersrechten (`runascurrentuser`), niet als
-administrator.
-
-**Installatie**
-
-Standaard installatiemap: `C:\Program Files\Electronics Diagnostic
-Tool Hub\ESR Tester`. De gebruiker kan de map kiezen tijdens de
-installatie.
+snelkoppelingen. De app start na installatie met gebruikersrechten.
 
 **Opgelost**
 
-- De **venstertitels van het Help-venster en het Wijzigingslog-venster**
-  toonden de onvertaalde keys `dialog.help_titel` en
-  `dialog.changelog_titel`. Dat is nu opgelost.
-- De **ESR-testknop** in de Diagnose-pagina toonde de onvertaalde key
-  `tool.esr`. Dat is nu opgelost.
-- De **buildstraat** brak eerder af met
-  `: was unexpected at this time.` door een `set /p`-prompt met
-  haakjes. Dat is opgelost door de prompt te vervangen door een
-  `if defined`-check.
+- Venstertitels van Help en Wijzigingslog toonden onvertaalde keys.
+- De ESR-testknop in de Diagnose-pagina toonde `tool.esr`.
+- De buildstraat brak af met `: was unexpected at this time.` door een
+  `set /p`-prompt met haakjes.
 
 **PDF's met leesbare tekst, zonder handmatige stap**
 
-Qt kon in een PySide6-omgeving de Windows-systeemfonts niet vinden,
-waardoor PDF-rapporten zwarte blokken toonden in plaats van tekst. De
-applicatie stelt nu **automatisch** de omgevingsvariabele
-`QT_QPA_FONTDIR=C:\Windows\Fonts` in wanneer je op Windows start en de
-variabele nog niet gezet is.
+De applicatie stelt nu automatisch `QT_QPA_FONTDIR=C:\Windows\Fonts` in
+op Windows.
 
 **Voor ontwikkelaars**
 
-- `numpy` is toegevoegd aan `requirements.txt` als directe dependency,
-  met een pin `>=1.26,<3`. `pandas` kreeg een pin `>=2.2,<3`.
-  Reden: pandas 3.x gaf een ABI-conflict met numpy 2.x in de build.
-- `QT_QPA_FONTDIR` wordt nu in `main.py` gezet vóór `QApplication`
-  aangemaakt wordt.
+- `numpy` pin `>=1.26,<3`, `pandas` pin `>=2.2,<3`.
+- `QT_QPA_FONTDIR` wordt in `main.py` gezet vóór `QApplication`.
 - `app/version.py` is de centrale versiebron.
 
 ## Versie 1.0.1 — Meetrapporten en uitgebreidere instellingen (12 oktober 2026)
 
 **Meetrapporten maken**
 
-Je kunt nu van elke opgeslagen meting een **meetrapport** maken. Open een
-meting in de historiek, klik op **Rapport** (of gebruik **Ctrl+P** in het
-Bestand-menu), en je krijgt een overzichtelijke preview. Je kunt het
-rapport opslaan als **HTML** of als **PDF**.
-
-Het rapport bevat:
-
-- **Componentidentificatie** — fabrikant, serie, partnummer, technologie,
-  nominale capaciteit, nominale spanning, tolerantie.
-- **Meetcontext** — meetmethode, instrument, frequentie, testspanning,
-  temperatuur, veiligheidsbevestigingen.
-- **Ruwe meetwaarden** — capaciteit, ESR, D, out-of-range-vlaggen.
-- **Assessment-snapshots** — de opgeslagen beoordelingen met redenen,
-  waarschuwingen en advies.
-- **Referentie-snapshots** — de gebruikte referenties per beoordeling.
-- **Optionele grafiek** — een grafieksectie met ESR-verloop (alleen voor
-  ESR_CAPACITOR).
+Van elke opgeslagen meting kun je een **meetrapport** maken (HTML of
+PDF) met componentidentificatie, meetcontext, ruwe meetwaarden,
+assessment-snapshots, referentie-snapshots en een optionele grafiek.
 
 **Nieuw in de Rapportage-instellingen**
 
-De Settings-dialoog heeft nu een uitgebreidere **Rapportage-tab**:
-
-- **Auteur** — optioneel vrij veld dat in de rapportkop wordt getoond.
-- **Standaard rapportmap** — de map waarin de opslaandialoog standaard
-  start. Wordt automatisch bijgewerkt na elke geslaagde opslag.
-
-De **grafiek-checkbox** in het rapportdialoog start voortaan met de
-waarde van **Grafiek standaard opnemen** uit de instellingen.
+- **Auteur** — optioneel vrij veld in de rapportkop.
+- **Standaard rapportmap** — automatisch bijgewerkt na elke opslag.
 
 **Automatisch de map openen**
 
-Als **Exportmap openen na succesvolle export** aan staat, wordt na het
-opslaan van een rapport automatisch de map geopend — net als bij de
-CSV-export van de historiek.
+Na het opslaan van een rapport wordt automatisch de map geopend (als de
+instelling aan staat).
 
 **Read-only**
 
-Het rapport wordt opgebouwd uit de **opgeslagen snapshots**. Historische
-metingen en beoordelingen worden nooit opnieuw berekend of gewijzigd.
-Het rapport is puur een weergave.
+Het rapport wordt opgebouwd uit de opgeslagen snapshots. Historische
+metingen en beoordelingen worden nooit opnieuw berekend.
 
 **Opgelost**
 
-- In de rapport-HTML en -PDF verschenen de onvertaalde keys
-  `algemeen.ja` en `algemeen.nee` in plaats van "Ja"/"Nee". Dat is nu
-  opgelost door `app.ja` en `app.nee` te gebruiken.
-- De **statuslabels** in het rapport (`Capacitance status`,
-  `ESR status`, `Consistency status`) werden als ruwe codes getoond
-  (`binnen_tolerantie`, `niet_beoordeeld`). Ze worden nu vertaald,
-  net als in de GUI.
+- `algemeen.ja` en `algemeen.nee` verschenen als onvertaalde keys;
+  nu `app.ja` en `app.nee`.
+- Statuslabels in het rapport werden als ruwe codes getoond; nu
+  vertaald.
 
 ## Versie 1.0.0 — Grafieken en trends (9 oktober 2026)
 
 **Nieuwe pagina "Analyse"**
 
-In het hoofdmenu staat nu een vierde knop **Analyse**, naast Diagnose,
-Historiek en Documentatie. De pagina toont grafieken en trends op basis
-van je opgeslagen metingen. Je opent de pagina via de hub-knop, via het
-Diagnose-menu ("Analyse openen"), of met de sneltoets **Ctrl+A**.
-
-**Vier grafiektypes**
-
-Met een dropdown kies je welk type grafiek je wilt zien:
-
-- **ESR over tijd** — het ESR-verloop van je metingen, oud naar nieuw.
-- **Capaciteit over tijd** — het capaciteitsverloop.
-- **D over tijd** — het verloop van de dissipatiefactor.
-- **ESR vs. capaciteit** — een spreidingsdiagram waarin elke meting een
-  punt is. De kleur toont de eindstatus.
+Naast Diagnose, Historiek en Documentatie staat nu een vierde hub-knop
+**Analyse** met vier grafiektypes: ESR over tijd, capaciteit over tijd,
+D over tijd, en ESR vs. capaciteit.
 
 **Filteren op precies dezelfde velden als de historiek**
 
-De filterbalk gebruikt dezelfde velden als de historiekpagina:
-fabrikant, serie, meetmethode, instrument, frequentie en een
-periode (van/tot datum). Met **Ctrl+F** open je het filterpaneel.
+De filterbalk gebruikt dezelfde velden als de historiekpagina.
 
 **Aggregatie per dag, week of maand**
 
-Standaard toont elke grafiek alle ruwe meetwaarden. Met een tweede
-dropdown kies je **gemiddelde per dag**, **per week** of **per maand**.
+Met een tweede dropdown kies je gemiddelde per dag, per week of per
+maand.
 
 **Read-only**
 
@@ -703,8 +654,8 @@ De Analyse-pagina leest je opgeslagen metingen en schrijft niets terug.
 
 **Sneltoetsen**
 
-- **Ctrl+A** op het Hoofdmenu opent de Analyse-pagina.
-- **Ctrl+R** op de Analyse-pagina ververst de gegevens.
+- **Ctrl+A** opent de Analyse-pagina.
+- **Ctrl+R** ververst de gegevens.
 - **Ctrl+F** opent het filterpaneel.
 - **Esc** gaat terug naar het Hoofdmenu.
 
@@ -722,80 +673,47 @@ staan als functionele mijlpalen.
 
 Naast PDF en URL kun je nu ook **Word-documenten (.docx)** en
 **Excel-werkmappen (.xlsx)** importeren als documentatiebron. De
-import-wizard heeft vier keuzes:
-
-- **PDF-bestand**
-- **Word-document**
-- **Excel-werkmap**
-- **Vanaf URL**
+import-wizard heeft vier keuzes.
 
 **Oude formaten worden geweigerd**
 
-Het oude `.doc`-formaat (Word 97-2003) en `.xls`-formaat (Excel 97-2003)
-worden niet ondersteund.
-
-**Verbeterd: Word- en Excel-bestanden openen**
-
-Geïmporteerde Word- en Excel-bestanden worden geopend in de standaard
-Word- of Excel-applicatie.
+Het oude `.doc`- en `.xls`-formaat worden niet ondersteund.
 
 ## Versie 0.8 — Status van eigen imports beheren (8 oktober 2026)
 
 **Status van een import wijzigen**
 
 In de documentatiebibliotheek is er nu een knop **Status wijzigen…**
-voor je eigen imports. Je kunt de levenscyclus van een import aanpassen:
-
-- **Concept** — pas geïmporteerd, nog niet bevestigd als bruikbaar.
-- **Actief** — expliciet door jou bevestigd als bruikbaar.
-- **Gearchiveerd** — niet meer in de standaardlijst, maar blijft bewaard.
+voor je eigen imports.
 
 **Nieuwe Status-kolom**
 
 De documentatietabel heeft nu een extra kolom **Status**.
 
-**Verbeterd: checkboxen en radio buttons in het donkere thema**
-
-De checkboxen en radio buttons in de hele applicatie zijn nu duidelijk
-zichtbaar in het donkere thema.
-
 ## Versie 0.7 — Metadata bij import en bewerken in de viewer (7 oktober 2026)
 
 **Metadata bij importeren van een PDF of URL**
 
-Bij het importeren van een document kun je nu meteen metadata invullen:
-categorie, fabrikant, serie, partnummer, documentversie, documentdatum
-en notities.
+Bij het importeren kun je meteen metadata invullen.
 
 **Metadata bewerken in de documentatiebibliotheek**
 
-In de documentatiebibliotheek is er nu een knop **Bewerken…** voor je
-eigen imports.
+In de documentatiebibliotheek is er nu een knop **Bewerken…**.
 
 **Verbeterd zoeken**
 
-Het zoekveld in de documentatiebibliotheek doorzoekt nu ook de metadata
-van geïmporteerde documenten.
+Het zoekveld doorzoekt nu ook de metadata van geïmporteerde documenten.
 
 ## Versie 0.6 — Help per taal en duidelijkere zoekuitleg (6 oktober 2026)
 
 **Nieuw**
-- **Help per taal.** De algemene help wordt nu per taal getoond.
+- **Help per taal.**
 - **Duidelijkere uitleg over uitsluiten in de zoekhulp.**
-
-**Verbeterd**
-- **Zoekterm met minteken én procentteken genegeerd.**
-
-**Voor ontwikkelaars**
-- Nieuwe referentie `docs/search_syntax.md`.
 
 ## Versie 0.5 — Sneltoetsen en veiliger afsluiten (5 oktober 2026)
 
 **Nieuw**
-- Je kan nu door de hele applicatie met het toetsenbord werken.
-
-**Verbeterd**
-- Esc op het Hoofdmenu vraagt nu een bevestiging.
+- Werken met het toetsenbord door de hele applicatie.
 
 ## Versie 0.4 — Slimmer zoeken en hulp in de documentatie (5 oktober 2026)
 
@@ -803,16 +721,10 @@ van geïmporteerde documenten.
 - **Zoektaal voor documentatie.**
 - **Help bij het zoeken.**
 
-**Verbeterd**
-- Het venster voor zoekhulp is nu ook bereikbaar via het Help-menu.
-
 ## Versie 0.3 — Meerdere diagnosetools in één hub (3 oktober 2026)
 
 **Nieuw**
 - Documenten kunnen nu aan meerdere diagnosetools gekoppeld worden.
-
-**Verbeterd**
-- Interne structuur klaar voor toekomstige diagnosetools.
 
 ## Versie 0.2 — Documentatiebibliotheek (3 oktober 2026)
 
@@ -831,35 +743,27 @@ van geïmporteerde documenten.
 
 - **Versie 1.2.0 — UX/documentatie-afwerking.** Alle kleine punten die
   in eerdere fases zijn blijven liggen:
-  - **11A** — Export, import en selectie: export respecteert selectie,
-    visuele selectie in Analyse, rapport-scope "selectie",
-    menu-item disabled zonder selectie, mapvoorkeuren respecteren.
-    **Afgerond op 16 oktober 2026.** De resterende punten uit §11A
-    (import van metingen uit een ander toestel) blijven open.
-  - **11B** — Betrouwbaarheidsregel herzien: onderscheid tussen
-    inhoudelijke en administratieve betrouwbaarheidsverlagers.
-    **Afgerond op 16 oktober 2026.** Baseline 1329 → **1339 passed**.
-  - **11C** — Iconen voor alle vensters.
-    **Afgerond op 16 oktober 2026.** Baseline 1339 → **1358 passed**.
-  - **11D** — i18n-menging in Diagnose/Result oplossen.
-    **Afgerond op 16 oktober 2026.** Baseline 1358 → **1366 passed**.
-  - **11E** — Async netwerk (URL-fetch, release notes).
-    **Afgerond op 16 oktober 2026.** Baseline 1366 → **1395 passed**.
-  - **11F** — Documentatie-uitbreiding (redenen, filters, bulk-edit).
-  - **11G** — Visueel donker thema (checkboxen, scrollbar).
+  - **11A** — Export, import en selectie. **Afgerond op 16 oktober 2026.**
+  - **11B** — Betrouwbaarheidsregel herzien. **Afgerond op 16 oktober
+    2026.** Baseline 1329 → **1339 passed**.
+  - **11C** — Iconen voor alle vensters. **Afgerond op 16 oktober 2026.**
+    Baseline 1339 → **1358 passed**.
+  - **11D** — i18n-menging in Diagnose/Result oplossen. **Afgerond op
+    16 oktober 2026.** Baseline 1358 → **1366 passed**.
+  - **11E** — Async netwerk. **Afgerond op 16 oktober 2026.** Baseline
+    1366 → **1395 passed**.
+  - **11F** — Documentatie-uitbreiding. **Afgerond op 20 oktober 2026.**
+    Baseline 1395 → **1462 passed**.
+  - **11G** — Visueel donker thema. **Afgerond op 20 oktober 2026.**
+    Baseline 1462 → **1491 passed**.
   - **11H** — Light theme.
   - **11I** — Build en cosmetica (deprecations, logbestanden,
     certificaten).
 - **Versie 1.3.0 — AI-extractie uit fabrikantdocumenten.**
-  Automatische tekstextractie uit docx/xlsx als voorbereiding op
-  menselijke validatie.
 - **Versie 1.4.0 — Menselijke validatie van AI-output.**
-  Goedkeuringsstroom voor AI-geëxtraheerde gegevens.
 - **Versie 1.5.0 — Goedgekeurde fabrikantdata koppelen aan
-  assessment.** De assessment gebruikt dan gevalideerde
-  fabrikantgegevens.
+  assessment.**
 - **Versie 1.6.0 — Tweede diagnosetool: Resistor.**
-  Weerstandsmetingen in dezelfde Tool Hub.
 
 ---
 

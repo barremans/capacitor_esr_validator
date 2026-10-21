@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_main_window_report_menu.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.4.0
-Datum:      2026-10-16
+Versie:     1.4.1
+Datum:      2026-10-20
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor het menu-item "Rapport maken…".
@@ -23,6 +23,16 @@ Wijzigingen:
                         niet-bestaande _app-fixture meer; de QApplication
                         wordt lokaal opgehaald via de bestaande
                         qapplication-fixture of QApplication.instance().
+  v1.4.1 (2026-10-20)  Fase 11G.5-fix: _AnalysisStub heeft nu de
+                        measurement_ids-parameter (keyword-only, default
+                        None) op alle methodes. Sinds AnalysisService
+                        v1.1.0 roept AnalysisScreen deze methodes aan met
+                        measurement_ids=..., en zonder die parameter
+                        faalde de stub met "unexpected keyword argument
+                        'measurement_ids'". Daardoor bleef de
+                        selectietabel leeg en faalde
+                        test_rapport_action_enabled_op_analyse_met_selectie
+                        met AttributeError op selection_table.item(0,0).
 ================================================================================
 """
 
@@ -119,22 +129,29 @@ class _HistoryStub:
 
 
 class _AnalysisStub:
+    """Stub voor AnalysisService.
+
+    Sinds AnalysisService v1.1.0 accepteren alle methodes een
+    keyword-only measurement_ids-parameter. De stub negeert die; de
+    tests richten zich op het menu-item, niet op de scope-selectie.
+    """
+
     def __init__(self, rows):
         self.rows = rows
 
-    def load_rows(self, filters=None):
+    def load_rows(self, filters=None, *, measurement_ids=None):
         return list(self.rows)
 
-    def esr_series(self, filters=None, *, aggregation="raw"):
+    def esr_series(self, filters=None, *, aggregation="raw", measurement_ids=None):
         return []
 
-    def capacitance_series(self, filters=None, *, aggregation="raw"):
+    def capacitance_series(self, filters=None, *, aggregation="raw", measurement_ids=None):
         return []
 
-    def dissipation_series(self, filters=None, *, aggregation="raw"):
+    def dissipation_series(self, filters=None, *, aggregation="raw", measurement_ids=None):
         return []
 
-    def scatter_esr_vs_capacitance(self, filters=None):
+    def scatter_esr_vs_capacitance(self, filters=None, *, measurement_ids=None):
         return []
 
 

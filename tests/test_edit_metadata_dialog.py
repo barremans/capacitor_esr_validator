@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_edit_metadata_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-07
+Versie:     1.1.0
+Datum:      2026-10-20
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor de metadata-editor (fase 5D'.2c).
@@ -12,6 +12,10 @@ Doel:       GUI-regressietests voor de metadata-editor (fase 5D'.2c).
 
 Wijzigingen:
   v1.0.0 (2026-10-07)  Eerste versie.
+  v1.1.0 (2026-10-20)  Fase 11F.4: tests voor de uitgebreide
+                        datum-parsing. _parse_datum_naar_qdate accepteert
+                        nu ook yyyy/MM/dd, dd-MM-yyyy, yyyy-MM (dag 1)
+                        en yyyy (1 januari).
 ================================================================================
 """
 
@@ -109,10 +113,10 @@ def test_dialoog_zonder_datum_zet_onbekend(tmp_path):
 
 
 def test_dialoog_met_onbekende_datum_zet_onbekend(tmp_path):
-    """Een niet-ISO datum (bijv. '2024-01') valt terug op 'Datum onbekend'."""
+    """Een onparseerbare datum valt terug op 'Datum onbekend'."""
     _app()
     service = ImportService(catalog_path=tmp_path / "cat.json")
-    bron = _maak_pdf_source(document_date="2024-01")
+    bron = _maak_pdf_source(document_date="geen-datum")
     dialog = EditMetadataDialog(bron=bron, taal="nl_NL", import_service=service)
 
     assert dialog.datum_onbekend_checkbox.isChecked() is True
@@ -126,6 +130,111 @@ def test_dialoog_behoudt_bron_source_id(tmp_path):
     dialog = EditMetadataDialog(bron=bron, taal="nl_NL", import_service=service)
 
     assert dialog.bron.source_id == "abc-123"
+
+
+# ============================================================================
+# Datum-parsing (fase 11F.4)
+# ============================================================================
+
+def test_parse_iso_datum():
+    _app()
+    assert EditMetadataDialog._parse_datum_naar_qdate("2024-01-31") == QDate(2024, 1, 31)
+
+
+def test_parse_slash_datum():
+    _app()
+    assert EditMetadataDialog._parse_datum_naar_qdate("2024/01/31") == QDate(2024, 1, 31)
+
+
+def test_parse_nl_datum():
+    _app()
+    assert EditMetadataDialog._parse_datum_naar_qdate("31-01-2024") == QDate(2024, 1, 31)
+
+
+def test_parse_maand_only_geeft_dag_1():
+    _app()
+    assert EditMetadataDialog._parse_datum_naar_qdate("2024-01") == QDate(2024, 1, 1)
+
+
+def test_parse_jaar_only_geeft_1_januari():
+    _app()
+    assert EditMetadataDialog._parse_datum_naar_qdate("2024") == QDate(2024, 1, 1)
+
+
+def test_parse_lege_string_geeft_ongeldig():
+    _app()
+    qdate = EditMetadataDialog._parse_datum_naar_qdate("")
+    assert qdate.isValid() is False
+
+
+def test_parse_whitespace_geeft_ongeldig():
+    _app()
+    qdate = EditMetadataDialog._parse_datum_naar_qdate("   ")
+    assert qdate.isValid() is False
+
+
+def test_parse_onbekend_formaat_geeft_ongeldig():
+    _app()
+    qdate = EditMetadataDialog._parse_datum_naar_qdate("geen-datum")
+    assert qdate.isValid() is False
+
+
+def test_parse_ongeldige_maand_geeft_ongeldig():
+    _app()
+    qdate = EditMetadataDialog._parse_datum_naar_qdate("2024-13")
+    assert qdate.isValid() is False
+
+
+def test_parse_ongeldige_maand_nul_geeft_ongeldig():
+    _app()
+    qdate = EditMetadataDialog._parse_datum_naar_qdate("2024-00")
+    assert qdate.isValid() is False
+
+
+def test_dialoog_met_slash_datum(tmp_path):
+    """yyyy/MM/dd wordt geaccepteerd als bestaande document_date."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    bron = _maak_pdf_source(document_date="2024/01/31")
+    dialog = EditMetadataDialog(bron=bron, taal="nl_NL", import_service=service)
+
+    assert dialog.documentdatum_edit.date() == QDate(2024, 1, 31)
+    assert dialog.datum_onbekend_checkbox.isChecked() is False
+
+
+def test_dialoog_met_nl_datum(tmp_path):
+    """dd-MM-yyyy wordt geaccepteerd als bestaande document_date."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    bron = _maak_pdf_source(document_date="31-01-2024")
+    dialog = EditMetadataDialog(bron=bron, taal="nl_NL", import_service=service)
+
+    assert dialog.documentdatum_edit.date() == QDate(2024, 1, 31)
+    assert dialog.datum_onbekend_checkbox.isChecked() is False
+
+
+def test_dialoog_met_maand_only(tmp_path):
+    """yyyy-MM wordt geaccepteerd; dag wordt 1."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    bron = _maak_pdf_source(document_date="2024-01")
+    dialog = EditMetadataDialog(bron=bron, taal="nl_NL", import_service=service)
+
+    assert dialog.documentdatum_edit.date() == QDate(2024, 1, 1)
+    assert dialog.datum_onbekend_checkbox.isChecked() is False
+    assert dialog.documentdatum_edit.isEnabled() is True
+
+
+def test_dialoog_met_jaar_only(tmp_path):
+    """yyyy wordt geaccepteerd; datum wordt 1 januari."""
+    _app()
+    service = ImportService(catalog_path=tmp_path / "cat.json")
+    bron = _maak_pdf_source(document_date="2024")
+    dialog = EditMetadataDialog(bron=bron, taal="nl_NL", import_service=service)
+
+    assert dialog.documentdatum_edit.date() == QDate(2024, 1, 1)
+    assert dialog.datum_onbekend_checkbox.isChecked() is False
+    assert dialog.documentdatum_edit.isEnabled() is True
 
 
 # ============================================================================

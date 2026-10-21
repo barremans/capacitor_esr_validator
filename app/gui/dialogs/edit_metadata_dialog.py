@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/dialogs/edit_metadata_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-07
+Versie:     1.2.0
+Datum:      2026-10-20
 Auteur:     Bart Bossuyt
 
 Doel:       Modale dialoog waarmee de gebruiker de metadata van een eigen
@@ -23,6 +23,12 @@ Wijzigingen:
   v1.1.0 (2026-10-16)  Fase 11C: dialoog krijgt een venstericoon via
                         de centrale helper app/helpers/icon_paths.
                         Geen wijziging aan de metadatalogica.
+  v1.2.0 (2026-10-20)  Fase 11F.4: datum-parsing verfijnd. Nieuwe pure
+                        helper _parse_datum_naar_qdate accepteert naast
+                        yyyy-MM-dd ook yyyy/MM/dd, dd-MM-yyyy, yyyy-MM
+                        (dag 1) en yyyy (1 januari). Lukt geen enkel
+                        formaat, dan blijft "Datum onbekend" aangevinkt.
+                        Geen wijziging aan de overige metadatalogica.
 ================================================================================
 """
 
@@ -119,6 +125,63 @@ class EditMetadataDialog(QDialog):
     def _on_titel_bewerkt(self, _tekst: str) -> None:
         self._update_save_state()
 
+    @staticmethod
+    def _parse_datum_naar_qdate(ruwe: str) -> QDate:
+        """Probeer een ruwe datumstring om te zetten naar een geldige QDate.
+
+        Volgorde van ondersteunde formaten:
+          1. yyyy-MM-dd   (ISO, exact)         bv. "2024-01-31"
+          2. yyyy/MM/dd   (schuine streep)     bv. "2024/01/31"
+          3. dd-MM-yyyy   (NL-notatie)         bv. "31-01-2024"
+          4. yyyy-MM      (maand-only → dag 1) bv. "2024-01"
+          5. yyyy         (jaar-only → 1 jan)  bv. "2024"
+
+        Retourneert een ongeldige QDate als geen enkel formaat past.
+        """
+        tekst = (ruwe or "").strip()
+        if not tekst:
+            return QDate()
+
+        # 1. ISO yyyy-MM-dd
+        qdate = QDate.fromString(tekst, "yyyy-MM-dd")
+        if qdate.isValid():
+            return qdate
+
+        # 2. yyyy/MM/dd
+        qdate = QDate.fromString(tekst, "yyyy/MM/dd")
+        if qdate.isValid():
+            return qdate
+
+        # 3. dd-MM-yyyy
+        qdate = QDate.fromString(tekst, "dd-MM-yyyy")
+        if qdate.isValid():
+            return qdate
+
+        # 4. yyyy-MM → dag 1
+        if len(tekst) == 7 and tekst[4] == "-":
+            jaar_str, maand_str = tekst.split("-", 1)
+            try:
+                jaar = int(jaar_str)
+                maand = int(maand_str)
+            except ValueError:
+                return QDate()
+            if 1 <= maand <= 12:
+                qdate = QDate(jaar, maand, 1)
+                if qdate.isValid():
+                    return qdate
+
+        # 5. yyyy → 1 januari
+        if len(tekst) == 4 and tekst.isdigit():
+            try:
+                jaar = int(tekst)
+            except ValueError:
+                return QDate()
+            qdate = QDate(jaar, 1, 1)
+            if qdate.isValid():
+                return qdate
+
+        return QDate()
+
     # ---------------------------------------------------------------- UI
 
     def _build_ui(self) -> None:
@@ -139,7 +202,6 @@ class EditMetadataDialog(QDialog):
 
         self.title_label_field = QLabel()
         self.title_edit = QLineEdit()
-        # Titel krijgt GEEN uppercase; het is vrije tekst.
         self.title_edit.textEdited.connect(self._on_titel_bewerkt)
         form.addRow(self.title_label_field, self.title_edit)
 
@@ -201,11 +263,9 @@ class EditMetadataDialog(QDialog):
         layout.addLayout(form)
         layout.addStretch()
 
-        # Ctrl+D: zet documentdatum op vandaag.
         self._datum_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
         self._datum_shortcut.activated.connect(self._zet_datum_op_vandaag)
 
-        # Knoppen
         button_row = QHBoxLayout()
         button_row.addStretch()
         self.cancel_btn = QPushButton()
@@ -251,7 +311,6 @@ class EditMetadataDialog(QDialog):
         self.notities_label.setText(
             self._t("documentatie.import.veld_notities")
         )
-        # Categorie-dropdown vullen/herzetten via de gedeelde helper.
         huidige_selectie = self.categorie_combo.currentData()
         vul_categorie_combo(self.categorie_combo, self._t)
         if self.categorie_combo.count() > 0:
@@ -275,10 +334,8 @@ class EditMetadataDialog(QDialog):
         Wordt aangeroepen nadat _apply_language de labels en de dropdown
         heeft gezet, zodat de categorie-selectie correct kan worden gezet.
         """
-        # Titel
         self.title_edit.setText(self.bron.title)
 
-        # Categorie: match op value. Onbekende of lege waarde → DATASHEET.
         ruwe_categorie = self.bron.category
         if isinstance(ruwe_categorie, str) and ruwe_categorie.strip():
             gezocht = ruwe_categorie.strip().upper()
@@ -287,30 +344,24 @@ class EditMetadataDialog(QDialog):
         idx = self.categorie_combo.findData(gezocht)
         self.categorie_combo.setCurrentIndex(idx if idx >= 0 else 0)
 
-        # Tekstvelden: alle metadata is al genormaliseerd naar uppercase
-        # door ImportSource.__post_init__, dus setText is veilig.
-        # setText vuurt textEdited NIET, dus geen ongewilde conversie.
         self.fabrikant_edit.setText(self.bron.manufacturer or "")
         self.serie_edit.setText(self.bron.series or "")
         self.partnummer_edit.setText(self.bron.part_number or "")
         self.documentversie_edit.setText(self.bron.document_version or "")
         self.notities_edit.setText(self.bron.notes or "")
 
-        # Datum: probeer ISO-formaat yyyy-MM-dd. Lukt dat niet, dan
-        # "Datum onbekend" aan.
+        # Datum: probeer de ruwe string via _parse_datum_naar_qdate.
+        # Lukt dat niet, dan "Datum onbekend" aanvinken.
         ruwe_datum = self.bron.document_date
+        qdate = QDate()
         if isinstance(ruwe_datum, str) and ruwe_datum.strip():
-            qdate = QDate.fromString(ruwe_datum.strip(), "yyyy-MM-dd")
-            if qdate.isValid():
-                # Blokkeer signalen niet nodig; setDate vuurt geen toggled.
-                self.documentdatum_edit.setDate(qdate)
-                with QSignalBlocker(self.datum_onbekend_checkbox):
-                    self.datum_onbekend_checkbox.setChecked(False)
-                self.documentdatum_edit.setEnabled(True)
-            else:
-                with QSignalBlocker(self.datum_onbekend_checkbox):
-                    self.datum_onbekend_checkbox.setChecked(True)
-                self.documentdatum_edit.setEnabled(False)
+            qdate = self._parse_datum_naar_qdate(ruwe_datum)
+
+        if qdate.isValid():
+            self.documentdatum_edit.setDate(qdate)
+            with QSignalBlocker(self.datum_onbekend_checkbox):
+                self.datum_onbekend_checkbox.setChecked(False)
+            self.documentdatum_edit.setEnabled(True)
         else:
             with QSignalBlocker(self.datum_onbekend_checkbox):
                 self.datum_onbekend_checkbox.setChecked(True)
@@ -323,7 +374,6 @@ class EditMetadataDialog(QDialog):
     def _save(self) -> None:
         titel = self.title_edit.text().strip()
         if not titel:
-            # Zou niet moeten kunnen (knop disabled), maar defensief.
             return
 
         try:
@@ -351,7 +401,7 @@ class EditMetadataDialog(QDialog):
 
         self.metadata_saved.emit(result.source.source_id)
         self.accept()
-        
+
     def _zet_eigen_icoon(self) -> None:
         try:
             from app.helpers.icon_paths import zet_venster_icoon

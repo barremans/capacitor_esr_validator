@@ -1,7 +1,4 @@
 {
-  "dialog": {
-    "documentatie_placeholder": "The documentation section will be developed further in a later phase."
-  },
   "documentatie": {
     "titel": "Documentation",
     "zoeken": "Search",
@@ -28,6 +25,15 @@
       "versie": "Version"
     },
     "status_kolom": {
+      "concept": "Concept",
+      "actief": "Active",
+      "gearchiveerd": "Archived",
+      "gearchiveerd_met_reden": "Archived: {reden}"
+    },
+    "status_filter": {
+      "label": "Status",
+      "tooltip": "Filter by lifecycle status. 'All' also shows archived imports.",
+      "alle": "All",
       "concept": "Concept",
       "actief": "Active",
       "gearchiveerd": "Archived"
@@ -64,8 +70,41 @@
     "status_wijzigen_fout_bericht": "Status could not be changed: {bericht}",
     "status_wijzigen_bevestiging_archiveren": "Are you sure you want to archive this source? The source disappears from the default list but is kept.",
     "status_wijzigen_bevestiging_terug": "Are you sure you want to set this source back to Concept? The source reappears in the default list.",
-    "toon_gearchiveerd": "Show archived",
-    "toon_gearchiveerd_tooltip": "Also show archived imports in the list.",
+    "status_wijzigen_reden": {
+      "reden_label": "Reason (optional)",
+      "reden_placeholder": "Why are you archiving this source?",
+      "reden_tooltip": "The reason is stored and shown as a tooltip on the status."
+    },
+    "bulk_edit": {
+      "knop": "Bulk edit…",
+      "knop_tooltip": "Edit metadata of the selected own imports at once",
+      "knop_tooltip_uit": "Select at least one own import to use bulk edit",
+      "titel": "Edit metadata of multiple imports",
+      "subtitel": "Adjust the metadata of {aantal} selected imports. Tick each field you want to change; unticked fields remain unchanged.",
+      "wijzigen": "Change",
+      "wijzigen_tooltip": "Tick to change this field for all selected imports.",
+      "opslaan": "Apply",
+      "annuleren": "Cancel",
+      "fout_titel": "Error applying",
+      "titel_leeg": "The title cannot be empty if you want to change it."
+    },
+    "bulk_status": {
+      "knop": "Bulk status…",
+      "knop_tooltip": "Change status of the selected own imports at once",
+      "knop_tooltip_uit": "Select at least one own import to use bulk status",
+      "titel": "Change status of multiple imports",
+      "subtitel": "Choose the new status for {aantal} selected imports. Rows with a disallowed transition are skipped.",
+      "opslaan": "Apply",
+      "annuleren": "Cancel",
+      "bevestiging_archiveren": "Are you sure you want to archive {aantal} selected source(s)? They disappear from the default list but are kept.",
+      "bevestiging_concept": "Are you sure you want to set {aantal} selected source(s) back to Concept? They reappear in the default list."
+    },
+    "bulk_resultaat": {
+      "titel": "Bulk action completed",
+      "samenvatting": "{gelukt} succeeded, {overgeslagen} skipped, {mislukt} failed.",
+      "fout_titel": "Error in bulk action",
+      "fout_bericht": "Could not read the selection: {bericht}"
+    },
     "document_fout": "Document could not be opened: {bericht}",
     "document_titels": {
       "esr_safe_discharge": "Safely discharge a capacitor before measurement",
@@ -90,7 +129,6 @@
       "notities": "Notes",
       "bron_url": "Source URL",
       "locator": "Source location",
-      "ondersteunt": "Supports",
       "bron_notitie": "Source note"
     },
     "help": {
@@ -107,7 +145,7 @@
       "tips_titel": "Tips",
       "tips": "Start broad and refine. An empty search field shows everything. Combine the search field with the category and tool dropdown filters to narrow further.",
       "filters_titel": "Difference with filters",
-      "filters_tekst": "The search field searches human-readable metadata. The filter dropdowns (category, tool) filter on structured context. Both work together.",
+      "filters_tekst": "The search field searches human-readable metadata. The filter dropdowns (category, tool, status) filter on structured context. Both work together.",
       "sluiten": "Close"
     },
     "import": {

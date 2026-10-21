@@ -11,10 +11,210 @@ Note on version numbering:
   `releases/latest/version.txt`.
 - Before v1.1.1, the numbering is historical: the early development
   phases used their own 1.x counter that did not always match the
-  final releases. Those entries remain as functional milestones;
-  they cannot be mapped 1-to-1 to a specific `app/version.py` value.
+  final releases. Those entries remain as functional milestones; they
+  cannot be mapped 1-to-1 to a specific `app/version.py` value.
 - For the current version: see `app/version.py` or Help → About.
 -->
+
+### Phase 11G — Dark theme visuals (20 October 2026)
+
+**Motivation**
+
+Five visual points from earlier sessions were still open: checkbox
+and radio focus were invisible in the dark theme, the scrollbar in
+the Word summary of the import wizard was light, the Analysis page
+had no readable tick format, no zoom/pan and no clickable data
+points. In addition, the menu option "Exit" on a subpage only closed
+the window instead of the application.
+
+**Solution: seven sub-phases**
+
+- **11G.1 — Checkbox and radio visibility.** `styles.py` (v1.4.0)
+  gains `QCheckBox::indicator:focus`, `QRadioButton::indicator:focus`,
+  `QTableView::indicator` (for selection checkboxes in tables),
+  `QGroupBox::indicator` (for checkable group boxes) and
+  `QComboBox::drop-down:hover`. New pure tests in
+  `tests/test_styles.py` (v1.0.0).
+- **11G.2 — Dark scrollbar.** `styles.py` (v1.5.0) gains
+  `QScrollBar:vertical` and `QScrollBar:horizontal` with dark track,
+  grey handle, hover/pressed states, and disabled arrow buttons
+  (`add-line`/`sub-line` at `height: 0` / `width: 0`). Resolves the
+  light scrollbar in the Word summary without a local override in
+  the wizard. `tests/test_styles.py` (v1.1.0) gains three scrollbar
+  tests.
+- **11G.3 — Axis scaling and tick format.** `analysis_screen.py`
+  (v1.4.0) gives `QValueAxis` an explicit `labelFormat` per chart
+  type (ESR mΩ: `%.0f`, C µF: `%.1f`, D: `%.3f`, scatter x/y:
+  `%.0f`), sets `tickCount` to 6, and gives the y-axis 5% margin on
+  both sides. `QDateTimeAxis` gets an adaptive format based on the
+  range (`dd-MM HH:mm` / `dd-MM-yyyy` / `MM-yyyy`).
+  `test_analysis_screen.py` (v1.4.0) gains five tests.
+- **11G.4 — Zoom/pan.** `analysis_screen.py` (v1.5.0) sets
+  `QChartView.RubberBand.RectangleRubberBand` for rectangle zoom,
+  adds a `wheelEvent` override for Ctrl+wheel zoom, a
+  `reset_zoom_btn` with shortcut Ctrl+0, and a `refresh()` that
+  automatically resets the zoom. The original axis range is stored
+  per axis in `_originele_x_range` / `_originele_y_range`, because
+  `QChart.zoomReset()` restores the range that was active at the
+  moment of the reset, not the original one. New i18n keys
+  `analyse.zoom.reset_knop` and `analyse.zoom.reset_tooltip` (NL +
+  EN). `test_analysis_screen.py` (v1.5.0) gains five tests.
+  **Fix in v1.5.1:** `QChartView.RubberBand.Rectangle` does not
+  exist; the correct constant is `RectangleRubberBand`.
+- **11G.5 — Clickable data points + selection-driven analysis.** The
+  existing `export_scope_combo` (attribute name unchanged) now also
+  drives the chart scope. Labels come from `analyse.scope.*`
+  (NL + EN). At scope SELECTED with ≥1 checked measurement, the GUI
+  passes `measurement_ids=[...]` to the service. `AnalysisService`
+  (v1.1.0) gains an optional `measurement_ids` parameter on
+  `load_rows()` and all series functions. In `_draw_scatter` each
+  `QScatterSeries` gets a `clicked` connection that ticks the
+  corresponding row. `test_analysis_screen.py` (v1.6.0) gains six
+  tests, `test_analysis_service.py` (v1.1.0) two.
+  **Fix in v1.6.1–v1.6.3:** `refresh(preserve_selection=True)`
+  preserves the selection at scope SELECTED; the "Selection
+  cleared" message returns on a normal refresh; `_category_label`
+  and `_category_color` had accidentally disappeared and are
+  restored. `test_analysis_screen_nan.py` (v1.0.4) and
+  `test_main_window_report_menu.py` (v1.4.1) gain the new
+  `measurement_ids` parameter on their stubs.
+- **11G.6 — Explicit exit closes the app.** `main_window.py`
+  (v2.20.0) gains a `_force_close` flag and a `_sluit_app()` method.
+  Menu "Exit" (Ctrl+Q) and the confirmation dialog on the hub use
+  `_sluit_app()`. `closeEvent` accepts the event if `_force_close`
+  is True; otherwise the contextual "back to hub" behaviour for the
+  window-X on a subpage remains.
+  `test_navigation_regressions.py` (v1.2.0) gains five tests.
+- **11G.7 — Checkbox adjustment (planned, not yet executed).** The
+  user wants to adjust the checkboxes further. Scope will be
+  determined in the next session.
+
+**Important observation: test count and `--collect-only`**
+
+In 11G.1 through 11G.6 my own estimates sometimes deviated from the
+actual counts. The actual counts via `pytest --collect-only -q` per
+file and the full `pytest -q` were consistent. In every sub-phase
+the sum of the targeted `--collect-only` was compared with the full
+suite. The "verify test count per phase" rule is tightened in
+`overdracht.md` v6.0.0.
+
+**For developers**
+
+- **Changed:** `app/gui/styles.py` (v1.3.0 → v1.5.0) — focus states,
+  table indicator, groupbox indicator, combobox hover, dark
+  scrollbar. Stylesheet string moved to module-level constant
+  `DARK_THEME_STYLESHEET`.
+- **Changed:** `app/gui/analysis_screen.py` (v1.3.0 → v1.6.3) —
+  axis scaling, tick format, zoom/pan, clickable scatter points,
+  selection-driven scope.
+- **Changed:** `app/services/analysis_service.py` (v1.0.0 → v1.1.0)
+  — optional `measurement_ids` parameter.
+- **Changed:** `app/gui/main_window.py` (v2.19.1 → v2.20.0) —
+  `_force_close`, `_sluit_app()`, `closeEvent` update.
+- **New:** `tests/test_styles.py` (v1.1.0, 9 tests).
+- **Changed:** `tests/test_analysis_screen.py` (v1.3.1 → v1.6.2,
+  30 → 46 tests), `tests/test_analysis_screen_nan.py`
+  (v1.0.3 → v1.0.4, 6 tests), `tests/test_analysis_service.py`
+  (v1.0.0 → v1.1.0, 7 → 9 tests),
+  `tests/test_main_window_report_menu.py` (v1.4.0 → v1.4.1),
+  `tests/test_navigation_regressions.py` (v1.1.0 → v1.2.0,
+  5 → 10 tests).
+- **New i18n keys:** `analyse.zoom.reset_knop`,
+  `analyse.zoom.reset_tooltip`, `analyse.scope.selectie`,
+  `analyse.scope.filters`, `analyse.scope.tooltip` (NL + EN).
+- **Baseline:** 1462 → **1491 passed** (+29 tests over 11G.1
+  through 11G.6).
+
+### Phase 11F — Documentation extension (20 October 2026)
+
+**Motivation**
+
+The documentation library had four practical limitations: there was
+no place to record why an import was archived, the "Show archived"
+checkbox was an all-or-nothing switch, you could only edit or change
+the status of one import at a time, and `EditMetadataDialog` accepted
+only ISO dates as an existing `document_date`. In addition, two
+cosmetic points (§4.21, §4.23) were still open, and there were some
+unused i18n keys.
+
+**Solution: four sub-phases**
+
+- **11F.1 — Archive reason.** `ImportService.archive(source_id, *,
+  reason=None)` in `import_service.py` (v1.5.0). `ImportSource` gains
+  `archive_reason` (v1.4.0), backward-compatible. `revoke` keeps the
+  reason; `replace_source` and `update_metadata` leave the field
+  untouched. `ChangeStatusDialog` (v1.2.0) shows an optional reason
+  field when archiving. `DocumentationScreen` (v2.4.0) shows the
+  reason as a tooltip on the Status column for an archived user
+  import.
+- **11F.2 — Status filter.** `DocumentationScreen` (v2.5.0) replaces
+  the "Show archived" checkbox with a `status_filter_combo` with four
+  options (All / Concept / Active / Archived). The GUI filters on
+  `import_status` after fetching from the service. New i18n keys
+  under `documentatie.status_filter.*`; the old
+  `documentatie.toon_gearchiveerd(_tooltip)` are removed.
+- **11F.3 — Bulk edit and bulk status change.** Two new dialogs:
+  `BulkEditMetadataDialog` (v1.0.0) with a checkbox per field, and
+  `BulkChangeStatusDialog` (v1.0.0) with a fixed target status and
+  optional reason when archiving. `DocumentationScreen` (v2.6.0) is
+  on `ExtendedSelection` with two new buttons "Bulk edit…" and "Bulk
+  status…", only active with ≥1 selected user import. The GUI runs
+  the bulk update via a loop over the existing `ImportService`
+  methods and then shows one summary with counts succeeded/skipped/
+  failed. New i18n keys under `documentatie.bulk_edit.*`,
+  `documentatie.bulk_status.*` and `documentatie.bulk_resultaat.*`.
+- **11F.4 — Date parsing + cosmetic points + i18n cleanup.**
+  `EditMetadataDialog` (v1.2.0) has a new pure helper
+  `_parse_datum_naar_qdate` that accepts `yyyy/MM/dd`, `dd-MM-yyyy`,
+  `yyyy-MM` (day 1) and `yyyy` (1 January) in addition to
+  `yyyy-MM-dd`. §4.21 resolved: `test_icon_paths.py` (v1.1.0) uses
+  the project convention `_app()` helper instead of the local
+  `@pytest.fixture(scope="module")`. §4.23 resolved: `_fake_translate`
+  in `test_gui_language_switch.py` (v1.3.1) does real format
+  substitution where the key contains `{placeholders}`; for keys
+  without placeholders in the key string, the kwargs are still
+  appended as `[k=v,...]`. i18n cleanup: unused keys
+  `dialog.documentatie_placeholder` and
+  `documentatie.info.ondersteunt` removed from NL and EN.
+
+**Important observation: test count and Compare-Object**
+
+In 11F.2 and 11F.4, my own estimates deviated. The actual counts via
+`pytest --collect-only -q` per file and the full `pytest -q` were
+consistent. When rewriting the checkbox section in 11F.2, two tests
+were accidentally removed; found with `Compare-Object` against the
+previous version and restored in v1.13.1. The "verify test count per
+phase" rule is tightened in `overdracht.md` v6.0.0 with
+`Compare-Object`.
+
+**For developers**
+
+- **Changed:** `app/gui/documentation_screen.py` (v2.4.0 → v2.6.0) —
+  status filter dropdown, `ExtendedSelection`, two bulk buttons, new
+  helpers.
+- **Changed:** `app/gui/dialogs/edit_metadata_dialog.py`
+  (v1.1.0 → v1.2.0) — `_parse_datum_naar_qdate` with fallback chain.
+- **New:** `app/gui/dialogs/bulk_edit_metadata_dialog.py` (v1.0.0) —
+  bulk metadata editor, checkbox per field.
+- **New:** `app/gui/dialogs/bulk_change_status_dialog.py` (v1.0.0) —
+  bulk status editor, fixed target status.
+- **New tests:** `tests/test_bulk_edit_metadata_dialog.py` (11 tests),
+  `tests/test_bulk_change_status_dialog.py` (10 tests), extension of
+  `tests/test_documentation_screen.py` (55 → 63 tests), extension of
+  `tests/test_edit_metadata_dialog.py` (22 → 34 tests).
+- **Changed tests:** `tests/test_icon_paths.py` (v1.0.0 → v1.1.0,
+  helper swap, 18 tests), `tests/test_gui_language_switch.py`
+  (v1.2.0 → v1.3.1, helper swap, 7 tests).
+- **New i18n keys:** `documentatie.status_kolom.gearchiveerd_met_reden`,
+  `documentatie.status_wijzigen_reden.*`,
+  `documentatie.status_filter.*`, `documentatie.bulk_edit.*`,
+  `documentatie.bulk_status.*`, `documentatie.bulk_resultaat.*`
+  (NL + EN).
+- **Removed i18n keys:** `documentatie.toon_gearchiveerd`,
+  `documentatie.toon_gearchiveerd_tooltip`,
+  `dialog.documentatie_placeholder`, `documentatie.info.ondersteunt`
+  (NL + EN).
+- **Baseline:** 1395 → **1462 passed** (+67 tests across 11F.1–11F.4).
 
 ### Phase 11E — Async network (16 October 2026)
 
@@ -23,8 +223,6 @@ Note on version numbering:
 The update check, the release-notes fetch and the URL import in the
 import wizard performed their network traffic **synchronously on the
 GUI thread**. On a slow or unreachable server the GUI froze briefly.
-That was not functionally wrong, but it does not feel like a
-diagnostic instrument.
 
 **Solution: three sub-phases**
 
@@ -34,24 +232,17 @@ diagnostic instrument.
   `QThreadPool`. `app/helpers/updater.py` (v1.2.0) gains
   `check_for_update_async()` and `fetch_release_notes_async()`.
   `app/gui/main_window.py` (v2.18.0) uses those async variants for
-  the startup check and the manual check. The existing synchronous
-  APIs remain unchanged for tests and non-GUI use.
+  the startup check and the manual check.
 - **11E.2 — Async URL fetch in the import wizard.**
   `app/documentation/url_fetch.py` (v1.2.0) gains
   `fetch_url_metadata_async()` and `fetch_url_content_async()`.
   `app/gui/dialogs/import_wizard_dialog.py` (v2.0.0) uses those
   async variants; while waiting, the buttons are disabled and the
-  summary shows a "Busy…" text. New i18n keys:
-  `documentatie.import.bezig_metadata` and
-  `documentatie.import.bezig_import` (NL + EN).
+  summary shows a "Busy…" text.
 - **11E.3 — Force three-button message for QA.**
   `app/config/settings.py` (v1.7.0) gains `algemeen.qa_modus`
   (default `False`). `app/gui/main_window.py` (v2.19.0) shows a
   hidden QA menu item in the Help menu when `qa_modus` is True.
-  That item calls `_toon_update_melding_voor_qa()`, which passes a
-  synthetic `UpdateInfo` (version 99.99.99) to the existing
-  three-button message (Download / What's new? / Later). New i18n
-  key: `menu.qa_toon_update_melding` (NL + EN).
 
 **Important bugfix in 11E.1**
 
@@ -113,53 +304,32 @@ i18n.
 **Solution**
 
 - `Beoordeling` gains a `taal` field populated by `beoordeel_meting`.
-  The GUI can use it to detect that a result was produced in a
-  different language than the current GUI language.
 - After a live language switch, the ESR screen shows a clear banner in
   the GUI language ("This result was produced in {oude_taal}.
   Re-assess to display it in {nieuwe_taal}."). The already-translated
   result strings remain in their own language; no silent mixing.
 - `_show_result` and `_build_result_html` translate all
   result-specific labels in `resultaat.taal` instead of `self.taal`.
-  The GUI chrome continues to use `self.taal`.
 - The `*` annotation for a frequency difference now goes through two
   new i18n keys (`resultaat.esr_factor_frequentie_indicatief` and
   `resultaat.esr_factor_frequentie_indicatief_kort`) in NL and EN.
 - Bugfix in `apply_language`: the condition `result_group.isVisible()`
-  is replaced by `_laatste_resultaat is not None`. In
-  offscreen/headless situations (tests, pages not yet active in the
-  `QStackedWidget`), `isVisible()` is False and the banner was never
-  shown. `isVisible()` was also not the right check in production.
+  is replaced by `_laatste_resultaat is not None`.
 
 **For developers**
 
 - `app/services/assessment_service.py` (v1.6.0) — `Beoordeling` has
-  the extra field `taal: str = STANDAARD_TAAL`. `beoordeel_meting`
-  populates it with the `taal` parameter.
+  the extra field `taal: str = STANDAARD_TAAL`.
 - `app/gui/esr_test_screen.py` (v1.14.0) — `_show_result` detects a
   language mismatch and shows `result_language_banner`. New helper
-  `_t_voor(taal, sleutel, **kwargs)` for translations in the language
-  of the result. `_build_result_html` uses `resultaat.taal` for all
-  result-specific labels. `apply_language` uses
-  `_laatste_resultaat is not None` instead of
-  `result_group.isVisible()`.
-- New i18n keys under `resultaat`:
-  - `taal_mismatch_banner` — "Dit resultaat is opgesteld in het
-    {oude_taal}. Beoordeel opnieuw om het in het {nieuwe_taal} weer te
-    geven." (EN: "This result was produced in {oude_taal}. Re-assess
-    to display it in {nieuwe_taal}.")
-  - `esr_factor_frequentie_indicatief` — "Indicatieve
-    ESR-vergelijking: meet- en referentiefrequentie verschillen."
-  - `esr_factor_frequentie_indicatief_kort` — "* indicatief:
-    frequentieverschil"
+  `_t_voor(taal, sleutel, **kwargs)`.
+- New i18n keys under `resultaat`: `taal_mismatch_banner`,
+  `esr_factor_frequentie_indicatief`,
+  `esr_factor_frequentie_indicatief_kort` (NL + EN).
 - `tests/test_assessment.py` (v1.5.1) — 5 new tests in
-  `TestBeoordelingTaal` proving that `Beoordeling.taal` is populated
-  correctly and that the translated strings are in the specified
-  language.
-- `tests/test_gui_language_switch.py` (v1.2.0) — 3 new tests covering
-  the language-mismatch banner. The `_fake_translate` stub now passes
-  kwargs through to the output; `_fake_esr_settings` also provides a
-  `beoordeling` namespace.
+  `TestBeoordelingTaal`.
+- `tests/test_gui_language_switch.py` (v1.2.0) — 3 new tests for
+  the language-mismatch banner.
 - **Baseline:** 1358 → **1366 passed** (+8 tests).
 
 ## Version 1.2.0 — Frequency-specific references and threshold validation (15 October 2026)
@@ -172,55 +342,37 @@ application now picks the reference profile closest to the actual
 measurement frequency.
 
 - **Official ESR70 table** — 100 kHz. Remains the primary source for
-  100 kHz measurements (the LCR-ST1 cannot do this itself, but other
-  instruments can).
-- **Estimated profiles** — 100 Hz, 1 kHz and 10 kHz. These are
-  derived from the official ESR70 table via the Nichicon frequency
-  coefficients:
-  - 100 Hz — × 2.00
-  - 1 kHz — × 1.50
-  - 10 kHz — × 1.15
-- The estimated profiles are explicitly marked as an **estimate**
-  (`is_schatting: true`) and carry a lower reliability level.
-  They are not a datasheet value.
+  100 kHz measurements.
+- **Estimated profiles** — 100 Hz, 1 kHz and 10 kHz, derived from the
+  official ESR70 table via the Nichicon frequency coefficients
+  (×2.00 / ×1.50 / ×1.15). Explicitly marked as an **estimate**
+  (`is_schatting: true`) with a lower reliability level.
 
 **Why this change**
 
 The LCR-ST1 measures at 1 kHz and 10 kHz. The official ESR70 table
 applies to 100 kHz. Because ESR falls with frequency, the comparison
-was structurally too strict: good capacitors got factors that were
-too low. With the new profiles, the comparison is correct again.
+was structurally too strict.
 
 **Validated against 72 field measurements**
 
-The new references were validated against 72 field measurements from
-the history. For good capacitors, the factors dropped to
-**0.09–0.41** — a healthy distribution.
-
-**Thresholds remain unchanged**
-
-The thresholds `≤1.0 / ≤2.0 / ≤3.0` remain as they are. With the new
-references, they mean what they should: a healthy capacitor sits well
-below 1.0, with room for degradation before "point of attention" is
-reached.
+For good capacitors, the factors dropped to **0.09–0.41** — a healthy
+distribution. The thresholds `≤1.0 / ≤2.0 / ≤3.0` remain unchanged.
 
 **Visible in the result**
 
 The result now explicitly shows the **reference frequency** used for
-the comparison. That way you see immediately whether the measurement
-and the reference are on the same frequency.
+the comparison.
 
 **For developers**
 
 - `app/data/references/esr_references.json` — new profiles
-  `algemeen_100hz_geschat`, `algemeen_1khz_geschat` and
-  `algemeen_10khz_geschat`, each with the full ESR70 table scaled.
+  `algemeen_100hz_geschat`, `algemeen_1khz_geschat`,
+  `algemeen_10khz_geschat`.
 - `app/data/references/__init__.py` — `zoek_referentie()` accepts
-  `meetfrequentie_hz` and picks the closest profile with rules.
+  `meetfrequentie_hz`.
 - `app/services/assessment_service.py` — `Beoordeling` has the field
   `referentiefrequentie_hz`.
-- `app/gui/esr_test_screen.py` — passes `meetfrequentie_hz` to
-  `zoek_referentie` and displays the actual reference frequency.
 - New i18n key: `resultaat.referentiefrequentie` (NL + EN).
 - New analysis script: `scripts/herbereken_steekproef.py`.
 
@@ -229,57 +381,35 @@ and the reference are on the same frequency.
 **Export now respects the selection**
 
 In **History** and **Analysis** you can use a scope dropdown to choose
-what to export: **current filters** or **selection**. If you check one
-or more measurements in the table, the app exports only those. Without
-a selection, the app exports the full filter result.
+what to export: **current filters** or **selection**.
 
 **Selection and report in the Analysis page**
 
-The **Analysis** page has a compact selection list below the chart.
-If you check one or more measurements there, you can:
-
-- **Export…** — as overview CSV, detail CSV, or both.
-- **Create report…** — a report for exactly that selection.
+The **Analysis** page has a compact selection list below the chart
+with **Export…** and **Create report…**.
 
 **Report with scope "selection"**
 
 The measurement report now supports a report over **multiple
-measurements**. The report header shows the scope ("Single measurement"
-or "Selection"). The chart section is only available for a single
-measurement.
+measurements**.
 
 **Menu "Create report…" is disabled without a selection**
 
 In the **File** menu, the item **Create report…** is now disabled
-while no measurement is selected. A tooltip explains why. On the
-**Analysis** page, the item becomes active as soon as you have a
-checkbox selection.
+while no measurement is selected.
 
 **Folder preferences are respected everywhere**
 
-A new pure helper (`app/helpers/dialog_start_directory.py`) determines
-the best start folder for every `QFileDialog`:
-
-- **Export** — `laatste_exportmap` → `standaard_exportmap`.
-- **Import** — `laatste_importmap` → `standaard_importmap`.
-- **Report** — `laatste_rapportmap` → `standaard_exportmap`.
-
-After a successful export/import/report, the folder used is
-automatically remembered for next time.
+A new pure helper (`app/helpers/dialog_start_directory.py`)
+determines the best start folder for every `QFileDialog`.
 
 **For developers**
 
-- `app/gui/analysis_screen.py` — compact selection list below the
-  chart via `QSplitter`, checkbox column, scope dropdown, type
-  dropdown, export button and `report_btn`. New signals
-  `selection_changed` and `back_requested`.
-- `app/gui/history_screen.py` — new `selection_changed` signal with
-  snapshot deduplication. `report_btn` respects the checkbox
-  selection.
-- `app/gui/main_window.py` — `_open_report_dialog()` chooses the scope
-  based on the active page and selection.
-- `app/gui/dialogs/report_dialog.py` — new classmethod
-  `for_measurements(measurement_ids, ...)`.
+- `app/gui/analysis_screen.py` — compact selection list, scope
+  dropdown, export button and `report_btn`.
+- `app/gui/history_screen.py` — `selection_changed` signal.
+- `app/gui/main_window.py` — `_open_report_dialog()`.
+- `app/gui/dialogs/report_dialog.py` — `for_measurements(...)`.
 - **New:** `app/helpers/dialog_start_directory.py` (v1.0.0).
 - New i18n keys: 24 under `analyse.selectie.*`, `analyse.export.*`,
   `analyse.rapport.*` and `menu.rapport_tooltip` (NL + EN).
@@ -287,133 +417,50 @@ automatically remembered for next time.
 
 ### Reliability rule revised (phase 11B, 16 October 2026)
 
-**Why this change**
-
-The rule in `bepaal_eindstatus` used
-`betrouwbaarheid.niveau == LAAG` as the trigger for at least
-`AANDACHTSPUNT`. As a result, a good capacitor without a known
-manufacturer/series never got `WAARSCHIJNLIJK_GOED`, even when C and
-ESR were well within tolerance.
-
 **Solution: substantive vs. administrative**
 
 There is now a distinction between **substantive** and
-**administrative** reliability reducers.
-
-- **Substantive** (affects the measurement context itself):
-  frequency difference, unknown or non-electrolytic capacitor type,
-  type mismatch of the reference, C-ESR-D inconsistency, ONE_LEG or
-  IN_CIRCUIT measurement method. These raise the minimum of the final
-  status.
-- **Administrative** (affects only the documentation/environment):
-  unknown ambient temperature, typical reference value, unknown
-  manufacturer/series. These lower the reliability, but do **not**
-  raise the minimum of the final status.
-
-**Concretely**
-
-"Probably good, low reliability due to administrative factors" is now
-possible, with an explicit reason in
-`eindstatus_reden.betrouwbaarheid_laag_administratief`.
+**administrative** reliability reducers. Substantive reducers raise
+the minimum of the final status; administrative reducers lower the
+reliability but do not raise the minimum. "Probably good, low
+reliability due to administrative factors" is now possible.
 
 **For developers**
 
 - `app/services/assessment_service.py` (v1.5.0) —
-  `BetrouwbaarheidsResultaat` has an extra field
-  `inhoudelijke_verlagers: tuple[str, ...] = ()`.
-  `bepaal_eindstatus` uses
-  `betrouwbaarheid.inhoudelijke_verlagers` instead of
-  `betrouwbaarheid.niveau == Betrouwbaarheid.LAAG` as the trigger for
-  at least `AANDACHTSPUNT`. In the `WAARSCHIJNLIJK_GOED` block, an
-  extra branch was added: if the reliability is LAAG due to
-  administrative reducers only, the status becomes
-  `WAARSCHIJNLIJK_GOED` with an explicit reason.
-- New i18n keys:
-  - `betrouwbaarheid_factor.categorie_inhoudelijk` — "content-related
-    reducer".
-  - `betrouwbaarheid_factor.categorie_administratief` —
-    "administrative reducer".
-  - `eindstatus_reden.betrouwbaarheid_laag_administratief`.
-  - `resultaat.inhoudelijke_verlagers` and
-    `resultaat.administratieve_verlagers`.
-- `tests/test_assessment.py` (v1.5.0) — 10 new tests. Two existing
-  tests adjusted:
-  - `test_meerdere_verlagende_factoren` — now expects 4 substantive
-    reducers (frequency, type, inconsistency, in-circuit).
-  - `test_gebruiksscenario_1_goed` — uses `D=None`, so the
-    consistency check does not interfere.
-- **Unchanged:** all thresholds in `settings.py`, the ESR
-  classification, the consistency logic, the GUI (the GUI reads
-  `verlagende_factoren`, which stays populated), and
-  `report_render.py`.
-- **Baseline:** 1329 → **1339 passed** (+10 tests, all in
-  `test_assessment.py`). The previously documented baseline of 1347
-  in `overdracht.md` v5.3.0 was incorrect and has been corrected in
-  v5.4.0.
+  `BetrouwbaarheidsResultaat` has `inhoudelijke_verlagers`.
+- New i18n keys: `betrouwbaarheid_factor.categorie_inhoudelijk`,
+  `betrouwbaarheid_factor.categorie_administratief`,
+  `eindstatus_reden.betrouwbaarheid_laag_administratief`,
+  `resultaat.inhoudelijke_verlagers`,
+  `resultaat.administratieve_verlagers` (NL + EN).
+- `tests/test_assessment.py` (v1.5.0) — 10 new tests.
+- **Baseline:** 1329 → **1339 passed** (+10 tests).
 
 ### Icons for all windows (phase 11C, 16 October 2026)
 
 **One application icon, twelve thematic icons**
 
 The application now has a complete icon set:
-
-- **One application icon** — `assets/icons/app.png` (256×256,
-  transparent) and `assets/icons/logo.ico` (resolutions 16, 32, 48,
-  64, 128 and 256). The application icon appears in the window title
-  bar, in the taskbar, on the EXE and in the installer.
-- **Twelve thematic icons** — for Diagnostics, ESR, History,
-  Documentation, Analysis, Report, Settings, Help, Bug/feature report,
-  Update and Exit. Each icon is 64×64 and transparent.
-
-**Where you see them**
-
-- The **hub buttons** (Diagnostics, History, Documentation, Analysis)
-  each have their own icon.
-- The **ESR test button** on the Diagnostics page uses `esr.png`.
-- The **menu items** in File, Diagnostics, Report, Settings and Help
-  have an icon where meaningful.
-- **Every dialog** automatically gets the application icon, even if
-  it is ever used separately from the main window.
-
-**Placeholders, to be replaced later**
-
-The current icons are **placeholders** generated by a script
-(`scripts/genereer_placeholders.py`). They are deliberately simple and
-flat: dark blue (`#1F4E79`) as the primary colour, cyan (`#4AA3FF`) as
-the accent. You can replace them at any time with final designs. The
-file names are fixed; the code then does not need to change.
-
-**No icon is not an error**
-
-`app/helpers/icon_paths.py` returns `None` if an icon does not exist.
-The GUI then simply omits the icon and keeps working. A build never
-breaks because of a missing file.
+`assets/icons/app.png`, `assets/icons/logo.ico` and twelve thematic
+icons (Diagnostics, ESR, History, Documentation, Analysis, Report,
+Settings, Help, Bug/feature report, Update, Exit). The current icons
+are **placeholders** generated by a script
+(`scripts/genereer_placeholders.py`). You can replace them later with
+final designs; the file names are fixed.
 
 **For developers**
 
-- **New:** `app/helpers/icon_paths.py` (v1.0.0) — pure path resolution
-  plus thin Qt wrappers. No hard Qt import at module level.
-- **New:** `scripts/genereer_placeholders.py` (v1.0.0) — generates all
-  PNGs and `logo.ico` with `QPainter`.
-- **Changed:** `main.py` (v1.5.0) — sets the application icon via
-  `QApplication.setWindowIcon()`.
-- **Changed:** `app/gui/main_window.py` (v2.17.0) — icons on hub
-  buttons, diagnostics buttons and menu items; dialogs get an icon
-  via `_zet_dialoog_icoon()`.
-- **Changed:** all dialogs in `app/gui/dialogs/` — own
-  `_zet_eigen_icoon()` in `__init__`.
-- **Changed:** `app/gui/esr_test_screen.py` (v1.13.0) — explicit
-  window icon, so the screen also shows the right icon when used
-  separately from the main window.
-- **New:** `tests/test_icon_paths.py` — 16 tests for the helper.
-- **New:** `tests/test_main_icon.py` — 1 test for the application
-  icon.
+- **New:** `app/helpers/icon_paths.py` (v1.0.0) — pure path
+  resolution plus thin Qt wrappers. No hard Qt import at module level.
+- **New:** `scripts/genereer_placeholders.py` (v1.0.0).
+- **Changed:** `main.py` (v1.5.0), `app/gui/main_window.py` (v2.17.0),
+  all dialogs in `app/gui/dialogs/`,
+  `app/gui/esr_test_screen.py` (v1.13.0).
+- **New:** `tests/test_icon_paths.py` (16 tests),
+  `tests/test_main_icon.py` (1 test).
 - **Extended:** `tests/test_main_window_help_menu.py` and
-  `tests/test_main_window_report_menu.py` — 1 test each for the icon
-  on the corresponding menu item.
-- **Unchanged:** `ESR_Tester.spec` and the Inno Setup `.iss` still
-  point to `assets/icons/logo.ico`; that file was replaced, not
-  renamed.
+  `tests/test_main_window_report_menu.py` (1 test each).
 - **Baseline:** 1339 → **1358 passed** (+19 tests).
 
 ## Version 1.1.1 — Update check at startup and via Help (15 October 2026)
@@ -421,289 +468,176 @@ breaks because of a missing file.
 **Automatic check for a newer version**
 
 At startup, the application checks once, without blocking, whether a
-newer version is available on GitHub. That check reads the "latest"
-pointer in `releases/latest/version.txt` and compares it with the
-version in `app/version.py`. You will not notice the check as long as
-there is no newer version.
+newer version is available on GitHub.
 
 **Manual check via Help**
 
 You can also run the check manually via
-**Help → Check for updates…**. You will always get a message: either
-"You are using the latest version", or a newer version with the
-**Download** button.
+**Help → Check for updates…**.
 
 **What's new?**
 
 If a newer version is available, the message also shows a
-**What's new?** button. That fetches the release notes that the
-developer entered on the GitHub release, and displays them in a
-readable window. From there you can open the release page on GitHub.
+**What's new?** button with the release notes from the GitHub
+release.
 
 **Setting: check for updates at startup**
 
 In **Settings → General** there is a new checkbox
-**Check for updates at startup**. It is on by default. The manual check
-via Help always remains available, even if you turn off the automatic
-check.
+**Check for updates at startup** (on by default).
 
 **Multilingual changelog**
 
 The changelog is now available per language: `docs/changelog/nl_NL.md`
-and `docs/changelog/en_US.md`. The Help menu automatically shows the
-version that matches the selected language, with the same fallback
-chain as the Help (language → Dutch → general).
+and `docs/changelog/en_US.md`.
 
 **For developers**
 
-- New module `app/helpers/updater.py` — pure update check logic, no Qt,
-  no token. Contains `check_for_update()` and `fetch_release_notes()`.
+- New module `app/helpers/updater.py`.
 - New resolver `changelog_pad_voor_taal()` in
-  `app/helpers/help_paths.py`, with the same fallback chain as Help.
+  `app/helpers/help_paths.py`.
 - New i18n keys under `update.*` and
   `settings.algemeen.controleer_updates` (NL + EN).
 - New setting `algemeen.controleer_updates_bij_opstarten` (default
-  `True`), backward-compatible with existing `settings.json`.
+  `True`), backward-compatible.
 
 ## Version 1.0.3 — Publication, test matrix and bug/feature reports (14 October 2026)
 
 **The application is now publicly available on GitHub**
 
 On 13 October 2026 the first public release **v1.0.3** appeared in the
-repo `barremans/capacitor_esr_validator`. The installer
-(`ESR_TesterSetup_1.0.3.exe`, about 63 MB) is signed and published,
-together with a **stable "latest" pointer** in
-`releases/latest/version.txt`. That pointer is the basis for the
-update check.
+repo `barremans/capacitor_esr_validator`.
 
 **Build pipeline extended with `publish.ps1` and `build_and_publish.ps1`**
 
 - **`publish.ps1`** — publishes the installer to GitHub, with a
-  **release gate** on the Authenticode signature. An unsigned
-  installer is never published.
-- **`build_and_publish.ps1`** — orchestrator that runs the whole chain:
-  bump version, build, sign, publish. It asks for the parameters
-  upfront.
+  **release gate** on the Authenticode signature.
+- **`build_and_publish.ps1`** — orchestrator that runs the whole chain.
 
 **Intune/Defender test matrix**
 
-The installer has been proven on two types of Windows PCs:
-
-- **Regular Windows PC** — SmartScreen shows a warning, but
-  "More info → Run anyway" works.
-- **Intune-managed PC** — the installer starts without a block, thanks
-  to a **Defender Certificate Indicator** (`Allow`) for the CGK
-  certificate. The app installs and works.
-
-WDAC and AppLocker are **not active** in the target environment; the
-Defender indicator is sufficient.
+The installer has been proven on two types of Windows PCs: a regular
+PC (SmartScreen warning, "More info → Run anyway" works) and an
+Intune-managed PC (starts without a block thanks to a Defender
+Certificate Indicator for the CGK certificate).
 
 **Bug and feature reports from the application**
 
-The main menu now has a **Report** menu with two options:
-
-- **🐞 Report a bug or feature…** — opens a report screen where you
-  describe a bug or feature request. The report is automatically
-  created as a **GitHub Issue** (label `bug` or `enhancement`). Your
-  name is pre-filled with your Windows username.
-- **Show open cases** — shows the open bug reports and feature
-  requests from the repo.
-
-Reports go directly to the GitHub repo. No email traffic or external
-service is needed: the application reads and writes via the GitHub
-REST API.
+The main menu now has a **Report** menu with **🐞 Report a bug or
+feature…** and **Show open cases**. Reports go directly to the GitHub
+repo via the REST API.
 
 **For developers**
 
 - The feedback package (`github_feedback.py`, `bug_report_dialog.py`,
   `github_cases.py`, `check_github_secret.py`) is identical in the
-  project root, with an app-specific `github_feedback_config.py`.
+  project root.
 - The GitHub token lives in `github_secret_local.py`, which is in
-  `.gitignore` (`*_secret_local.py`) and never goes to GitHub.
-  PyInstaller does bundle it into the exe.
-- `ESR_Tester.spec` calls `check_github_secret.py` before every build.
-  A build without a valid token stops with a clear message, so that an
-  installer never appears in which "Report a bug or feature" does not
-  work.
+  `.gitignore` and never goes to GitHub.
 - New i18n keys: `menu.rapporteren`, `menu.bug_melden`,
   `menu.open_cases` (NL + EN).
 
 **Fixed**
 
-- The `LF/CRLF` warning on `git add releases/latest/version.txt` is
-  fixed via a `.gitattributes` rule
-  (`releases/latest/version.txt text eol=lf`).
-- `ESR_Tester.spec` is no longer in `.gitignore`. The spec is now
-  committed, so a fresh clone on another machine can build
-  immediately (`!ESR_Tester.spec`).
+- `LF/CRLF` warning on `releases/latest/version.txt` via
+  `.gitattributes`.
+- `ESR_Tester.spec` is no longer in `.gitignore`.
 
 **Documentation**
 
 - `docs/packaging.md` — build flow, signing, distribution, checklist.
-- `docs/testmatrix_defender_intune.md` — the full test matrix with
-  proven status per PC type.
+- `docs/testmatrix_defender_intune.md` — the full test matrix.
 
 ## Version 1.0.2 — First Windows build, installer and signing (13 October 2026)
 
 **The application now has a real version**
 
-The application now has one central version, in one place:
-`app/version.py`. The version is shown in the **About** dialog
-(Help → About) and is the basis for the build pipeline and the later
-update check.
+Central version in `app/version.py`, shown in Help → About.
 
 **Full Windows build pipeline**
 
-You can now build the application as a standalone Windows application
-with installer. The flow follows the proven ArticleSearch flow 1-to-1:
-
-- **`ESR_Tester.spec`** — PyInstaller spec, with icon active.
+- **`ESR_Tester.spec`** — PyInstaller spec.
 - **`build_installer.bat`** — builds the EXE, generates
-  `dist\installer.iss`, compiles with Inno Setup 6, and signs both the
-  EXE and the installer.
-- **`bump_version.py`** — bumps patch, minor or major in
-  `app/version.py`. Called by the build pipeline, can also be run
-  manually: `python bump_version.py patch`.
+  `dist\installer.iss`, compiles with Inno Setup 6, and signs.
+- **`bump_version.py`** — bumps patch, minor or major.
 - **`build_and_publish.ps1`** — orchestrator with signing preflight.
-  Asks for the parameters, chooses the right certificate
-  automatically, and calls the batch.
-- **`publish.ps1`** — publishes the installer to GitHub, with a
-  release gate on the Authenticode signature.
+- **`publish.ps1`** — publishes to GitHub with a release gate.
 
 **Code signing**
 
 The EXE and the installer are signed with the CGK certificate
-(`CN=CGK Local Signing`, valid until 2028-09-17). After signing, the
-signature is automatically verified with `signtool verify`.
+(`CN=CGK Local Signing`, valid until 2028-09-17).
 
 **Installer with icon**
 
 The installer now has the ESR Tester icon in the wizard and in the
-shortcuts (Start menu and optionally desktop). After installation, the
-app starts with user rights (`runascurrentuser`), not as administrator.
-
-**Installation**
-
-Default install folder: `C:\Program Files\Electronics Diagnostic
-Tool Hub\ESR Tester`. The user can choose the folder during
-installation.
+shortcuts. After installation, the app starts with user rights.
 
 **Fixed**
 
-- The **window titles of the Help window and the Changelog window**
-  showed the untranslated keys `dialog.help_titel` and
-  `dialog.changelog_titel`. That is now fixed.
-- The **ESR test button** in the Diagnostics page showed the
-  untranslated key `tool.esr`. That is now fixed.
-- The **build pipeline** previously aborted with
-  `: was unexpected at this time.` due to a `set /p` prompt with
-  parentheses. That is fixed by replacing the prompt with an
-  `if defined` check.
+- Window titles of the Help and Changelog windows showed untranslated
+  keys.
+- The ESR test button in the Diagnostics page showed `tool.esr`.
+- The build pipeline aborted with `: was unexpected at this time.`
+  due to a `set /p` prompt with parentheses.
 
 **PDFs with readable text, without a manual step**
 
-Qt could not find the Windows system fonts in a PySide6 environment,
-so PDF reports showed black blocks instead of text. The application
-now **automatically** sets the environment variable
-`QT_QPA_FONTDIR=C:\Windows\Fonts` when you start on Windows and the
-variable is not already set.
+The application now automatically sets
+`QT_QPA_FONTDIR=C:\Windows\Fonts` on Windows.
 
 **For developers**
 
-- `numpy` was added to `requirements.txt` as a direct dependency, with
-  a pin `>=1.26,<3`. `pandas` got a pin `>=2.2,<3`.
-  Reason: pandas 3.x gave an ABI conflict with numpy 2.x in the build.
-- `QT_QPA_FONTDIR` is now set in `main.py` before `QApplication` is
-  created.
+- `numpy` pin `>=1.26,<3`, `pandas` pin `>=2.2,<3`.
+- `QT_QPA_FONTDIR` is set in `main.py` before `QApplication`.
 - `app/version.py` is the central version source.
 
 ## Version 1.0.1 — Measurement reports and extended settings (12 October 2026)
 
 **Creating measurement reports**
 
-You can now create a **measurement report** from any stored
-measurement. Open a measurement in the history, click **Report** (or
-use **Ctrl+P** in the File menu), and you get a clear preview. You can
-save the report as **HTML** or **PDF**.
-
-The report contains:
-
-- **Component identification** — manufacturer, series, part number,
-  technology, nominal capacitance, nominal voltage, tolerance.
-- **Measurement context** — measurement method, instrument, frequency,
-  test voltage, temperature, safety confirmations.
-- **Raw measurement values** — capacitance, ESR, D, out-of-range
-  flags.
-- **Assessment snapshots** — the stored assessments with reasons,
-  warnings and advice.
-- **Reference snapshots** — the references used per assessment.
-- **Optional chart** — a chart section with ESR trend (only for
-  ESR_CAPACITOR).
+From any stored measurement you can create a **measurement report**
+(HTML or PDF) with component identification, measurement context, raw
+measurement values, assessment snapshots, reference snapshots and an
+optional chart.
 
 **New in the Reporting settings**
 
-The Settings dialog now has a more extensive **Reporting tab**:
-
-- **Author** — optional free field shown in the report header.
-- **Default report folder** — the folder where the save dialog starts
-  by default. Automatically updated after each successful save.
-
-The **chart checkbox** in the report dialog now starts with the value
-of **Include graph by default** from the settings.
+- **Author** — optional free field in the report header.
+- **Default report folder** — automatically updated after each save.
 
 **Automatically open the folder**
 
-If **Open export folder after successful export** is on, the folder is
-automatically opened after saving a report — just like with the CSV
-export of the history.
+After saving a report, the folder is automatically opened (if the
+setting is on).
 
 **Read-only**
 
-The report is built from the **stored snapshots**. Historical
-measurements and assessments are never recalculated or changed. The
-report is purely a view.
+The report is built from the stored snapshots. Historical measurements
+and assessments are never recalculated.
 
 **Fixed**
 
-- In the report HTML and PDF, the untranslated keys `algemeen.ja` and
-  `algemeen.nee` appeared instead of "Yes"/"No". That is now fixed by
-  using `app.ja` and `app.nee`.
-- The **status labels** in the report (`Capacitance status`,
-  `ESR status`, `Consistency status`) were shown as raw codes
-  (`binnen_tolerantie`, `niet_beoordeeld`). They are now translated,
-  just like in the GUI.
+- `algemeen.ja` and `algemeen.nee` appeared as untranslated keys; now
+  `app.ja` and `app.nee`.
+- Status labels in the report were shown as raw codes; now translated.
 
 ## Version 1.0.0 — Charts and trends (9 October 2026)
 
 **New "Analysis" page**
 
-The main menu now has a fourth button **Analysis**, next to
-Diagnostics, History and Documentation. The page shows charts and
-trends based on your stored measurements. You open the page via the
-hub button, via the Diagnostics menu ("Open analysis"), or with the
-shortcut **Ctrl+A**.
-
-**Four chart types**
-
-With a dropdown you choose which chart type you want to see:
-
-- **ESR over time** — the ESR trend of your measurements, old to new.
-- **Capacitance over time** — the capacitance trend.
-- **D over time** — the trend of the dissipation factor.
-- **ESR vs. capacitance** — a scatter plot in which each measurement
-  is a point. The color shows the final status.
+Next to Diagnostics, History and Documentation there is now a fourth
+hub button **Analysis** with four chart types: ESR over time,
+capacitance over time, D over time, and ESR vs. capacitance.
 
 **Filter on exactly the same fields as the history**
 
-The filter bar uses the same fields as the history page: manufacturer,
-series, measurement method, instrument, frequency and a period
-(from/to date). With **Ctrl+F** you open the filter panel.
+The filter bar uses the same fields as the history page.
 
 **Aggregation per day, week or month**
 
-By default, each chart shows all raw measurement values. With a second
-dropdown you choose **average per day**, **per week** or **per
-month**.
+With a second dropdown you choose average per day, per week or per
+month.
 
 **Read-only**
 
@@ -712,8 +646,8 @@ back.
 
 **Keyboard shortcuts**
 
-- **Ctrl+A** on the Main menu opens the Analysis page.
-- **Ctrl+R** on the Analysis page refreshes the data.
+- **Ctrl+A** opens the Analysis page.
+- **Ctrl+R** refreshes the data.
 - **Ctrl+F** opens the filter panel.
 - **Esc** returns to the Main menu.
 
@@ -731,55 +665,33 @@ functional milestones.
 
 Besides PDF and URL, you can now also import **Word documents (.docx)**
 and **Excel workbooks (.xlsx)** as documentation sources. The import
-wizard has four choices:
-
-- **PDF file**
-- **Word document**
-- **Excel workbook**
-- **From URL**
+wizard has four choices.
 
 **Old formats are rejected**
 
 The old `.doc` format (Word 97-2003) and `.xls` format (Excel 97-2003)
 are not supported.
 
-**Improved: opening Word and Excel files**
-
-Imported Word and Excel files are opened in the default Word or Excel
-application.
-
 ## Version 0.8 — Managing the status of your own imports (8 October 2026)
 
 **Changing the status of an import**
 
 In the documentation library there is now a **Change status…** button
-for your own imports. You can adjust the lifecycle of an import:
-
-- **Draft** — just imported, not yet confirmed as usable.
-- **Active** — explicitly confirmed by you as usable.
-- **Archived** — no longer in the default list, but still stored.
+for your own imports.
 
 **New Status column**
 
 The documentation table now has an extra **Status** column.
 
-**Improved: checkboxes and radio buttons in the dark theme**
-
-The checkboxes and radio buttons throughout the application are now
-clearly visible in the dark theme.
-
 ## Version 0.7 — Metadata on import and editing in the viewer (7 October 2026)
 
 **Metadata when importing a PDF or URL**
 
-When importing a document you can now immediately fill in metadata:
-category, manufacturer, series, part number, document version,
-document date and notes.
+When importing a document you can now immediately fill in metadata.
 
 **Editing metadata in the documentation library**
 
-In the documentation library there is now an **Edit…** button for your
-own imports.
+In the documentation library there is now an **Edit…** button.
 
 **Improved search**
 
@@ -789,22 +701,13 @@ metadata of imported documents.
 ## Version 0.6 — Per-language Help and clearer search explanation (6 October 2026)
 
 **New**
-- **Per-language Help.** The general help is now shown per language.
+- **Per-language Help.**
 - **Clearer explanation about exclusion in the search help.**
-
-**Improved**
-- **Search term with minus and percent sign ignored.**
-
-**For developers**
-- New reference `docs/search_syntax.md`.
 
 ## Version 0.5 — Keyboard shortcuts and safer exit (5 October 2026)
 
 **New**
 - You can now work with the keyboard throughout the application.
-
-**Improved**
-- Esc on the Main menu now asks for confirmation.
 
 ## Version 0.4 — Smarter searching and help in the documentation (5 October 2026)
 
@@ -812,16 +715,10 @@ metadata of imported documents.
 - **Search language for documentation.**
 - **Help with searching.**
 
-**Improved**
-- The search help window is now also reachable via the Help menu.
-
 ## Version 0.3 — Multiple diagnostic tools in one hub (3 October 2026)
 
 **New**
 - Documents can now be linked to multiple diagnostic tools.
-
-**Improved**
-- Internal structure ready for future diagnostic tools.
 
 ## Version 0.2 — Documentation library (3 October 2026)
 
@@ -840,34 +737,28 @@ metadata of imported documents.
 
 - **Version 1.2.0 — UX/documentation polish.** All small points left
   over from earlier phases:
-  - **11A** — Export, import and selection: export respects
-    selection, visual selection in Analysis, report scope "selection",
-    menu item disabled without selection, folder preferences
-    respected. **Completed on 16 October 2026.** The remaining points
-    from §11A (import of measurements from another device) stay open.
-  - **11B** — Reliability rule revised: distinction between
-    substantive and administrative reliability reducers.
-    **Completed on 16 October 2026.** Baseline 1329 → **1339 passed**.
-  - **11C** — Icons for all windows.
-    **Completed on 16 October 2026.** Baseline 1339 → **1358 passed**.
-  - **11D** — i18n mixing in Diagnostics/Result resolved.
-    **Completed on 16 October 2026.** Baseline 1358 → **1366 passed**.
-  - **11E** — Async network (URL fetch, release notes).
-    **Completed on 16 October 2026.** Baseline 1366 → **1395 passed**.
-  - **11F** — Documentation extension (reasons, filters, bulk edit).
-  - **11G** — Dark theme visuals (checkboxes, scrollbar).
+  - **11A** — Export, import and selection. **Completed on 16 October
+    2026.**
+  - **11B** — Reliability rule revised. **Completed on 16 October
+    2026.** Baseline 1329 → **1339 passed**.
+  - **11C** — Icons for all windows. **Completed on 16 October 2026.**
+    Baseline 1339 → **1358 passed**.
+  - **11D** — i18n mixing in Diagnostics/Result resolved. **Completed
+    on 16 October 2026.** Baseline 1358 → **1366 passed**.
+  - **11E** — Async network. **Completed on 16 October 2026.**
+    Baseline 1366 → **1395 passed**.
+  - **11F** — Documentation extension. **Completed on 20 October
+    2026.** Baseline 1395 → **1462 passed**.
+  - **11G** — Dark theme visuals. **Completed on 20 October 2026.**
+    Baseline 1462 → **1491 passed**.
   - **11H** — Light theme.
   - **11I** — Build and cosmetics (deprecations, log files,
     certificates).
 - **Version 1.3.0 — AI extraction from manufacturer documents.**
-  Automatic text extraction from docx/xlsx as preparation for human
-  validation.
 - **Version 1.4.0 — Human validation of AI output.**
-  Approval flow for AI-extracted data.
 - **Version 1.5.0 — Linking approved manufacturer data to
-  assessment.** The assessment then uses validated manufacturer data.
+  assessment.**
 - **Version 1.6.0 — Second diagnostic tool: Resistor.**
-  Resistance measurements in the same Tool Hub.
 
 ---
 

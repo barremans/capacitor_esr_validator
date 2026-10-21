@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/documentation_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.3.0
-Datum:      2026-10-08
+Versie:     2.6.0
+Datum:      2026-10-20
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only scherm voor de centrale documentatiebibliotheek.
@@ -14,8 +14,13 @@ Doel:       Read-only scherm voor de centrale documentatiebibliotheek.
             via een Bewerken-knop de metadata van een eigen import aanpassen
             (niet van ingebouwde documenten). Sinds 5D'.2e kan de gebruiker
             via een Status wijzigen-knop de levenscyclus van een eigen
-            import aanpassen. Een extra checkbox maakt gearchiveerde
-            imports zichtbaar in de lijst.
+            import aanpassen. Sinds 11F.1 toont de Status-kolom bij een
+            gearchiveerde bron met reden een tooltip met die reden. Sinds
+            11F.2 vervangt een statusfilter-dropdown de oude checkbox
+            "Toon gearchiveerde". Sinds 11F.3 zijn er twee bulk-knoppen
+            ("Bulk bewerken…" en "Bulk status…") voor een selectie van
+            meerdere eigen imports; de tabel staat daarvoor op
+            ExtendedSelection.
 
 Wijzigingen:
   v1.0.0 (2026-10-02)  Eerste read-only documentatiebibliotheekscherm.
@@ -45,6 +50,40 @@ Wijzigingen:
                         ververst de tabel na succes. Nieuwe checkbox
                         "Toon gearchiveerde". Nieuwe Status-kolom in de
                         tabel.
+  v2.4.0 (2026-10-19)  Fase 11F.1: Status-kolom krijgt een tooltip met de
+                        archive_reason bij een gearchiveerde gebruikers-
+                        import. Geen wijziging aan de kolomwaarde zelf
+                        (blijft de vertaalde statusnaam), zodat bestaande
+                        tests stabiel blijven. De tooltip gebruikt de
+                        nieuwe i18n-key documentatie.status_kolom.
+                        gearchiveerd_met_reden.
+  v2.5.0 (2026-10-20)  Fase 11F.2: de checkbox "Toon gearchiveerde" is
+                        vervangen door een statusfilter-dropdown met
+                        vier opties: Alle / Concept / Actief /
+                        Gearchiveerd. De GUI filtert op import_status
+                        na het ophalen uit de service. Bij "Alle" en
+                        "Gearchiveerd" worden gearchiveerde bronnen
+                        opgehaald (include_archived=True); bij "Concept"
+                        en "Actief" niet. De oude checkbox-attributen
+                        toon_gearchiveerd_checkbox en bijbehorende
+                        methodes zijn verwijderd. Nieuwe i18n-keys:
+                        documentatie.status_filter.*. Oude keys
+                        documentatie.toon_gearchiveerd(_tooltip)
+                        verwijderd uit de locale-bestanden.
+  v2.6.0 (2026-10-20)  Fase 11F.3: tabel op ExtendedSelection. Nieuwe
+                        knoppen "Bulk bewerken…" en "Bulk status…",
+                        alleen actief bij ≥1 geselecteerde gebruikers-
+                        import. Opent BulkEditMetadataDialog resp.
+                        BulkChangeStatusDialog. De GUI voert de bulk-
+                        update uit via een loop over de bestaande
+                        ImportService-methodes (update_metadata,
+                        set_status, archive) en toont daarna één
+                        samenvatting met aantallen gelukt/overgeslagen/
+                        mislukt. Nieuwe i18n-keys onder
+                        documentatie.bulk_edit.* en
+                        documentatie.bulk_status.* en nieuwe
+                        samenvattingskeys onder
+                        documentatie.bulk_resultaat.*.
 ================================================================================
 """
 
@@ -53,12 +92,12 @@ from __future__ import annotations
 import html
 
 from pathlib import Path
+from typing import Optional
 
 from PySide6.QtCore import QUrl, Signal, Qt
 from PySide6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QCheckBox,
     QComboBox,
     QDialog,
     QHeaderView,
@@ -74,11 +113,22 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.documentation.import_models import ImportValidationError
+from app.documentation.import_models import (
+    ImportSource,
+    ImportStatus,
+    ImportValidationError,
+    is_allowed_transition,
+)
 from app.documentation.import_service import ImportService
 from app.documentation.models import DocumentCategory, DocumentMetadata
 from app.documentation.service import DocumentationError, DocumentationService
 from app.documentation.pdf_extract import default_sources_dir
+from app.gui.dialogs.bulk_change_status_dialog import (
+    BulkChangeStatusDialog,
+)
+from app.gui.dialogs.bulk_edit_metadata_dialog import (
+    BulkEditMetadataDialog,
+)
 from app.gui.dialogs.change_status_dialog import ChangeStatusDialog
 from app.gui.dialogs.edit_metadata_dialog import EditMetadataDialog
 from app.gui.dialogs.search_help_dialog import SearchHelpDialog
@@ -87,6 +137,11 @@ from app.helpers.document_source_paths import (
     source_kind,
 )
 from app.helpers.i18n import vertaal
+
+
+# Statusfilter-waarden (data-attribuut van de dropdown).
+_STATUS_FILTER_ALLE = None
+_STATUS_FILTER_WAARDEN = ("concept", "actief", "gearchiveerd")
 
 
 class DocumentationScreen(QWidget):
@@ -185,9 +240,14 @@ class DocumentationScreen(QWidget):
         self.tool_combo.currentIndexChanged.connect(self.refresh)
         filter_row.addWidget(self.tool_combo, 1)
 
-        self.toon_gearchiveerd_checkbox = QCheckBox()
-        self.toon_gearchiveerd_checkbox.toggled.connect(self.refresh)
-        filter_row.addWidget(self.toon_gearchiveerd_checkbox)
+        # Sinds 11F.2: statusfilter-dropdown (vervangt de checkbox
+        # "Toon gearchiveerde").
+        self.status_filter_label = QLabel()
+        filter_row.addWidget(self.status_filter_label)
+
+        self.status_filter_combo = QComboBox()
+        self.status_filter_combo.currentIndexChanged.connect(self.refresh)
+        filter_row.addWidget(self.status_filter_combo, 1)
 
         layout.addLayout(filter_row)
 
@@ -195,7 +255,10 @@ class DocumentationScreen(QWidget):
         self.table = QTableWidget(0, 6)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        # Sinds 11F.3: meerdere rijen selecteerbaar voor bulk-acties.
+        self.table.setSelectionMode(
+            QAbstractItemView.SelectionMode.ExtendedSelection
+        )
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
 
@@ -218,6 +281,17 @@ class DocumentationScreen(QWidget):
         self.status_label = QLabel()
         self.status_label.setWordWrap(True)
         bottom_row.addWidget(self.status_label, 1)
+
+        # Sinds 11F.3: bulk-knoppen (vóór de single-source-knoppen).
+        self.bulk_edit_btn = QPushButton()
+        self.bulk_edit_btn.setEnabled(False)
+        self.bulk_edit_btn.clicked.connect(self._bulk_edit_selected)
+        bottom_row.addWidget(self.bulk_edit_btn)
+
+        self.bulk_status_btn = QPushButton()
+        self.bulk_status_btn.setEnabled(False)
+        self.bulk_status_btn.clicked.connect(self._bulk_change_status_selected)
+        bottom_row.addWidget(self.bulk_status_btn)
 
         self.edit_btn = QPushButton()
         self.edit_btn.setEnabled(False)
@@ -293,6 +367,7 @@ class DocumentationScreen(QWidget):
         """Werk alle zichtbare statische teksten bij zonder filters te wissen."""
         selected_category = self.category_combo.currentData()
         selected_tool = self.tool_combo.currentData()
+        selected_status = self.status_filter_combo.currentData()
 
         self.taal = taal
         self.back_btn.setText(self._t("knop.terug"))
@@ -306,18 +381,21 @@ class DocumentationScreen(QWidget):
         self.help_btn.setToolTip(self._t("documentatie.help_knop_tooltip"))
         self.category_label.setText(self._t("documentatie.categorie"))
         self.tool_label.setText(self._t("documentatie.tool"))
+        self.status_filter_label.setText(
+            self._t("documentatie.status_filter.label")
+        )
+        self.status_filter_combo.setToolTip(
+            self._t("documentatie.status_filter.tooltip")
+        )
         self.open_btn.setText(self._t("documentatie.openen"))
         self.edit_btn.setText(self._t("documentatie.bewerken"))
         self.status_btn.setText(self._t("documentatie.status_wijzigen"))
-        self.toon_gearchiveerd_checkbox.setText(
-            self._t("documentatie.toon_gearchiveerd")
-        )
-        self.toon_gearchiveerd_checkbox.setToolTip(
-            self._t("documentatie.toon_gearchiveerd_tooltip")
-        )
+        self.bulk_edit_btn.setText(self._t("documentatie.bulk_edit.knop"))
+        self.bulk_status_btn.setText(self._t("documentatie.bulk_status.knop"))
 
         self._rebuild_category_combo(selected_category)
         self._rebuild_tool_combo(selected_tool)
+        self._rebuild_status_filter_combo(selected_status)
 
         headers = (
             self._t("documentatie.kolom.titel"),
@@ -365,6 +443,35 @@ class DocumentationScreen(QWidget):
         finally:
             self.tool_combo.blockSignals(False)
 
+    def _rebuild_status_filter_combo(self, selected) -> None:
+        """Vul de statusfilter-dropdown (sinds 11F.2).
+
+        Data-attribuut: None = Alle, of een van de
+        _STATUS_FILTER_WAARDEN (concept/actief/gearchiveerd).
+        """
+        self.status_filter_combo.blockSignals(True)
+        try:
+            self.status_filter_combo.clear()
+            self.status_filter_combo.addItem(
+                self._t("documentatie.status_filter.alle"),
+                None,
+            )
+            self.status_filter_combo.addItem(
+                self._t("documentatie.status_filter.concept"),
+                "concept",
+            )
+            self.status_filter_combo.addItem(
+                self._t("documentatie.status_filter.actief"),
+                "actief",
+            )
+            self.status_filter_combo.addItem(
+                self._t("documentatie.status_filter.gearchiveerd"),
+                "gearchiveerd",
+            )
+            self._restore_combo_value(self.status_filter_combo, selected)
+        finally:
+            self.status_filter_combo.blockSignals(False)
+
     @staticmethod
     def _restore_combo_value(combo: QComboBox, selected) -> None:
         if selected is None:
@@ -395,22 +502,86 @@ class DocumentationScreen(QWidget):
             return ""
         return vertaald
 
+    def _status_tooltip(self, document: DocumentMetadata) -> str:
+        """Tooltip voor de Status-kolom.
+
+        Sinds 11F.1: bij een gearchiveerde gebruikersimport met een
+        archive_reason tonen we die reden. De reden komt uit de
+        ImportService-catalogus; als die (nog) niet beschikbaar is,
+        valt de tooltip terug op de statusnaam.
+        """
+        status = getattr(document, "import_status", None)
+        if not isinstance(status, str) or status.strip().lower() != "gearchiveerd":
+            return ""
+        # Alleen eigen imports kunnen een reden hebben.
+        if not bool(getattr(document, "is_user_import", False)):
+            return ""
+        try:
+            bron = self._import_service().get(document.document_id)
+        except ImportValidationError:
+            return ""
+        reden = getattr(bron, "archive_reason", None)
+        if not isinstance(reden, str) or not reden.strip():
+            return ""
+        return self._t(
+            "documentatie.status_kolom.gearchiveerd_met_reden",
+            reden=reden,
+        )
+
+    def _huidige_status_filter(self) -> Optional[str]:
+        """Lees de huidige statusfilter-waarde (None = Alle)."""
+        data = self.status_filter_combo.currentData()
+        if data is None:
+            return None
+        if data in _STATUS_FILTER_WAARDEN:
+            return data
+        return None
+
+    def _filter_documenten_op_status(
+        self,
+        documents: list[DocumentMetadata],
+        status_filter: Optional[str],
+    ) -> list[DocumentMetadata]:
+        """Pas de statusfilter toe op de opgehaalde documenten.
+
+        - None (Alle): alles doorlaten.
+        - "concept" / "actief" / "gearchiveerd": alleen documenten met
+          die import_status doorlaten. Ingebouwde documenten hebben geen
+          import_status en vallen daarmee af bij een specifieke filter.
+        """
+        if status_filter is None:
+            return documents
+        return [
+            document
+            for document in documents
+            if getattr(document, "import_status", None) == status_filter
+        ]
+
     def refresh(self) -> None:
         """Herlaad de zichtbare read-only tabel volgens de huidige filters."""
         selected_document_id = self._selected_document_id()
+        selected_ids_voor_restore = self._geselecteerde_document_ids()
         category = self.category_combo.currentData()
         tool_filter = self.tool_combo.currentData()
+        status_filter = self._huidige_status_filter()
 
         service_tool_key = tool_filter
         if tool_filter == "__GENERAL__":
             service_tool_key = None
+
+        # include_archived: bij "Alle" en "Gearchiveerd" moeten
+        # gearchiveerde bronnen uit de service komen. Bij "Concept" en
+        # "Actief" niet (die filteren we daarna zelf).
+        include_archived = (
+            status_filter is None or status_filter == "gearchiveerd"
+        )
 
         try:
             documents = self.documentation_service.list_documents(
                 search_text=self.search_edit.text(),
                 category=category,
                 tool_key=service_tool_key,
-                include_archived=self.toon_gearchiveerd_checkbox.isChecked(),
+                include_archived=include_archived,
             )
             if tool_filter == "__GENERAL__":
                 documents = [
@@ -418,6 +589,9 @@ class DocumentationScreen(QWidget):
                     for document in documents
                     if document.tool_key is None
                 ]
+            documents = self._filter_documenten_op_status(
+                documents, status_filter
+            )
         except DocumentationError as exc:
             self._populate_table([])
             self.status_label.setText(
@@ -428,6 +602,7 @@ class DocumentationScreen(QWidget):
         self._populate_table(
             documents,
             selected_document_id=selected_document_id,
+            selected_document_ids=selected_ids_voor_restore,
         )
 
         if documents:
@@ -442,9 +617,11 @@ class DocumentationScreen(QWidget):
         documents: list[DocumentMetadata],
         *,
         selected_document_id: str | None = None,
+        selected_document_ids: Optional[list[str]] = None,
     ) -> None:
         self.table.setRowCount(len(documents))
         row_to_restore: int | None = None
+        rows_to_restore_multi: list[int] = []
 
         for row, document in enumerate(documents):
             values = (
@@ -458,20 +635,45 @@ class DocumentationScreen(QWidget):
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 item.setData(Qt.ItemDataRole.UserRole, document.document_id)
-                # Bewaar ook of dit een gebruikersimport is, zodat de
-                # Bewerken- en Status-knop kunnen beslissen. We gebruiken
-                # een aparte rol om de UserRole (document_id) niet te
-                # overschrijven.
                 item.setData(
                     Qt.ItemDataRole.UserRole + 1,
                     bool(document.is_user_import),
                 )
+                if column == 2:
+                    tooltip = self._status_tooltip(document)
+                    if tooltip:
+                        item.setToolTip(tooltip)
                 self.table.setItem(row, column, item)
 
             if document.document_id == selected_document_id:
                 row_to_restore = row
+            if (
+                selected_document_ids
+                and document.document_id in selected_document_ids
+            ):
+                rows_to_restore_multi.append(row)
 
-        if row_to_restore is not None:
+        if rows_to_restore_multi:
+            self.table.blockSignals(True)
+            try:
+                selection_model = self.table.selectionModel()
+                from PySide6.QtCore import QItemSelection
+                selection = QItemSelection()
+                for row in rows_to_restore_multi:
+                    selection.select(
+                        self.table.model().index(row, 0),
+                        self.table.model().index(
+                            row, self.table.columnCount() - 1
+                        ),
+                    )
+                selection_model.select(
+                    selection,
+                    selection_model.SelectionFlag.ClearAndSelect
+                    | selection_model.SelectionFlag.Rows,
+                )
+            finally:
+                self.table.blockSignals(False)
+        elif row_to_restore is not None:
             self.table.selectRow(row_to_restore)
 
         self._update_action_buttons()
@@ -483,6 +685,20 @@ class DocumentationScreen(QWidget):
         document_id = selected_items[0].data(Qt.ItemDataRole.UserRole)
         return document_id if isinstance(document_id, str) and document_id else None
 
+    def _geselecteerde_document_ids(self) -> list[str]:
+        """Unieke document-IDs van alle geselecteerde rijen (sinds 11F.3)."""
+        gezien: set[str] = set()
+        resultaat: list[str] = []
+        for item in self.table.selectedItems():
+            document_id = item.data(Qt.ItemDataRole.UserRole)
+            if not isinstance(document_id, str) or not document_id:
+                continue
+            if document_id in gezien:
+                continue
+            gezien.add(document_id)
+            resultaat.append(document_id)
+        return resultaat
+
     def _selected_is_user_import(self) -> bool:
         selected_items = self.table.selectedItems()
         if not selected_items:
@@ -490,14 +706,44 @@ class DocumentationScreen(QWidget):
         vlag = selected_items[0].data(Qt.ItemDataRole.UserRole + 1)
         return bool(vlag)
 
-    def _update_action_buttons(self) -> None:
-        """Openen is altijd actief bij selectie; Bewerken en Status alleen bij import."""
-        heeft_selectie = self._selected_document_id() is not None
-        self.open_btn.setEnabled(heeft_selectie)
+    def _geselecteerde_gebruikersimports(self) -> list[str]:
+        """Document-IDs van geselecteerde rijen met is_user_import=True."""
+        gezien: set[str] = set()
+        resultaat: list[str] = []
+        for item in self.table.selectedItems():
+            document_id = item.data(Qt.ItemDataRole.UserRole)
+            if not isinstance(document_id, str) or not document_id:
+                continue
+            vlag = item.data(Qt.ItemDataRole.UserRole + 1)
+            if not vlag:
+                continue
+            if document_id in gezien:
+                continue
+            gezien.add(document_id)
+            resultaat.append(document_id)
+        return resultaat
 
-        mag_bewerken = heeft_selectie and self._selected_is_user_import()
-        self.edit_btn.setEnabled(mag_bewerken)
-        if mag_bewerken:
+    def _update_action_buttons(self) -> None:
+        """Openen/Bewerken/Status zijn single-selectie; bulk-knoppen multi.
+
+        Sinds 11F.3:
+          - Openen: alleen actief bij precies één selectie.
+          - Bewerken/Status: alleen actief bij precies één selectie die
+            een gebruikersimport is.
+          - Bulk bewerken / Bulk status: alleen actief bij ≥1
+            geselecteerde gebruikersimport.
+        """
+        aantal_selectie = len(self._geselecteerde_document_ids())
+        gebruikersimport_ids = self._geselecteerde_gebruikersimports()
+
+        heeft_exact_een = aantal_selectie == 1
+        self.open_btn.setEnabled(heeft_exact_een)
+
+        mag_enkel_bewerken = (
+            heeft_exact_een and self._selected_is_user_import()
+        )
+        self.edit_btn.setEnabled(mag_enkel_bewerken)
+        if mag_enkel_bewerken:
             self.edit_btn.setToolTip(
                 self._t("documentatie.bewerken_tooltip")
             )
@@ -506,14 +752,32 @@ class DocumentationScreen(QWidget):
                 self._t("documentatie.bewerken_alleen_eigen")
             )
 
-        self.status_btn.setEnabled(mag_bewerken)
-        if mag_bewerken:
+        self.status_btn.setEnabled(mag_enkel_bewerken)
+        if mag_enkel_bewerken:
             self.status_btn.setToolTip(
                 self._t("documentatie.status_wijzigen_tooltip")
             )
         else:
             self.status_btn.setToolTip(
                 self._t("documentatie.status_wijzigen_alleen_eigen")
+            )
+
+        mag_bulk = len(gebruikersimport_ids) >= 1
+        self.bulk_edit_btn.setEnabled(mag_bulk)
+        self.bulk_status_btn.setEnabled(mag_bulk)
+        if mag_bulk:
+            self.bulk_edit_btn.setToolTip(
+                self._t("documentatie.bulk_edit.knop_tooltip")
+            )
+            self.bulk_status_btn.setToolTip(
+                self._t("documentatie.bulk_status.knop_tooltip")
+            )
+        else:
+            self.bulk_edit_btn.setToolTip(
+                self._t("documentatie.bulk_edit.knop_tooltip_uit")
+            )
+            self.bulk_status_btn.setToolTip(
+                self._t("documentatie.bulk_status.knop_tooltip_uit")
             )
 
     def select_document_by_id(self, document_id: str) -> bool:
@@ -527,6 +791,182 @@ class DocumentationScreen(QWidget):
                 self.table.scrollToItem(item)
                 return True
         return False
+
+    # ------------------------------------------------------------------
+    # Bulk-acties (sinds 11F.3)
+    # ------------------------------------------------------------------
+
+    def _verzamel_bronnen_voor_bulk(
+        self,
+    ) -> Optional[list[ImportSource]]:
+        """Lees de geselecteerde gebruikersimports uit de ImportService.
+
+        Retourneert None (en toont een melding) als de selectie leeg is
+        of als een bron niet meer bestaat.
+        """
+        document_ids = self._geselecteerde_gebruikersimports()
+        if not document_ids:
+            return None
+        bronnen: list[ImportSource] = []
+        service = self._import_service()
+        for document_id in document_ids:
+            try:
+                bronnen.append(service.get(document_id))
+            except ImportValidationError as exc:
+                QMessageBox.warning(
+                    self,
+                    self._t("documentatie.bulk_resultaat.fout_titel"),
+                    self._t(
+                        "documentatie.bulk_resultaat.fout_bericht",
+                        bericht=str(exc),
+                    ),
+                )
+                return None
+        return bronnen
+
+    def _bulk_edit_selected(self) -> None:
+        """Open BulkEditMetadataDialog en voer de GUI-loop uit."""
+        bronnen = self._verzamel_bronnen_voor_bulk()
+        if not bronnen:
+            return
+
+        dialog = BulkEditMetadataDialog(
+            bronnen=bronnen,
+            taal=self.taal,
+            import_service=self._import_service(),
+            parent=self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        if not dialog.resultaat:
+            return
+
+        wijzigingen = dialog.resultaat["wijzigingen"]
+        source_ids = dialog.resultaat["source_ids"]
+
+        gelukt = 0
+        mislukt = 0
+        service = self._import_service()
+        for source_id in source_ids:
+            try:
+                service.update_metadata(source_id, **wijzigingen)
+                gelukt += 1
+            except ImportValidationError:
+                mislukt += 1
+
+        self._toon_bulk_resultaat(
+            gelukt=gelukt, overgeslagen=0, mislukt=mislukt
+        )
+        self._herstel_selectie_na_bulk(source_ids)
+
+    def _bulk_change_status_selected(self) -> None:
+        """Open BulkChangeStatusDialog en voer de GUI-loop uit."""
+        bronnen = self._verzamel_bronnen_voor_bulk()
+        if not bronnen:
+            return
+
+        dialog = BulkChangeStatusDialog(
+            bronnen=bronnen,
+            taal=self.taal,
+            import_service=self._import_service(),
+            parent=self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        if not dialog.resultaat:
+            return
+
+        doelstatus = dialog.resultaat["doelstatus"]
+        reason = dialog.resultaat["reason"]
+        source_ids = dialog.resultaat["source_ids"]
+
+        gelukt = 0
+        overgeslagen = 0
+        mislukt = 0
+        service = self._import_service()
+
+        for source_id in source_ids:
+            try:
+                huidige = service.get(source_id)
+            except ImportValidationError:
+                mislukt += 1
+                continue
+
+            if not is_allowed_transition(huidige.status, doelstatus):
+                overgeslagen += 1
+                continue
+
+            try:
+                if doelstatus is ImportStatus.GEARCHIVEERD:
+                    service.archive(source_id, reason=reason)
+                else:
+                    service.set_status(source_id, doelstatus)
+                gelukt += 1
+            except ImportValidationError:
+                mislukt += 1
+
+        self._toon_bulk_resultaat(
+            gelukt=gelukt, overgeslagen=overgeslagen, mislukt=mislukt
+        )
+        self._herstel_selectie_na_bulk(source_ids)
+
+    def _toon_bulk_resultaat(
+        self,
+        *,
+        gelukt: int,
+        overgeslagen: int,
+        mislukt: int,
+    ) -> None:
+        """Toon één samenvatting na een bulk-actie."""
+        bericht = self._t(
+            "documentatie.bulk_resultaat.samenvatting",
+            gelukt=gelukt,
+            overgeslagen=overgeslagen,
+            mislukt=mislukt,
+        )
+        QMessageBox.information(
+            self,
+            self._t("documentatie.bulk_resultaat.titel"),
+            bericht,
+        )
+
+    def _herstel_selectie_na_bulk(self, source_ids: list[str]) -> None:
+        """Ververs de tabel en selecteer de bronnen die nog zichtbaar zijn."""
+        self.refresh()
+        # Na refresh: selecteer de rijen die nog bestaan.
+        bestaande_ids = set(source_ids)
+        self.table.blockSignals(True)
+        try:
+            selection_model = self.table.selectionModel()
+            from PySide6.QtCore import QItemSelection
+            selection = QItemSelection()
+            iets_geselecteerd = False
+            for row in range(self.table.rowCount()):
+                item = self.table.item(row, 0)
+                if item is None:
+                    continue
+                doc_id = item.data(Qt.ItemDataRole.UserRole)
+                if doc_id in bestaande_ids:
+                    selection.select(
+                        self.table.model().index(row, 0),
+                        self.table.model().index(
+                            row, self.table.columnCount() - 1
+                        ),
+                    )
+                    iets_geselecteerd = True
+            if iets_geselecteerd:
+                selection_model.select(
+                    selection,
+                    selection_model.SelectionFlag.ClearAndSelect
+                    | selection_model.SelectionFlag.Rows,
+                )
+        finally:
+            self.table.blockSignals(False)
+        self._update_action_buttons()
+
+    # ------------------------------------------------------------------
+    # Einde bulk-acties
+    # ------------------------------------------------------------------
 
     def _document_information_html(self, document: DocumentMetadata) -> str:
         """Bouw een compact read-only HTML-overzicht van metadata en provenance."""
@@ -638,7 +1078,6 @@ class DocumentationScreen(QWidget):
         if document_id is None:
             return
         if not self._selected_is_user_import():
-            # Zou niet moeten kunnen (knop disabled), maar defensief.
             QMessageBox.information(
                 self,
                 self._t("documentatie.bewerken_titel"),
@@ -671,7 +1110,6 @@ class DocumentationScreen(QWidget):
     def _on_metadata_saved(self, source_id: str) -> None:
         """Ververs de tabel na een succesvolle metadata-edit."""
         self.refresh()
-        # Houd de selectie vast.
         if source_id:
             self.select_document_by_id(source_id)
 
@@ -681,7 +1119,6 @@ class DocumentationScreen(QWidget):
         if document_id is None:
             return
         if not self._selected_is_user_import():
-            # Zou niet moeten kunnen (knop disabled), maar defensief.
             QMessageBox.information(
                 self,
                 self._t("documentatie.status_wijzigen_titel"),
@@ -712,12 +1149,7 @@ class DocumentationScreen(QWidget):
         dialog.exec()
 
     def _on_status_changed(self, source_id: str) -> None:
-        """Ververs de tabel na een succesvolle statuswijziging.
-
-        Als de nieuwe status 'gearchiveerd' is, kan het document
-        verdwijnen uit de standaardweergave. We behouden de selectie
-        alleen als het document nog zichtbaar is.
-        """
+        """Ververs de tabel na een succesvolle statuswijziging."""
         self.refresh()
         if source_id:
             self.select_document_by_id(source_id)
@@ -744,9 +1176,6 @@ class DocumentationScreen(QWidget):
         kind = source_kind(document)
 
         if kind == "url":
-            # URL-bron: altijd de live URL openen in de browser.
-            # De lokale snapshot blijft bewaard voor provenance, maar is
-            # niet langer het open-doel (5D'.4-correctie v2.1.1).
             if not document.source_url:
                 self.status_label.setText(
                     self._t(
@@ -772,7 +1201,6 @@ class DocumentationScreen(QWidget):
                 return False
             return self._open_external(QUrl.fromLocalFile(str(lokaal_pad)))
 
-        # kind == "onbekend"
         self.status_label.setText(
             self._t(
                 "documentatie.document_fout",
@@ -805,7 +1233,6 @@ class DocumentationScreen(QWidget):
         if kind != "markdown":
             return self._open_document_external(document)
 
-        # Markdown/tekst: interne viewer.
         try:
             content = self.documentation_service.read_document_text(
                 document_id,

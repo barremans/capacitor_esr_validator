@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_analysis_screen_nan.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.3
-Datum:      2026-10-16
+Versie:     1.0.4
+Datum:      2026-10-20
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor de NaN/Inf-verdediging in AnalysisScreen
@@ -15,15 +15,14 @@ Wijzigingen:
   v1.0.1 (2026-10-10)  Fix: _is_finite accepteert uitsluitend int/float.
   v1.0.2 (2026-10-10)  Fix: applyNiceNumbers() verwijderd.
   v1.0.3 (2026-10-16)  Fase 11A.3-fix: _StubAnalysisService heeft nu ook
-                        een load_rows()-methode. Sinds 11A.1 roept
-                        AnalysisScreen.refresh() eerst load_rows() aan
-                        voor de selectielijst. Zonder die methode op de
-                        stub faalde refresh() met "object has no attribute
-                        'load_rows'" en werd de rest van de test niet
-                        uitgevoerd. De stub retourneert een lege lijst
-                        voor de selectielijst; de reeksen/scatter blijven
-                        gevuld zoals voorheen. Geen wijziging aan de
-                        productiecode.
+                        een load_rows()-methode.
+  v1.0.4 (2026-10-20)  Fase 11G.5-fix: _StubAnalysisService en
+                        _TelService hebben nu de measurement_ids-parameter
+                        (keyword-only, default None) op alle methodes.
+                        Sinds AnalysisService v1.1.0 roept AnalysisScreen
+                        deze methodes aan met measurement_ids=..., en
+                        zonder die parameter faalde de stub met
+                        "unexpected keyword argument 'measurement_ids'".
 ================================================================================
 """
 
@@ -48,10 +47,10 @@ def _app():
 class _StubAnalysisService:
     """Bevriest reeksen en levert een lege selectielijst voor load_rows.
 
-    Sinds 11A.1 roept AnalysisScreen.refresh() eerst load_rows() aan
-    voor de selectielijst. De stub moet die methode dus hebben. We
-    retourneren een lege lijst, zodat de grafiek-tests zich op de
-    reeksen kunnen blijven richten.
+    Sinds 11G.5 accepteren alle methodes een keyword-only
+    measurement_ids-parameter. De stub negeert die (None of lijst),
+    want de tests richten zich op de NaN/Inf-verdediging, niet op de
+    scope-selectie.
     """
 
     def __init__(
@@ -65,19 +64,19 @@ class _StubAnalysisService:
         self._scatter = scatter_reeks or []
         self._rows = rows or []
 
-    def load_rows(self, filters=None):
+    def load_rows(self, filters=None, *, measurement_ids=None):
         return list(self._rows)
 
-    def esr_series(self, filters=None, *, aggregation="raw"):
+    def esr_series(self, filters=None, *, aggregation="raw", measurement_ids=None):
         return list(self._esr)
 
-    def capacitance_series(self, filters=None, *, aggregation="raw"):
+    def capacitance_series(self, filters=None, *, aggregation="raw", measurement_ids=None):
         return []
 
-    def dissipation_series(self, filters=None, *, aggregation="raw"):
+    def dissipation_series(self, filters=None, *, aggregation="raw", measurement_ids=None):
         return []
 
-    def scatter_esr_vs_capacitance(self, filters=None):
+    def scatter_esr_vs_capacitance(self, filters=None, *, measurement_ids=None):
         return list(self._scatter)
 
 
@@ -272,24 +271,32 @@ def test_apply_language_doet_geen_service_call():
             self._inner = inner
             self.calls = 0
 
-        def load_rows(self, filters=None):
-            return self._inner.load_rows(filters)
+        def load_rows(self, filters=None, *, measurement_ids=None):
+            return self._inner.load_rows(filters, measurement_ids=measurement_ids)
 
-        def esr_series(self, filters=None, *, aggregation="raw"):
+        def esr_series(self, filters=None, *, aggregation="raw", measurement_ids=None):
             self.calls += 1
-            return self._inner.esr_series(filters, aggregation=aggregation)
+            return self._inner.esr_series(
+                filters, aggregation=aggregation, measurement_ids=measurement_ids
+            )
 
-        def capacitance_series(self, filters=None, *, aggregation="raw"):
+        def capacitance_series(self, filters=None, *, aggregation="raw", measurement_ids=None):
             self.calls += 1
-            return self._inner.capacitance_series(filters, aggregation=aggregation)
+            return self._inner.capacitance_series(
+                filters, aggregation=aggregation, measurement_ids=measurement_ids
+            )
 
-        def dissipation_series(self, filters=None, *, aggregation="raw"):
+        def dissipation_series(self, filters=None, *, aggregation="raw", measurement_ids=None):
             self.calls += 1
-            return self._inner.dissipation_series(filters, aggregation=aggregation)
+            return self._inner.dissipation_series(
+                filters, aggregation=aggregation, measurement_ids=measurement_ids
+            )
 
-        def scatter_esr_vs_capacitance(self, filters=None):
+        def scatter_esr_vs_capacitance(self, filters=None, *, measurement_ids=None):
             self.calls += 1
-            return self._inner.scatter_esr_vs_capacitance(filters)
+            return self._inner.scatter_esr_vs_capacitance(
+                filters, measurement_ids=measurement_ids
+            )
 
     tel = _TelService(service)
     scherm = AnalysisScreen(taal="nl_NL", analysis_service=tel)

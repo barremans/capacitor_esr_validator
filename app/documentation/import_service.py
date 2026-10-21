@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/documentation/import_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.4.0
-Datum:      2026-10-09
+Versie:     1.5.0
+Datum:      2026-10-19
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-onafhankelijke service voor het registreren en beheren van
@@ -51,6 +51,13 @@ Wijzigingen:
   v1.4.0 (2026-10-09)  Fase 6A: register_docx en register_xlsx toegevoegd
                        voor Word- en Excel-imports. Zelfde patroon als
                        register_pdf. Backward-compatible.
+  v1.5.0 (2026-10-19)  Fase 11F.1: archive() accepteert een optionele
+                       reason. revoke() laat archive_reason staan
+                       (historische context). _replace_status neemt
+                       archive_reason mee in het nieuwe ImportSource.
+                       set_status blijft ongewijzigd voor gewone
+                       statuswijzigingen; archive() zet de reden via
+                       een aparte interne stap na set_status.
 ================================================================================
 """
 
@@ -416,7 +423,9 @@ class ImportService:
         - string           -> veld vervangen
 
         Er wordt GEEN is_allowed_transition-check gedaan: 'Overschrijven'
-        is een expliciete gebruikersactie.
+        is een expliciete gebruikersactie. archive_reason wordt niet
+        aangeraakt: dat hoort bij het archiveren, niet bij de editor of
+        het overschrijven.
         """
 
         items = list(self._read_all())
@@ -456,6 +465,7 @@ class ImportService:
                 document_date=self._kies_metadata(
                     document_date, source.document_date
                 ),
+                archive_reason=source.archive_reason,
             )
             items[idx] = vervangen
             self._write_all(items)
@@ -484,6 +494,7 @@ class ImportService:
           - behoudt imported_at en status; het is geen nieuwe import en
             geen statuswijziging.
           - behoudt source_type, source_id en imported_by.
+          - behoudt archive_reason.
 
         Sentinel-semantiek per parameter:
           - niet meegegeven  -> bestaande waarde behouden
@@ -522,6 +533,7 @@ class ImportService:
                 document_date=self._kies_metadata(
                     document_date, source.document_date
                 ),
+                archive_reason=source.archive_reason,
             )
             items[idx] = bijgewerkt
             self._write_all(items)
@@ -557,7 +569,11 @@ class ImportService:
     def set_status(
         self, source_id: str, nieuwe_status: ImportStatus
     ) -> ImportResult:
-        """Wijzig de status volgens de toegelaten overgangen."""
+        """Wijzig de status volgens de toegelaten overgangen.
+
+        Laat archive_reason ongemoeid. Gebruik archive() om een reden
+        mee te geven bij het archiveren.
+        """
 
         items = list(self._read_all())
         for idx, source in enumerate(items):
@@ -574,15 +590,70 @@ class ImportService:
             return ImportResult(source=updated, changed=True)
         raise ImportValidationError(f"onbekende source_id: {source_id}")
 
-    def archive(self, source_id: str) -> ImportResult:
-        """Archiveer een bron. De bron blijft bewaard."""
+    def archive(
+        self,
+        source_id: str,
+        *,
+        reason: Optional[str] = None,
+    ) -> ImportResult:
+        """Archiveer een bron. De bron blijft bewaard.
 
-        return self.set_status(source_id, ImportStatus.GEARCHIVEERD)
+        Sinds 11F.1: optionele ``reason`` wordt opgeslagen in
+        ``archive_reason``. Lege of whitespace-only strings worden door
+        ImportSource genormaliseerd naar None. De reden blijft bewaard
+        bij een latere revoke (terug naar CONCEPT).
+        """
+
+        # Statusmachine eerst: ongeldige overgangen worden hier geweigerd.
+        result = self.set_status(source_id, ImportStatus.GEARCHIVEERD)
+        if reason is None:
+            return result
+
+        # Reden zetten op de zojuist gearchiveerde bron.
+        return self._set_archive_reason(source_id, reason)
 
     def revoke(self, source_id: str) -> ImportResult:
-        """Trek een bron terug naar CONCEPT. De bron wordt niet verwijderd."""
+        """Trek een bron terug naar CONCEPT. De bron wordt niet verwijderd.
+
+        Sinds 11F.1 blijft archive_reason bewaard (historische context).
+        """
 
         return self.set_status(source_id, ImportStatus.CONCEPT)
+
+    def _set_archive_reason(
+        self, source_id: str, reason: str
+    ) -> ImportResult:
+        """Interne helper: werk archive_reason bij zonder de status te
+        wijzigen. Wordt alleen aangeroepen vanuit archive().
+        """
+
+        items = list(self._read_all())
+        for idx, source in enumerate(items):
+            if source.source_id != source_id:
+                continue
+            bijgewerkt = ImportSource(
+                source_id=source.source_id,
+                source_type=source.source_type,
+                title=source.title,
+                imported_at=source.imported_at,
+                imported_by=source.imported_by,
+                status=source.status,
+                original_filename=source.original_filename,
+                source_url=source.source_url,
+                file_hash=source.file_hash,
+                notes=source.notes,
+                category=source.category,
+                manufacturer=source.manufacturer,
+                series=source.series,
+                part_number=source.part_number,
+                document_version=source.document_version,
+                document_date=source.document_date,
+                archive_reason=reason,
+            )
+            items[idx] = bijgewerkt
+            self._write_all(items)
+            return ImportResult(source=bijgewerkt, changed=True)
+        raise ImportValidationError(f"onbekende source_id: {source_id}")
 
     # ----------------------------------------------------------------- intern
 
@@ -622,6 +693,7 @@ class ImportService:
             part_number=source.part_number,
             document_version=source.document_version,
             document_date=source.document_date,
+            archive_reason=source.archive_reason,
         )
 
     def _read_all(self) -> Iterable[ImportSource]:

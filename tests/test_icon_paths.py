@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_icon_paths.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-16
+Versie:     1.1.0
+Datum:      2026-10-20
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor app/helpers/icon_paths.py (fase 11C).
@@ -14,6 +14,11 @@ Wijzigingen:
   v1.0.0 (2026-10-16)  Eerste versie. Dekt: icoon_pad, applicatie_icoon_pad,
                         laad_icoon, applicatie_icoon, zet_venster_icoon,
                         en de fallback-keten.
+  v1.1.0 (2026-10-20)  Fase 11F.4 (§4.21): de lokale _app-fixture
+                        (scope=module) is vervangen door de
+                        projectafspraak _app()-helper. De Qt-tests
+                        roepen _app() nu zelf aan; de testinhoud is
+                        ongewijzigd.
 ================================================================================
 """
 
@@ -24,9 +29,14 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-import pytest
-
 from app.helpers import icon_paths
+
+
+def _app():
+    """Lokale QApplication-helper, conform projectafspraak (geen qtbot)."""
+    from PySide6.QtWidgets import QApplication
+
+    return QApplication.instance() or QApplication([])
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +96,6 @@ def test_applicatie_icoon_pad_volgt_fallback():
     """Applicatie-icoon: app.png heeft voorrang op logo.ico."""
     pad = icon_paths.applicatie_icoon_pad()
     assert pad is not None
-    # In de repo bestaat app.png, dus die moet gekozen worden.
     assert pad.name == "app.png"
 
 
@@ -110,39 +119,34 @@ def test_applicatie_icoon_pad_geen_enkel_icoon(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Qt-wrappers — offscreen QApplication
+# Qt-wrappers — offscreen QApplication via _app()-helper
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope="module")
-def _app():
-    """Lokale QApplication-helper, geen qtbot."""
-    from PySide6.QtWidgets import QApplication
-
-    app = QApplication.instance() or QApplication([])
-    yield app
-
-
-def test_laad_icoon_bestaand(_app):
+def test_laad_icoon_bestaand():
     """Een bestaand icoon levert een niet-lege QIcon."""
+    _app()
     icoon = icon_paths.laad_icoon("app")
     assert icoon is not None
     assert not icoon.isNull()
 
 
-def test_laad_icoon_onbekend(_app):
+def test_laad_icoon_onbekend():
     """Een onbekend icoon levert None."""
+    _app()
     assert icon_paths.laad_icoon("bestaat_niet_zzz") is None
 
 
-def test_applicatie_icoon_laadt(_app):
+def test_applicatie_icoon_laadt():
     """Het applicatie-icoon laadt correct."""
+    _app()
     icoon = icon_paths.applicatie_icoon()
     assert icoon is not None
     assert not icoon.isNull()
 
 
-def test_zet_venster_icoon_op_qdialog(_app):
+def test_zet_venster_icoon_op_qdialog():
     """zet_venster_icoon werkt op een QDialog."""
+    _app()
     from PySide6.QtWidgets import QDialog
 
     dialoog = QDialog()
@@ -151,8 +155,9 @@ def test_zet_venster_icoon_op_qdialog(_app):
     assert not dialoog.windowIcon().isNull()
 
 
-def test_zet_venster_icoon_none(_app):
+def test_zet_venster_icoon_none():
     """zet_venster_icoon met None faalt niet, geeft False."""
+    _app()
     assert icon_paths.zet_venster_icoon(None) is False
 
 
