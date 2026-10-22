@@ -488,8 +488,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: GUI-onafhankelijke resolutie van het juiste icoonpad, met
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.0.0
-        # Datum: 2026-10-16
+        # Versie: 1.1.0
+        # Datum: 2026-10-22
         ```
       - 📄 **/app/helpers/report_chart.py**
         ```text
@@ -790,6 +790,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: GEEN APPLICATIE
       # Versie: V1.0.0
       ```
+    - 📄 **/tests/build_installer_22102026.bat**
     - 📄 **/tests/est_main_window_update_menu.py**
       ```text
       # Bestandsnaam: tests/test_main_window_update_menu.py
@@ -1345,8 +1346,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor app/helpers/icon_paths.py (fase 11C).
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.1.0
-      # Datum: 2026-10-20
+      # Versie: 1.2.0
+      # Datum: 2026-10-22
       ```
     - 📄 **/tests/test_import_wizard_dialog.py**
       ```text
@@ -1802,48 +1803,14 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
   - 📄 **/overdracht.md**
   - 📄 **/publish.ps1**
   - 📄 **/pyproject.toml**
-  - 📄 **/pytest_durations.txt**
-    ```text
-    # Beschrijving: GEEN BESCHRIJVING
-    # Auteur: GEEN AUTEUR
-    # Applicatie: GEEN APPLICATIE
-    # Versie: V1.0.0
-    ```
-  - 📄 **/pytest_fail_first.txt**
-    ```text
-    # Beschrijving: GEEN BESCHRIJVING
-    # Auteur: GEEN AUTEUR
-    # Applicatie: GEEN APPLICATIE
-    # Versie: V1.0.0
-    ```
-  - 📄 **/pytest_full.txt**
-    ```text
-    # Beschrijving: GEEN BESCHRIJVING
-    # Auteur: GEEN AUTEUR
-    # Applicatie: GEEN APPLICATIE
-    # Versie: V1.0.0
-    ```
-  - 📄 **/pytest_theme_in_suite.txt**
-    ```text
-    # Beschrijving: GEEN BESCHRIJVING
-    # Auteur: GEEN AUTEUR
-    # Applicatie: GEEN APPLICATIE
-    # Versie: V1.0.0
-    ```
-  - 📄 **/pytest_theme_only.txt**
-    ```text
-    # Beschrijving: GEEN BESCHRIJVING
-    # Auteur: GEEN AUTEUR
-    # Applicatie: GEEN APPLICATIE
-    # Versie: V1.0.0
-    ```
   - 📄 **/README.md**
   - 📄 **/README_PATCH.md**
   - 📄 **/requirements.txt**
     ```text
     # Beschrijving: GEEN BESCHRIJVING
-    # Auteur: GEEN AUTEUR
+    # Auteur: Bart Bossuyt
     # Applicatie: GEEN APPLICATIE
-    # Versie: V1.0.0
+    # Versie: 1.1.0
+    # Datum: 2026-10-22
     ```
   - 📄 **/settings.json**

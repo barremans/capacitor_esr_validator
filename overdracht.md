@@ -1,16 +1,16 @@
 # OVERDRACHT — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie overdracht:** 6.4.0
-**Datum:** 2026-10-21
+**Versie overdracht:** 6.5.0
+**Datum:** 2026-10-22
 **Auteur:** Bart Bossuyt
-**Vorige versie:** 6.3.0 (2026-10-21)
+**Vorige versie:** 6.4.0 (2026-10-21)
 **Doel:** volledig overdrachtsdocument voor een nieuwe ChatGPT-sessie of
 nieuwe ontwikkelaar. Bevat projectstaat, architectuur, regels, changelog,
 teststructuur en startprompt. Alles in één bestand.
 
-**Huidige baseline:** 1546 passed
-**Laatste afgeronde fase:** 11H.5 — detail-HTML en release-notes per thema
-**Volgende fase:** 11I — Build en cosmetica
+**Huidige baseline:** 1548 passed
+**Laatste afgeronde fase:** 11I.5 — Afronding fase 11I
+**Volgende fase:** 12 — AI-extractie uit fabrikantdocumenten
 
 ---
 
@@ -20,7 +20,7 @@ teststructuur en startprompt. Alles in één bestand.
 2. Context — projectstaat en architectuur
 3. Kernregels — bindende afspraken
 4. Stappenplan — chronologisch overzicht
-5. Wat is nieuw sinds versie 6.3.0
+5. Wat is nieuw sinds versie 6.4.0
 6. Openstaande vragen voor de nieuwe chat
 7. Teststatus — baseline en teststructuur
 8. Bestanden die de nieuwe chat moet opvragen
@@ -40,11 +40,11 @@ iets doet.
 
 - Projectmap: `C:\PY\capacitor_esr_validator`.
 - Technologie: Python 3.12 + PySide6 (Qt6, Fusion-stijl), volledig offline.
-- Baseline: **1546 passed**.
-- Laatste afgeronde fase: **11H.5 — detail-HTML en release-notes per
-  thema** (2026-10-21). Daarmee is **11H volledig afgerond**
-  (11H.1 t/m 11H.5).
-- Volgende fase: **11I — Build en cosmetica**.
+- Baseline: **1548 passed**.
+- Huidige versie: `1.2.3`.
+- Laatste afgeronde fase: **11I — Build en cosmetica** (2026-10-22),
+  met 11I.1 t/m 11I.5.
+- Volgende fase: **12 — AI-extractie uit fabrikantdocumenten**.
 
 **Werkafspraken die je strikt volgt:**
 
@@ -137,6 +137,17 @@ iets doet.
 - **Bij het herschrijven van een test-sectie: `Compare-Object` tegen
   de vorige versie.** Dit heeft in 11F.2 twee per ongeluk verwijderde
   tests opgespoord.
+- **`icon_paths.py` gebruikt sinds 11I.2 een expliciete
+  `sys._MEIPASS`-branch vóór de omhoog-zoeklus.** In de
+  PyInstaller-bundel staat `assets/` in `_internal/assets/`; de
+  branch maakt de resolutie deterministisch.
+- **`build_installer.bat` logt sinds 11I.3 de PyInstaller-stap [4] en
+  de ISCC-stap [7] met `>> "%LOGFILE%" 2>&1` naar `build_log.txt`.**
+  De rest blijft naar de console. `build_log.txt` staat expliciet in
+  `.gitignore`.
+- **`build_and_publish.ps1` geeft sinds 11I.3 de bevestigingsvraag
+  "Starten?" een expliciete standaardwaarde J bij Enter**, consistent
+  met de vier vragen ervoor.
 
 **Wat ik nu van je vraag:**
 
@@ -170,91 +181,96 @@ eerst. Geen aannames.
 | Werkmodus | Volledig offline, lokale opslag |
 | Database | SQLite op `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\measurements.sqlite3` |
 | GitHub-repo | `https://github.com/barremans/capacitor_esr_validator` |
-| Huidige versie | `1.2.0` |
-| Huidige baseline | **1546 passed** |
-| Laatste afgeronde fase | 11H.5 — detail-HTML en release-notes per thema |
-| Volgende fase | 11I — Build en cosmetica |
+| Huidige versie | `1.2.3` |
+| Huidige baseline | **1548 passed** |
+| Laatste afgeronde fase | 11I — Build en cosmetica (11I.1 t/m 11I.5) |
+| Volgende fase | 12 — AI-extractie uit fabrikantdocumenten |
 
 ### 2.2 Huidige applicatiearchitectuur
 
 Zie v6.0.0 §2.2 voor de volledige architectuurbeschrijving. Nieuw
-sinds v6.3.0:
+sinds v6.4.0:
 
-**Gewijzigd in 11H.4:**
-- `app/gui/analysis_screen.py` (v1.6.3 → **v1.7.0**) — nieuwe
-  keyword-only parameter `theme` (default `"dark"`, genormaliseerd);
-  nieuwe module-level dict `CHART_COLORS` met per thema alle
-  voorheen hardcoded chart-kleuren (chart-achtergrond, as-labels,
-  grid, lijn, scatter-rand, neutrale scatter, state-label); nieuwe
-  `apply_theme(theme)`-methode; `_build_ui`, `_prepare_chart`,
-  `_replace_chart_empty`, `_draw_time_series` en `_draw_scatter`
-  halen alle kleuren uit `CHART_COLORS[self.theme]`.
-- `app/gui/main_window.py` (v2.22.0 → **v2.22.1**) —
-  `AnalysisScreen(taal=..., theme=self.theme, ...)` bij constructie;
-  `_apply_settings` roept `analysis_page.apply_theme(self.theme)` aan
-  bij een themawissel.
-- `tests/test_analysis_screen_theme.py` (nieuw, **v1.0.0**) — 11 tests.
+**Gewijzigd in 11I.1:**
+- `requirements.txt` (v1.0.0 → **v1.1.0**) — commentaar dat uitlegt
+  waarom `numpy` en `pandas` een bovengrens `<3` hebben. Geen
+  pin-wijziging.
+- `docs/future_tools.md` §5 — gelijkgetrokken met de werkelijke pins.
+- `docs/packaging.md` (v1.0.0 → **v1.1.0**) — nieuwe subsectie §2.1
+  "Dependency-pins".
 
-**Gewijzigd in 11H.5:**
-- `app/gui/history_screen.py` (v1.17.1 → **v1.18.0**) — nieuwe
-  keyword-only parameter `theme`; nieuwe module-level dict
-  `DETAIL_HTML_COLORS` met per thema de detail-HTML-kleuren; nieuwe
-  `apply_theme(theme)`-methode; `_show_detail_dialog` gebruikt de
-  per-thema `QTextBrowser`-stylesheet; `state_label`-kleur volgt het
-  thema.
-- `app/gui/main_window.py` (v2.22.1 → **v2.22.2**) —
-  `HistoryScreen(taal=..., theme=self.theme, ...)` bij constructie;
-  `_apply_settings` roept `history_page.apply_theme(self.theme)` aan
-  bij een themawissel; `_toon_release_notes_dialoog` gebruikt een
-  thema-afhankelijke `QTextBrowser`-stijl; `_markdown_naar_html`
-  krijgt optionele `body_bg`/`body_fg` (default donker,
-  backward-compat).
-- `tests/test_history_screen_theme.py` (nieuw, **v1.0.0**) — 11 tests.
+**Gewijzigd in 11I.2:**
+- `app/helpers/icon_paths.py` (v1.0.0 → **v1.1.0**) — nieuwe
+  `sys._MEIPASS`-branch in `_projectroot_default()`, vóór de
+  omhoog-zoeklus. Deterministische resolutie in de
+  PyInstaller-bundel. Geen wijziging aan de publieke API.
+- `tests/test_icon_paths.py` (v1.1.0 → **v1.2.0**, +2 tests).
 
-**Samenvatting van 11H.1 t/m 11H.5 (allemaal afgerond):**
+**Gewijzigd in 11I.3:**
+- `build_installer.bat` (v2.0.1 → **v2.0.3**) — `x64compatible`,
+  robocopy-melding verduidelijkt (één regel, geen meerregelige echo
+  binnen `(...)`), logging van [4] en [7] naar `build_log.txt`.
+- `build_and_publish.ps1` (v1.0.0 → **v1.1.0**) — standaard J bij
+  "Starten?".
+- `.gitignore` — `build_log.txt`.
+- `docs/packaging.md` (v1.1.0 → **v1.3.0**) — §2-tabel bijgewerkt,
+  §11 bijgewerkt.
+
+**Gewijzigd in 11I.4:**
+- `.gitignore` — `signing-certs/`.
+- `docs/packaging.md` (v1.3.0 → **v1.4.0**) — nieuwe subsectie §4.1
+  "Certificaatstore-hygiëne"; §11 bijgewerkt.
+
+**Gewijzigd in 11I.5:**
+- `docs/changelog/nl_NL.md` (→ **v1.3.0**) — nieuwe sectie "Fase 11I".
+- `docs/changelog/en_US.md` (→ **v1.3.0**) — idem in het Engels.
+- `overdracht.md` (→ **v6.5.0**) — dit document.
+- `WatNu.md` (→ **v2.3.0**) — bijgewerkt.
+- `docs/openvragen.md` (→ **v3.6.0**) — §2.16 en §2.20 gemarkeerd,
+  nieuwe subsectie 4.39.
+- `docs/packaging.md` (v1.4.0 → **v1.5.0**) — alleen de
+  changelog-regel in de header.
+
+**Samenvatting van 11I.1 t/m 11I.5 (allemaal afgerond):**
 
 | Onderdeel | Bestand | Versie |
 |---|---|---|
-| Licht + donker stylesheet | `app/gui/styles.py` | v1.7.0 |
-| Thema-validatie | `app/config/settings.py` | v1.8.0 |
-| Thema-keuze in Settings | `app/gui/dialogs/settings_dialog.py` | v1.7.0 |
-| Thema-parameter op ToolHubWindow | `app/gui/main_window.py` | v2.22.2 |
-| Thema bij opstart | `main.py` | v1.6.0 |
-| Chart-kleuren per thema | `app/gui/analysis_screen.py` | v1.7.0 |
-| Detail-HTML per thema | `app/gui/history_screen.py` | v1.18.0 |
+| Pins gedocumenteerd | `requirements.txt` | v1.1.0 |
+| `icon_path` via `sys._MEIPASS` | `app/helpers/icon_paths.py` | v1.1.0 |
+| Build-orchestratie opgeschoond | `build_installer.bat` | v2.0.3 |
+| "Starten?"-standaard | `build_and_publish.ps1` | v1.1.0 |
+| Certificaatstore-hygiëne | `docs/packaging.md` | v1.5.0 |
 
 ### 2.3 Belangrijke recente bugfixes
 
-Zie v6.0.0 §2.3. Nieuw sinds v6.3.0: geen. 11H.4 en 11H.5 verliepen
-zonder noemenswaardige problemen.
+Zie v6.0.0 §2.3. Nieuw sinds v6.4.0:
+
+- **11I.3:** de meerregelige echo in de `[rename]`-fallback van
+  `build_installer.bat` brak de cmd-parser (`. was unexpected at this
+  time.`). Opgelost in v2.0.3 door de melding tot één regel terug te
+  brengen (met `^`-escaping voor de haakjes).
 
 Zie v6.3.0 §2.3 voor de bugfixes uit 11H.3 (v2.21.1, v2.21.2,
 v2.21.3, v2.22.0).
 
-### 2.4 Openstaande werkpunten en fase 11-indeling
+### 2.4 Openstaande werkpunten en fase 12-indeling
 
-Volgende fase is **11I — Build en cosmetica**.
+Volgende fase is **12 — AI-extractie uit fabrikantdocumenten**.
 
-Sub-fase-indeling fase 11 (geactualiseerd):
+Sub-fase-indeling fase 12 (voorstel, nog niet uitgewerkt):
 
 | Sub-fase | Onderwerp | Status |
 |---|---|---|
-| **11A** | Export, import en selectie | ✅ afgerond |
-| **11B** | Betrouwbaarheidsregel herzien (§2.26) | ✅ afgerond |
-| **11C** | Iconen voor alle vensters (§2.27) | ✅ afgerond |
-| **11D** | i18n-menging in Diagnose/Result en Resultaatdetails (§2.21) | ✅ afgerond |
-| **11E** | Async netwerk | ✅ afgerond |
-| **11F.1 t/m 11F.4** | Documentatie-uitbreiding | ✅ afgerond |
-| **11G.1 t/m 11G.7** | Visueel donker thema | ✅ afgerond |
-| **11H.1** | Light theme in styles.py | ✅ afgerond |
-| **11H.2** | Thema-keuze in Settings | ✅ afgerond |
-| **11H.3** | Thema-parameter op ToolHubWindow + live wissel | ✅ afgerond |
-| **11H.4** | Chart-kleuren per thema in AnalysisScreen | ✅ afgerond |
-| **11H.5** | Detail-HTML en release-notes per thema | ✅ afgerond |
-| **11I** | Build en cosmetica | **Volgende** |
+| **12A** | Documenttype-detectie en extractie-orkestratie | **Volgende** |
+| **12B** | AI-model-keuze en API-koppeling | Gepland |
+| **12C** | Prompt-engineering en output-validatie | Gepland |
+| **12D** | Resultaatopslag en herkomst-tracking | Gepland |
 
-Daarna volgen fase 12 (AI-extractie), 13 (menselijke validatie),
-14 (fabrikantdata koppelen) en 15 (Resistor).
+De exacte indeling wordt bij de start van fase 12 bepaald. Vraag het
+na.
+
+Daarna volgen fase 13 (menselijke validatie), 14 (fabrikantdata
+koppelen) en 15 (Resistor).
 
 ### 2.5 Werkafspraken voor een nieuwe sessie
 
@@ -264,19 +280,16 @@ Onveranderd t.o.v. v6.0.0, aangevuld met de `conftest.py`-regel uit §1.
 
 ## 3. KERNREGELS — BINDENDE AFSPRAKEN
 
-Onveranderd t.o.v. v5.9.0, behalve:
+Onveranderd t.o.v. v6.4.0, behalve:
 
-- **`conftest.py`**: sinds 11H.3 is er een minimale `conftest.py`
-  toegestaan en verplicht voor GUI-tests. Die bevat uitsluitend de
-  `QT_QPA_PLATFORM=offscreen`-registratie en de autouse-opruimfixture.
-  Geen projectimports, geen `qtbot`, geen `pytest-qt`.
-- **`setStyleSheet` op het venster, niet op de `QApplication`.** De
-  enige uitzondering is de globale `apply_theme(app, thema)` in
-  `main.py` bij opstart, voor dialogen zonder parent.
-- **Thema doorgeven aan schermen**: schermen met thema-afhankelijke
-  kleuren krijgen een keyword-only `theme`-parameter en een
-  `apply_theme(theme)`-methode. Sinds 11H.4 heeft `AnalysisScreen`
-  die; sinds 11H.5 ook `HistoryScreen`.
+- **`icon_paths.py` gebruikt sinds 11I.2 een expliciete
+  `sys._MEIPASS`-branch** vóór de omhoog-zoeklus.
+- **`build_installer.bat` logt sinds 11I.3 de PyInstaller-stap [4] en
+  de ISCC-stap [7]** naar `build_log.txt`; `build_log.txt` staat in
+  `.gitignore`.
+- **`build_and_publish.ps1` geeft sinds 11I.3 de bevestigingsvraag
+  "Starten?" een expliciete standaardwaarde J** bij Enter.
+- **`signing-certs/` staat sinds 11I.4 in `.gitignore`.**
 
 ---
 
@@ -296,134 +309,142 @@ Onveranderd t.o.v. v5.9.0, behalve:
 | 11F.1 t/m 11F.4 | Documentatie-uitbreiding | ✅ |
 | 11G.1 t/m 11G.7 | Visueel donker thema | ✅ |
 | 11H.1 t/m 11H.5 | Light theme | ✅ |
-| **11I** | **Build en cosmetica** | **Volgende** |
-| 12 | AI-extractie uit fabrikantdocumenten | Gepland |
+| **11I.1 t/m 11I.5** | **Build en cosmetica** | ✅ |
+| **12** | **AI-extractie uit fabrikantdocumenten** | **Volgende** |
 | 13 | Menselijke validatie van AI-output | Gepland |
 | 14 | Goedgekeurde fabrikantdata koppelen aan assessment | Gepland |
 | 15 | Tweede diagnosetool — Resistor | Gepland |
 
 ---
 
-## 5. WAT IS NIEUW SINDS VERSIE 6.3.0
+## 5. WAT IS NIEUW SINDS VERSIE 6.4.0
 
-### 5.1 Fase 11H.4 — Chart-kleuren per thema in AnalysisScreen
+### 5.1 Fase 11I.1 — Pins documenteren
 
-**Aanleiding:** `analysis_screen.py` bevatte nog hardcoded donkere
-kleuren (`#1E1E1E`, `#F0F0F0`, `#3A3A3A`, `_LINE_COLOR = "#4AA3FF"`,
-`QChart`-achtergrond, `chart_view`-stylesheet). Bij een licht thema
-werd de chart donker op een licht venster.
+**Aanleiding:** de pandas/numpy-pins in `requirements.txt` waren niet
+gedocumenteerd. `docs/future_tools.md` §5 noemde een verouderde set.
 
 **Oplossing:**
+- `requirements.txt` v1.1.0 — commentaar dat uitlegt waarom `numpy` en
+  `pandas` een bovengrens `<3` hebben. Geen pin-wijziging.
+- `docs/packaging.md` v1.1.0 — nieuwe §2.1 "Dependency-pins".
+- `docs/future_tools.md` §5 — gelijkgetrokken.
 
-- `analysis_screen.py` v1.7.0 — nieuwe keyword-only parameter `theme`;
-  nieuwe module-level dict `CHART_COLORS` met per thema alle
-  chart-kleuren; nieuwe `apply_theme(theme)`-methode die het thema
-  bijwerkt en de chart-kleuren toepast zonder de reeksen te wissen.
-  Alle hardcoded kleuren in `_build_ui`, `_prepare_chart`,
-  `_replace_chart_empty`, `_draw_time_series` en `_draw_scatter`
-  komen nu uit `CHART_COLORS[self.theme]`. `_category_color` gebruikt
-  `self._colors()["scatter_neutral"]` voor `None`-categorie.
-- `main_window.py` v2.22.1 — `AnalysisScreen(taal=..., theme=...)` bij
-  constructie; `analysis_page.apply_theme(self.theme)` bij een
-  themawissel.
-- `tests/test_analysis_screen_theme.py` (nieuw, 11 tests) — dekt
-  thema-parameter, `CHART_COLORS`, chart-achtergrond, state-label,
-  `apply_theme()`-gedrag en axis-kleuren.
+### 5.2 Fase 11I.2 — `icon_path` via `sys._MEIPASS`
 
-### 5.2 Fase 11H.5 — Detail-HTML en release-notes per thema
-
-**Aanleiding:** `history_screen.py` had in `_show_detail_dialog` een
-hardcoded `QTextBrowser`-stylesheet (`#1E1E1E` / `#F0F0F0`) en
-`state_label` `color: #C8C8C8`. `main_window._toon_release_notes_dialoog`
-had hetzelfde probleem. Bij een licht thema werden deze tekstvakken
-donker op een licht venster.
+**Aanleiding:** het icoonpad was niet deterministisch in de
+PyInstaller-bundel.
 
 **Oplossing:**
+- `app/helpers/icon_paths.py` v1.1.0 — nieuwe `sys._MEIPASS`-branch
+  vóór de omhoog-zoeklus.
+- `tests/test_icon_paths.py` v1.2.0 — +2 tests.
 
-- `history_screen.py` v1.18.0 — nieuwe keyword-only parameter `theme`;
-  nieuwe module-level dict `DETAIL_HTML_COLORS` met per thema de
-  detail-HTML-kleuren (achtergrond, tekst, heading, muted, tabel-rand,
-  state-label); nieuwe `apply_theme(theme)`-methode;
-  `_show_detail_dialog` gebruikt de per-thema `QTextBrowser`-stylesheet;
-  `state_label`-kleur volgt het thema.
-- `main_window.py` v2.22.2 — `HistoryScreen(taal=..., theme=...)` bij
-  constructie; `history_page.apply_theme(self.theme)` bij een
-  themawissel; `_toon_release_notes_dialoog` gebruikt een
-  thema-afhankelijke `QTextBrowser`-stijl; `_markdown_naar_html` krijgt
-  optionele `body_bg`/`body_fg` (default donker, backward-compat).
-- `tests/test_history_screen_theme.py` (nieuw, 11 tests) — dekt
-  thema-parameter, `DETAIL_HTML_COLORS`, state-label,
-  `apply_theme()`-gedrag en de detail-HTML-stylesheet in beide thema's.
+### 5.3 Fase 11I.3 — Build-orchestratie opschonen
 
-### 5.3 Baseline
+**Aanleiding:** drie cosmetische punten.
+
+**Oplossing:**
+- `build_installer.bat` v2.0.3 — `x64compatible`, robocopy-melding
+  verduidelijkt, logging van [4] en [7] naar `build_log.txt`.
+- `build_and_publish.ps1` v1.1.0 — standaard J bij "Starten?".
+- `.gitignore` — `build_log.txt`.
+- `docs/packaging.md` v1.3.0 — §2-tabel en §11 bijgewerkt.
+
+### 5.4 Fase 11I.4 — Certificaatstore-hygiëne
+
+**Aanleiding:** de twee verlopen certificaten in de certificaatstore
+waren niet gedocumenteerd.
+
+**Oplossing:**
+- `docs/packaging.md` v1.4.0 — nieuwe §4.1 "Certificaatstore-hygiëne".
+- `.gitignore` — `signing-certs/`.
+
+### 5.5 Fase 11I.5 — Afronding
+
+- `docs/changelog/nl_NL.md` v1.3.0.
+- `docs/changelog/en_US.md` v1.3.0.
+- `overdracht.md` v6.5.0 (dit document).
+- `WatNu.md` v2.3.0.
+- `docs/openvragen.md` v3.6.0.
+- `docs/packaging.md` v1.5.0 (alleen changelog-regel).
+
+### 5.6 Baseline
 
 | Sub-fase | Baseline vóór | Baseline ná | Nieuw |
 |---|---|---|---|
-| 11H.1 | 1494 | 1502 | +8 |
-| 11H.2 | 1502 | 1514 | +6 |
-| 11H.3 | 1514 | 1524 | +10 |
-| 11H.4 | 1524 | 1535 | +11 |
-| 11H.5 | 1535 | **1546** | +11 |
+| 11I.1 | 1546 | 1546 | 0 |
+| 11I.2 | 1546 | 1548 | +2 |
+| 11I.3 | 1548 | 1548 | 0 |
+| 11I.4 | 1548 | 1548 | 0 |
+| 11I.5 | 1548 | **1548** | 0 |
 
-**Totaal 11H.1 t/m 11H.5:** 1494 → 1546 (+52 tests).
+**Totaal 11I.1 t/m 11I.5:** 1546 → 1548 (+2 tests).
 
-### 5.4 Gewijzigde bestanden sinds 6.3.0
+### 5.7 Gewijzigde bestanden sinds 6.4.0
 
 | Bestand | Versie / status |
 |---|---|
-| `app/gui/analysis_screen.py` | v1.6.3 → **v1.7.0** |
-| `app/gui/history_screen.py` | v1.17.1 → **v1.18.0** |
-| `app/gui/main_window.py` | v2.22.0 → **v2.22.2** |
-| `tests/test_analysis_screen_theme.py` | nieuw, **v1.0.0** (11 tests) |
-| `tests/test_history_screen_theme.py` | nieuw, **v1.0.0** (11 tests) |
+| `requirements.txt` | v1.0.0 → **v1.1.0** |
+| `app/helpers/icon_paths.py` | v1.0.0 → **v1.1.0** |
+| `tests/test_icon_paths.py` | v1.1.0 → **v1.2.0** (+2 tests) |
+| `build_installer.bat` | v2.0.1 → **v2.0.3** |
+| `build_and_publish.ps1` | v1.0.0 → **v1.1.0** |
+| `.gitignore` | bijgewerkt |
+| `docs/future_tools.md` | §5 bijgewerkt |
+| `docs/packaging.md` | v1.0.0 → **v1.5.0** |
+| `docs/changelog/nl_NL.md` | → **v1.3.0** |
+| `docs/changelog/en_US.md` | → **v1.3.0** |
+| `overdracht.md` | → **v6.5.0** |
+| `WatNu.md` | → **v2.3.0** |
+| `docs/openvragen.md` | → **v3.6.0** |
 
-### 5.5 Teststatus
+### 5.8 Teststatus
 
-**Baseline: 1546 passed.** Was 1524 vóór 11H.4. De toename is +22
-tests (11 in `test_analysis_screen_theme.py`, 11 in
-`test_history_screen_theme.py`). De suite draait in ~200 s.
+**Baseline: 1548 passed.** Was 1546 vóór 11I.2. De toename is +2
+tests in `test_icon_paths.py`. De suite draait in ~200 s.
 
-### 5.6 Bekende beperkingen (bijgewerkt)
+### 5.9 Bekende beperkingen (bijgewerkt)
 
-Onveranderd t.o.v. v6.3.0, maar de hardcoded kleuren in
-`analysis_screen.py` en `history_screen.py` zijn nu **opgelost**. Wat
-nog rest:
+Onveranderd t.o.v. v6.4.0, maar de hardcoded kleuren in
+`analysis_screen.py` en `history_screen.py` zijn **opgelost** in
+11H.4 en 11H.5. Wat nog rest:
 
 - **`QApplication.setStyleSheet` is verboden** behalve in `main.py`
   bij opstart. Gebruik `self.setStyleSheet(...)` op het venster.
 - **`esr_test_screen.py` en `documentation_screen.py`** bevatten nog
-  geen thema-afhankelijke kleuren. Als 11I daar iets aan verandert,
-  krijgen die schermen dezelfde `theme`-parameter als
+  geen thema-afhankelijke kleuren. Als een latere fase daar iets aan
+  verandert, krijgen die schermen dezelfde `theme`-parameter als
   `AnalysisScreen` en `HistoryScreen`.
+- **Publiek vertrouwd (EV-)certificaat** — structurele oplossing.
+- **Fallback timestamp-server** — single point of failure.
 
 ---
 
 ## 6. OPENSTAANDE VRAGEN VOOR DE NIEUWE CHAT
 
-Zie `docs/openvragen.md` v3.5.0 voor de volledige, levende lijst.
-Samenvatting van de belangrijkste punten voor fase 11I:
+Zie `docs/openvragen.md` v3.6.0 voor de volledige, levende lijst.
+Samenvatting van de belangrijkste punten voor fase 12:
 
-- §2.16 — pandas/numpy pins heroverwegen (11I).
-- §2.20 — relatief `icon_path`, `Architecture identifier "x64"`,
-  `[rename] Fallback via robocopy`, `build_log.txt`, certificaten
-  opruimen (11I).
 - §2.28 — export/import tussen toestellen.
 - §2.14 — Rapportage: scope "filters" in de Rapportage-GUI.
+- §11 packaging — publiek vertrouwd (EV-)certificaat;
+  fallback timestamp-server.
 
-Opgelost in 11H.1: §4.4 (deel: styles.py).
-Opgelost in 11H.2: §4.4 (deel: Settings).
-Opgelost in 11H.3: §4.4 (deel: ToolHubWindow + live wissel +
-performance).
-Opgelost in 11H.4: §4.4 (deel: chart-kleuren in AnalysisScreen).
-Opgelost in 11H.5: §4.4 (deel: detail-HTML en release-notes per
-thema). **§4.4 is nu volledig opgelost.**
+Opgelost in 11I.1: §2.16 (pandas/numpy pins heroverwegen).
+Opgelost in 11I.2: §2.20 (deel: relatief `icon_path`).
+Opgelost in 11I.3: §2.20 (deel: `Architecture identifier "x64"`,
+`[rename] Fallback via robocopy`, `build_log.txt`).
+Opgelost in 11I.4: §2.20 (deel: certificaten opruimen).
+
+**§2.16 en §2.20 zijn nu volledig opgelost.**
 
 ---
 
 ## 7. TESTSTATUS — BASELINE EN TESTSTRUCTUUR
 
-**Datum:** 2026-10-21
-**Baseline:** 1546 passed
+**Datum:** 2026-10-22
+**Baseline:** 1548 passed
 **Werkwijze:** eerst gerichte tests, dan volledige `pytest -q`.
 
 ### 7.1 Commando's
@@ -484,27 +505,23 @@ Voor een nieuwe sessie heeft de chat meestal nodig:
 - `docs/markdown_levering.md`
 - `conftest.py` — minimale autouse-fixture (sinds 11H.3)
 
-**Voor fase 11I (Build en cosmetica):**
+**Voor fase 12 (AI-extractie uit fabrikantdocumenten):**
 
-De exacte bestanden hangen af van de sub-fase-indeling van 11I. Vraag
-die eerst na. Waarschijnlijk betrokken:
+De exacte bestanden hangen af van de sub-fase-indeling van fase 12.
+Vraag die eerst na. Waarschijnlijk betrokken:
 
-- `build_and_publish.ps1`, `build_installer.bat`, `publish.ps1` —
-  build-orchestratie
-- `ESR_Tester.spec` — PyInstaller-specificatie
-- `requirements.txt` — pandas/numpy pins
-- `docs/packaging.md` — build-documentatie
-- `app/helpers/icon_paths.py` — relatief `icon_path`
-- `docs/openvragen.md` §2.16, §2.20 — de concrete punten
-
-**Voor fase 12 (AI-extractie) — nog niet nu:**
-
-- `app/documentation/docx_extract.py`, `pdf_extract.py`,
+- `app/documentation/pdf_extract.py`, `docx_extract.py`,
   `xlsx_extract.py`, `url_fetch.py`
 - `app/documentation/import_service.py`
+- `app/documentation/import_models.py`
+- `docs/documentation_import.md`
+- Nieuwe AI-module (naam nog te bepalen)
 
-De exacte bestanden hangen af van de sub-fase-indeling. Vraag die
-eerst na.
+**Voor fase 13 (menselijke validatie) — nog niet nu:**
+
+- `app/gui/documentation_screen.py`
+- `app/gui/dialogs/edit_metadata_dialog.py`
+- `app/gui/dialogs/bulk_edit_metadata_dialog.py`
 
 ---
 
@@ -521,3 +538,10 @@ Onveranderd t.o.v. v6.0.0 §9, aangevuld met:
 - **Thema doorgeven aan schermen** met een keyword-only
   `theme`-parameter en een `apply_theme(theme)`-methode, zoals in
   `AnalysisScreen` (sinds 11H.4) en `HistoryScreen` (sinds 11H.5).
+- **`icon_paths.py` gebruikt sinds 11I.2 een expliciete
+  `sys._MEIPASS`-branch** vóór de omhoog-zoeklus.
+- **`build_installer.bat` logt sinds 11I.3 de PyInstaller-stap [4] en
+  de ISCC-stap [7]** naar `build_log.txt`.
+- **`build_and_publish.ps1` geeft sinds 11I.3 de bevestigingsvraag
+  "Starten?" een expliciete standaardwaarde J.**
+- **`signing-certs/` staat sinds 11I.4 in `.gitignore`.**

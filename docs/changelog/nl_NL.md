@@ -17,6 +17,71 @@ Opmerking over de versienummering:
 - Voor de actuele versie: zie `app/version.py` of Help → Over.
 -->
 
+### Fase 11I — Build en cosmetica (22 oktober 2026)
+
+**Waarom deze wijziging**
+
+Fase 11I rondt de cosmetische en build-technische punten af die sinds
+11F/11G/11H openstonden: de pandas/numpy-pins waren niet gedocumenteerd,
+het icoonpad was niet bestand tegen de PyInstaller-bundel, de
+build-orchestratie had drie cosmetische punten (x64-deprecation,
+onduidelijke robocopy-fallback, leeg `build_log.txt`), en de twee
+verlopen certificaten in de certificaatstore waren niet gedocumenteerd.
+
+**Oplossing: vijf sub-fases**
+
+- **11I.1 — Pins documenteren.** `requirements.txt` (v1.1.0) krijgt
+  commentaar dat uitlegt waarom `numpy` en `pandas` een bovengrens
+  `<3` hebben. `docs/packaging.md` (v1.1.0) krijgt een nieuwe subsectie
+  §2.1 "Dependency-pins". `docs/future_tools.md` §5 wordt gelijkgetrokken
+  met de werkelijke pins (inclusief `numpy`, `pypdf`, `requests`,
+  `beautifulsoup4`, `python-docx`). Geen pin-wijziging: de huidige pins
+  zijn bewezen in de PyInstaller-bundel.
+- **11I.2 — `icon_path` via `sys._MEIPASS`.** `app/helpers/icon_paths.py`
+  (v1.1.0) krijgt een expliciete `sys._MEIPASS`-branch vóór de
+  omhoog-zoeklus. In een PyInstaller-bundel staat `assets/` in
+  `_internal/assets/`, en de omhoog-zoeklus zou ook kunnen slagen, maar
+  niet deterministisch. De expliciete branch maakt de resolutie
+  deterministisch en onafhankelijk van de CWD. Twee nieuwe tests in
+  `tests/test_icon_paths.py` (v1.2.0, +2). Baseline 1546 → **1548**.
+- **11I.3 — Build-orchestratie opschonen.** Drie cosmetische punten:
+  (a) `ArchitecturesInstallIn64BitMode=x64` → `x64compatible` in de
+  gegenereerde `.iss` (Inno Setup 6 beschouwt `x64` als deprecated);
+  (b) de `[rename]`-fallbackmelding in `build_installer.bat` is
+  verduidelijkt (reden + actie), en de meerregelige echo brak de
+  cmd-parser — opgelost in v2.0.3; (c) `build_installer.bat` logt nu
+  de PyInstaller-stap [4] en de ISCC-stap [7] met
+  `>> "%LOGFILE%" 2>&1` naar `build_log.txt`. `build_log.txt` staat
+  expliciet in `.gitignore` (matcht niet op `*.log`). Daarnaast:
+  `build_and_publish.ps1` (v1.1.0) geeft de bevestigingsvraag
+  "Starten?" nu een expliciete standaardwaarde J bij Enter, consistent
+  met de vier vragen ervoor.
+- **11I.4 — Certificaatstore-hygiëne.** Nieuwe subsectie §4.1 in
+  `docs/packaging.md` (v1.4.0): de preflight in
+  `build_and_publish.ps1` slaat verlopen certificaten over; ze zijn
+  onschadelijk; opruimen is optioneel en handmatig via Certificate
+  Manager. `signing-certs/` (de standaardmap van
+  `Export-SigningCertificate.ps1`) staat in `.gitignore`.
+- **11I.5 — Afronding.** Changelog, overdracht, WatNu en openvragen
+  bijgewerkt.
+
+**Voor ontwikkelaars**
+
+- **Gewijzigd:** `requirements.txt` (v1.0.0 → v1.1.0) — commentaar.
+- **Gewijzigd:** `app/helpers/icon_paths.py` (v1.0.0 → v1.1.0) —
+  `sys._MEIPASS`-branch.
+- **Gewijzigd:** `build_installer.bat` (v2.0.1 → v2.0.3) —
+  `x64compatible`, robocopy-melding verduidelijkt (één regel),
+  logging van [4] en [7] naar `build_log.txt`.
+- **Gewijzigd:** `build_and_publish.ps1` (v1.0.0 → v1.1.0) —
+  standaard J bij "Starten?".
+- **Gewijzigd:** `.gitignore` — `build_log.txt` en `signing-certs/`.
+- **Gewijzigd:** `docs/future_tools.md` §5 — pins gelijkgetrokken.
+- **Gewijzigd:** `docs/packaging.md` (v1.0.0 → v1.5.0) — §2.1, §4.1,
+  §11 bijgewerkt.
+- **Nieuwe tests:** `tests/test_icon_paths.py` (v1.1.0 → v1.2.0, +2).
+- **Baseline:** 1546 → **1548 passed** (+2 tests).
+
 ### Fase 11H — Licht thema (21 oktober 2026)
 
 **Waarom deze wijziging**
@@ -802,8 +867,7 @@ Het zoekveld doorzoekt nu ook de metadata van geïmporteerde documenten.
   - **11F** — Documentatie-uitbreiding. **Afgerond op 20 oktober 2026.**
   - **11G** — Visueel donker thema. **Afgerond op 20 oktober 2026.**
   - **11H** — Licht thema. **Afgerond op 21 oktober 2026.**
-  - **11I** — Build en cosmetica (deprecations, logbestanden,
-    certificaten).
+  - **11I** — Build en cosmetica. **Afgerond op 22 oktober 2026.**
 - **Versie 1.3.0 — AI-extractie uit fabrikantdocumenten.**
 - **Versie 1.4.0 — Menselijke validatie van AI-output.**
 - **Versie 1.5.0 — Goedgekeurde fabrikantdata koppelen aan

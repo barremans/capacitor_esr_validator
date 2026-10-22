@@ -30,6 +30,9 @@ zie `docs/testmatrix_defender_intune.md`.
   de preflight slaat ze over; handmatig opruimen via Certificate
   Manager). `signing-certs/` toegevoegd aan `.gitignore`. §11
   bijgewerkt.
+- v1.5.0 (2026-10-22) — Fase 11I.5: afronding. Geen inhoudelijke
+  wijziging; alleen deze changelog-regel.ng-certs/` toegevoegd aan `.gitignore`. §11
+  bijgewerkt.
 
 ---
 

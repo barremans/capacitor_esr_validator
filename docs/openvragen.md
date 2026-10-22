@@ -1,22 +1,22 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 3.5.0
-**Datum:** 2026-10-21
+**Versie:** 3.6.0
+**Datum:** 2026-10-22
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
 is. Geen bugs, geen beloftes — alleen vragen en observaties.
 
 Wijzigingen:
-  v1.0.0 t/m v3.4.0  zie eerdere versies.
-  v3.5.0 (2026-10-21)  §4.4 (light theme) volledig opgelost in
-                       11H.1 t/m 11H.5. Nieuwe subsectie 4.38
-                       (opgeloste punten in 11H).
+  v1.0.0 t/m v3.5.0  zie eerdere versies.
+  v3.6.0 (2026-10-22)  §2.16 en §2.20 gemarkeerd als opgelost in
+                       11I.1 t/m 11I.4. Nieuwe subsectie 4.39
+                       (opgeloste punten in 11I).
 
 ---
 
 ## 1. Uit Fase 4I — Zoektaal-observaties
 
-Onveranderd t.o.v. v3.4.0.
+Onveranderd t.o.v. v3.5.0.
 
 ---
 
@@ -66,6 +66,38 @@ Zie eerdere versies.
 ### 2.15 t/m 2.20 — beantwoord
 
 Zie eerdere versies.
+
+### 2.16 pandas/numpy pins heroverwegen (toegevoegd 2026-10-13)
+
+- **Status:** **opgelost in 11I.1.** De pins zijn bewust:
+  `numpy>=1.26,<3` en `pandas>=2.2,<3`. De bovengrens beschermt
+  tegen een major-bump die de PyInstaller-bundel of de pandas-API's
+  kan breken. Motivatie staat in `requirements.txt` v1.1.0 en in
+  `docs/packaging.md` §2.1.
+
+### 2.17 t/m 2.19 — beantwoord
+
+Zie eerdere versies.
+
+### 2.20 Cosmetische en build-technische punten (toegevoegd 2026-10-13)
+
+- **Relatief `icon_path`.** **Opgelost in 11I.2.**
+  `app/helpers/icon_paths.py` v1.1.0 heeft een expliciete
+  `sys._MEIPASS`-branch vóór de omhoog-zoeklus. Deterministisch in de
+  PyInstaller-bundel.
+- **`Architecture identifier "x64" is deprecated`.** **Opgelost in
+  11I.3.** `build_installer.bat` v2.0.3 genereert
+  `ArchitecturesInstallIn64BitMode=x64compatible` in de `.iss`.
+- **`[rename] Fallback via robocopy`-melding.** **Opgelost in 11I.3.**
+  De melding is verduidelijkt (reden + actie), en de meerregelige
+  echo die de cmd-parser brak is tot één regel teruggebracht.
+- **`build_log.txt` blijft leeg.** **Opgelost in 11I.3.** [4] en [7]
+  loggen nu met `>> "%LOGFILE%" 2>&1`. `build_log.txt` staat
+  expliciet in `.gitignore`.
+- **Certificaten opruimen.** **Opgelost in 11I.4.** De preflight in
+  `build_and_publish.ps1` slaat verlopen certificaten over. Ze zijn
+  onschadelijk. Opruimen is optioneel en handmatig via Certificate
+  Manager. Zie `docs/packaging.md` §4.1.
 
 ### 2.21 Drie visuele punten uit de 9F-sessie (2026-10-14)
 
@@ -121,13 +153,13 @@ Zie eerdere versies.
 
 ## 3. Uit vroegere contextdocumenten (nog steeds relevant)
 
-Onveranderd t.o.v. v3.4.0.
+Onveranderd t.o.v. v3.5.0.
 
 ---
 
 ## 4. Uit eigen observaties tijdens recente fases
 
-Onveranderd t.o.v. v3.4.0, plus:
+Onveranderd t.o.v. v3.5.0, plus:
 
 ### 4.37 Opgeloste punten in 11G.7 (2026-10-20)
 
@@ -166,6 +198,29 @@ Onveranderd t.o.v. v3.4.0, plus:
   noodzakelijk: de globale `QApplication.setStyleSheet` in elke
   `ToolHubWindow`-constructie liep in de testsuite op tot 50–170
   seconden per test. Het venster beheert nu zijn eigen stylesheet.
+
+### 4.39 Opgeloste punten in 11I (2026-10-22)
+
+- **§2.16 — pandas/numpy pins.** Opgelost in 11I.1:
+  `requirements.txt` v1.1.0 documenteert waarom de bovengrens `<3`
+  er staat. `docs/packaging.md` §2.1. Geen pin-wijziging.
+- **§2.20 — relatief `icon_path`.** Opgelost in 11I.2:
+  `app/helpers/icon_paths.py` v1.1.0 met `sys._MEIPASS`-branch.
+  `tests/test_icon_paths.py` v1.2.0 (+2 tests).
+- **§2.20 — `Architecture identifier "x64"`.** Opgelost in 11I.3:
+  `build_installer.bat` v2.0.3, `x64compatible`.
+- **§2.20 — `[rename]`-fallback.** Opgelost in 11I.3:
+  melding verduidelijkt, en de meerregelige echo die de cmd-parser
+  brak is tot één regel teruggebracht (met `^`-escaping).
+- **§2.20 — `build_log.txt`.** Opgelost in 11I.3: [4] en [7]
+  loggen nu met `>> "%LOGFILE%" 2>&1`. `build_log.txt` staat
+  expliciet in `.gitignore`.
+- **§2.20 — certificaten opruimen.** Opgelost in 11I.4:
+  `docs/packaging.md` §4.1 documenteert dat de preflight verlopen
+  certificaten overslaat. Opruimen is optioneel en handmatig.
+  `signing-certs/` staat in `.gitignore`.
+- **Nieuwe tests:** `tests/test_icon_paths.py` v1.2.0 (+2).
+- **Baseline:** 1546 → **1548 passed** (+2 tests).
 
 ---
 

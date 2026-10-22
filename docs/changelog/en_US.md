@@ -16,6 +16,71 @@ Note on version numbering:
 - For the current version: see `app/version.py` or Help → About.
 -->
 
+### Phase 11I — Build and cosmetics (22 October 2026)
+
+**Motivation**
+
+Phase 11I closes the cosmetic and build-technical points left over from
+11F/11G/11H: the pandas/numpy pins were undocumented, the icon path was
+not robust in the PyInstaller bundle, the build orchestration had three
+cosmetic points (x64 deprecation, unclear robocopy fallback, empty
+`build_log.txt`), and the two expired certificates in the certificate
+store were undocumented.
+
+**Solution: five sub-phases**
+
+- **11I.1 — Documenting the pins.** `requirements.txt` (v1.1.0) gains a
+  comment explaining why `numpy` and `pandas` have an upper bound
+  `<3`. `docs/packaging.md` (v1.1.0) gains a new §2.1
+  "Dependency pins". `docs/future_tools.md` §5 is aligned with the
+  actual pins (including `numpy`, `pypdf`, `requests`, `beautifulsoup4`,
+  `python-docx`). No pin change: the current pins are proven in the
+  PyInstaller bundle.
+- **11I.2 — `icon_path` via `sys._MEIPASS`.** `app/helpers/icon_paths.py`
+  (v1.1.0) gains an explicit `sys._MEIPASS` branch before the
+  upward-search loop. In a PyInstaller bundle, `assets/` lives in
+  `_internal/assets/`, and the upward-search loop could also succeed,
+  but not deterministically. The explicit branch makes the resolution
+  deterministic and independent of the CWD. Two new tests in
+  `tests/test_icon_paths.py` (v1.2.0, +2). Baseline 1546 → **1548**.
+- **11I.3 — Cleaning up the build orchestration.** Three cosmetic
+  points: (a) `ArchitecturesInstallIn64BitMode=x64` → `x64compatible`
+  in the generated `.iss` (Inno Setup 6 considers `x64` deprecated);
+  (b) the `[rename]` fallback message in `build_installer.bat` is
+  clarified (reason + action), and the multi-line echo broke the cmd
+  parser — fixed in v2.0.3; (c) `build_installer.bat` now logs the
+  PyInstaller step [4] and the ISCC step [7] with
+  `>> "%LOGFILE%" 2>&1` to `build_log.txt`. `build_log.txt` is listed
+  explicitly in `.gitignore` (does not match `*.log`). In addition:
+  `build_and_publish.ps1` (v1.1.0) gives the confirmation question
+  "Starten?" an explicit default J on Enter, consistent with the four
+  questions before it.
+- **11I.4 — Certificate store hygiene.** New §4.1 in
+  `docs/packaging.md` (v1.4.0): the preflight in
+  `build_and_publish.ps1` skips expired certificates; they are
+  harmless; cleanup is optional and manual via Certificate Manager.
+  `signing-certs/` (the default folder of
+  `Export-SigningCertificate.ps1`) is listed in `.gitignore`.
+- **11I.5 — Wrap-up.** Changelog, handover, WatNu and open questions
+  updated.
+
+**For developers**
+
+- **Changed:** `requirements.txt` (v1.0.0 → v1.1.0) — comments.
+- **Changed:** `app/helpers/icon_paths.py` (v1.0.0 → v1.1.0) —
+  `sys._MEIPASS` branch.
+- **Changed:** `build_installer.bat` (v2.0.1 → v2.0.3) —
+  `x64compatible`, robocopy message clarified (single line), logging
+  of [4] and [7] to `build_log.txt`.
+- **Changed:** `build_and_publish.ps1` (v1.0.0 → v1.1.0) —
+  default J on "Starten?".
+- **Changed:** `.gitignore` — `build_log.txt` and `signing-certs/`.
+- **Changed:** `docs/future_tools.md` §5 — pins aligned.
+- **Changed:** `docs/packaging.md` (v1.0.0 → v1.5.0) — §2.1, §4.1,
+  §11 updated.
+- **New tests:** `tests/test_icon_paths.py` (v1.1.0 → v1.2.0, +2).
+- **Baseline:** 1546 → **1548 passed** (+2 tests).
+
 ### Phase 11H — Light theme (21 October 2026)
 
 **Motivation**
@@ -794,8 +859,7 @@ metadata of imported documents.
     2026.**
   - **11G** — Dark theme visuals. **Completed on 20 October 2026.**
   - **11H** — Light theme. **Completed on 21 October 2026.**
-  - **11I** — Build and cosmetics (deprecations, log files,
-    certificates).
+  - **11I** — Build and cosmetics. **Completed on 22 October 2026.**
 - **Version 1.3.0 — AI extraction from manufacturer documents.**
 - **Version 1.4.0 — Human validation of AI output.**
 - **Version 1.5.0 — Linking approved manufacturer data to

@@ -1,7 +1,7 @@
 # Wat nu? — Electronics Diagnostic Tool Hub
 
-**Versie:** 2.2.0
-**Datum:** 2026-10-21
+**Versie:** 2.3.0
+**Datum:** 2026-10-22
 **Auteur:** Bart Bossuyt
 **Doel:** beknopte gids voor "wat is de volgende stap" na een
 afgeronde fase. Geen volledige overdracht — die staat in
@@ -11,11 +11,11 @@ afgeronde fase. Geen volledige overdracht — die staat in
 
 ## Huidige staat
 
-- **Baseline tests:** 1546 passed.
-- **Huidige versie:** `1.2.0`.
-- **Laatste afgeronde fase:** 11H.5 — detail-HTML en release-notes per
-  thema. Daarmee is **11H volledig afgerond** (11H.1 t/m 11H.5).
-- **Volgende fase:** 11I — build en cosmetica.
+- **Baseline tests:** 1548 passed.
+- **Huidige versie:** `1.2.3`.
+- **Laatste afgeronde fase:** 11I.5 — afronding fase 11I. Daarmee is
+  **11I volledig afgerond** (11I.1 t/m 11I.5).
+- **Volgende fase:** 12 — AI-extractie uit fabrikantdocumenten.
 
 Dit bestand wordt bijgewerkt na elke fase.
 
@@ -103,6 +103,14 @@ Dit bestand wordt bijgewerkt na elke fase.
   `closeEvent` accepteert het event alleen als `_force_close` True is;
   anders blijft het contextuele "terug naar hub"-gedrag voor de
   venster-X op een subpagina.
+- **`icon_paths.py` gebruikt sinds 11I.2 een expliciete
+  `sys._MEIPASS`-branch** vóór de omhoog-zoeklus.
+- **`build_installer.bat` logt sinds 11I.3 de PyInstaller-stap [4] en
+  de ISCC-stap [7]** naar `build_log.txt`; `build_log.txt` staat in
+  `.gitignore`.
+- **`build_and_publish.ps1` geeft sinds 11I.3 de bevestigingsvraag
+  "Starten?" een expliciete standaardwaarde J.**
+- **`signing-certs/` staat sinds 11I.4 in `.gitignore`.**
 
 ---
 
@@ -119,6 +127,7 @@ Dit bestand wordt bijgewerkt na elke fase.
 | Import-laag | `docs/documentation_import.md` |
 | Roadmap | `docs/future_tools.md` |
 | Eindgebruikershelp | `docs/help/nl_NL.md`, `docs/help/en_US.md` |
+| Packaging | `docs/packaging.md` |
 | Signing-flow (CGK) | `05-signing-build-context.md` |
 | Defender-indicator | `signingContext.md` |
 | GitHub-repo | `https://github.com/barremans/capacitor_esr_validator` |
