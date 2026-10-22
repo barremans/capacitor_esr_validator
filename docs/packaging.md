@@ -1,7 +1,7 @@
 # Packaging — build, signing en distributie
 
-**Versie:** 1.0.0
-**Datum:** 2026-10-13
+**Versie:** 1.3.0
+**Datum:** 2026-10-22
 **Auteur:** Bart Bossuyt
 **Doel:** Vastleggen hoe de Electronics Diagnostic Tool Hub / ESR Tester
 gebouwd, gesigned en gedistribueerd wordt, en op welke pc-types de
@@ -11,6 +11,20 @@ Dit document is de **project-eigen** samenvatting. Voor de generieke
 CGK-breed build- en signing-verhaal: zie `05-signing-build-context.md` en
 `signingContext.md` (extern, buiten deze repo). Voor de testmatrix:
 zie `docs/testmatrix_defender_intune.md`.
+
+**Wijzigingen:**
+
+- v1.0.0 (2026-10-13) — Eerste versie.
+- v1.1.0 (2026-10-22) — Fase 11I.1: nieuwe subsectie §2.1
+  "Dependency-pins" met de motivatie voor de `numpy`/`pandas`-pins.
+  Verwijst naar `requirements.txt` v1.1.0 en `docs/future_tools.md` §5.
+- v1.2.0 (2026-10-22) — Fase 11I.3: `build_installer.bat` v2.0.2
+  (x64compatible, robocopy-melding verduidelijkt, logging van [4] en
+  [7] naar `build_log.txt`); `build_log.txt` toegevoegd aan
+  `.gitignore`; §11 bijgewerkt (drie punten opgelost).
+- v1.3.0 (2026-10-22) — Fase 11I.3 (herzien): `build_and_publish.ps1`
+  v1.1.0 met expliciete standaardwaarde J bij de bevestigingsvraag
+  "Starten?". §2-tabel bijgewerkt.
 
 ---
 
@@ -45,13 +59,39 @@ De **ArticleSearch-flow** is bindend. Geen eigen variant.
 
 | Bestand | Rol | Versie |
 |---|---|---|
-| `build_installer.bat` | Bouwt EXE + installer, signeert beide | 2.0.1 |
-| `build_and_publish.ps1` | Vraagt parameters, orkestreert build + publish | 1.0.0 |
+| `build_installer.bat` | Bouwt EXE + installer, signeert beide | 2.0.2 |
+| `build_and_publish.ps1` | Vraagt parameters, orkestreert build + publish | 1.1.0 |
 | `publish.ps1` | GitHub-release + release-gate + version.txt | 1.0.0 |
 | `bump_version.py` | Verhoogt patch/minor/major in `app/version.py` | 2.0.0 |
-| `ESR_Tester.spec` | PyInstaller-specificatie (icoon actief) | 2.0.0 |
+| `ESR_Tester.spec` | PyInstaller-specificatie (icoon actief) | 2.1.0 |
 | `app/version.py` | Centrale versie (één bron van waarheid) | 1.0.0 |
 | `Export-SigningCertificate.ps1` | Exporteert `.cer` uit een gesigned bestand | 1.0.1 |
+| `requirements.txt` | Dependency-pins met motivatie | 1.1.0 |
+
+### 2.1 Dependency-pins
+
+De pins staan in `requirements.txt` (v1.1.0). Ze zijn bewust:
+
+- **`numpy>=1.26,<3` en `pandas>=2.2,<3`** hebben een bovengrens. De
+  app gebruikt beide alleen voor basisfunctionaliteit (DataFrame,
+  `read_excel`, eenvoudige aggregaties in `AnalysisService` en
+  `documentation_screen`). Een toekomstige major-bump naar 3.x kan de
+  PyInstaller-bundel breken (`collect_all("pandas")` in
+  `ESR_Tester.spec` bundelt de volledige pandas-tree) of de
+  pandas-API's wijzigen. De bovengrens is een **bewuste rem**, geen
+  teken dat de huidige pins te oud zijn.
+- **`PySide6`, `pytest`, `openpyxl`, `pypdf`, `requests`,
+  `beautifulsoup4`, `python-docx`** hebben geen bovengrens. Ze hebben
+  een stabiel major-beleid en worden alleen via publieke API's
+  aangeroepen.
+- **Geen upgrade zonder aanleiding.** De pins zijn bewezen in de
+  PyInstaller-bundel. Een upgrade hoort in een aparte fase met eigen
+  testronde en build.
+
+Zie ook `docs/future_tools.md` §5 voor het dependencybeleid voor
+toekomstige libraries (Schemdraw, Lcapy, PySpice, PyEIS, ...). Die
+komen pas in `requirements.txt` wanneer een concrete appmodule ze echt
+gebruikt.
 
 ---
 
@@ -170,7 +210,9 @@ build-artefact. Uitzondering:
 ```
 
 Build-artefacten (`build/`, `dist/`, `*.pyc`, `build_log.txt`) blijven
-genegeerd.
+genegeerd. `build_log.txt` staat sinds 11I.3 **expliciet** in
+`.gitignore` (het matcht niet op de generieke `*.log`-regel, want het
+eindigt op `.txt`).
 
 ---
 
@@ -233,13 +275,38 @@ indicator nodig. Test op beide pc-types en klaar.
 
 | Punt | Status | Impact |
 |---|---|---|
-| `build_log.txt` blijft leeg | Open | Cosmetisch; volledige output loggen |
-| `Architecture identifier "x64" is deprecated` | Open | Cosmetisch; `x64compatible` overwegen |
-| `[rename] Fallback via robocopy...`-melding | Open | Cosmetisch |
-| Relatief `icon_path` in `main_window.py` | Open | Breekt bij andere CWD; verfijnen via `sys._MEIPASS` |
+| `build_log.txt` blijft leeg | ✅ **Opgelost in 11I.3** — [4] en [7] loggen nu met `>> "%LOGFILE%" 2>&1` | Cosmetisch |
+| `Architecture identifier "x64" is deprecated` | ✅ **Opgelost in 11I.3** — `x64compatible` in de gegenereerde `.iss` | Cosmetisch |
+| `[rename] Fallback via robocopy...`-melding | ✅ **Opgelost in 11I.3** — melding verduidelijkt (reden + actie) | Cosmetisch |
+| Bevestigingsvraag "Starten?" zonder standaard | ✅ **Opgelost in 11I.3** — `build_and_publish.ps1` v1.1.0 heeft expliciete standaard J | UX |
+| Relatief `icon_path` in `main_window.py` | ✅ **Opgelost in 11I.2** — `sys._MEIPASS`-branch in `icon_paths.py` | Was structureel |
 | Twee verlopen certificaten in `CurrentUser\My` | Open | Cosmetisch; preflight slaat ze over |
 | Publiek vertrouwd (EV-)certificaat | Open | Structurele oplossing |
 | Fallback timestamp-server | Open | Single point of failure |
+
+**Toelichting bij de vier opgeloste punten (11I.2/11I.3):**
+
+- **`build_log.txt`** — `build_installer.bat` schrijft nu de
+  PyInstaller-stap [4] en de ISCC-stap [7] met `>> "%LOGFILE%" 2>&1`
+  naar `build_log.txt`, plus een start- en eindmarkering. De rest
+  blijft naar de console. `build_log.txt` staat expliciet in
+  `.gitignore` (matcht niet op `*.log`).
+- **`ArchitecturesInstallIn64BitMode`** — Inno Setup 6 beschouwt `x64`
+  als deprecated; de moderne vorm is `x64compatible`. De rest van de
+  gegenereerde `.iss` blijft identiek.
+- **`[rename]`-fallback** — de melding zegt nu *waarom* de fallback
+  draait (rename faalde, waarschijnlijk omdat een bestand in de map
+  in gebruik is) en *wat* er gebeurt (robocopy `/MOVE`). De
+  exitcode-check (errorlevel 8) is ongewijzigd.
+- **"Starten?"-vraag** — `build_and_publish.ps1` v1.1.0 geeft Enter
+  nu dezelfde standaardwaarde J als de vier vragen ervoor. Voorheen
+  brak Enter af, wat verwarrend was.
+
+**Bewust niet opgelost in 11I.3:**
+
+- **`icon_path` in `main_window.py`** — dit is in 11I.2 opgelost op
+  het niveau van `icon_paths.py`; `main_window.py` gebruikt de
+  publieke API en hoefde niet gewijzigd te worden.
 
 ---
 
@@ -253,6 +320,8 @@ indicator nodig. Test op beide pc-types en klaar.
 6. Controleer de raw pointer-URL: `1.0.x` + juiste download-URL.
 7. Test op een gewone Windows-pc en op een Intune-pc (zie §8).
 8. Geen nieuwe Defender-indicator nodig zolang het certificaat ongewijzigd is.
+9. **Controleer `build_log.txt`** na de build: bevat de PyInstaller- en
+   ISCC-output. Bij een mislukking: kijk daar eerst.
 
 ---
 

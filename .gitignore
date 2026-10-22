@@ -194,5 +194,10 @@ settings.json
 *.sqlite
 *.sqlite3
 
+# Build-log van build_installer.bat. Wordt door het script geschreven
+# en is geen bronbestand. Staat los van de generieke *.log-regel omdat
+# de naam op .txt eindigt. (Fase 11I.3.)
+build_log.txt
+
 # Geheimen: het GitHub-token mag NOOIT in git.
 *_secret_local.py

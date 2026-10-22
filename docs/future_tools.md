@@ -217,13 +217,37 @@ Regel:
 - zware of optionele dependencies later bij voorkeur als optionele extra's behandelen;
 - ESR v1 blijft licht en lokaal.
 
-Huidige kernrequirements:
+Huidige kernrequirements (zie `requirements.txt`, v1.1.0):
+
 ```text
 PySide6>=6.7
 pytest>=8.0
-pandas>=2.2
+numpy>=1.26,<3
+pandas>=2.2,<3
 openpyxl>=3.1
+pypdf>=5.0
+requests>=2.31
+beautifulsoup4>=4.12
+python-docx>=1.1
 ```
+
+**Waarom `numpy` en `pandas` een bovengrens `<3` hebben:**
+
+- De app gebruikt beide alleen voor basisfunctionaliteit (DataFrame,
+  `read_excel`, eenvoudige aggregaties in `AnalysisService` en
+  `documentation_screen`).
+- Een toekomstige major-bump naar 3.x kan de PyInstaller-bundel breken
+  (`collect_all("pandas")` in `ESR_Tester.spec` bundelt de volledige
+  pandas-tree) of de pandas-API's wijzigen.
+- De bovengrens is een **bewuste rem**, geen teken dat de huidige pins
+  te oud zijn. Bij een bewezen upgrade (eigen testronde + build) kan de
+  bovengrens in een aparte fase worden verruimd.
+
+**Waarom de andere dependencies geen bovengrens hebben:**
+
+- `PySide6`, `pytest`, `openpyxl`, `pypdf`, `requests`,
+  `beautifulsoup4`, `python-docx` hebben een stabiel major-beleid en
+  worden alleen via publieke API's aangeroepen.
 
 ---
 

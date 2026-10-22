@@ -1,3 +1,27 @@
+# Electronics Diagnostic Tool Hub / ESR Tester
+# Versie: 1.1.0
+# Datum: 2026-10-22
+# Auteur: Bart Bossuyt
+#
+# Wijzigingen:
+#   v1.0.0 (2026-10-13)  Eerste versie met pins.
+#   v1.1.0 (2026-10-22)  Fase 11I.1: commentaar toegevoegd dat uitlegt
+#                        waarom numpy en pandas een bovengrens <3 hebben.
+#                        Geen pin-wijziging: de huidige pins werken en
+#                        zijn bewezen in de PyInstaller-bundel.
+#
+# Beleid:
+#   - Alleen dependencies die de app echt gebruikt.
+#   - Bovengrens <3 op numpy en pandas: beschermt tegen een toekomstige
+#     major-bump die de PyInstaller-bundel of de pandas-API's kan breken.
+#     Beide bibliotheken worden alleen voor basisfunctionaliteit gebruikt
+#     (DataFrame, read_excel, eenvoudige aggregaties).
+#   - Geen bovengrens op PySide6, pytest, openpyxl, pypdf, requests,
+#     beautifulsoup4, python-docx: die hebben een stabiel major-beleid
+#     of worden alleen via publieke API's aangeroepen.
+#   - Zware of optionele libraries (zie docs/future_tools.md) komen hier
+#     pas in wanneer een concrete appmodule ze echt gebruikt.
+
 PySide6>=6.7
 pytest>=8.0
 numpy>=1.26,<3

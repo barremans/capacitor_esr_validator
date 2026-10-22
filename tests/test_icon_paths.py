@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_icon_paths.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-20
+Versie:     1.2.0
+Datum:      2026-10-22
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor app/helpers/icon_paths.py (fase 11C).
@@ -19,12 +19,18 @@ Wijzigingen:
                         projectafspraak _app()-helper. De Qt-tests
                         roepen _app() nu zelf aan; de testinhoud is
                         ongewijzigd.
+  v1.2.0 (2026-10-22)  Fase 11I.2: twee nieuwe tests voor de
+                        sys._MEIPASS-branch in _projectroot_default():
+                        test_projectroot_gebruikt_meipass_als_aanwezig
+                        en test_icoon_pad_met_meipass. Bestaande tests
+                        ongewijzigd (17 -> 19 tests).
 ================================================================================
 """
 
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -116,6 +122,43 @@ def test_applicatie_icoon_pad_geen_enkel_icoon(tmp_path):
     nep.mkdir(parents=True)
     pad = icon_paths.applicatie_icoon_pad(projectroot=tmp_path)
     assert pad is None
+
+
+# ---------------------------------------------------------------------------
+# PyInstaller-bundel: sys._MEIPASS (fase 11I.2)
+# ---------------------------------------------------------------------------
+
+def test_projectroot_gebruikt_meipass_als_aanwezig(tmp_path, monkeypatch):
+    """Met sys._MEIPASS geeft _projectroot_default die map terug.
+
+    In een PyInstaller-bundel staat assets/ in _MEIPASS/assets/. De
+    expliciete _MEIPASS-branch moet vóór de omhoog-zoeklus winnen,
+    anders zou de lus in de bundel ook kunnen slagen -- maar pas ná
+    een aantal iteraties, en niet deterministisch.
+    """
+    nep = tmp_path / "bundle"
+    (nep / "assets" / "icons").mkdir(parents=True)
+    (nep / "assets" / "icons" / "app.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+
+    monkeypatch.setattr(sys, "_MEIPASS", str(nep), raising=False)
+
+    root = icon_paths._projectroot_default()
+    assert root == nep
+    assert icon_paths.iconenmap() == nep / "assets" / "icons"
+
+
+def test_icoon_pad_met_meipass(tmp_path, monkeypatch):
+    """icoon_pad() gebruikt _MEIPASS als dat bestaat en assets/icons bevat."""
+    nep = tmp_path / "bundle"
+    (nep / "assets" / "icons").mkdir(parents=True)
+    (nep / "assets" / "icons" / "app.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+
+    monkeypatch.setattr(sys, "_MEIPASS", str(nep), raising=False)
+
+    pad = icon_paths.icoon_pad("app")
+    assert pad is not None
+    assert pad == nep / "assets" / "icons" / "app.png"
+    assert pad.is_file()
 
 
 # ---------------------------------------------------------------------------

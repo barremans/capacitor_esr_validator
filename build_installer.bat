@@ -11,14 +11,32 @@ rem File:    build_installer.bat
 rem Role:    Bouwt de PyInstaller-EXE en genereert/compileert het Inno
 rem          Setup installer-script (.iss), voor zowel interactief gebruik
 rem          als niet-interactieve aanroep vanuit build_and_publish.ps1
-rem          (via env vars AS_BUMP_PART, AS_MAKE_INSTALLER, AS_DO_SIGN).
+rem          (via env vars AS_BUMP_PART, AS_MAKE_INSTALLER, AS_DO_SIGN,
+rem          AS_SIGN_THUMBPRINT).
 rem
 rem          Deze versie volgt 1-op-1 de bewezen ArticleSearch-flow
 rem          (build_installer15.bat v1.4.0), met de mappen en bestanden
 rem          van ESR Tester.
 rem
-rem Version: 2.0.1
+rem Version: 2.0.3
 rem Author:  Bart Bossuyt
+rem Changes: 2.0.3 (2026-10-22) - Fix voor ". was unexpected at this time."
+rem                               in de [rename]-fallback. De meerregelige
+rem                               echo's binnen het (...)-blok braken de
+rem                               cmd-parser. De fallback-melding is terug-
+rem                               gebracht tot één regel; de uitleg staat
+rem                               als rem-commentaar buiten het blok.
+rem                               Verder identiek aan v2.0.2.
+rem Changes: 2.0.2 (2026-10-22) - Fase 11I.3. Drie additieve wijzigingen,
+rem                               de ArticleSearch-flow blijft intact:
+rem                                 (a) ArchitecturesInstallIn64BitMode
+rem                                     =x64 -> x64compatible.
+rem                                 (b) De [rename]-fallbackmelding is
+rem                                     verduidelijkt.
+rem                                 (c) De PyInstaller-stap [4] en de
+rem                                     ISCC-stap [7] loggen nu met
+rem                                     >> "%LOGFILE%" 2>&1 naar
+rem                                     build_log.txt.
 rem Changes: 2.0.1 (2026-10-13) - Fix: in blok [6] is het set /p-blok
 rem                               vervangen door een simpele if defined-
 rem                               check. De prompttekst bevatte vierkante
@@ -133,16 +151,31 @@ echo --- Build gestart op %DATE% %TIME% --- >> "%LOGFILE%"
 
 rem ---- PyInstaller-build ----
 echo [4] PyInstaller...
-"%PYEXE%" -m PyInstaller --clean --noconfirm "%SPEC_FILE%" || (echo [FOUT] PyInstaller build faalde.& pause & exit /b 1)
+echo [4] PyInstaller gestart op %DATE% %TIME% >> "%LOGFILE%"
+"%PYEXE%" -m PyInstaller --clean --noconfirm "%SPEC_FILE%" >> "%LOGFILE%" 2>&1
+if errorlevel 1 (
+  echo [FOUT] PyInstaller build faalde. Zie "%LOGFILE%" voor details.
+  echo [4] PyInstaller FAALDE op %DATE% %TIME% >> "%LOGFILE%"
+  pause & exit /b 1
+)
+echo [4] PyInstaller klaar op %DATE% %TIME% >> "%LOGFILE%"
 if not exist "%INITIAL_EXE%" (echo [FOUT] EXE niet gevonden op "%INITIAL_EXE%".& pause & exit /b 1)
 
 rem ---- Hernoemen naar map met versie ----
+rem Als de rename faalt (bv. omdat een bestand in de map in gebruik is,
+rem of een Verkenner-venster de map vergrendelt), gebruiken we robocopy
+rem /MOVE als fallback. De melding is bewust één regel: meerregelige
+rem echo's binnen een (...)-blok breken de cmd-parser met
+rem ". was unexpected at this time." (opgelost in v2.0.3).
 if exist "%DST_FOLDER%\%BUILD_FOLDER%" rmdir /S /Q "%DST_FOLDER%\%BUILD_FOLDER%"
 rename "%DST_FOLDER%\%PROJECT_NAME%" "%BUILD_FOLDER%" >nul 2>&1
 if errorlevel 1 (
-  echo [rename] Fallback via robocopy...
+  echo [rename] Fallback via robocopy /MOVE (rename faalde, mogelijk door vergrendeling^).
   robocopy "%DST_FOLDER%\%PROJECT_NAME%" "%DST_FOLDER%\%BUILD_FOLDER%" /E /MOVE >nul
-  if errorlevel 8 (echo [FOUT] Fallback kopie mislukt.& pause & exit /b 1)
+  if errorlevel 8 (
+    echo [FOUT] Fallback robocopy mislukt ^(errorlevel !errorlevel!^). Sluit het programma dat de map vergrendelt.
+    pause & exit /b 1
+  )
   if exist "%DST_FOLDER%\%PROJECT_NAME%" rmdir /S /Q "%DST_FOLDER%\%PROJECT_NAME%"
 )
 if not exist "%DST_FOLDER%\%BUILD_FOLDER%\%PROJECT_NAME%.exe" (
@@ -210,7 +243,7 @@ echo [6b] Installer-script genereren...
 >>"%ISS_FILE%" echo Uninstallable=yes
 >>"%ISS_FILE%" echo CreateAppDir=yes
 >>"%ISS_FILE%" echo PrivilegesRequired=admin
->>"%ISS_FILE%" echo ArchitecturesInstallIn64BitMode=x64
+>>"%ISS_FILE%" echo ArchitecturesInstallIn64BitMode=x64compatible
 >>"%ISS_FILE%" echo DirExistsWarning=no
 >>"%ISS_FILE%" echo WizardStyle=modern
 >>"%ISS_FILE%" echo SetupIconFile="%ABS_BUILD_FOLDER%\assets\icons\logo.ico"
@@ -249,19 +282,23 @@ echo [6b] Installer-script genereren...
 
 rem ---- Inno Setup compileren ----
 echo [7] Inno Setup compileren...
+echo [7] ISCC gestart op %DATE% %TIME% >> "%LOGFILE%"
 set "ISCC_EXE="
 if exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" set "ISCC_EXE=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 if not defined ISCC_EXE if exist "C:\Program Files\Inno Setup 6\ISCC.exe" set "ISCC_EXE=C:\Program Files\Inno Setup 6\ISCC.exe"
 if not defined ISCC_EXE (
   echo [FOUT] ISCC.exe niet gevonden. Installeer Inno Setup 6.
+  echo [7] ISCC niet gevonden >> "%LOGFILE%"
   exit /b 1
 )
 echo [7] ISCC: %ISCC_EXE%
-"%ISCC_EXE%" "%ISS_FILE%"
+"%ISCC_EXE%" "%ISS_FILE%" >> "%LOGFILE%" 2>&1
 if errorlevel 1 (
-  echo [FOUT] Inno Setup compile mislukt. Bekijk "%ISS_FILE%".
+  echo [FOUT] Inno Setup compile mislukt. Bekijk "%LOGFILE%" en "%ISS_FILE%".
+  echo [7] ISCC FAALDE op %DATE% %TIME% >> "%LOGFILE%"
   exit /b 1
 )
+echo [7] ISCC klaar op %DATE% %TIME% >> "%LOGFILE%"
 echo Installer aangemaakt: %DST_FOLDER%\%PROJECT_NAME%Setup_%NEW_VERSION%.exe
 
 rem ---- [7b] Installer signen ----
@@ -284,6 +321,7 @@ echo Output-map: %DST_FOLDER%\%BUILD_FOLDER%
 echo Testen: "%DST_FOLDER%\%BUILD_FOLDER%\%PROJECT_NAME%.exe"
 echo Installer (indien gebouwd): %DST_FOLDER%\%PROJECT_NAME%Setup_%NEW_VERSION%.exe
 echo Signing: %DO_SIGN%
+echo --- Build afgerond op %DATE% %TIME% --- >> "%LOGFILE%"
 if not defined AS_BUMP_PART pause
 endlocal
 exit /b 0

@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/helpers/icon_paths.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-16
+Versie:     1.1.0
+Datum:      2026-10-22
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-onafhankelijke resolutie van het juiste icoonpad, met
@@ -29,11 +29,24 @@ Wijzigingen:
                         plus dunne Qt-wrappers. Geen harde Qt-import
                         op moduleniveau, zodat pure tests geen GUI
                         nodig hebben.
+  v1.1.0 (2026-10-22)  Fase 11I.2. Nieuwe sys._MEIPASS-branch in
+                        _projectroot_default(), vóór de omhoog-zoeklus.
+                        In een PyInstaller-bundel staat de code onder
+                        _internal/app/helpers/, maar assets/ staat als
+                        Tree(...) in de bundelroot (_internal/assets/).
+                        Zonder deze branch zou de omhoog-zoeklus in de
+                        bundel ook kunnen slagen -- maar pas ná een
+                        aantal iteraties, en niet deterministisch als er
+                        toevallig een assets/-map hoger in de boom staat.
+                        De expliciete _MEIPASS-branch maakt de resolutie
+                        deterministisch en onafhankelijk van de CWD.
+                        Geen wijziging aan de publieke API.
 ================================================================================
 """
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -45,10 +58,29 @@ from typing import Any
 def _projectroot_default() -> Path:
     """Bepaal de projectroot vanuit dit bestand.
 
-    We zoeken vanaf dit bestand omhoog naar de map die zowel 'assets'
-    als 'app' bevat. Dat is robuuster dan een vast relatief pad, want
-    tests en GUI kunnen vanuit verschillende working directories starten.
+    Volgorde:
+
+    1. **PyInstaller-bundel.** Als ``sys._MEIPASS`` bestaat, is dat de
+       tijdelijke uitpakmap van de bundel. De PyInstaller-``Tree(...)``
+       zet ``assets/`` in de bundelroot (``_MEIPASS/assets``). We
+       controleren dat de map ook echt bestaat voordat we hem
+       gebruiken, zodat een onverwachte ``_MEIPASS`` zonder
+       ``assets/icons`` niet stil de verkeerde root teruggeeft.
+
+    2. **Ontwikkel-/testomgeving.** We zoeken vanaf dit bestand omhoog
+       naar de map die zowel ``assets`` als ``app`` bevat. Dat is
+       robuuster dan een vast relatief pad, want tests en GUI kunnen
+       vanuit verschillende working directories starten.
+
+    3. **Laatste redmiddel.** Het cwd-gebonden relatieve pad
+       (bestaand gedrag).
     """
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        kandidaat = Path(meipass)
+        if (kandidaat / "assets" / "icons").is_dir():
+            return kandidaat
+
     current = Path(__file__).resolve().parent
     for _ in range(6):
         kandidaat = current / "assets" / "icons"

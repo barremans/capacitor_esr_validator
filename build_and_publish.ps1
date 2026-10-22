@@ -9,8 +9,14 @@
 # Let op: gebruikt bewust GEEN PowerShell 7-only syntax, zodat het zowel
 # onder Windows PowerShell 5.1 als PowerShell 7.x werkt.
 #
-# Version: 1.0.0
+# Version: 1.1.0
 # Author:  Bart Bossuyt
+# Changes: 1.1.0 (2026-10-22) - Fase 11I.3. De bevestigingsvraag
+#                               "Starten? [J/N]" heeft nu een expliciete
+#                               standaardwaarde J bij Enter, consistent met
+#                               de vier vragen ervoor. Voorheen brak Enter
+#                               af, wat verwarrend was na vier prompts
+#                               waarbij Enter wél de standaard koos.
 # Changes: 1.0.0 (2026-10-13) - Fase 9C+9D. Eerste versie, 1-op-1 afgeleid
 #                               van ArticleSearch build_and_publish.ps1.
 #                               Enige verschillen:
@@ -84,7 +90,8 @@ Write-Host "    Installer   : $makeInstaller"
 Write-Host "    Signing     : $doSign"
 Write-Host "    Publiceren  : $doPublish"
 Write-Host "------------------------------------------------------------"
-$bevestig = Read-Host "Starten? [J/N]"
+$bevestig = Read-Host "Starten? [J/N] (Enter = J)"
+if ($bevestig -eq "") { $bevestig = "J" }
 if ($bevestig.ToUpper() -ne "J") {
     Write-Host "Afgebroken."
     exit 0
