@@ -1,6 +1,6 @@
 # Packaging — build, signing en distributie
 
-**Versie:** 1.3.0
+**Versie:** 1.4.0
 **Datum:** 2026-10-22
 **Auteur:** Bart Bossuyt
 **Doel:** Vastleggen hoe de Electronics Diagnostic Tool Hub / ESR Tester
@@ -25,6 +25,11 @@ zie `docs/testmatrix_defender_intune.md`.
 - v1.3.0 (2026-10-22) — Fase 11I.3 (herzien): `build_and_publish.ps1`
   v1.1.0 met expliciete standaardwaarde J bij de bevestigingsvraag
   "Starten?". §2-tabel bijgewerkt.
+- v1.4.0 (2026-10-22) — Fase 11I.4: nieuwe subsectie §4.1
+  "Certificaatstore-hygiëne" (verlopen certificaten zijn onschadelijk;
+  de preflight slaat ze over; handmatig opruimen via Certificate
+  Manager). `signing-certs/` toegevoegd aan `.gitignore`. §11
+  bijgewerkt.
 
 ---
 
@@ -59,7 +64,7 @@ De **ArticleSearch-flow** is bindend. Geen eigen variant.
 
 | Bestand | Rol | Versie |
 |---|---|---|
-| `build_installer.bat` | Bouwt EXE + installer, signeert beide | 2.0.2 |
+| `build_installer.bat` | Bouwt EXE + installer, signeert beide | 2.0.3 |
 | `build_and_publish.ps1` | Vraagt parameters, orkestreert build + publish | 1.1.0 |
 | `publish.ps1` | GitHub-release + release-gate + version.txt | 1.0.0 |
 | `bump_version.py` | Verhoogt patch/minor/major in `app/version.py` | 2.0.0 |
@@ -134,6 +139,46 @@ signtool verify /pa /v <bestand>
   certificaten met subject `CN=CGK Local Signing`.
 - RFC3161-timestamp: handtekening blijft geldig ná verloop van het cert.
 - `/pa` bij verify = standaard Authenticode-policy.
+
+### 4.1 Certificaatstore-hygiëne
+
+De **preflight** in `build_and_publish.ps1` (`Get-EsrSigningCertificate`)
+selecteert alleen certificaten die:
+
+- `HasPrivateKey` zijn,
+- subject `CN=CGK Local Signing` hebben,
+- **nu geldig zijn** (`NotBefore <= now < NotAfter`),
+- in `Cert:\CurrentUser\My` of `Cert:\LocalMachine\My` staan.
+
+Verlopen certificaten worden dus **automatisch overgeslagen**. Ze zijn
+onschadelijk voor de build: de preflight kiest het nieuwste geldige
+certificaat.
+
+**Waarom staan er dan toch verlopen certificaten in de store?**
+
+Omdat Windows ze niet automatisch opruimt. Ze blijven staan tot de
+gebruiker ze handmatig verwijdert. Dat is een **cosmetisch** punt in de
+certificaatstore van de gebruiker, niet in de repo of de build.
+
+**Opruimen (optioneel, handmatig):**
+
+1. Open `certmgr.msc`.
+2. Ga naar *Personal → Certificates*.
+3. Sorteer op *Expiration date*.
+4. Verwijder certificaten met subject `CN=CGK Local Signing` waarvan de
+   vervaldatum verstreken is **en** die geen private key hebben die je
+   nog nodig hebt.
+5. **Verwijder nooit** het actieve certificaat (thumbprint
+   `BD1DC390…6509`, geldig tot 2028-09-17).
+
+**Wat de repo doet:**
+
+- `signing-certs/` staat in `.gitignore`. Dat is de standaardmap van
+  `Export-SigningCertificate.ps1`; de map bevat publieke `.cer`-kopieën
+  die de gebruiker naar `security.microsoft.com` uploadt. Ze horen niet
+  in de repo.
+- De **private key** verlaat de certificaatstore nooit. Er is geen
+  `.pfx`-export in de repo of in de build-straat.
 
 ---
 
@@ -212,7 +257,8 @@ build-artefact. Uitzondering:
 Build-artefacten (`build/`, `dist/`, `*.pyc`, `build_log.txt`) blijven
 genegeerd. `build_log.txt` staat sinds 11I.3 **expliciet** in
 `.gitignore` (het matcht niet op de generieke `*.log`-regel, want het
-eindigt op `.txt`).
+eindigt op `.txt`). `signing-certs/` staat sinds 11I.4 in `.gitignore`
+(de standaardmap van `Export-SigningCertificate.ps1`).
 
 ---
 
@@ -280,11 +326,11 @@ indicator nodig. Test op beide pc-types en klaar.
 | `[rename] Fallback via robocopy...`-melding | ✅ **Opgelost in 11I.3** — melding verduidelijkt (reden + actie) | Cosmetisch |
 | Bevestigingsvraag "Starten?" zonder standaard | ✅ **Opgelost in 11I.3** — `build_and_publish.ps1` v1.1.0 heeft expliciete standaard J | UX |
 | Relatief `icon_path` in `main_window.py` | ✅ **Opgelost in 11I.2** — `sys._MEIPASS`-branch in `icon_paths.py` | Was structureel |
-| Twee verlopen certificaten in `CurrentUser\My` | Open | Cosmetisch; preflight slaat ze over |
+| Twee verlopen certificaten in `CurrentUser\My` | ✅ **Opgelost in 11I.4** — gedocumenteerd als bewust cosmetisch punt; preflight slaat ze over; opruimen via Certificate Manager | Cosmetisch |
 | Publiek vertrouwd (EV-)certificaat | Open | Structurele oplossing |
 | Fallback timestamp-server | Open | Single point of failure |
 
-**Toelichting bij de vier opgeloste punten (11I.2/11I.3):**
+**Toelichting bij de vijf opgeloste punten (11I.2/11I.3/11I.4):**
 
 - **`build_log.txt`** — `build_installer.bat` schrijft nu de
   PyInstaller-stap [4] en de ISCC-stap [7] met `>> "%LOGFILE%" 2>&1`
@@ -301,12 +347,20 @@ indicator nodig. Test op beide pc-types en klaar.
 - **"Starten?"-vraag** — `build_and_publish.ps1` v1.1.0 geeft Enter
   nu dezelfde standaardwaarde J als de vier vragen ervoor. Voorheen
   brak Enter af, wat verwarrend was.
+- **Verlopen certificaten** — de preflight in
+  `build_and_publish.ps1` slaat verlopen certificaten over. Ze zijn
+  onschadelijk. Opruimen is optioneel en handmatig (Certificate
+  Manager). Zie §4.1.
 
-**Bewust niet opgelost in 11I.3:**
+**Bewust niet opgelost in 11I.3/11I.4:**
 
 - **`icon_path` in `main_window.py`** — dit is in 11I.2 opgelost op
   het niveau van `icon_paths.py`; `main_window.py` gebruikt de
   publieke API en hoefde niet gewijzigd te worden.
+- **Publiek vertrouwd (EV-)certificaat** — dit is een structurele
+  aankoopbeslissing, geen code-wijziging. Blijft open.
+- **Fallback timestamp-server** — vereist een tweede RFC3161-URL en
+  een retry-strategie in `signtool`. Buiten scope van 11I.
 
 ---
 

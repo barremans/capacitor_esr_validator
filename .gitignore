@@ -199,5 +199,11 @@ settings.json
 # de naam op .txt eindigt. (Fase 11I.3.)
 build_log.txt
 
+# Certificaat-exports van Export-SigningCertificate.ps1. De .cer-bestanden
+# zijn publiek (geen private key), maar ze horen niet in de repo: de
+# gebruiker beheert ze buiten de repo en uploadt ze naar
+# security.microsoft.com. (Fase 11I.4.)
+signing-certs/
+
 # Geheimen: het GitHub-token mag NOOIT in git.
 *_secret_local.py
