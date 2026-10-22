@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.20.0
-Datum:      2026-10-20
+Versie:     2.22.2
+Datum:      2026-10-21
 Auteur:     Bart Bossuyt
 
 Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
@@ -59,17 +59,29 @@ Wijzigingen:
                         _apply_settings().
   v2.20.0 (2026-10-20)  Fase 11G.6: expliciet afsluiten sluit de app,
                         niet het venster.
-                        - Nieuwe vlag self._force_close.
-                        - Nieuwe methode _sluit_app(): zet de vlag en
-                          roept self.close() aan. Menu "Afsluiten"
-                          (Ctrl+Q) en de bevestigingsdialoog op de hub
-                          gebruiken deze methode.
-                        - closeEvent controleert de vlag: True ->
-                          event.accept() en de app sluit; anders het
-                          bestaande contextuele "terug naar hub"-gedrag.
-                        - De venster-X op een subpagina blijft "terug
-                          naar hub". De venster-X op de hub sluit de
-                          app (bestaand gedrag).
+  v2.21.0 (2026-10-21)  Fase 11H.3: thema-parameter en live themawissel.
+  v2.21.1 (2026-10-21)  Fix 11H.3: thema ook bij opstart toepassen.
+  v2.21.2 (2026-10-21)  Fix 11H.3: AttributeError bij instellingen zonder
+                        'algemeen'.
+  v2.21.3 (2026-10-21)  Fix 11H.3: performance: _apply_theme_if_needed().
+  v2.22.0 (2026-10-21)  Fix 11H.3: stylesheet op het venster, niet op
+                        de QApplication.
+  v2.22.1 (2026-10-21)  Fase 11H.4: AnalysisScreen krijgt theme mee.
+                        - AnalysisScreen(taal=..., theme=self.theme, ...)
+                          bij constructie.
+                        - _apply_settings geeft analysis_page.apply_theme
+                          door bij een themawissel.
+  v2.22.2 (2026-10-21)  Fase 11H.5: HistoryScreen krijgt theme mee en
+                        release-notes-dialoog volgt het thema.
+                        - HistoryScreen(taal=..., theme=self.theme, ...)
+                          bij constructie.
+                        - _apply_settings geeft history_page.apply_theme
+                          door bij een themawissel.
+                        - _toon_release_notes_dialoog gebruikt een
+                          thema-afhankelijke QTextBrowser-stijl.
+                        - _markdown_naar_html krijgt optionele body_bg
+                          en body_fg (default donker, voor
+                          backward-compat met de interne aanroep).
 ================================================================================
 """
 
@@ -77,7 +89,7 @@ from dataclasses import replace
 import webbrowser
 
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGridLayout, QPushButton, QLabel, QMenuBar, QMenu,
     QMessageBox, QTextBrowser, QDialog, QDialogButtonBox,
     QScrollArea, QFrame, QStackedWidget,
@@ -88,19 +100,39 @@ from PySide6.QtCore import Qt, QSize, QTimer
 from app.helpers.i18n import beschikbare_taalinfos, vertaal
 from app.helpers.help_paths import help_pad_voor_taal, changelog_pad_voor_taal
 from app.helpers.icon_paths import laad_icoon, zet_venster_icoon
-from app.config.settings import laad_instellingen, sla_instellingen_op, AppInstellingen
+from app.config.settings import (
+    laad_instellingen,
+    sla_instellingen_op,
+    normaliseer_thema,
+    AppInstellingen,
+)
 from app.gui.dialogs.settings_dialog import SettingsDialog
 from app.gui.dialogs.search_help_dialog import SearchHelpDialog
+from app.gui.styles import THEME_STYLESHEETS
 from app.version import __version__
 
 
 class ToolHubWindow(QMainWindow):
     """Startscherm — hub met knoppen voor alle beschikbare tools."""
 
-    def __init__(self, taal: str | None = None, check_on_startup: bool = True):
+    def __init__(
+        self,
+        taal: str | None = None,
+        check_on_startup: bool = True,
+        theme: str | None = None,
+    ):
         super().__init__()
         self.instellingen = laad_instellingen()
         self.taal = taal if taal else self.instellingen.taal
+        # 11H.3: parameter heeft voorrang op settings.json, analoog aan taal.
+        # 11H.3-fix (v2.21.2): defensieve getattr, net als v2.19.1. Een
+        # test of oude settings.json kan een instellingen-object zonder
+        # 'algemeen' (of zonder 'thema') aanleveren; dat mag niet crashen.
+        if theme is not None:
+            self.theme = normaliseer_thema(theme)
+        else:
+            algemeen = getattr(self.instellingen, "algemeen", None)
+            self.theme = normaliseer_thema(getattr(algemeen, "thema", None))
         self.rapport_action: QAction | None = None
         self._update_check_worker = None
         self._release_notes_worker = None
@@ -109,12 +141,40 @@ class ToolHubWindow(QMainWindow):
         self._force_close: bool = False
         self._build_ui()
         self._apply_language()
+        # 11H.3-fix (v2.22.0): thema op het venster toepassen, niet op de
+        # QApplication. Zie _apply_theme_if_needed() voor de motivatie.
+        self._apply_theme_if_needed()
 
         if check_on_startup:
             QTimer.singleShot(0, self._run_startup_update_check)
 
     def _t(self, sleutel, **kwargs):
         return vertaal(sleutel, taal=self.taal, **kwargs)
+
+    # ------------------------------------------------------------------
+    # Thema (11H.3)
+    # ------------------------------------------------------------------
+    def _gewenste_stylesheet(self) -> str:
+        return THEME_STYLESHEETS.get(
+            self.theme, THEME_STYLESHEETS["dark"]
+        )
+
+    def _apply_theme(self) -> None:
+        """Past het huidige thema onvoorwaardelijk toe op dit venster.
+
+        Sinds v2.22.0 gebeurt dit via self.setStyleSheet() in plaats van
+        QApplication.setStyleSheet(). Dat is conceptueel correcter (Qt's
+        richtlijn: QApplication voor de globale look, QWidget voor een
+        specifiek venster) en voorkomt dat elke widget-aanmaak in de
+        testsuite een dure globale stijlbepaling triggert.
+        """
+        self.setStyleSheet(self._gewenste_stylesheet())
+
+    def _apply_theme_if_needed(self) -> None:
+        """Past het thema alleen toe als de venster-stylesheet afwijkt."""
+        if self.styleSheet() == self._gewenste_stylesheet():
+            return
+        self._apply_theme()
 
     # ------------------------------------------------------------------
     # Iconen (11C)
@@ -162,7 +222,12 @@ class ToolHubWindow(QMainWindow):
         self.stack.addWidget(self.esr_page)
 
         from app.gui.history_screen import HistoryScreen
-        self.history_page = HistoryScreen(taal=self.taal)
+        # 11H.5: HistoryScreen krijgt theme mee voor de detail-HTML en
+        # de state-label-kleur.
+        self.history_page = HistoryScreen(
+            taal=self.taal,
+            theme=self.theme,
+        )
         self.history_page.back_requested.connect(self._show_hub)
         self.history_page.repeat_requested.connect(self._repeat_measurement)
         self.history_page.selection_changed.connect(
@@ -177,7 +242,11 @@ class ToolHubWindow(QMainWindow):
         self.stack.addWidget(self.documentation_page)
 
         from app.gui.analysis_screen import AnalysisScreen
-        self.analysis_page = AnalysisScreen(taal=self.taal)
+        # 11H.4: AnalysisScreen krijgt theme mee voor de chart-kleuren.
+        self.analysis_page = AnalysisScreen(
+            taal=self.taal,
+            theme=self.theme,
+        )
         self.analysis_page.back_requested.connect(self._show_hub)
         self.analysis_page.selection_changed.connect(
             self._update_report_action_state
@@ -970,6 +1039,21 @@ class ToolHubWindow(QMainWindow):
             webbrowser.open(html_url)
 
     def _toon_release_notes_dialoog(self, body: str, html_url: str) -> None:
+        """Toont de release-notes in een dialoog (thema-afhankelijk)."""
+        # 11H.5: kleuren per thema voor de QTextBrowser.
+        if self.theme == "light":
+            browser_bg = "#FFFFFF"
+            browser_fg = "#202020"
+            browser_border = "#D0D0D0"
+            body_bg = "#FFFFFF"
+            body_fg = "#202020"
+        else:
+            browser_bg = "#1E1E1E"
+            browser_fg = "#F0F0F0"
+            browser_border = "#4A4A4A"
+            body_bg = "#1E1E1E"
+            body_fg = "#F0F0F0"
+
         dialog = QDialog(self)
         dialog.setWindowTitle(self._t("update.release_notes_titel"))
         dialog.resize(720, 560)
@@ -980,10 +1064,11 @@ class ToolHubWindow(QMainWindow):
         browser.setOpenExternalLinks(True)
         browser.setReadOnly(True)
         browser.setStyleSheet(
-            "QTextBrowser { background-color: #1E1E1E; color: #F0F0F0; "
-            "border: 1px solid #4A4A4A; padding: 12px; }"
+            f"QTextBrowser {{ background-color: {browser_bg}; "
+            f"color: {browser_fg}; "
+            f"border: 1px solid {browser_border}; padding: 12px; }}"
         )
-        browser.setHtml(self._markdown_naar_html(body))
+        browser.setHtml(self._markdown_naar_html(body, body_bg, body_fg))
         layout.addWidget(browser, 1)
 
         button_row = QHBoxLayout()
@@ -1001,7 +1086,12 @@ class ToolHubWindow(QMainWindow):
         layout.addLayout(button_row)
         dialog.exec()
 
-    def _markdown_naar_html(self, markdown_tekst: str) -> str:
+    def _markdown_naar_html(
+        self,
+        markdown_tekst: str,
+        body_bg: str = "#1E1E1E",
+        body_fg: str = "#F0F0F0",
+    ) -> str:
         import re
 
         html = markdown_tekst
@@ -1015,8 +1105,8 @@ class ToolHubWindow(QMainWindow):
         html = html.replace('\n', '<br>')
 
         return (
-            '<body style="font-family: Segoe UI; color: #F0F0F0; '
-            'background-color: #1E1E1E; font-size: 10.5pt; line-height: 1.4;">'
+            f'<body style="font-family: Segoe UI; color: {body_fg}; '
+            f'background-color: {body_bg}; font-size: 10.5pt; line-height: 1.4;">'
             f'{html}</body>'
         )
 
@@ -1070,14 +1160,26 @@ class ToolHubWindow(QMainWindow):
     def _apply_settings(self, instellingen):
         vorige_instellingen = self.instellingen
         vorige_taal = self.taal
+        vorige_thema = self.theme
         self.instellingen = instellingen
         self.taal = instellingen.taal
+        self.theme = normaliseer_thema(
+            getattr(instellingen.algemeen, "thema", self.theme)
+        )
         sla_instellingen_op(self.instellingen)
 
         if self.taal != vorige_taal:
             self._update_lang_checks()
             self._apply_language()
-            return
+
+        if self.theme != vorige_thema:
+            self._apply_theme_if_needed()
+            # 11H.4: AnalysisScreen werkt zijn chart-kleuren bij.
+            if hasattr(self, "analysis_page"):
+                self.analysis_page.apply_theme(self.theme)
+            # 11H.5: HistoryScreen werkt zijn detail-HTML-kleuren bij.
+            if hasattr(self, "history_page"):
+                self.history_page.apply_theme(self.theme)
 
         nieuw_algemeen = getattr(instellingen, "algemeen", None)
         oud_algemeen = getattr(vorige_instellingen, "algemeen", None)

@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_settings_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.3.0
-Datum:      2026-10-14
+Versie:     1.4.0
+Datum:      2026-10-21
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor de Settings-dialoog.
@@ -14,6 +14,15 @@ Wijzigingen:
   v1.3.0 (2026-10-14)  Fase 9H: checkbox "Bij opstarten controleren op
                        updates" getest, inclusief default True en
                        roundtrip via Toepassen.
+  v1.4.0 (2026-10-21)  Fase 11H.2: thema-keuze.
+                       - thema_combo heeft 2 items en is enabled.
+                       - Combo bevat "Donker"/"Licht" (NL) en
+                         "Dark"/"Light" (EN).
+                       - Default selectie is "Donker"/"Dark".
+                       - Selectie "Licht" wordt opgenomen in het
+                         nieuwe settings-object.
+                       - Ongeldige thema in de basis-dataclass wordt
+                         door de dialog genormaliseerd.
 ================================================================================
 """
 
@@ -254,3 +263,84 @@ def test_andere_instellingen_blijven_behouden_bij_update_checkbox_wijziging():
         dialog.toegepaste_instellingen.algemeen.controleer_updates_bij_opstarten
         is False
     )
+
+
+# ============================================================================
+# v1.4.0 — thema-keuze (fase 11H.2)
+# ============================================================================
+
+def test_thema_combo_heeft_twee_items_en_is_enabled():
+    _app()
+    dialog = SettingsDialog(AppInstellingen(), taal="nl_NL")
+    assert dialog.thema_combo.count() == 2
+    assert dialog.thema_combo.isEnabled() is True
+
+
+def test_thema_combo_bevat_donker_en_licht_nl():
+    _app()
+    dialog = SettingsDialog(AppInstellingen(), taal="nl_NL")
+    teksten = [
+        dialog.thema_combo.itemText(i)
+        for i in range(dialog.thema_combo.count())
+    ]
+    assert teksten == ["Donker", "Licht"]
+    assert dialog.thema_combo.itemData(0) == "dark"
+    assert dialog.thema_combo.itemData(1) == "light"
+
+
+def test_thema_combo_bevat_dark_en_light_en():
+    _app()
+    dialog = SettingsDialog(AppInstellingen(taal="en_US"), taal="en_US")
+    teksten = [
+        dialog.thema_combo.itemText(i)
+        for i in range(dialog.thema_combo.count())
+    ]
+    assert teksten == ["Dark", "Light"]
+
+
+def test_thema_combo_default_selectie_is_donker():
+    _app()
+    dialog = SettingsDialog(AppInstellingen(), taal="nl_NL")
+    assert dialog.thema_combo.currentData() == "dark"
+
+
+def test_thema_selectie_light_wordt_opgenomen():
+    _app()
+    dialog = SettingsDialog(AppInstellingen(), taal="nl_NL")
+    index = dialog.thema_combo.findData("light")
+    assert index >= 0
+    dialog.thema_combo.setCurrentIndex(index)
+    dialog._toepassen()
+
+    assert dialog.toegepaste_instellingen.algemeen.thema == "light"
+
+
+def test_ongeldig_thema_in_basis_wordt_genormaliseerd():
+    """Een basis-dataclass met een ongeldig thema mag de combo niet breken.
+
+    De dialog normaliseert de waarde bij het laden via
+    normaliseer_thema(); de combo valt terug op "Donker".
+    """
+    _app()
+    basis = AppInstellingen()
+    basis = type(basis)(
+        taal=basis.taal,
+        algemeen=type(basis.algemeen)(
+            thema="blauw",
+            tooltips_ingeschakeld=basis.algemeen.tooltips_ingeschakeld,
+            standaard_exportmap=basis.algemeen.standaard_exportmap,
+            standaard_importmap=basis.algemeen.standaard_importmap,
+            laatste_exportmap=basis.algemeen.laatste_exportmap,
+            laatste_importmap=basis.algemeen.laatste_importmap,
+            laatste_rapportmap=basis.algemeen.laatste_rapportmap,
+            exportmap_openen_na_export=basis.algemeen.exportmap_openen_na_export,
+            controleer_updates_bij_opstarten=(
+                basis.algemeen.controleer_updates_bij_opstarten
+            ),
+        ),
+        esr_condensator=basis.esr_condensator,
+        rapportage=basis.rapportage,
+        beoordeling=basis.beoordeling,
+    )
+    dialog = SettingsDialog(basis, taal="nl_NL")
+    assert dialog.thema_combo.currentData() == "dark"

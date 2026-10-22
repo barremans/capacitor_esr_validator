@@ -1,22 +1,22 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 3.4.0
-**Datum:** 2026-10-20
+**Versie:** 3.5.0
+**Datum:** 2026-10-21
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
 is. Geen bugs, geen beloftes — alleen vragen en observaties.
 
 Wijzigingen:
-  v1.0.0 t/m v3.3.0  zie eerdere versies.
-  v3.4.0 (2026-10-20)  §2.30 (filter-checkbox zichtbaarheid) opgelost in
-                       11G.7. Nieuwe subsectie 4.37 (opgeloste punten in
-                       11G.7).
+  v1.0.0 t/m v3.4.0  zie eerdere versies.
+  v3.5.0 (2026-10-21)  §4.4 (light theme) volledig opgelost in
+                       11H.1 t/m 11H.5. Nieuwe subsectie 4.38
+                       (opgeloste punten in 11H).
 
 ---
 
 ## 1. Uit Fase 4I — Zoektaal-observaties
 
-Onveranderd t.o.v. v3.3.0.
+Onveranderd t.o.v. v3.4.0.
 
 ---
 
@@ -121,13 +121,13 @@ Zie eerdere versies.
 
 ## 3. Uit vroegere contextdocumenten (nog steeds relevant)
 
-Onveranderd t.o.v. v3.3.0.
+Onveranderd t.o.v. v3.4.0.
 
 ---
 
 ## 4. Uit eigen observaties tijdens recente fases
 
-Onveranderd t.o.v. v3.3.0, plus:
+Onveranderd t.o.v. v3.4.0, plus:
 
 ### 4.37 Opgeloste punten in 11G.7 (2026-10-20)
 
@@ -138,9 +138,34 @@ Onveranderd t.o.v. v3.3.0, plus:
   consistent. Geen wijziging aan de GUI-bestanden.
 - **Nieuwe tests:** `tests/test_styles.py` v1.2.0 (+3).
 - **Baseline:** 1491 → **1494 passed** (+3 tests).
-- **Observatie:** de fix is puur visueel en raakt geen functionele
-  logica. De checkbox is nu duidelijk zichtbaar in zowel unchecked-
-  als checked-state, ook naast de groupbox-rand.
+
+### 4.38 Opgeloste punten in 11H (2026-10-21)
+
+- **§4.4 — light theme.** Volledig opgelost in 11H.1 t/m 11H.5:
+  - 11H.1: `styles.py` v1.7.0 met `LIGHT_THEME_STYLESHEET`,
+    `THEME_STYLESHEETS` en `apply_theme(app, thema)`.
+  - 11H.2: `settings.py` v1.8.0 met `normaliseer_thema()`;
+    `SettingsDialog` v1.7.0 met actieve `thema_combo`.
+  - 11H.3: `ToolHubWindow` met `theme`-parameter (wint van
+    `settings.json`), live wissel, en `self.setStyleSheet()` in
+    plaats van `QApplication.setStyleSheet()`. Nieuwe `conftest.py`
+    met autouse-opruimfixture. Performance: suite van 53 min naar
+    ~3 min.
+  - 11H.4: `AnalysisScreen` v1.7.0 met `theme`-parameter,
+    `CHART_COLORS` en `apply_theme()`.
+  - 11H.5: `HistoryScreen` v1.18.0 met `theme`-parameter,
+    `DETAIL_HTML_COLORS` en `apply_theme()`;
+    `main_window._toon_release_notes_dialoog` thema-afhankelijk.
+- **Nieuwe tests:** `test_theme_switch.py` (10),
+  `test_analysis_screen_theme.py` (11),
+  `test_history_screen_theme.py` (11); uitbreiding
+  `test_styles.py` (+8), `test_settings.py` (+6),
+  `test_settings_dialog.py` (+6).
+- **Baseline:** 1494 → **1546 passed** (+52 tests).
+- **Observatie:** de performance-fix in 11H.3 (v2.22.0) was
+  noodzakelijk: de globale `QApplication.setStyleSheet` in elke
+  `ToolHubWindow`-constructie liep in de testsuite op tot 50–170
+  seconden per test. Het venster beheert nu zijn eigen stylesheet.
 
 ---
 

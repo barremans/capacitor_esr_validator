@@ -17,6 +17,121 @@ Opmerking over de versienummering:
 - Voor de actuele versie: zie `app/version.py` of Help → Over.
 -->
 
+### Fase 11H — Licht thema (21 oktober 2026)
+
+**Waarom deze wijziging**
+
+Het donkere thema was tot nu het enige ondersteunde thema. De
+gebruiker wilde een licht thema kunnen kiezen, zonder dat de app
+donkere lappen op een licht venster toont. De donkere chart-kleuren,
+de donkere detail-HTML in de historiek-detaildialoog en de donkere
+release-notes-dialoog moesten daarvoor per thema variabel worden.
+
+**Oplossing: vijf sub-fases**
+
+- **11H.1 — Light theme in styles.py.** `styles.py` (v1.7.0) krijgt
+  `LIGHT_THEME_STYLESHEET`, een `THEME_STYLESHEETS`-dict en een
+  `apply_theme(app, thema="dark")`-API. `apply_dark_theme(app)` blijft
+  als dunne wrapper voor backward-compat. Onbekende thema-waarden
+  vallen terug op `"dark"`. De `QGroupBox::indicator:unchecked` in
+  licht thema krijgt een witte achtergrond met 2px `#5A5A5A`-rand,
+  consistent met de 11G.7-fix in donker thema. Nieuwe tests in
+  `tests/test_styles.py` (v1.3.0, +8).
+- **11H.2 — Thema-keuze in Settings.** `settings.py` (v1.8.0) krijgt
+  `TOEGESTANE_THEMAS`, `STANDAARD_THEMA` en een pure
+  `normaliseer_thema()`. `laad_instellingen()` normaliseert het
+  geladen thema. `SettingsDialog` (v1.7.0) heeft een actieve
+  `thema_combo` met "Donker"/"Licht" (resp. "Dark"/"Light"), en
+  `_widgets_naar_instellingen` gebruikt `normaliseer_thema()` als
+  vangnet. Nieuwe i18n-keys `thema_licht` en bijgewerkte
+  `thema_tooltip` (NL + EN). `tests/test_settings.py` (v1.5.0, +6)
+  en `tests/test_settings_dialog.py` (v1.4.0, +6).
+- **11H.3 — Thema-parameter op ToolHubWindow + live wissel.**
+  `ToolHubWindow` krijgt een `theme`-parameter (wint van
+  `settings.json`, analoog aan taal). `_apply_settings` detecteert
+  een themawissel en past het nieuwe thema direct toe. `main.py`
+  (v1.6.0) leest `algemeen.thema` en roept `apply_theme(app, thema)`
+  aan. Sinds v2.22.0 beheert het venster zijn eigen stylesheet
+  (`self.setStyleSheet(...)`) in plaats van de `QApplication`: dat
+  lost een structureel performance-probleem op. Nieuwe
+  `conftest.py` (v1.1.0) met autouse-opruimfixture.
+  `tests/test_theme_switch.py` (nieuw, 10 tests).
+  **Performance-fix in v2.22.0:** de onvoorwaardelijke
+  `QApplication.setStyleSheet` in `ToolHubWindow` werd in de
+  testsuite 50–170 seconden per test. `_apply_theme_if_needed()`
+  slaat de dure aanroep over als de stylesheet al klopt, en het
+  venster gebruikt `self.setStyleSheet()` in plaats van
+  `QApplication.setStyleSheet()`. Samen met de `conftest.py`-fixture
+  zakte de suite van 53 min naar ~3 min.
+- **11H.4 — Chart-kleuren per thema in AnalysisScreen.**
+  `analysis_screen.py` (v1.7.0) krijgt een keyword-only
+  `theme`-parameter en een module-level `CHART_COLORS`-dict met per
+  thema alle voorheen hardcoded chart-kleuren (chart-achtergrond,
+  as-labels, grid, lijn, scatter-rand, neutrale scatter,
+  state-label). Nieuwe `apply_theme(theme)`-methode past de kleuren
+  toe zonder de reeksen te wissen. `main_window.py` (v2.22.1) geeft
+  `theme` mee aan `AnalysisScreen` en roept `apply_theme` aan bij een
+  themawissel. `tests/test_analysis_screen_theme.py` (nieuw, 11
+  tests).
+- **11H.5 — Detail-HTML en release-notes per thema.**
+  `history_screen.py` (v1.18.0) krijgt een keyword-only
+  `theme`-parameter en een module-level `DETAIL_HTML_COLORS`-dict met
+  per thema de detail-HTML-kleuren (achtergrond, tekst, heading,
+  muted, tabel-rand, state-label). Nieuwe `apply_theme(theme)`-
+  methode. `_show_detail_dialog` gebruikt de per-thema
+  `QTextBrowser`-stylesheet; `state_label`-kleur volgt het thema.
+  `main_window.py` (v2.22.2) geeft `theme` mee aan `HistoryScreen`,
+  roept `apply_theme` aan bij een themawissel, en maakt
+  `_toon_release_notes_dialoog` thema-afhankelijk.
+  `_markdown_naar_html` krijgt optionele `body_bg`/`body_fg` (default
+  donker, backward-compat). `tests/test_history_screen_theme.py`
+  (nieuw, 11 tests).
+
+**Belangrijke observatie: testtelling**
+
+In 11H.1 t/m 11H.5 weken mijn eigen schattingen soms af van de
+werkelijke tellingen. De werkelijke tellingen via
+`pytest --collect-only -q` per bestand en de volledige `pytest -q`
+waren consistent. De som van de gerichte `--collect-only` is bij elke
+sub-fase vergeleken met de volledige suite.
+
+**Voor ontwikkelaars**
+
+- **Gewijzigd:** `app/gui/styles.py` (v1.6.0 → v1.7.0) —
+  `LIGHT_THEME_STYLESHEET`, `THEME_STYLESHEETS`,
+  `apply_theme(app, thema)`; `apply_dark_theme` blijft als wrapper.
+- **Gewijzigd:** `app/config/settings.py` (v1.7.0 → v1.8.0) —
+  `TOEGESTANE_THEMAS`, `STANDAARD_THEMA`, `normaliseer_thema()`,
+  normalisatie in `laad_instellingen()`.
+- **Gewijzigd:** `app/gui/dialogs/settings_dialog.py` (v1.6.0 →
+  v1.7.0) — actieve `thema_combo`, `normaliseer_thema()` als vangnet.
+- **Gewijzigd:** `app/gui/main_window.py` (v2.20.0 → v2.22.2) —
+  `theme`-parameter, `_apply_theme_if_needed()`,
+  `self.setStyleSheet()` in plaats van `QApplication.setStyleSheet()`,
+  `theme` doorgeven aan `AnalysisScreen` en `HistoryScreen`,
+  thema-afhankelijke release-notes-dialoog.
+- **Gewijzigd:** `main.py` (v1.5.0 → v1.6.0) — `laad_instellingen()`
+  vóór de thematoepassing; `apply_theme(app, thema)` in plaats van
+  `apply_dark_theme(app)`.
+- **Gewijzigd:** `app/gui/analysis_screen.py` (v1.6.3 → v1.7.0) —
+  `theme`-parameter, `CHART_COLORS`, `apply_theme()`, alle
+  chart-kleuren per thema.
+- **Gewijzigd:** `app/gui/history_screen.py` (v1.17.1 → v1.18.0) —
+  `theme`-parameter, `DETAIL_HTML_COLORS`, `apply_theme()`,
+  detail-HTML per thema.
+- **Nieuw:** `conftest.py` (v1.1.0) — autouse-opruimfixture.
+- **Nieuwe tests:** `tests/test_theme_switch.py` (10 tests),
+  `tests/test_analysis_screen_theme.py` (11 tests),
+  `tests/test_history_screen_theme.py` (11 tests).
+- **Gewijzigde tests:** `tests/test_styles.py` (v1.2.0 → v1.3.0,
+  12 → 20 tests), `tests/test_settings.py` (v1.4.0 → v1.5.0,
+  17 → 23 tests), `tests/test_settings_dialog.py` (v1.3.0 → v1.4.0,
+  18 → 24 tests).
+- **Nieuwe i18n-keys:** `settings.algemeen.thema_licht`,
+  bijgewerkte `settings.algemeen.thema_tooltip` (NL + EN).
+- **Baseline:** 1494 → **1546 passed** (+52 tests over 11H.1 t/m
+  11H.5).
+
 ### Fase 11G — Visueel donker thema (20 oktober 2026)
 
 **Waarom deze wijziging**
@@ -32,44 +147,36 @@ alleen het venster in plaats van de applicatie.
 
 - **11G.1 — Checkbox- en radio-zichtbaarheid.** `styles.py` (v1.4.0)
   krijgt `QCheckBox::indicator:focus`, `QRadioButton::indicator:focus`,
-  `QTableView::indicator` (voor selectie-checkboxen in tabellen),
-  `QGroupBox::indicator` (voor checkable group boxes) en
+  `QTableView::indicator`, `QGroupBox::indicator` en
   `QComboBox::drop-down:hover`. Nieuwe pure tests in
   `tests/test_styles.py` (v1.0.0).
 - **11G.2 — Donkere scrollbar.** `styles.py` (v1.5.0) krijgt
   `QScrollBar:vertical` en `QScrollBar:horizontal` met donkere track,
   grijze handle, hover/pressed-states, en uitgeschakelde pijl-knoppen
-  (`add-line`/`sub-line` op `height: 0` / `width: 0`). Lost de lichte
-  scrollbar in de Word-samenvatting op zonder lokale override in de
-  wizard. `tests/test_styles.py` (v1.1.0) krijgt drie scrollbar-tests.
+  (`add-line`/`sub-line` op `height: 0` / `width: 0`).
+  `tests/test_styles.py` (v1.1.0) krijgt drie scrollbar-tests.
 - **11G.3 — As-schaling en tickformaat.** `analysis_screen.py`
   (v1.4.0) geeft `QValueAxis` een expliciet `labelFormat` per
-  grafiektype (ESR mΩ: `%.0f`, C µF: `%.1f`, D: `%.3f`, scatter x/y:
-  `%.0f`), zet `tickCount` op 6, en geeft de y-as 5% marge aan beide
-  zijden. `QDateTimeAxis` krijgt een adaptief formaat op basis van het
-  bereik (`dd-MM HH:mm` / `dd-MM-yyyy` / `MM-yyyy`).
-  `test_analysis_screen.py` (v1.4.0) krijgt vijf tests.
+  grafiektype en een 5%-marge op de y-as. `QDateTimeAxis` krijgt een
+  adaptief formaat. `test_analysis_screen.py` (v1.4.0) krijgt vijf
+  tests.
 - **11G.4 — Zoom/pan.** `analysis_screen.py` (v1.5.0) zet
-  `QChartView.RubberBand.RectangleRubberBand` voor rechthoek-zoom,
-  voegt een `wheelEvent`-override toe voor Ctrl+wheel-zoom, een
-  `reset_zoom_btn` met sneltoets Ctrl+0, en een `refresh()` die de
-  zoom automatisch reset. De originele as-range wordt per as bewaard
-  in `_originele_x_range` / `_originele_y_range`, omdat
-  `QChart.zoomReset()` de range herstelt die actief was op het moment
-  van de reset, niet de oorspronkelijke. Nieuwe i18n-keys
-  `analyse.zoom.reset_knop` en `analyse.zoom.reset_tooltip` (NL + EN).
+  `QChartView.RubberBand.RectangleRubberBand`, voegt een
+  `wheelEvent`-override toe voor Ctrl+wheel-zoom, een
+  `reset_zoom_btn` met Ctrl+0, en een `refresh()` die de zoom
+  automatisch reset. Nieuwe i18n-keys `analyse.zoom.reset_knop` en
+  `analyse.zoom.reset_tooltip` (NL + EN).
   `test_analysis_screen.py` (v1.5.0) krijgt vijf tests.
   **Fix in v1.5.1:** `QChartView.RubberBand.Rectangle` bestaat niet;
   de juiste constante is `RectangleRubberBand`.
 - **11G.5 — Klikbare datapunten + selectie-gedreven analyse.** De
-  bestaande `export_scope_combo` (attribuutnaam ongewijzigd) stuurt
-  nu ook de grafiek-scope aan. Labels komen uit `analyse.scope.*`
-  (NL + EN). Bij scope SELECTED en ≥1 aangevinkte meting geeft de GUI
-  `measurement_ids=[...]` mee aan de service. `AnalysisService`
-  (v1.1.0) krijgt een optionele `measurement_ids`-parameter op
-  `load_rows()` en alle reeksfuncties. In `_draw_scatter` krijgt elke
-  `QScatterSeries` een `clicked`-connectie die de bijbehorende rij
-  aanvinkt. `test_analysis_screen.py` (v1.6.0) krijgt zes tests,
+  bestaande `export_scope_combo` stuurt nu ook de grafiek-scope aan.
+  Labels komen uit `analyse.scope.*` (NL + EN). Bij scope SELECTED en
+  ≥1 aangevinkte meting geeft de GUI `measurement_ids=[...]` mee aan
+  de service. `AnalysisService` (v1.1.0) krijgt een optionele
+  `measurement_ids`-parameter. In `_draw_scatter` krijgt elke
+  `QScatterSeries` een `clicked`-connectie.
+  `test_analysis_screen.py` (v1.6.0) krijgt zes tests,
   `test_analysis_service.py` (v1.1.0) twee.
   **Fix in v1.6.1–v1.6.3:** `refresh(preserve_selection=True)` bewaart
   de selectie bij scope SELECTED; de "Selectie gewist"-melding
@@ -85,26 +192,17 @@ alleen het venster in plaats van de applicatie.
   als `_force_close` True is; anders blijft het contextuele "terug
   naar hub"-gedrag voor de venster-X op een subpagina.
   `test_navigation_regressions.py` (v1.2.0) krijgt vijf tests.
-- **11G.7 — Checkbox-aanpassing (gepland, nog niet uitgevoerd).**
-  De gebruiker wil de checkboxen verder aanpassen. Scope wordt in de
-  volgende sessie bepaald.
-
-**Belangrijke observatie: testtelling en `--collect-only`**
-
-In 11G.1 t/m 11G.6 weken mijn eigen schattingen soms af van de
-werkelijke tellingen. De werkelijke tellingen via
-`pytest --collect-only -q` per bestand en de volledige `pytest -q`
-waren consistent. Bij elke sub-fase is de som van de gerichte
-`--collect-only` vergeleken met de volledige suite. De afspraak
-"testtelling per fase verifiëren" is in `overdracht.md` v6.0.0
-aangescherpt.
+- **11G.7 — Filter-checkbox zichtbaarheid.** `styles.py` (v1.6.0)
+  geeft `QGroupBox::indicator` een lichtere achtergrond (`#3C3C3C`)
+  en een dikkere rand (2px `#B0B0B0`) in unchecked-state.
+  Checked-state is blauw (`#0078D7`) met 2px rand (`#4AA3FF`).
+  `tests/test_styles.py` (v1.2.0, +3).
 
 **Voor ontwikkelaars**
 
-- **Gewijzigd:** `app/gui/styles.py` (v1.3.0 → v1.5.0) — focus-states,
+- **Gewijzigd:** `app/gui/styles.py` (v1.3.0 → v1.6.0) — focus-states,
   tabel-indicator, groupbox-indicator, combobox-hover, donkere
-  scrollbar. Stylesheet-string verplaatst naar module-level constante
-  `DARK_THEME_STYLESHEET`.
+  scrollbar, duidelijker groupbox-checkbox.
 - **Gewijzigd:** `app/gui/analysis_screen.py` (v1.3.0 → v1.6.3) —
   as-schaling, tickformaat, zoom/pan, klikbare scatter-punten,
   selectie-gedreven scope.
@@ -112,7 +210,7 @@ aangescherpt.
   — optionele `measurement_ids`-parameter.
 - **Gewijzigd:** `app/gui/main_window.py` (v2.19.1 → v2.20.0) —
   `_force_close`, `_sluit_app()`, `closeEvent`-update.
-- **Nieuw:** `tests/test_styles.py` (v1.1.0, 9 tests).
+- **Gewijzigd:** `tests/test_styles.py` (v1.2.0, 12 tests).
 - **Gewijzigd:** `tests/test_analysis_screen.py` (v1.3.1 → v1.6.2,
   30 → 46 tests), `tests/test_analysis_screen_nan.py`
   (v1.0.3 → v1.0.4, 6 tests), `tests/test_analysis_service.py`
@@ -123,8 +221,8 @@ aangescherpt.
 - **Nieuwe i18n-keys:** `analyse.zoom.reset_knop`,
   `analyse.zoom.reset_tooltip`, `analyse.scope.selectie`,
   `analyse.scope.filters`, `analyse.scope.tooltip` (NL + EN).
-- **Baseline:** 1462 → **1491 passed** (+29 tests over 11G.1 t/m
-  11G.6).
+- **Baseline:** 1462 → **1494 passed** (+32 tests over 11G.1 t/m
+  11G.7).
 
 ### Fase 11F — Documentatie-uitbreiding (20 oktober 2026)
 
@@ -159,63 +257,40 @@ maar één import per keer bewerken of van status laten veranderen, en
   `BulkChangeStatusDialog` (v1.0.0) met een vaste doelstatuskeuze en
   optionele reden bij archiveren. `DocumentationScreen` (v2.6.0) staat
   op `ExtendedSelection` met twee nieuwe knoppen "Bulk bewerken…" en
-  "Bulk status…", alleen actief bij ≥1 geselecteerde gebruikersimport.
-  De GUI voert de bulk-update uit via een loop over de bestaande
-  `ImportService`-methodes en toont daarna één samenvatting met
-  aantallen gelukt/overgeslagen/mislukt. Nieuwe i18n-keys onder
-  `documentatie.bulk_edit.*`, `documentatie.bulk_status.*` en
-  `documentatie.bulk_resultaat.*`.
+  "Bulk status…". Nieuwe i18n-keys onder `documentatie.bulk_edit.*`,
+  `documentatie.bulk_status.*` en `documentatie.bulk_resultaat.*`.
 - **11F.4 — Datum-parsing + cosmetische punten + i18n-opruiming.**
   `EditMetadataDialog` (v1.2.0) heeft een nieuwe pure helper
   `_parse_datum_naar_qdate` die naast `yyyy-MM-dd` ook `yyyy/MM/dd`,
   `dd-MM-yyyy`, `yyyy-MM` (dag 1) en `yyyy` (1 januari) accepteert.
   §4.21 opgelost: `test_icon_paths.py` (v1.1.0) gebruikt de
-  projectafspraak `_app()`-helper in plaats van de lokale
-  `@pytest.fixture(scope="module")`. §4.23 opgelost:
-  `_fake_translate` in `test_gui_language_switch.py` (v1.3.1) doet
-  echte format-vervanging waar de sleutel `{placeholders}` bevat;
-  voor sleutels zonder placeholders in de sleutel-string worden de
-  kwargs alsnog als `[k=v,...]` geplakt. i18n-opruiming: ongebruikte
-  keys `dialog.documentatie_placeholder` en
+  projectafspraak `_app()`-helper. §4.23 opgelost: `_fake_translate`
+  in `test_gui_language_switch.py` (v1.3.1) doet echte
+  format-vervanging waar de sleutel `{placeholders}` bevat. i18n-
+  opruiming: ongebruikte keys `dialog.documentatie_placeholder` en
   `documentatie.info.ondersteunt` verwijderd uit NL en EN.
-
-**Belangrijke observatie: testtelling en Compare-Object**
-
-In 11F.2 en 11F.4 weken mijn eigen schattingen af. De werkelijke
-tellingen via `pytest --collect-only -q` per bestand en de volledige
-`pytest -q` waren consistent. Bij het herschrijven van de
-checkbox-sectie in 11F.2 zijn twee tests per ongeluk verwijderd;
-opgespoord met `Compare-Object` tegen de vorige versie en teruggezet in
-v1.13.1. De afspraak "testtelling per fase verifiëren" is in
-`overdracht.md` v6.0.0 aangescherpt met `Compare-Object`.
 
 **Voor ontwikkelaars**
 
 - **Gewijzigd:** `app/gui/documentation_screen.py` (v2.4.0 → v2.6.0) —
-  statusfilter-dropdown, `ExtendedSelection`, twee bulk-knoppen, nieuwe
-  helpers.
+  statusfilter-dropdown, `ExtendedSelection`, twee bulk-knoppen.
 - **Gewijzigd:** `app/gui/dialogs/edit_metadata_dialog.py`
   (v1.1.0 → v1.2.0) — `_parse_datum_naar_qdate` met fallback-keten.
-- **Nieuw:** `app/gui/dialogs/bulk_edit_metadata_dialog.py` (v1.0.0) —
-  bulk-editor voor metadata, checkbox per veld.
-- **Nieuw:** `app/gui/dialogs/bulk_change_status_dialog.py` (v1.0.0) —
-  bulk-editor voor status, vaste doelstatuskeuze.
+- **Nieuw:** `app/gui/dialogs/bulk_edit_metadata_dialog.py` (v1.0.0).
+- **Nieuw:** `app/gui/dialogs/bulk_change_status_dialog.py` (v1.0.0).
 - **Nieuwe tests:** `tests/test_bulk_edit_metadata_dialog.py` (11
   tests), `tests/test_bulk_change_status_dialog.py` (10 tests),
   uitbreiding `tests/test_documentation_screen.py` (55 → 63 tests),
   uitbreiding `tests/test_edit_metadata_dialog.py` (22 → 34 tests).
-- **Gewijzigde tests:** `tests/test_icon_paths.py` (v1.0.0 → v1.1.0,
-  helper-wissel, 18 tests), `tests/test_gui_language_switch.py`
-  (v1.2.0 → v1.3.1, helper-wissel, 7 tests).
+- **Gewijzigde tests:** `tests/test_icon_paths.py` (v1.0.0 → v1.1.0),
+  `tests/test_gui_language_switch.py` (v1.2.0 → v1.3.1).
 - **Nieuwe i18n-keys:** `documentatie.status_kolom.gearchiveerd_met_reden`,
   `documentatie.status_wijzigen_reden.*`,
   `documentatie.status_filter.*`, `documentatie.bulk_edit.*`,
-  `documentatie.bulk_status.*`, `documentatie.bulk_resultaat.*` (NL +
-  EN).
+  `documentatie.bulk_status.*`, `documentatie.bulk_resultaat.*`.
 - **Verwijderde i18n-keys:** `documentatie.toon_gearchiveerd`,
   `documentatie.toon_gearchiveerd_tooltip`,
-  `dialog.documentatie_placeholder`, `documentatie.info.ondersteunt`
-  (NL + EN).
+  `dialog.documentatie_placeholder`, `documentatie.info.ondersteunt`.
 - **Baseline:** 1395 → **1462 passed** (+67 tests over 11F.1 t/m
   11F.4).
 
@@ -225,28 +300,25 @@ v1.13.1. De afspraak "testtelling per fase verifiëren" is in
 
 De update-check, de release-notes-fetch en de URL-import in de
 import-wizard deden hun netwerkverkeer **synchroon in de GUI-thread**.
-Bij een trage of onbereikbare server bevroor de GUI heel even. Dat was
-functioneel niet fout, maar het voelt niet als een diagnose-instrument.
+Bij een trage of onbereikbare server bevroor de GUI heel even.
 
 **Oplossing: drie sub-fases**
 
 - **11E.1 — Async update-check.** Nieuwe module
   `app/helpers/async_worker.py` (v2.0.0) met een generieke
-  `AsyncWorker(QRunnable)` en `run_async()`-helper, gebaseerd op
-  `QThreadPool`. `app/helpers/updater.py` (v1.2.0) krijgt
+  `AsyncWorker(QRunnable)` en `run_async()`-helper.
+  `app/helpers/updater.py` (v1.2.0) krijgt
   `check_for_update_async()` en `fetch_release_notes_async()`.
-  `app/gui/main_window.py` (v2.18.0) gebruikt die async-varianten voor
-  de startup-check en de handmatige check.
+  `app/gui/main_window.py` (v2.18.0) gebruikt die async-varianten.
 - **11E.2 — Async URL-fetch in de import-wizard.**
   `app/documentation/url_fetch.py` (v1.2.0) krijgt
   `fetch_url_metadata_async()` en `fetch_url_content_async()`.
   `app/gui/dialogs/import_wizard_dialog.py` (v2.0.0) gebruikt die
-  async-varianten; tijdens het wachten zijn de knoppen disabled en
-  toont de samenvatting een "Bezig…"-tekst.
+  async-varianten.
 - **11E.3 — Drie-knoppenmelding forceren voor QA.**
-  `app/config/settings.py` (v1.7.0) krijgt `algemeen.qa_modus`
-  (default `False`). `app/gui/main_window.py` (v2.19.0) toont een
-  verborgen QA-menu-item in het Help-menu als `qa_modus` True is.
+  `app/config/settings.py` (v1.7.0) krijgt `algemeen.qa_modus`.
+  `app/gui/main_window.py` (v2.19.0) toont een verborgen QA-menu-item
+  in het Help-menu als `qa_modus` True is.
 
 **Belangrijke bugfix in 11E.1**
 
@@ -270,17 +342,12 @@ veroorzaakt.
 
 **Voor ontwikkelaars**
 
-- **Nieuw:** `app/helpers/async_worker.py` (v2.0.0) — generieke
-  `AsyncWorker` + `run_async()`. Geen netwerklogica.
-- **Gewijzigd:** `app/helpers/updater.py` (v1.2.0) — async-varianten
-  toegevoegd; synchrone API's ongewijzigd.
+- **Nieuw:** `app/helpers/async_worker.py` (v2.0.0).
+- **Gewijzigd:** `app/helpers/updater.py` (v1.2.0) — async-varianten.
 - **Gewijzigd:** `app/documentation/url_fetch.py` (v1.2.0) —
-  async-varianten toegevoegd; synchrone API's ongewijzigd.
-- **Gewijzigd:** `app/gui/main_window.py` (v2.19.1) — async
-  update-check, QA-modus, dubbele `getattr`-fix.
-- **Gewijzigd:** `app/gui/dialogs/import_wizard_dialog.py` (v2.0.0)
-  — async URL-fetch en async URL-import; PDF/Word/Excel blijven
-  synchroon.
+  async-varianten.
+- **Gewijzigd:** `app/gui/main_window.py` (v2.19.1).
+- **Gewijzigd:** `app/gui/dialogs/import_wizard_dialog.py` (v2.0.0).
 - **Gewijzigd:** `app/config/settings.py` (v1.7.0) — `qa_modus`.
 - **Nieuwe tests:** `tests/test_async_worker.py` (9 tests),
   uitbreiding `tests/test_updater.py` (+4 async-tests),
@@ -289,8 +356,7 @@ veroorzaakt.
   `tests/test_documentation_url_fetch.py` (v1.1.0, +6 async-tests),
   `tests/test_import_wizard_dialog.py` (v1.8.0, +3 async-tests).
 - **Nieuwe i18n-keys:** `documentatie.import.bezig_metadata`,
-  `documentatie.import.bezig_import`, `menu.qa_toon_update_melding`
-  (NL + EN).
+  `documentatie.import.bezig_import`, `menu.qa_toon_update_melding`.
 - **Baseline:** 1366 → **1395 passed** (+29 tests).
 
 ### Fase 11D — i18n-menging oplossen (16 oktober 2026)
@@ -298,50 +364,37 @@ veroorzaakt.
 **Waarom deze wijziging**
 
 Na een live taalwissel toonde het ESR-scherm een mengeling van talen:
-de GUI-chrome (groepstitels, knoppen) schakelde netjes om, maar de
-reeds vertaalde strings uit het `Beoordeling`-object (`toelichting`,
-`redenen`, `waarschuwingen`, `aanbevolen_vervolgstap`) bleven in de
-oude taal staan. Daarnaast was de `*`-toelichting bij een
-frequentieverschil hardcoded in de GUI in plaats van via i18n.
+de GUI-chrome schakelde netjes om, maar de reeds vertaalde strings uit
+het `Beoordeling`-object bleven in de oude taal staan. Daarnaast was de
+`*`-toelichting bij een frequentieverschil hardcoded in de GUI.
 
 **Oplossing**
 
 - `Beoordeling` krijgt een `taal`-veld dat wordt gevuld door
   `beoordeel_meting`. De GUI kan daarmee detecteren dat een resultaat
-  in een andere taal is opgesteld dan de huidige GUI-taal.
+  in een andere taal is opgesteld.
 - Na een live taalwissel toont het ESR-scherm een nette banner in de
-  GUI-taal ("Dit resultaat is opgesteld in het {oude_taal}. Beoordeel
-  opnieuw om het in het {nieuwe_taal} weer te geven."). De reeds
-  vertaalde resultaatstrings blijven in hun eigen taal; er is geen
-  stille mengeling meer.
+  GUI-taal. De reeds vertaalde resultaatstrings blijven in hun eigen
+  taal; er is geen stille mengeling meer.
 - `_show_result` en `_build_result_html` vertalen alle
-  resultaat-specifieke labels in `resultaat.taal` in plaats van
-  `self.taal`. De GUI-chrome blijft via `self.taal` lopen.
-- De losse `*`-toelichting bij een frequentieverschil loopt nu via twee
-  nieuwe i18n-keys (`resultaat.esr_factor_frequentie_indicatief` en
-  `resultaat.esr_factor_frequentie_indicatief_kort`) in NL én EN.
+  resultaat-specifieke labels in `resultaat.taal`.
+- De losse `*`-toelichting loopt nu via twee nieuwe i18n-keys in NL
+  én EN.
 - Bugfix in `apply_language`: de conditie `result_group.isVisible()`
-  is vervangen door `_laatste_resultaat is not None`. In
-  offscreen/headless situaties (tests, pagina's die nog niet actief
-  zijn in de `QStackedWidget`) is `isVisible()` False en werd de
-  banner nooit getoond.
+  is vervangen door `_laatste_resultaat is not None`.
 
 **Voor ontwikkelaars**
 
 - `app/services/assessment_service.py` (v1.6.0) — `Beoordeling` heeft
-  het extra veld `taal: str = STANDAARD_TAAL`. `beoordeel_meting`
-  vult het met de `taal`-parameter.
+  het extra veld `taal: str = STANDAARD_TAAL`.
 - `app/gui/esr_test_screen.py` (v1.14.0) — `_show_result` detecteert
   taal-mismatch en toont `result_language_banner`. Nieuwe helper
-  `_t_voor(taal, sleutel, **kwargs)` voor vertalingen in de taal van
-  het resultaat.
+  `_t_voor(taal, sleutel, **kwargs)`.
 - Nieuwe i18n-keys onder `resultaat`: `taal_mismatch_banner`,
   `esr_factor_frequentie_indicatief`,
   `esr_factor_frequentie_indicatief_kort` (NL + EN).
-- `tests/test_assessment.py` (v1.5.1) — 5 nieuwe tests in
-  `TestBeoordelingTaal`.
-- `tests/test_gui_language_switch.py` (v1.2.0) — 3 nieuwe tests voor
-  de taal-mismatch-banner.
+- `tests/test_assessment.py` (v1.5.1) — 5 nieuwe tests.
+- `tests/test_gui_language_switch.py` (v1.2.0) — 3 nieuwe tests.
 - **Baseline:** 1358 → **1366 passed** (+8 tests).
 
 ## Versie 1.2.0 — Frequentie-specifieke referenties en drempelvalidatie (15 oktober 2026)
@@ -354,8 +407,7 @@ de applicatie voortaan het referentieprofiel dat het dichtst bij de
 werkelijke meetfrequentie ligt.
 
 - **Officiële ESR70-tabel** — 100 kHz. Blijft de primaire bron voor
-  metingen op 100 kHz (de LCR-ST1 kan dit zelf niet, maar andere
-  toestellen wel).
+  metingen op 100 kHz.
 - **Geschatte profielen** — 100 Hz, 1 kHz en 10 kHz, afgeleid van de
   officiële ESR70-tabel via de Nichicon-frequentiecoëfficiënten
   (×2,00 / ×1,50 / ×1,15). Expliciet gemarkeerd als schatting
@@ -454,17 +506,13 @@ laag door administratieve factoren" is nu mogelijk.
 **Eén applicatie-icoon, twaalf thematische iconen**
 
 De applicatie heeft nu een volledige iconenset: `assets/icons/app.png`,
-`assets/icons/logo.ico` en twaalf thematische iconen (Diagnose, ESR,
-Historiek, Documentatie, Analyse, Rapport, Instellingen, Help,
-Bug/feature melden, Update, Afsluiten). De huidige iconen zijn
-**placeholders** die met een script zijn gegenereerd
-(`scripts/genereer_placeholders.py`). Je kunt ze later vervangen door
-definitieve ontwerpen; de bestandsnamen liggen vast.
+`assets/icons/logo.ico` en twaalf thematische iconen. De huidige iconen
+zijn **placeholders** die met een script zijn gegenereerd
+(`scripts/genereer_placeholders.py`).
 
 **Voor ontwikkelaars**
 
-- **Nieuw:** `app/helpers/icon_paths.py` (v1.0.0) — pure padresolutie
-  plus dunne Qt-wrappers. Geen harde Qt-import op moduleniveau.
+- **Nieuw:** `app/helpers/icon_paths.py` (v1.0.0).
 - **Nieuw:** `scripts/genereer_placeholders.py` (v1.0.0).
 - **Gewijzigd:** `main.py` (v1.5.0), `app/gui/main_window.py` (v2.17.0),
   alle dialogen in `app/gui/dialogs/`,
@@ -479,7 +527,8 @@ definitieve ontwerpen; de bestandsnamen liggen vast.
 
 **Automatische controle op een nieuwere versie**
 
-De applicatie controleert bij het opstarten eenmalig en niet-blokkerendof er een nieuwere versie beschikbaar is op GitHub.
+De applicatie controleert bij het opstarten eenmalig en niet-blokkerend
+of er een nieuwere versie beschikbaar is op GitHub.
 
 **Handmatige controle via Help**
 
@@ -745,18 +794,14 @@ Het zoekveld doorzoekt nu ook de metadata van geïmporteerde documenten.
   in eerdere fases zijn blijven liggen:
   - **11A** — Export, import en selectie. **Afgerond op 16 oktober 2026.**
   - **11B** — Betrouwbaarheidsregel herzien. **Afgerond op 16 oktober
-    2026.** Baseline 1329 → **1339 passed**.
+    2026.**
   - **11C** — Iconen voor alle vensters. **Afgerond op 16 oktober 2026.**
-    Baseline 1339 → **1358 passed**.
   - **11D** — i18n-menging in Diagnose/Result oplossen. **Afgerond op
-    16 oktober 2026.** Baseline 1358 → **1366 passed**.
-  - **11E** — Async netwerk. **Afgerond op 16 oktober 2026.** Baseline
-    1366 → **1395 passed**.
+    16 oktober 2026.**
+  - **11E** — Async netwerk. **Afgerond op 16 oktober 2026.**
   - **11F** — Documentatie-uitbreiding. **Afgerond op 20 oktober 2026.**
-    Baseline 1395 → **1462 passed**.
   - **11G** — Visueel donker thema. **Afgerond op 20 oktober 2026.**
-    Baseline 1462 → **1491 passed**.
-  - **11H** — Light theme.
+  - **11H** — Licht thema. **Afgerond op 21 oktober 2026.**
   - **11I** — Build en cosmetica (deprecations, logbestanden,
     certificaten).
 - **Versie 1.3.0 — AI-extractie uit fabrikantdocumenten.**

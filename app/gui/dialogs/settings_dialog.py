@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/dialogs/settings_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.6.0
-Datum:      2026-10-16
+Versie:     1.7.0
+Datum:      2026-10-21
 Auteur:     Bart Bossuyt
 
 Doel:       Modale Settings-dialoog met tabs Algemeen, ESR / Condensator en
@@ -33,6 +33,16 @@ Wijzigingen:
   v1.6.0 (2026-10-16)  Fase 11C: dialoog krijgt een venstericoon via
                         de centrale helper app/helpers/icon_paths.
                         Geen wijziging aan de instellingenlogica.
+  v1.7.0 (2026-10-21)  Fase 11H.2: thema-keuze.
+                        - thema_combo heeft nu twee items: "Donker"
+                          ("dark") en "Licht" ("light").
+                        - setEnabled(False) is verwijderd; de combo is
+                          actief.
+                        - Tooltip beschrijft nu beide thema's.
+                        - _widgets_naar_instellingen gebruikt
+                          normaliseer_thema() als vangnet, zodat een
+                          onverwachte currentData() nooit een ongeldige
+                          waarde in de dataclass schrijft.
 ================================================================================
 """
 
@@ -69,6 +79,7 @@ from app.config.settings import (
     MEETMETHODEN,
     RapportageInstellingen,
     TESTSPANNINGEN_VRMS,
+    normaliseer_thema,
 )
 from app.helpers.dialog_start_directory import beste_startmap
 from app.helpers.i18n import STANDAARD_TAAL, beschikbare_taalinfos, vertaal
@@ -162,7 +173,7 @@ class SettingsDialog(QDialog):
 
         self.thema_combo = QComboBox()
         self.thema_combo.addItem(self._t("settings.algemeen.thema_donker"), "dark")
-        self.thema_combo.setEnabled(False)
+        self.thema_combo.addItem(self._t("settings.algemeen.thema_licht"), "light")
         self.thema_combo.setToolTip(self._t("settings.algemeen.thema_tooltip"))
         form.addRow(self._t("settings.algemeen.thema"), self.thema_combo)
 
@@ -355,7 +366,10 @@ class SettingsDialog(QDialog):
 
     def _load_widgets(self, instellingen: AppInstellingen) -> None:
         self._select(self.taal_combo, instellingen.taal)
-        self._select(self.thema_combo, instellingen.algemeen.thema)
+        self._select(
+            self.thema_combo,
+            normaliseer_thema(instellingen.algemeen.thema),
+        )
         self.tooltips_check.setChecked(instellingen.algemeen.tooltips_ingeschakeld)
         self.controleer_updates_check.setChecked(
             instellingen.algemeen.controleer_updates_bij_opstarten
@@ -396,7 +410,7 @@ class SettingsDialog(QDialog):
 
         algemeen = replace(
             self._basis.algemeen,
-            thema=self.thema_combo.currentData() or "dark",
+            thema=normaliseer_thema(self.thema_combo.currentData()),
             tooltips_ingeschakeld=self.tooltips_check.isChecked(),
             controleer_updates_bij_opstarten=(
                 self.controleer_updates_check.isChecked()

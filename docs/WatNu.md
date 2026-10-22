@@ -1,7 +1,7 @@
 # Wat nu? — Electronics Diagnostic Tool Hub
 
-**Versie:** 2.1.0
-**Datum:** 2026-10-20
+**Versie:** 2.2.0
+**Datum:** 2026-10-21
 **Auteur:** Bart Bossuyt
 **Doel:** beknopte gids voor "wat is de volgende stap" na een
 afgeronde fase. Geen volledige overdracht — die staat in
@@ -11,10 +11,11 @@ afgeronde fase. Geen volledige overdracht — die staat in
 
 ## Huidige staat
 
-- **Baseline tests:** 1494 passed.
+- **Baseline tests:** 1546 passed.
 - **Huidige versie:** `1.2.0`.
-- **Laatste afgeronde fase:** 11G.7 — filter-checkbox zichtbaarheid.
-- **Volgende fase:** 11H — light theme.
+- **Laatste afgeronde fase:** 11H.5 — detail-HTML en release-notes per
+  thema. Daarmee is **11H volledig afgerond** (11H.1 t/m 11H.5).
+- **Volgende fase:** 11I — build en cosmetica.
 
 Dit bestand wordt bijgewerkt na elke fase.
 
@@ -72,10 +73,20 @@ Dit bestand wordt bijgewerkt na elke fase.
 - **Meld nieuwe i18n-keys expliciet**, met NL én EN.
 - **Python-headers zijn cumulatief.**
 - **Geen `qtbot`** — er is geen `pytest-qt`.
+- **`conftest.py` is een geaccepteerd onderdeel van de suite.** Houd
+  hem minimaal: alleen `QT_QPA_PLATFORM=offscreen` en de
+  autouse-opruimfixture. Geen projectimports.
 - **Verwerk `deleteLater()` in GUI-tests** met
   `QApplication.processEvents()`.
 - **De taalparameter van `ToolHubWindow` heeft voorrang op
-  `settings.json`.**
+  `settings.json`.** Hetzelfde geldt sinds 11H.3 voor de
+  `theme`-parameter.
+- **`setStyleSheet` op het venster, niet op de `QApplication`.**
+  Enige uitzondering: `apply_theme(app, thema)` in `main.py` bij
+  opstart, voor dialogen zonder parent.
+- **Thema doorgeven aan schermen** met een keyword-only
+  `theme`-parameter en een `apply_theme(theme)`-methode, zoals in
+  `AnalysisScreen` (sinds 11H.4) en `HistoryScreen` (sinds 11H.5).
 - **Voor leesbare PDF's:** `QT_QPA_FONTDIR` wordt sinds 9A automatisch
   gezet in `main.py`.
 - **De ArticleSearch-flow is de bewezen build-flow.** Wijk daar niet
@@ -101,7 +112,7 @@ Dit bestand wordt bijgewerkt na elke fase.
 |---|---|
 | Actuele projectstaat | `overdracht.md` |
 | Architectuur | `docs/context.md` |
-| Versiegeschiedenis | `docs/changelog.md` |
+| Versiegeschiedenis | `docs/changelog/nl_NL.md`, `docs/changelog/en_US.md` |
 | Open vragen | `docs/openvragen.md` |
 | Header-standaard | `docs/python_header_standard.md` |
 | Zoektaal | `docs/search_syntax.md` |

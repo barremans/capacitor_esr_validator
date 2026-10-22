@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/analysis_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.6.3
-Datum:      2026-10-20
+Versie:     1.7.0
+Datum:      2026-10-21
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only Analyse-pagina binnen het hoofdvenster.
@@ -37,6 +37,26 @@ Wijzigingen:
                         chart.series() leeg. Beide methodes zijn
                         teruggezet op hun oorspronkelijke plek (direct
                         na _draw_scatter, vóór _on_scatter_clicked).
+  v1.7.0 (2026-10-21)  Fase 11H.4: chart-kleuren per thema.
+                        - Nieuwe keyword-only parameter theme: str op
+                          __init__ (default "dark"), genormaliseerd via
+                          normaliseer_thema.
+                        - Nieuwe module-level dict CHART_COLORS met
+                          per thema de kleuren die voorheen hardcoded
+                          waren (chart-achtergrond, as-labels, grid,
+                          lijn, scatter-rand, neutrale scatter,
+                          state-label).
+                        - Nieuwe methode apply_theme(theme): werkt
+                          self.theme bij en past de kleuren toe op een
+                          bestaande chart zonder refresh.
+                        - _build_ui, _prepare_chart, _replace_chart_empty,
+                          _draw_time_series en _draw_scatter halen alle
+                          kleuren uit CHART_COLORS[self.theme].
+                        - main_window.py geeft theme mee aan
+                          AnalysisScreen en roept analysis_page.apply_theme
+                          aan bij een themawissel.
+                        - Geen wijziging aan de chart-functionaliteit
+                          (schaling, zoom, klikken, selectie).
 ================================================================================
 """
 
@@ -81,7 +101,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.config.settings import laad_instellingen
+from app.config.settings import laad_instellingen, normaliseer_thema
 from app.helpers.analysis_series import (
     ScatterPoint,
     TimeSeriesPoint,
@@ -130,8 +150,6 @@ _EXPORT_SCOPE_SELECTED = "SELECTED"
 _EXPORT_SCOPE_FILTERED = "FILTERED"
 
 _UNKNOWN_STATUS_COLOR = "#9E9E9E"
-_LINE_COLOR = "#4AA3FF"
-_SCATTER_NEUTRAL_COLOR = "#B0B0B0"
 
 _MIN_MS = 0
 _MAX_MS = 4_102_444_800_000
@@ -144,6 +162,35 @@ _DATETIME_MIDDEL_BEREIK_MS = 60 * _MS_PER_DAG
 
 _ZOOM_FACTOR_IN = 0.85
 _ZOOM_FACTOR_OUT = 1.0 / _ZOOM_FACTOR_IN
+
+
+# Sinds 11H.4: chart-kleuren per thema. Alle waarden die voorheen
+# hardcoded in de chart-code stonden, staan nu hier. De sleutels zijn
+# bewust Engels, zodat ze niet botsen met de Nederlandse GUI-strings.
+CHART_COLORS: dict[str, dict[str, str]] = {
+    "dark": {
+        "chart_background": "#1E1E1E",
+        "chart_view_background": "#1E1E1E",
+        "axis_label": "#F0F0F0",
+        "axis_title": "#F0F0F0",
+        "axis_grid": "#3A3A3A",
+        "line": "#4AA3FF",
+        "scatter_border": "#1E1E1E",
+        "scatter_neutral": "#B0B0B0",
+        "state_label": "#C8C8C8",
+    },
+    "light": {
+        "chart_background": "#FFFFFF",
+        "chart_view_background": "#F4F4F4",
+        "axis_label": "#202020",
+        "axis_title": "#202020",
+        "axis_grid": "#D0D0D0",
+        "line": "#0078D7",
+        "scatter_border": "#FFFFFF",
+        "scatter_neutral": "#5A5A5A",
+        "state_label": "#5A5A5A",
+    },
+}
 
 
 def _is_finite(value: Any) -> bool:
@@ -195,11 +242,15 @@ class AnalysisScreen(QWidget):
         self,
         taal: str = "nl_NL",
         *,
+        theme: str = "dark",
         analysis_service: AnalysisService | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.taal = taal
+        # 11H.4: thema bepaalt de chart-kleuren. Keyword-only, default
+        # "dark", genormaliseerd via normaliseer_thema.
+        self.theme = normaliseer_thema(theme)
         self._analysis_service = analysis_service or AnalysisService()
         self._current_rows: list[dict[str, Any]] = []
 
@@ -218,7 +269,64 @@ class AnalysisScreen(QWidget):
     def _t(self, sleutel: str, **kwargs) -> str:
         return vertaal(sleutel, taal=self.taal, **kwargs)
 
+    def _colors(self) -> dict[str, str]:
+        """Actieve kleurenset voor dit thema."""
+        return CHART_COLORS.get(self.theme, CHART_COLORS["dark"])
+
+    # ------------------------------------------------------------------
+    # Thema (11H.4)
+    # ------------------------------------------------------------------
+    def apply_theme(self, theme: str) -> None:
+        """Werkt het thema bij en past de chart-kleuren toe.
+
+        Geen refresh: de bestaande reeksen blijven staan, alleen de
+        kleuren van de chart en de assen worden aangepast. Als er nog
+        geen reeksen zijn (lege chart), blijft het bij het bijwerken
+        van self.theme en de state-label-kleur.
+        """
+        nieuw = normaliseer_thema(theme)
+        if nieuw == self.theme:
+            return
+        self.theme = nieuw
+        self._pas_chart_kleuren_toe()
+
+    def _pas_chart_kleuren_toe(self) -> None:
+        colors = self._colors()
+
+        self.chart.setBackgroundBrush(QColor(colors["chart_background"]))
+        self.chart.setPlotAreaBackgroundBrush(
+            QColor(colors["chart_background"])
+        )
+        self.chart.legend().setLabelColor(QColor(colors["axis_label"]))
+        self.chart.setTitleBrush(QColor(colors["axis_label"]))
+        self.chart_view.setStyleSheet(
+            f"background-color: {colors['chart_view_background']};"
+        )
+
+        for axis in self.chart.axes():
+            if isinstance(axis, QDateTimeAxis) or isinstance(axis, QValueAxis):
+                axis.setLabelsColor(QColor(colors["axis_label"]))
+                axis.setTitleBrush(QColor(colors["axis_title"]))
+                axis.setGridLineColor(QColor(colors["axis_grid"]))
+
+        for series in self.chart.series():
+            if isinstance(series, QLineSeries):
+                pen = QPen(QColor(colors["line"]))
+                pen.setWidth(2)
+                series.setPen(pen)
+            elif isinstance(series, QScatterSeries):
+                series.setBorderColor(QColor(colors["scatter_border"]))
+                # De inwendige kleur komt uit de categorie (STATUS_COLORS);
+                # die is thema-onafhankelijk. Alleen de rand en de
+                # neutrale kleur verschillen per thema.
+
+        self.state_label.setStyleSheet(
+            f"color: {colors['state_label']};"
+        )
+
     def _build_ui(self) -> None:
+        colors = self._colors()
+
         root = QVBoxLayout(self)
         root.setContentsMargins(18, 18, 18, 18)
         root.setSpacing(10)
@@ -345,22 +453,28 @@ class AnalysisScreen(QWidget):
 
         self.state_label = QLabel("")
         self.state_label.setWordWrap(True)
-        self.state_label.setStyleSheet("color: #C8C8C8;")
+        self.state_label.setStyleSheet(
+            f"color: {colors['state_label']};"
+        )
         root.addWidget(self.state_label)
 
         self.splitter = QSplitter(Qt.Orientation.Vertical)
 
         self.chart = QChart()
-        self.chart.setBackgroundBrush(QColor("#1E1E1E"))
-        self.chart.setPlotAreaBackgroundBrush(QColor("#1E1E1E"))
+        self.chart.setBackgroundBrush(QColor(colors["chart_background"]))
+        self.chart.setPlotAreaBackgroundBrush(
+            QColor(colors["chart_background"])
+        )
         self.chart.setPlotAreaBackgroundVisible(True)
         self.chart.legend().setVisible(True)
-        self.chart.legend().setLabelColor(QColor("#F0F0F0"))
+        self.chart.legend().setLabelColor(QColor(colors["axis_label"]))
         self.chart.setAnimationOptions(QChart.AnimationOption.NoAnimation)
 
         self.chart_view = QChartView(self.chart)
         self.chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self.chart_view.setStyleSheet("background-color: #1E1E1E;")
+        self.chart_view.setStyleSheet(
+            f"background-color: {colors['chart_view_background']};"
+        )
         self.chart_view.setRubberBand(
             QChartView.RubberBand.RectangleRubberBand
         )
@@ -960,19 +1074,23 @@ class AnalysisScreen(QWidget):
         return []
 
     def _replace_chart_empty(self, message: str) -> None:
+        colors = self._colors()
         self.chart.removeAllSeries()
         for axis in list(self.chart.axes()):
             self.chart.removeAxis(axis)
         self.chart.setTitle(message)
+        self.chart.setTitleBrush(QColor(colors["axis_label"]))
         self.chart.legend().setVisible(False)
         self._bewaar_oorspronkelijke_range()
         self._scatter_point_to_id = []
 
     def _prepare_chart(self, *, title: str, show_legend: bool) -> None:
+        colors = self._colors()
         self.chart.removeAllSeries()
         for axis in list(self.chart.axes()):
             self.chart.removeAxis(axis)
         self.chart.setTitle(title)
+        self.chart.setTitleBrush(QColor(colors["axis_label"]))
         self.chart.legend().setVisible(show_legend)
         self._scatter_point_to_id = []
 
@@ -994,6 +1112,7 @@ class AnalysisScreen(QWidget):
         points: list[TimeSeriesPoint],
         chart_type: str,
     ) -> None:
+        colors = self._colors()
         title = self._chart_type_label(chart_type)
         self._prepare_chart(title=title, show_legend=False)
 
@@ -1013,7 +1132,7 @@ class AnalysisScreen(QWidget):
 
         series = QLineSeries()
         series.setName(y_label)
-        pen = QPen(QColor(_LINE_COLOR))
+        pen = QPen(QColor(colors["line"]))
         pen.setWidth(2)
         series.setPen(pen)
 
@@ -1034,17 +1153,17 @@ class AnalysisScreen(QWidget):
         axis_x.setFormat(_datetime_formaat_voor(bereik_ms))
         axis_x.setTitleText(self._t("analyse.as.datum"))
         axis_x.setTickCount(min(6, max(2, len(scaled))))
-        axis_x.setLabelsColor(QColor("#F0F0F0"))
-        axis_x.setTitleBrush(QColor("#F0F0F0"))
-        axis_x.setGridLineColor(QColor("#3A3A3A"))
+        axis_x.setLabelsColor(QColor(colors["axis_label"]))
+        axis_x.setTitleBrush(QColor(colors["axis_title"]))
+        axis_x.setGridLineColor(QColor(colors["axis_grid"]))
 
         axis_y = QValueAxis()
         axis_y.setTitleText(y_label)
         axis_y.setLabelFormat(_tick_formaat_voor(chart_type))
         axis_y.setTickCount(6)
-        axis_y.setLabelsColor(QColor("#F0F0F0"))
-        axis_y.setTitleBrush(QColor("#F0F0F0"))
-        axis_y.setGridLineColor(QColor("#3A3A3A"))
+        axis_y.setLabelsColor(QColor(colors["axis_label"]))
+        axis_y.setTitleBrush(QColor(colors["axis_title"]))
+        axis_y.setGridLineColor(QColor(colors["axis_grid"]))
 
         self.chart.addAxis(axis_x, Qt.AlignmentFlag.AlignBottom)
         self.chart.addAxis(axis_y, Qt.AlignmentFlag.AlignLeft)
@@ -1088,6 +1207,7 @@ class AnalysisScreen(QWidget):
         return 1.0, ""
 
     def _draw_scatter(self, points: list[ScatterPoint]) -> None:
+        colors = self._colors()
         title = self._chart_type_label(_CHART_TYPE_SCATTER)
         self._prepare_chart(title=title, show_legend=True)
 
@@ -1128,17 +1248,17 @@ class AnalysisScreen(QWidget):
         axis_x.setTitleText(self._t("analyse.as.capaciteit_uf"))
         axis_x.setLabelFormat("%.0f")
         axis_x.setTickCount(6)
-        axis_x.setLabelsColor(QColor("#F0F0F0"))
-        axis_x.setTitleBrush(QColor("#F0F0F0"))
-        axis_x.setGridLineColor(QColor("#3A3A3A"))
+        axis_x.setLabelsColor(QColor(colors["axis_label"]))
+        axis_x.setTitleBrush(QColor(colors["axis_title"]))
+        axis_x.setGridLineColor(QColor(colors["axis_grid"]))
 
         axis_y = QValueAxis()
         axis_y.setTitleText(self._t("analyse.as.esr_mohm"))
         axis_y.setLabelFormat("%.0f")
         axis_y.setTickCount(6)
-        axis_y.setLabelsColor(QColor("#F0F0F0"))
-        axis_y.setTitleBrush(QColor("#F0F0F0"))
-        axis_y.setGridLineColor(QColor("#3A3A3A"))
+        axis_y.setLabelsColor(QColor(colors["axis_label"]))
+        axis_y.setTitleBrush(QColor(colors["axis_title"]))
+        axis_y.setGridLineColor(QColor(colors["axis_grid"]))
 
         self.chart.addAxis(axis_x, Qt.AlignmentFlag.AlignBottom)
         self.chart.addAxis(axis_y, Qt.AlignmentFlag.AlignLeft)
@@ -1151,7 +1271,7 @@ class AnalysisScreen(QWidget):
             series.setMarkerSize(11.0)
             series.setName(self._category_label(category))
             series.setColor(QColor(self._category_color(category)))
-            series.setBorderColor(QColor("#1E1E1E"))
+            series.setBorderColor(QColor(colors["scatter_border"]))
 
             ids_voor_deze_reeks: list[int] = []
             for point in group:
@@ -1213,10 +1333,9 @@ class AnalysisScreen(QWidget):
             return category
         return vertaald
 
-    @staticmethod
-    def _category_color(category: str | None) -> str:
+    def _category_color(self, category: str | None) -> str:
         if category is None:
-            return _SCATTER_NEUTRAL_COLOR
+            return self._colors()["scatter_neutral"]
         return STATUS_COLORS.get(category, _UNKNOWN_STATUS_COLOR)
 
     def _on_scatter_clicked(self, series: QScatterSeries) -> None:

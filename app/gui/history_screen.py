@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/history_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.17.1
-Datum:      2026-10-16
+Versie:     1.18.0
+Datum:      2026-10-21
 Auteur:     Bart Bossuyt
 
 Doel:       Compacte centrale read-only weergave van opgeslagen meethistoriek.
@@ -47,13 +47,25 @@ Wijzigingen:
                         _onthoud_laatste_exportmap gebruiken uitsluitend de
                         lokale laad_instellingen/sla_instellingen_op (dus
                         de bestaande compatibiliteitswrappers), niet de
-                        centrale helper. Reden: bestaande tests in
-                        test_history_export_settings.py monkeypatchen
-                        history_module.laad_instellingen en verwachten dat
-                        die naam gebruikt wordt. De helper is bedoeld voor
-                        nieuwe code (AnalysisScreen, ReportDialog,
-                        ImportWizard); HistoryScreen houdt zijn bestaande
-                        contract.
+                        centrale helper.
+  v1.18.0 (2026-10-21)  Fase 11H.5: detail-HTML en state-label per thema.
+                        - Nieuwe keyword-only parameter theme: str op
+                          __init__ (default "dark"), genormaliseerd via
+                          normaliseer_thema.
+                        - Nieuwe module-level dict DETAIL_HTML_COLORS met
+                          per thema de kleuren voor de detaildialoog
+                          (achtergrond, tekst, tabel-rand, eerste kolom).
+                        - Nieuwe methode apply_theme(theme): werkt
+                          self.theme bij en past de state-label-kleur aan.
+                        - _build_detail_html en
+                          _build_esr_capacitor_detail_html gebruiken de
+                          per-thema stylesheet voor de QTextBrowser.
+                        - state_label-kleur volgt het thema.
+                        - main_window.py geeft theme mee aan HistoryScreen
+                          en roept history_page.apply_theme aan bij een
+                          themawissel.
+                        - Geen wijziging aan de detail-inhoud, alleen de
+                          stijl.
 ================================================================================
 """
 
@@ -90,6 +102,7 @@ from PySide6.QtWidgets import (
 from app.config.settings import (
     AppInstellingen,
     laad_instellingen,
+    normaliseer_thema,
     sla_instellingen_op,
 )
 from app.helpers.i18n import vertaal
@@ -120,6 +133,28 @@ from app.helpers.history_formatting import (
 )
 
 
+# Sinds 11H.5: kleuren voor de detail-HTML per thema. De donkere set is
+# de bestaande set; de lichte set is nieuw.
+DETAIL_HTML_COLORS: dict[str, dict[str, str]] = {
+    "dark": {
+        "body_bg": "#1E1E1E",
+        "body_fg": "#F0F0F0",
+        "heading": "#FFFFFF",
+        "muted": "#BDBDBD",
+        "border": "#3A3A3A",
+        "state_label": "#C8C8C8",
+    },
+    "light": {
+        "body_bg": "#FFFFFF",
+        "body_fg": "#202020",
+        "heading": "#000000",
+        "muted": "#5A5A5A",
+        "border": "#D0D0D0",
+        "state_label": "#5A5A5A",
+    },
+}
+
+
 class HistoryScreen(QWidget):
     """Read-only historiekpagina binnen het hoofdvenster."""
 
@@ -131,11 +166,14 @@ class HistoryScreen(QWidget):
         self,
         taal: str = "nl_NL",
         *,
+        theme: str = "dark",
         history_service: MeasurementHistoryService | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self.taal = taal
+        # 11H.5: thema bepaalt de detail-HTML en de state-label-kleur.
+        self.theme = normaliseer_thema(theme)
         self._history_service = history_service or MeasurementHistoryService()
         self._page_size = 100
         self._page_index = 0
@@ -188,7 +226,27 @@ class HistoryScreen(QWidget):
     def _t(self, sleutel: str, **kwargs) -> str:
         return vertaal(sleutel, taal=self.taal, **kwargs)
 
+    def _html_colors(self) -> dict[str, str]:
+        return DETAIL_HTML_COLORS.get(self.theme, DETAIL_HTML_COLORS["dark"])
+
+    def apply_theme(self, theme: str) -> None:
+        """Werkt het thema bij en past de state-label-kleur aan.
+
+        Geen refresh: de bestaande tabel en detaildata blijven staan.
+        De detail-HTML wordt pas opnieuw gerenderd als de gebruiker de
+        detaildialoog opent.
+        """
+        nieuw = normaliseer_thema(theme)
+        if nieuw == self.theme:
+            return
+        self.theme = nieuw
+        self.state_label.setStyleSheet(
+            f"color: {self._html_colors()['state_label']};"
+        )
+
     def _build_ui(self) -> None:
+        colors = self._html_colors()
+
         root = QVBoxLayout(self)
         root.setContentsMargins(18, 18, 18, 18)
         root.setSpacing(10)
@@ -313,7 +371,9 @@ class HistoryScreen(QWidget):
 
         self.state_label = QLabel("")
         self.state_label.setWordWrap(True)
-        self.state_label.setStyleSheet("color: #C8C8C8;")
+        self.state_label.setStyleSheet(
+            f"color: {colors['state_label']};"
+        )
         root.addWidget(self.state_label)
 
         self.table = QTableWidget(0, 9)
@@ -1226,6 +1286,8 @@ class HistoryScreen(QWidget):
 
     def _show_detail_dialog(self, detail: dict[str, Any]) -> None:
         measurement = detail["measurement"]
+        colors = self._html_colors()
+
         dialog = QDialog(self)
         dialog.setWindowTitle(
             self._t("historiek.detail_titel", measurement_id=measurement.id)
@@ -1235,10 +1297,15 @@ class HistoryScreen(QWidget):
         layout = QVBoxLayout(dialog)
         browser = QTextBrowser()
         browser.document().setDefaultStyleSheet(
-            "body { color: #F0F0F0; background-color: #1E1E1E; font-family: 'Segoe UI'; } "
-            "h2, h3, b { color: #FFFFFF; } table { border-collapse: collapse; width: 100%; } "
-            "td { padding: 3px 8px; vertical-align: top; } td:first-child { color: #BDBDBD; width: 34%; } "
-            "li, p { color: #F0F0F0; }"
+            f"body {{ color: {colors['body_fg']}; "
+            f"background-color: {colors['body_bg']}; "
+            f"font-family: 'Segoe UI'; }} "
+            f"h2, h3, b {{ color: {colors['heading']}; }} "
+            f"table {{ border-collapse: collapse; width: 100%; }} "
+            f"td {{ padding: 3px 8px; vertical-align: top; "
+            f"border-bottom: 1px solid {colors['border']}; }} "
+            f"td:first-child {{ color: {colors['muted']}; width: 34%; }} "
+            f"li, p {{ color: {colors['body_fg']}; }}"
         )
         browser.setHtml(self._build_detail_html(detail))
         layout.addWidget(browser)

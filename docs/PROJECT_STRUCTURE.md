@@ -27,8 +27,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Centrale, aanpasbare instellingen voor de app.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-        # Versie: 1.7.0
-        # Datum: 2026-10-16
+        # Versie: 1.8.0
+        # Datum: 2026-10-21
         ```
     - 📁 **data/**
       - 📁 **documentation/**
@@ -320,8 +320,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Modale Settings-dialoog met tabs Algemeen, ESR / Condensator en
           # Auteur: Bart Bossuyt
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-          # Versie: 1.6.0
-          # Datum: 2026-10-16
+          # Versie: 1.7.0
+          # Datum: 2026-10-21
           ```
       - 📄 **/app/gui/__init__.py**
         ```text
@@ -336,8 +336,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Read-only Analyse-pagina binnen het hoofdvenster.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.6.3
-        # Datum: 2026-10-20
+        # Versie: 1.7.0
+        # Datum: 2026-10-21
         ```
       - 📄 **/app/gui/documentation_screen.py**
         ```text
@@ -363,8 +363,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Compacte centrale read-only weergave van opgeslagen meethistoriek.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.17.1
-        # Datum: 2026-10-16
+        # Versie: 1.18.0
+        # Datum: 2026-10-21
         ```
       - 📄 **/app/gui/main_window.py**
         ```text
@@ -372,8 +372,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Hoofdvenster van de Tool Hub met één-venster-navigatie.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 2.20.0
-        # Datum: 2026-10-20
+        # Versie: 2.22.2
+        # Datum: 2026-10-21
         ```
       - 📄 **/app/gui/styles.py**
         ```text
@@ -381,8 +381,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Centrale stijldefinities voor de Qt6 GUI.
         # Auteur: Ontwikkelaar
         # Applicatie: Condensator- en ESR-validator (Windows)
-        # Versie: 1.6.0
-        # Datum: 2026-10-20
+        # Versie: 1.7.0
+        # Datum: 2026-10-21
         ```
     - 📁 **helpers/**
       - 📄 **/app/helpers/__init__.py**
@@ -817,6 +817,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.0.4
       # Datum: 2026-10-20
       ```
+    - 📄 **/tests/test_analysis_screen_theme.py**
+      ```text
+      # Bestandsnaam: tests/test_analysis_screen_theme.py
+      # Beschrijving: Regressietests voor de theme-parameter op AnalysisScreen en
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-21
+      ```
     - 📄 **/tests/test_analysis_series.py**
       ```text
       # Bestandsnaam: tests/test_analysis_series.py
@@ -1231,6 +1240,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.2.0
       # Datum: 2026-10-16
       ```
+    - 📄 **/tests/test_history_screen_theme.py**
+      ```text
+      # Bestandsnaam: tests/test_history_screen_theme.py
+      # Beschrijving: Regressietests voor de theme-parameter op HistoryScreen en
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-21
+      ```
     - 📄 **/tests/test_history_service.py**
       ```text
       # Bestandsnaam: tests/test_history_service.py
@@ -1525,8 +1543,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor laden, opslaan en achterwaartse compatibiliteit
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-      # Versie: 1.4.0
-      # Datum: 2026-10-14
+      # Versie: 1.5.0
+      # Datum: 2026-10-21
       ```
     - 📄 **/tests/test_settings_dialog.py**
       ```text
@@ -1534,8 +1552,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: GUI-regressietests voor de Settings-dialoog.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-      # Versie: 1.3.0
-      # Datum: 2026-10-14
+      # Versie: 1.4.0
+      # Datum: 2026-10-21
       ```
     - 📄 **/tests/test_settings_main_window.py**
       ```text
@@ -1630,11 +1648,20 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     - 📄 **/tests/test_styles.py**
       ```text
       # Bestandsnaam: tests/test_styles.py
-      # Beschrijving: Pure regressietests op de donkere stylesheet-string
+      # Beschrijving: Pure regressietests op de donkere en lichte stylesheet-strings
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.2.0
-      # Datum: 2026-10-20
+      # Versie: 1.3.0
+      # Datum: 2026-10-21
+      ```
+    - 📄 **/tests/test_theme_switch.py**
+      ```text
+      # Bestandsnaam: tests/test_theme_switch.py
+      # Beschrijving: Regressietests voor de theme-parameter op ToolHubWindow en de
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.1.0
+      # Datum: 2026-10-21
       ```
     - 📄 **/tests/test_units.py**
       ```text
@@ -1710,6 +1737,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     # Applicatie: GEEN APPLICATIE
     # Versie: V1.0.0
     ```
+  - 📄 **/conftest.py**
+    ```text
+    # Bestandsnaam: conftest.py
+    # Beschrijving: Minimale, projectbrede pytest-configuratie voor GUI-tests.
+    # Auteur: Bart Bossuyt
+    # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+    # Versie: 1.1.0
+    # Datum: 2026-10-21
+    ```
   - 📄 **/ESR_Tester.spec**
   - 📄 **/Export-SigningCertificate.ps1**
   - 📄 **/github_cases.py**
@@ -1757,15 +1793,50 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
   - 📄 **/main.py**
     ```text
     # Bestandsnaam: main.py
-    # Beschrijving: Entry point. Start de Qt6 GUI met donker thema en ToolHubWindow.
+    # Beschrijving: Entry point. Start de Qt6 GUI met het thema uit settings.json
     # Auteur: Bart Bossuyt
     # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-    # Versie: 1.5.0
-    # Datum: 2026-10-16
+    # Versie: 1.6.0
+    # Datum: 2026-10-21
     ```
   - 📄 **/overdracht.md**
   - 📄 **/publish.ps1**
   - 📄 **/pyproject.toml**
+  - 📄 **/pytest_durations.txt**
+    ```text
+    # Beschrijving: GEEN BESCHRIJVING
+    # Auteur: GEEN AUTEUR
+    # Applicatie: GEEN APPLICATIE
+    # Versie: V1.0.0
+    ```
+  - 📄 **/pytest_fail_first.txt**
+    ```text
+    # Beschrijving: GEEN BESCHRIJVING
+    # Auteur: GEEN AUTEUR
+    # Applicatie: GEEN APPLICATIE
+    # Versie: V1.0.0
+    ```
+  - 📄 **/pytest_full.txt**
+    ```text
+    # Beschrijving: GEEN BESCHRIJVING
+    # Auteur: GEEN AUTEUR
+    # Applicatie: GEEN APPLICATIE
+    # Versie: V1.0.0
+    ```
+  - 📄 **/pytest_theme_in_suite.txt**
+    ```text
+    # Beschrijving: GEEN BESCHRIJVING
+    # Auteur: GEEN AUTEUR
+    # Applicatie: GEEN APPLICATIE
+    # Versie: V1.0.0
+    ```
+  - 📄 **/pytest_theme_only.txt**
+    ```text
+    # Beschrijving: GEEN BESCHRIJVING
+    # Auteur: GEEN AUTEUR
+    # Applicatie: GEEN APPLICATIE
+    # Versie: V1.0.0
+    ```
   - 📄 **/README.md**
   - 📄 **/README_PATCH.md**
   - 📄 **/requirements.txt**

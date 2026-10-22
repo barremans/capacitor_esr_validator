@@ -2,11 +2,12 @@
 ================================================================================
 Module:     main.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.5.0
-Datum:      2026-10-16
+Versie:     1.6.0
+Datum:      2026-10-21
 Auteur:     Bart Bossuyt
 
-Doel:       Entry point. Start de Qt6 GUI met donker thema en ToolHubWindow.
+Doel:       Entry point. Start de Qt6 GUI met het thema uit settings.json
+            en ToolHubWindow.
 
 Wijzigingen:
   v1.0.0 (2026-08-11)  Initiele versie.
@@ -41,6 +42,16 @@ Wijzigingen:
                           assets/icons/logo.ico -> geen icoon (Qt
                           gebruikt dan het systeemstandaardicoon).
                         - Geen wijziging aan de bestaande opstartlogica.
+  v1.6.0 (2026-10-21)  Fase 11H.3: thema uit settings.json.
+                        - laad_instellingen() wordt nu vóór de
+                          thematoepassing aangeroepen.
+                        - apply_dark_theme(app) vervangen door
+                          apply_theme(app, instellingen.algemeen.thema).
+                        - ToolHubWindow krijgt theme=... mee, zodat de
+                          rest van de GUI (en toekomstige schermen) het
+                          actieve thema kennen.
+                        - Geen wijziging aan de bestaande Fusion-stijl,
+                          QT_QPA_FONTDIR-logica of het applicatie-icoon.
 ================================================================================
 """
 
@@ -68,7 +79,7 @@ if sys.platform == "win32" and "QT_QPA_FONTDIR" not in os.environ:
 from PySide6.QtWidgets import QApplication
 
 from app.gui.main_window import ToolHubWindow
-from app.gui.styles import apply_dark_theme
+from app.gui.styles import apply_theme
 from app.config.settings import laad_instellingen
 from app.helpers.icon_paths import applicatie_icoon
 from app.version import __version__
@@ -91,12 +102,15 @@ def main():
     if icoon is not None:
         app.setWindowIcon(icoon)
 
-    apply_dark_theme(app)
-
+    # Fase 11H.3: thema komt nu uit settings.json. apply_theme valt
+    # intern terug op "dark" bij een onbekende waarde.
     instellingen = laad_instellingen()
+    apply_theme(app, instellingen.algemeen.thema)
+
     window = ToolHubWindow(
         taal=instellingen.taal,
         check_on_startup=instellingen.algemeen.controleer_updates_bij_opstarten,
+        theme=instellingen.algemeen.thema,
     )
     window.show()
 

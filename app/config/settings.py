@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/config/settings.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.7.0
-Datum:      2026-10-16
+Versie:     1.8.0
+Datum:      2026-10-21
 Auteur:     Bart Bossuyt
 
 Doel:       Centrale, aanpasbare instellingen voor de app.
@@ -34,6 +34,19 @@ Wijzigingen:
                        drie-knoppen update-melding te forceren voor QA.
                        Backward-compatible: oude settings.json blijft
                        geldig, ontbrekende key valt terug op False.
+  v1.8.0 (2026-10-21)  Fase 11H.2: thema-validatie.
+                       - Nieuwe constanten TOEGESTANE_THEMAS en
+                         STANDAARD_THEMA.
+                       - Nieuwe pure helper normaliseer_thema(): geeft
+                         "light" of "dark" terug; alles anders valt
+                         terug op STANDAARD_THEMA.
+                       - laad_instellingen() normaliseert het geladen
+                         thema, zodat een met de hand bewerkte
+                         settings.json met een ongeldige waarde veilig
+                         op "dark" valt. Backward-compatible: bestaande
+                         bestanden met "dark" of "light" blijven werken.
+                       - Geen wijziging aan sla_instellingen_op(): de
+                         GUI levert altijd een genormaliseerde waarde.
 ================================================================================
 """
 
@@ -74,6 +87,12 @@ V_LOSS_EENHEDEN = ("V", "mV", "%", "dimensieloos", "onbekend")
 STABILITEIT_OPTIES = ("stabiel", "schommelt licht", "schommelt sterk", "onbekend")
 MEETMETHODEN = ("EX_SITU", "ONE_LEG", "IN_CIRCUIT")
 
+
+# Sinds 11H.2: toegestane thema's en de fallback bij ongeldige waarden.
+TOEGESTANE_THEMAS = ("dark", "light")
+STANDAARD_THEMA = "dark"
+
+
 CAPACITEIT_FACTOR_NAAR_FARAD = {
     "pF": 1e-12,
     "nF": 1e-9,
@@ -84,6 +103,19 @@ ESR_FACTOR_NAAR_OHM = {
     "mΩ": 1e-3,
     "Ω": 1.0,
 }
+
+
+def normaliseer_thema(waarde: Any) -> str:
+    """Geeft een geldig thema terug.
+
+    Retourneert ``waarde`` als die exact gelijk is aan een van
+    TOEGESTANE_THEMAS. In alle andere gevallen (None, leeg, onbekend,
+    verkeerd type) valt de functie terug op STANDAARD_THEMA. Puur en
+    GUI-vrij, zodat de validatie ook los van Qt getest kan worden.
+    """
+    if isinstance(waarde, str) and waarde in TOEGESTANE_THEMAS:
+        return waarde
+    return STANDAARD_THEMA
 
 
 @dataclass(frozen=True)
@@ -100,7 +132,10 @@ class BeoordelingsInstellingen:
 
 @dataclass(frozen=True)
 class AlgemeneInstellingen:
-    """Algemene voorkeuren; donker thema is voorlopig het ondersteunde thema.
+    """Algemene voorkeuren; het thema kan sinds 11H.2 donker of licht zijn.
+
+    ``thema`` accepteert "dark" of "light"; ongeldige waarden worden bij
+    het laden genormaliseerd naar "dark" (zie normaliseer_thema()).
 
     ``qa_modus`` (sinds 11E.3) is een verborgen schakelaar voor QA: als
     True toont het Help-menu een extra item om de drie-knoppen
@@ -108,7 +143,7 @@ class AlgemeneInstellingen:
     Standaard False. Niet bedoeld voor eindgebruikers.
     """
 
-    thema: str = "dark"
+    thema: str = STANDAARD_THEMA
     tooltips_ingeschakeld: bool = True
     standaard_exportmap: str = ""
     standaard_importmap: str = ""
@@ -192,7 +227,9 @@ def laad_instellingen() -> AppInstellingen:
     """Laadt settings.json, of veilige defaults wanneer laden niet lukt.
 
     Oude bestanden zonder de nieuwste velden blijven geldig; die velden
-    vallen terug op hun dataclass-default.
+    vallen terug op hun dataclass-default. Sinds 11H.2 wordt het geladen
+    thema genormaliseerd: een ongeldige waarde (bv. "blauw") valt terug
+    op STANDAARD_THEMA.
     """
     if SETTINGS_PATH.exists():
         try:
@@ -202,11 +239,19 @@ def laad_instellingen() -> AppInstellingen:
             if not isinstance(data, dict):
                 return AppInstellingen()
 
+            algemeen = _dataclass_from_dict(
+                AlgemeneInstellingen, data.get("algemeen", {})
+            )
+            algemeen = AlgemeneInstellingen(
+                **{
+                    **asdict(algemeen),
+                    "thema": normaliseer_thema(algemeen.thema),
+                }
+            )
+
             return AppInstellingen(
                 taal=data.get("language", "nl_NL"),
-                algemeen=_dataclass_from_dict(
-                    AlgemeneInstellingen, data.get("algemeen", {})
-                ),
+                algemeen=algemeen,
                 esr_condensator=_dataclass_from_dict(
                     EsrCondensatorInstellingen,
                     data.get("esr_condensator", {}),

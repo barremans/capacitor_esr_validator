@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_settings.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.4.0
-Datum:      2026-10-14
+Versie:     1.5.0
+Datum:      2026-10-21
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor laden, opslaan en achterwaartse compatibiliteit
@@ -20,6 +20,14 @@ Wijzigingen:
   v1.4.0 (2026-10-14)  Fase 9H: tests voor controleer_updates_bij_opstarten
                         (default True). Backward-compat: oude settings.json
                         zonder deze key blijft geldig en valt terug op True.
+  v1.5.0 (2026-10-21)  Fase 11H.2: thema-validatie.
+                        - Tests voor normaliseer_thema (geldig, ongeldig,
+                          leeg, None, verkeerd type).
+                        - laad_instellingen met ongeldige thema-waarde in
+                          JSON valt terug op "dark".
+                        - laad_instellingen met "thema": "light" laadt
+                          correct.
+                        - Roundtrip thema="light".
 ================================================================================
 """
 
@@ -31,7 +39,10 @@ from app.config.settings import (
     AppInstellingen,
     EsrCondensatorInstellingen,
     RapportageInstellingen,
+    STANDAARD_THEMA,
+    TOEGESTANE_THEMAS,
     laad_instellingen,
+    normaliseer_thema,
     sla_instellingen_op,
 )
 
@@ -407,3 +418,89 @@ def test_update_key_roundtrip(tmp_path, monkeypatch):
     geladen = laad_instellingen()
 
     assert geladen.algemeen.controleer_updates_bij_opstarten is False
+
+
+# ============================================================================
+# v1.5.0 — thema-validatie (fase 11H.2)
+# ============================================================================
+
+def test_toegestane_themas_bevat_dark_en_light():
+    assert TOEGESTANE_THEMAS == ("dark", "light")
+    assert STANDAARD_THEMA == "dark"
+
+
+def test_normaliseer_thema_geldige_waarden():
+    assert normaliseer_thema("dark") == "dark"
+    assert normaliseer_thema("light") == "light"
+
+
+def test_normaliseer_thema_ongeldige_waarden_vallen_terug_op_dark():
+    assert normaliseer_thema("blauw") == "dark"
+    assert normaliseer_thema("") == "dark"
+    assert normaliseer_thema(None) == "dark"
+    assert normaliseer_thema(123) == "dark"
+    assert normaliseer_thema("DARK") == "dark"  # case-sensitive
+    assert normaliseer_thema(" light ") == "dark"  # geen trim
+
+
+def test_laad_instellingen_met_ongeldig_thema_valt_terug_op_dark(
+    tmp_path, monkeypatch
+):
+    """Backward-compat: een met de hand bewerkte settings.json met een
+    ongeldige thema-waarde mag de app niet breken."""
+    pad = tmp_path / "settings.json"
+    pad.write_text(
+        json.dumps(
+            {
+                "language": "nl_NL",
+                "algemeen": {
+                    "thema": "blauw",
+                    "tooltips_ingeschakeld": True,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(settings_module, "SETTINGS_PATH", pad)
+
+    instellingen = laad_instellingen()
+
+    assert instellingen.algemeen.thema == "dark"
+    assert instellingen.algemeen.tooltips_ingeschakeld is True
+
+
+def test_laad_instellingen_met_thema_light_laadt_correct(
+    tmp_path, monkeypatch
+):
+    pad = tmp_path / "settings.json"
+    pad.write_text(
+        json.dumps(
+            {
+                "language": "nl_NL",
+                "algemeen": {
+                    "thema": "light",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(settings_module, "SETTINGS_PATH", pad)
+
+    instellingen = laad_instellingen()
+
+    assert instellingen.algemeen.thema == "light"
+
+
+def test_thema_light_roundtrip(tmp_path, monkeypatch):
+    pad = tmp_path / "settings.json"
+    monkeypatch.setattr(settings_module, "SETTINGS_PATH", pad)
+
+    basis = AppInstellingen()
+    aangepast = replace(
+        basis,
+        algemeen=replace(basis.algemeen, thema="light"),
+    )
+    sla_instellingen_op(aangepast)
+    geladen = laad_instellingen()
+
+    assert geladen.algemeen.thema == "light"

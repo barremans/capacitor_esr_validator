@@ -16,6 +16,116 @@ Note on version numbering:
 - For the current version: see `app/version.py` or Help → About.
 -->
 
+### Phase 11H — Light theme (21 October 2026)
+
+**Motivation**
+
+The dark theme was the only supported theme so far. The user wanted a
+light theme option, without dark patches on a light window. The dark
+chart colours, the dark detail HTML in the history detail dialog, and
+the dark release-notes dialog had to become per-theme.
+
+**Solution: five sub-phases**
+
+- **11H.1 — Light theme in styles.py.** `styles.py` (v1.7.0) gains
+  `LIGHT_THEME_STYLESHEET`, a `THEME_STYLESHEETS` dict and an
+  `apply_theme(app, thema="dark")` API. `apply_dark_theme(app)` remains
+  as a thin wrapper for backward compatibility. Unknown theme values
+  fall back to `"dark"`. The light theme's
+  `QGroupBox::indicator:unchecked` gets a white background with a 2px
+  `#5A5A5A` border, consistent with the 11G.7 fix in the dark theme.
+  New tests in `tests/test_styles.py` (v1.3.0, +8).
+- **11H.2 — Theme choice in Settings.** `settings.py` (v1.8.0) gains
+  `TOEGESTANE_THEMAS`, `STANDAARD_THEMA` and a pure
+  `normaliseer_thema()`. `laad_instellingen()` normalises the loaded
+  theme. `SettingsDialog` (v1.7.0) has an active `thema_combo` with
+  "Donker"/"Licht" (resp. "Dark"/"Light"), and
+  `_widgets_naar_instellingen` uses `normaliseer_thema()` as a safety
+  net. New i18n keys `thema_licht` and updated `thema_tooltip` (NL +
+  EN). `tests/test_settings.py` (v1.5.0, +6) and
+  `tests/test_settings_dialog.py` (v1.4.0, +6).
+- **11H.3 — Theme parameter on ToolHubWindow + live switch.**
+  `ToolHubWindow` gains a `theme` parameter (wins over
+  `settings.json`, analogous to language). `_apply_settings` detects a
+  theme switch and applies it immediately. `main.py` (v1.6.0) reads
+  `algemeen.thema` and calls `apply_theme(app, thema)`. Since v2.22.0
+  the window manages its own stylesheet (`self.setStyleSheet(...)`)
+  instead of the `QApplication`: that fixes a structural performance
+  problem. New `conftest.py` (v1.1.0) with autouse cleanup fixture.
+  `tests/test_theme_switch.py` (new, 10 tests).
+  **Performance fix in v2.22.0:** the unconditional
+  `QApplication.setStyleSheet` in `ToolHubWindow` cost 50–170 seconds
+  per test in the suite. `_apply_theme_if_needed()` skips the expensive
+  call if the stylesheet is already correct, and the window uses
+  `self.setStyleSheet()` instead of `QApplication.setStyleSheet()`.
+  Together with the `conftest.py` fixture, the suite went from 53 min
+  back to ~3 min.
+- **11H.4 — Chart colours per theme in AnalysisScreen.**
+  `analysis_screen.py` (v1.7.0) gains a keyword-only `theme` parameter
+  and a module-level `CHART_COLORS` dict with all previously hardcoded
+  chart colours per theme (chart background, axis labels, grid, line,
+  scatter border, neutral scatter, state label). New
+  `apply_theme(theme)` method applies the colours without clearing the
+  series. `main_window.py` (v2.22.1) passes `theme` to
+  `AnalysisScreen` and calls `apply_theme` on a theme switch.
+  `tests/test_analysis_screen_theme.py` (new, 11 tests).
+- **11H.5 — Detail HTML and release notes per theme.**
+  `history_screen.py` (v1.18.0) gains a keyword-only `theme` parameter
+  and a module-level `DETAIL_HTML_COLORS` dict with per-theme detail
+  HTML colours (background, text, heading, muted, table border, state
+  label). New `apply_theme(theme)` method. `_show_detail_dialog` uses
+  the per-theme `QTextBrowser` stylesheet; the `state_label` colour
+  follows the theme. `main_window.py` (v2.22.2) passes `theme` to
+  `HistoryScreen`, calls `apply_theme` on a theme switch, and makes
+  `_toon_release_notes_dialoog` theme-dependent. `_markdown_naar_html`
+  gains optional `body_bg`/`body_fg` parameters (default dark,
+  backward-compatible). `tests/test_history_screen_theme.py` (new, 11
+  tests).
+
+**Important observation: test count**
+
+In 11H.1 through 11H.5 my own estimates sometimes deviated from the
+actual counts. The actual counts via `pytest --collect-only -q` per
+file and the full `pytest -q` were consistent. The sum of the targeted
+`--collect-only` was compared with the full suite in every sub-phase.
+
+**For developers**
+
+- **Changed:** `app/gui/styles.py` (v1.6.0 → v1.7.0) —
+  `LIGHT_THEME_STYLESHEET`, `THEME_STYLESHEETS`,
+  `apply_theme(app, thema)`; `apply_dark_theme` remains as a wrapper.
+- **Changed:** `app/config/settings.py` (v1.7.0 → v1.8.0) —
+  `TOEGESTANE_THEMAS`, `STANDAARD_THEMA`, `normaliseer_thema()`,
+  normalisation in `laad_instellingen()`.
+- **Changed:** `app/gui/dialogs/settings_dialog.py` (v1.6.0 → v1.7.0)
+  — active `thema_combo`, `normaliseer_thema()` as a safety net.
+- **Changed:** `app/gui/main_window.py` (v2.20.0 → v2.22.2) — `theme`
+  parameter, `_apply_theme_if_needed()`, `self.setStyleSheet()`
+  instead of `QApplication.setStyleSheet()`, passing `theme` to
+  `AnalysisScreen` and `HistoryScreen`, theme-dependent
+  release-notes dialog.
+- **Changed:** `main.py` (v1.5.0 → v1.6.0) — `laad_instellingen()`
+  before theme application; `apply_theme(app, thema)` instead of
+  `apply_dark_theme(app)`.
+- **Changed:** `app/gui/analysis_screen.py` (v1.6.3 → v1.7.0) —
+  `theme` parameter, `CHART_COLORS`, `apply_theme()`, all chart
+  colours per theme.
+- **Changed:** `app/gui/history_screen.py` (v1.17.1 → v1.18.0) —
+  `theme` parameter, `DETAIL_HTML_COLORS`, `apply_theme()`, detail
+  HTML per theme.
+- **New:** `conftest.py` (v1.1.0) — autouse cleanup fixture.
+- **New tests:** `tests/test_theme_switch.py` (10 tests),
+  `tests/test_analysis_screen_theme.py` (11 tests),
+  `tests/test_history_screen_theme.py` (11 tests).
+- **Changed tests:** `tests/test_styles.py` (v1.2.0 → v1.3.0,
+  12 → 20 tests), `tests/test_settings.py` (v1.4.0 → v1.5.0,
+  17 → 23 tests), `tests/test_settings_dialog.py` (v1.3.0 → v1.4.0,
+  18 → 24 tests).
+- **New i18n keys:** `settings.algemeen.thema_licht`, updated
+  `settings.algemeen.thema_tooltip` (NL + EN).
+- **Baseline:** 1494 → **1546 passed** (+52 tests across 11H.1 to
+  11H.5).
+
 ### Phase 11G — Dark theme visuals (20 October 2026)
 
 **Motivation**
@@ -31,51 +141,40 @@ the window instead of the application.
 
 - **11G.1 — Checkbox and radio visibility.** `styles.py` (v1.4.0)
   gains `QCheckBox::indicator:focus`, `QRadioButton::indicator:focus`,
-  `QTableView::indicator` (for selection checkboxes in tables),
-  `QGroupBox::indicator` (for checkable group boxes) and
+  `QTableView::indicator`, `QGroupBox::indicator` and
   `QComboBox::drop-down:hover`. New pure tests in
   `tests/test_styles.py` (v1.0.0).
 - **11G.2 — Dark scrollbar.** `styles.py` (v1.5.0) gains
   `QScrollBar:vertical` and `QScrollBar:horizontal` with dark track,
-  grey handle, hover/pressed states, and disabled arrow buttons
-  (`add-line`/`sub-line` at `height: 0` / `width: 0`). Resolves the
-  light scrollbar in the Word summary without a local override in
-  the wizard. `tests/test_styles.py` (v1.1.0) gains three scrollbar
-  tests.
+  grey handle, hover/pressed states, and disabled arrow buttons.
+  `tests/test_styles.py` (v1.1.0) gains three scrollbar tests.
 - **11G.3 — Axis scaling and tick format.** `analysis_screen.py`
   (v1.4.0) gives `QValueAxis` an explicit `labelFormat` per chart
-  type (ESR mΩ: `%.0f`, C µF: `%.1f`, D: `%.3f`, scatter x/y:
-  `%.0f`), sets `tickCount` to 6, and gives the y-axis 5% margin on
-  both sides. `QDateTimeAxis` gets an adaptive format based on the
-  range (`dd-MM HH:mm` / `dd-MM-yyyy` / `MM-yyyy`).
-  `test_analysis_screen.py` (v1.4.0) gains five tests.
+  type and a 5% margin on the y-axis. `QDateTimeAxis` gets an
+  adaptive format. `test_analysis_screen.py` (v1.4.0) gains five
+  tests.
 - **11G.4 — Zoom/pan.** `analysis_screen.py` (v1.5.0) sets
-  `QChartView.RubberBand.RectangleRubberBand` for rectangle zoom,
-  adds a `wheelEvent` override for Ctrl+wheel zoom, a
-  `reset_zoom_btn` with shortcut Ctrl+0, and a `refresh()` that
-  automatically resets the zoom. The original axis range is stored
-  per axis in `_originele_x_range` / `_originele_y_range`, because
-  `QChart.zoomReset()` restores the range that was active at the
-  moment of the reset, not the original one. New i18n keys
+  `QChartView.RubberBand.RectangleRubberBand`, adds a `wheelEvent`
+  override for Ctrl+wheel zoom, a `reset_zoom_btn` with Ctrl+0, and
+  a `refresh()` that resets the zoom. New i18n keys
   `analyse.zoom.reset_knop` and `analyse.zoom.reset_tooltip` (NL +
   EN). `test_analysis_screen.py` (v1.5.0) gains five tests.
   **Fix in v1.5.1:** `QChartView.RubberBand.Rectangle` does not
   exist; the correct constant is `RectangleRubberBand`.
 - **11G.5 — Clickable data points + selection-driven analysis.** The
-  existing `export_scope_combo` (attribute name unchanged) now also
-  drives the chart scope. Labels come from `analyse.scope.*`
-  (NL + EN). At scope SELECTED with ≥1 checked measurement, the GUI
-  passes `measurement_ids=[...]` to the service. `AnalysisService`
-  (v1.1.0) gains an optional `measurement_ids` parameter on
-  `load_rows()` and all series functions. In `_draw_scatter` each
-  `QScatterSeries` gets a `clicked` connection that ticks the
-  corresponding row. `test_analysis_screen.py` (v1.6.0) gains six
-  tests, `test_analysis_service.py` (v1.1.0) two.
+  existing `export_scope_combo` now also drives the chart scope.
+  Labels come from `analyse.scope.*` (NL + EN). At scope SELECTED
+  with ≥1 checked measurement, the GUI passes `measurement_ids=[...]`
+  to the service. `AnalysisService` (v1.1.0) gains an optional
+  `measurement_ids` parameter. In `_draw_scatter` each
+  `QScatterSeries` gets a `clicked` connection.
+  `test_analysis_screen.py` (v1.6.0) gains six tests,
+  `test_analysis_service.py` (v1.1.0) two.
   **Fix in v1.6.1–v1.6.3:** `refresh(preserve_selection=True)`
-  preserves the selection at scope SELECTED; the "Selection
-  cleared" message returns on a normal refresh; `_category_label`
-  and `_category_color` had accidentally disappeared and are
-  restored. `test_analysis_screen_nan.py` (v1.0.4) and
+  preserves the selection at scope SELECTED; the "Selection cleared"
+  message returns on a normal refresh; `_category_label` and
+  `_category_color` had accidentally disappeared and are restored.
+  `test_analysis_screen_nan.py` (v1.0.4) and
   `test_main_window_report_menu.py` (v1.4.1) gain the new
   `measurement_ids` parameter on their stubs.
 - **11G.6 — Explicit exit closes the app.** `main_window.py`
@@ -83,35 +182,27 @@ the window instead of the application.
   Menu "Exit" (Ctrl+Q) and the confirmation dialog on the hub use
   `_sluit_app()`. `closeEvent` accepts the event if `_force_close`
   is True; otherwise the contextual "back to hub" behaviour for the
-  window-X on a subpage remains.
-  `test_navigation_regressions.py` (v1.2.0) gains five tests.
-- **11G.7 — Checkbox adjustment (planned, not yet executed).** The
-  user wants to adjust the checkboxes further. Scope will be
-  determined in the next session.
-
-**Important observation: test count and `--collect-only`**
-
-In 11G.1 through 11G.6 my own estimates sometimes deviated from the
-actual counts. The actual counts via `pytest --collect-only -q` per
-file and the full `pytest -q` were consistent. In every sub-phase
-the sum of the targeted `--collect-only` was compared with the full
-suite. The "verify test count per phase" rule is tightened in
-`overdracht.md` v6.0.0.
+  window-X on a subpage remains. `test_navigation_regressions.py`
+  (v1.2.0) gains five tests.
+- **11G.7 — Filter checkbox visibility.** `styles.py` (v1.6.0) gives
+  `QGroupBox::indicator` a lighter background (`#3C3C3C`) and a
+  thicker border (2px `#B0B0B0`) in unchecked state. Checked state
+  is blue (`#0078D7`) with a 2px border (`#4AA3FF`).
+  `tests/test_styles.py` (v1.2.0, +3).
 
 **For developers**
 
-- **Changed:** `app/gui/styles.py` (v1.3.0 → v1.5.0) — focus states,
+- **Changed:** `app/gui/styles.py` (v1.3.0 → v1.6.0) — focus states,
   table indicator, groupbox indicator, combobox hover, dark
-  scrollbar. Stylesheet string moved to module-level constant
-  `DARK_THEME_STYLESHEET`.
-- **Changed:** `app/gui/analysis_screen.py` (v1.3.0 → v1.6.3) —
-  axis scaling, tick format, zoom/pan, clickable scatter points,
+  scrollbar, clearer groupbox checkbox.
+- **Changed:** `app/gui/analysis_screen.py` (v1.3.0 → v1.6.3) — axis
+  scaling, tick format, zoom/pan, clickable scatter points,
   selection-driven scope.
 - **Changed:** `app/services/analysis_service.py` (v1.0.0 → v1.1.0)
   — optional `measurement_ids` parameter.
 - **Changed:** `app/gui/main_window.py` (v2.19.1 → v2.20.0) —
   `_force_close`, `_sluit_app()`, `closeEvent` update.
-- **New:** `tests/test_styles.py` (v1.1.0, 9 tests).
+- **Changed:** `tests/test_styles.py` (v1.2.0, 12 tests).
 - **Changed:** `tests/test_analysis_screen.py` (v1.3.1 → v1.6.2,
   30 → 46 tests), `tests/test_analysis_screen_nan.py`
   (v1.0.3 → v1.0.4, 6 tests), `tests/test_analysis_service.py`
@@ -122,8 +213,8 @@ suite. The "verify test count per phase" rule is tightened in
 - **New i18n keys:** `analyse.zoom.reset_knop`,
   `analyse.zoom.reset_tooltip`, `analyse.scope.selectie`,
   `analyse.scope.filters`, `analyse.scope.tooltip` (NL + EN).
-- **Baseline:** 1462 → **1491 passed** (+29 tests over 11G.1
-  through 11G.6).
+- **Baseline:** 1462 → **1494 passed** (+32 tests across 11G.1 to
+  11G.7).
 
 ### Phase 11F — Documentation extension (20 October 2026)
 
@@ -141,80 +232,53 @@ unused i18n keys.
 
 - **11F.1 — Archive reason.** `ImportService.archive(source_id, *,
   reason=None)` in `import_service.py` (v1.5.0). `ImportSource` gains
-  `archive_reason` (v1.4.0), backward-compatible. `revoke` keeps the
-  reason; `replace_source` and `update_metadata` leave the field
-  untouched. `ChangeStatusDialog` (v1.2.0) shows an optional reason
-  field when archiving. `DocumentationScreen` (v2.4.0) shows the
-  reason as a tooltip on the Status column for an archived user
-  import.
+  `archive_reason` (v1.4.0), backward-compatible. `ChangeStatusDialog`
+  (v1.2.0) shows an optional reason field when archiving.
+  `DocumentationScreen` (v2.4.0) shows the reason as a tooltip on the
+  Status column for an archived user import.
 - **11F.2 — Status filter.** `DocumentationScreen` (v2.5.0) replaces
   the "Show archived" checkbox with a `status_filter_combo` with four
-  options (All / Concept / Active / Archived). The GUI filters on
-  `import_status` after fetching from the service. New i18n keys
-  under `documentatie.status_filter.*`; the old
-  `documentatie.toon_gearchiveerd(_tooltip)` are removed.
+  options (All / Draft / Active / Archived). New i18n keys under
+  `documentatie.status_filter.*`.
 - **11F.3 — Bulk edit and bulk status change.** Two new dialogs:
   `BulkEditMetadataDialog` (v1.0.0) with a checkbox per field, and
-  `BulkChangeStatusDialog` (v1.0.0) with a fixed target status and
-  optional reason when archiving. `DocumentationScreen` (v2.6.0) is
-  on `ExtendedSelection` with two new buttons "Bulk edit…" and "Bulk
-  status…", only active with ≥1 selected user import. The GUI runs
-  the bulk update via a loop over the existing `ImportService`
-  methods and then shows one summary with counts succeeded/skipped/
-  failed. New i18n keys under `documentatie.bulk_edit.*`,
+  `BulkChangeStatusDialog` (v1.0.0) with a fixed target status.
+  `DocumentationScreen` (v2.6.0) is on `ExtendedSelection` with two
+  new buttons. New i18n keys under `documentatie.bulk_edit.*`,
   `documentatie.bulk_status.*` and `documentatie.bulk_resultaat.*`.
 - **11F.4 — Date parsing + cosmetic points + i18n cleanup.**
   `EditMetadataDialog` (v1.2.0) has a new pure helper
-  `_parse_datum_naar_qdate` that accepts `yyyy/MM/dd`, `dd-MM-yyyy`,
-  `yyyy-MM` (day 1) and `yyyy` (1 January) in addition to
-  `yyyy-MM-dd`. §4.21 resolved: `test_icon_paths.py` (v1.1.0) uses
-  the project convention `_app()` helper instead of the local
-  `@pytest.fixture(scope="module")`. §4.23 resolved: `_fake_translate`
-  in `test_gui_language_switch.py` (v1.3.1) does real format
-  substitution where the key contains `{placeholders}`; for keys
-  without placeholders in the key string, the kwargs are still
-  appended as `[k=v,...]`. i18n cleanup: unused keys
+  `_parse_datum_naar_qdate` that accepts multiple date formats.
+  §4.21 resolved: `test_icon_paths.py` (v1.1.0) uses the project
+  `_app()` helper. §4.23 resolved: `_fake_translate` in
+  `test_gui_language_switch.py` (v1.3.1) does real format
+  substitution. i18n cleanup: unused keys
   `dialog.documentatie_placeholder` and
   `documentatie.info.ondersteunt` removed from NL and EN.
-
-**Important observation: test count and Compare-Object**
-
-In 11F.2 and 11F.4, my own estimates deviated. The actual counts via
-`pytest --collect-only -q` per file and the full `pytest -q` were
-consistent. When rewriting the checkbox section in 11F.2, two tests
-were accidentally removed; found with `Compare-Object` against the
-previous version and restored in v1.13.1. The "verify test count per
-phase" rule is tightened in `overdracht.md` v6.0.0 with
-`Compare-Object`.
 
 **For developers**
 
 - **Changed:** `app/gui/documentation_screen.py` (v2.4.0 → v2.6.0) —
-  status filter dropdown, `ExtendedSelection`, two bulk buttons, new
-  helpers.
+  status filter dropdown, `ExtendedSelection`, two bulk buttons.
 - **Changed:** `app/gui/dialogs/edit_metadata_dialog.py`
-  (v1.1.0 → v1.2.0) — `_parse_datum_naar_qdate` with fallback chain.
-- **New:** `app/gui/dialogs/bulk_edit_metadata_dialog.py` (v1.0.0) —
-  bulk metadata editor, checkbox per field.
-- **New:** `app/gui/dialogs/bulk_change_status_dialog.py` (v1.0.0) —
-  bulk status editor, fixed target status.
+  (v1.1.0 → v1.2.0) — `_parse_datum_naar_qdate`.
+- **New:** `app/gui/dialogs/bulk_edit_metadata_dialog.py` (v1.0.0).
+- **New:** `app/gui/dialogs/bulk_change_status_dialog.py` (v1.0.0).
 - **New tests:** `tests/test_bulk_edit_metadata_dialog.py` (11 tests),
   `tests/test_bulk_change_status_dialog.py` (10 tests), extension of
   `tests/test_documentation_screen.py` (55 → 63 tests), extension of
   `tests/test_edit_metadata_dialog.py` (22 → 34 tests).
-- **Changed tests:** `tests/test_icon_paths.py` (v1.0.0 → v1.1.0,
-  helper swap, 18 tests), `tests/test_gui_language_switch.py`
-  (v1.2.0 → v1.3.1, helper swap, 7 tests).
+- **Changed tests:** `tests/test_icon_paths.py` (v1.0.0 → v1.1.0),
+  `tests/test_gui_language_switch.py` (v1.2.0 → v1.3.1).
 - **New i18n keys:** `documentatie.status_kolom.gearchiveerd_met_reden`,
   `documentatie.status_wijzigen_reden.*`,
   `documentatie.status_filter.*`, `documentatie.bulk_edit.*`,
-  `documentatie.bulk_status.*`, `documentatie.bulk_resultaat.*`
-  (NL + EN).
+  `documentatie.bulk_status.*`, `documentatie.bulk_resultaat.*`.
 - **Removed i18n keys:** `documentatie.toon_gearchiveerd`,
   `documentatie.toon_gearchiveerd_tooltip`,
-  `dialog.documentatie_placeholder`, `documentatie.info.ondersteunt`
-  (NL + EN).
-- **Baseline:** 1395 → **1462 passed** (+67 tests across 11F.1–11F.4).
+  `dialog.documentatie_placeholder`, `documentatie.info.ondersteunt`.
+- **Baseline:** 1395 → **1462 passed** (+67 tests across 11F.1 to
+  11F.4).
 
 ### Phase 11E — Async network (16 October 2026)
 
@@ -228,21 +292,19 @@ GUI thread**. On a slow or unreachable server the GUI froze briefly.
 
 - **11E.1 — Async update check.** New module
   `app/helpers/async_worker.py` (v2.0.0) with a generic
-  `AsyncWorker(QRunnable)` and `run_async()` helper, based on
-  `QThreadPool`. `app/helpers/updater.py` (v1.2.0) gains
+  `AsyncWorker(QRunnable)` and `run_async()` helper.
+  `app/helpers/updater.py` (v1.2.0) gains
   `check_for_update_async()` and `fetch_release_notes_async()`.
-  `app/gui/main_window.py` (v2.18.0) uses those async variants for
-  the startup check and the manual check.
+  `app/gui/main_window.py` (v2.18.0) uses those async variants.
 - **11E.2 — Async URL fetch in the import wizard.**
   `app/documentation/url_fetch.py` (v1.2.0) gains
   `fetch_url_metadata_async()` and `fetch_url_content_async()`.
   `app/gui/dialogs/import_wizard_dialog.py` (v2.0.0) uses those
-  async variants; while waiting, the buttons are disabled and the
-  summary shows a "Busy…" text.
+  async variants.
 - **11E.3 — Force three-button message for QA.**
-  `app/config/settings.py` (v1.7.0) gains `algemeen.qa_modus`
-  (default `False`). `app/gui/main_window.py` (v2.19.0) shows a
-  hidden QA menu item in the Help menu when `qa_modus` is True.
+  `app/config/settings.py` (v1.7.0) gains `algemeen.qa_modus`.
+  `app/gui/main_window.py` (v2.19.0) shows a hidden QA menu item in
+  the Help menu when `qa_modus` is True.
 
 **Important bugfix in 11E.1**
 
@@ -260,23 +322,16 @@ caller is the owner** and must keep the return value. In the GUI,
 **Small bugfix in 11E.3**
 
 `app/gui/main_window.py` (v2.19.1) uses a double `getattr` in
-`_build_menu()` and `_apply_settings()`, so that a test or an older
-`settings.json` without an `algemeen` namespace does not cause an
-`AttributeError`.
+`_build_menu()` and `_apply_settings()`.
 
 **For developers**
 
-- **New:** `app/helpers/async_worker.py` (v2.0.0) — generic
-  `AsyncWorker` + `run_async()`. No network logic.
-- **Changed:** `app/helpers/updater.py` (v1.2.0) — async variants
-  added; synchronous APIs unchanged.
+- **New:** `app/helpers/async_worker.py` (v2.0.0).
+- **Changed:** `app/helpers/updater.py` (v1.2.0) — async variants.
 - **Changed:** `app/documentation/url_fetch.py` (v1.2.0) — async
-  variants added; synchronous APIs unchanged.
-- **Changed:** `app/gui/main_window.py` (v2.19.1) — async update
-  check, QA mode, double `getattr` fix.
-- **Changed:** `app/gui/dialogs/import_wizard_dialog.py` (v2.0.0)
-  — async URL fetch and async URL import; PDF/Word/Excel remain
-  synchronous.
+  variants.
+- **Changed:** `app/gui/main_window.py` (v2.19.1).
+- **Changed:** `app/gui/dialogs/import_wizard_dialog.py` (v2.0.0).
 - **Changed:** `app/config/settings.py` (v1.7.0) — `qa_modus`.
 - **New tests:** `tests/test_async_worker.py` (9 tests), extension
   of `tests/test_updater.py` (+4 async tests),
@@ -285,8 +340,7 @@ caller is the owner** and must keep the return value. In the GUI,
   `tests/test_documentation_url_fetch.py` (v1.1.0, +6 async tests),
   `tests/test_import_wizard_dialog.py` (v1.8.0, +3 async tests).
 - **New i18n keys:** `documentatie.import.bezig_metadata`,
-  `documentatie.import.bezig_import`, `menu.qa_toon_update_melding`
-  (NL + EN).
+  `documentatie.import.bezig_import`, `menu.qa_toon_update_melding`.
 - **Baseline:** 1366 → **1395 passed** (+29 tests).
 
 ### Phase 11D — Resolving i18n mixing (16 October 2026)
@@ -294,25 +348,22 @@ caller is the owner** and must keep the return value. In the GUI,
 **Motivation**
 
 After a live language switch, the ESR screen showed a mixture of
-languages: the GUI chrome (group titles, buttons) switched correctly,
-but the already-translated strings from the `Beoordeling` object
-(`toelichting`, `redenen`, `waarschuwingen`, `aanbevolen_vervolgstap`)
-remained in the old language. In addition, the `*` annotation for a
-frequency difference was hardcoded in the GUI instead of going through
-i18n.
+languages: the GUI chrome switched correctly, but the
+already-translated strings from the `Beoordeling` object remained in
+the old language. In addition, the `*` annotation for a frequency
+difference was hardcoded in the GUI.
 
 **Solution**
 
-- `Beoordeling` gains a `taal` field populated by `beoordeel_meting`.
-- After a live language switch, the ESR screen shows a clear banner in
-  the GUI language ("This result was produced in {oude_taal}.
-  Re-assess to display it in {nieuwe_taal}."). The already-translated
-  result strings remain in their own language; no silent mixing.
+- `Beoordeling` gains a `taal` field populated by
+  `beoordeel_meting`. The GUI can detect a language mismatch.
+- After a live language switch, the ESR screen shows a clear banner
+  in the GUI language. The already-translated result strings remain
+  in their own language; no silent mixing.
 - `_show_result` and `_build_result_html` translate all
-  result-specific labels in `resultaat.taal` instead of `self.taal`.
+  result-specific labels in `resultaat.taal`.
 - The `*` annotation for a frequency difference now goes through two
-  new i18n keys (`resultaat.esr_factor_frequentie_indicatief` and
-  `resultaat.esr_factor_frequentie_indicatief_kort`) in NL and EN.
+  new i18n keys in NL and EN.
 - Bugfix in `apply_language`: the condition `result_group.isVisible()`
   is replaced by `_laatste_resultaat is not None`.
 
@@ -326,10 +377,8 @@ i18n.
 - New i18n keys under `resultaat`: `taal_mismatch_banner`,
   `esr_factor_frequentie_indicatief`,
   `esr_factor_frequentie_indicatief_kort` (NL + EN).
-- `tests/test_assessment.py` (v1.5.1) — 5 new tests in
-  `TestBeoordelingTaal`.
-- `tests/test_gui_language_switch.py` (v1.2.0) — 3 new tests for
-  the language-mismatch banner.
+- `tests/test_assessment.py` (v1.5.1) — 5 new tests.
+- `tests/test_gui_language_switch.py` (v1.2.0) — 3 new tests.
 - **Baseline:** 1358 → **1366 passed** (+8 tests).
 
 ## Version 1.2.0 — Frequency-specific references and threshold validation (15 October 2026)
@@ -443,16 +492,12 @@ reliability due to administrative factors" is now possible.
 
 The application now has a complete icon set:
 `assets/icons/app.png`, `assets/icons/logo.ico` and twelve thematic
-icons (Diagnostics, ESR, History, Documentation, Analysis, Report,
-Settings, Help, Bug/feature report, Update, Exit). The current icons
-are **placeholders** generated by a script
-(`scripts/genereer_placeholders.py`). You can replace them later with
-final designs; the file names are fixed.
+icons. The current icons are **placeholders** generated by a script
+(`scripts/genereer_placeholders.py`).
 
 **For developers**
 
-- **New:** `app/helpers/icon_paths.py` (v1.0.0) — pure path
-  resolution plus thin Qt wrappers. No hard Qt import at module level.
+- **New:** `app/helpers/icon_paths.py` (v1.0.0).
 - **New:** `scripts/genereer_placeholders.py` (v1.0.0).
 - **Changed:** `main.py` (v1.5.0), `app/gui/main_window.py` (v2.17.0),
   all dialogs in `app/gui/dialogs/`,
@@ -740,18 +785,15 @@ metadata of imported documents.
   - **11A** — Export, import and selection. **Completed on 16 October
     2026.**
   - **11B** — Reliability rule revised. **Completed on 16 October
-    2026.** Baseline 1329 → **1339 passed**.
+    2026.**
   - **11C** — Icons for all windows. **Completed on 16 October 2026.**
-    Baseline 1339 → **1358 passed**.
   - **11D** — i18n mixing in Diagnostics/Result resolved. **Completed
-    on 16 October 2026.** Baseline 1358 → **1366 passed**.
+    on 16 October 2026.**
   - **11E** — Async network. **Completed on 16 October 2026.**
-    Baseline 1366 → **1395 passed**.
   - **11F** — Documentation extension. **Completed on 20 October
-    2026.** Baseline 1395 → **1462 passed**.
+    2026.**
   - **11G** — Dark theme visuals. **Completed on 20 October 2026.**
-    Baseline 1462 → **1491 passed**.
-  - **11H** — Light theme.
+  - **11H** — Light theme. **Completed on 21 October 2026.**
   - **11I** — Build and cosmetics (deprecations, log files,
     certificates).
 - **Version 1.3.0 — AI extraction from manufacturer documents.**
