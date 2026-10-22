@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/analysis_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.7.0
-Datum:      2026-10-21
+Versie:     1.7.2
+Datum:      2026-10-22
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only Analyse-pagina binnen het hoofdvenster.
@@ -31,32 +31,21 @@ Wijzigingen:
                         refresh.
   v1.6.3 (2026-10-20)  Fix: _category_label en _category_color waren
                         per ongeluk verdwenen bij het herstructureren
-                        van _draw_scatter in v1.6.0. Daardoor faalde
-                        elke scatter-tekening met AttributeError,
-                        werd de fout afgevangen door refresh() en bleef
-                        chart.series() leeg. Beide methodes zijn
-                        teruggezet op hun oorspronkelijke plek (direct
-                        na _draw_scatter, vóór _on_scatter_clicked).
+                        van _draw_scatter in v1.6.0. Beide methodes
+                        zijn teruggezet op hun oorspronkelijke plek.
   v1.7.0 (2026-10-21)  Fase 11H.4: chart-kleuren per thema.
-                        - Nieuwe keyword-only parameter theme: str op
-                          __init__ (default "dark"), genormaliseerd via
-                          normaliseer_thema.
-                        - Nieuwe module-level dict CHART_COLORS met
-                          per thema de kleuren die voorheen hardcoded
-                          waren (chart-achtergrond, as-labels, grid,
-                          lijn, scatter-rand, neutrale scatter,
-                          state-label).
-                        - Nieuwe methode apply_theme(theme): werkt
-                          self.theme bij en past de kleuren toe op een
-                          bestaande chart zonder refresh.
-                        - _build_ui, _prepare_chart, _replace_chart_empty,
-                          _draw_time_series en _draw_scatter halen alle
-                          kleuren uit CHART_COLORS[self.theme].
-                        - main_window.py geeft theme mee aan
-                          AnalysisScreen en roept analysis_page.apply_theme
-                          aan bij een themawissel.
-                        - Geen wijziging aan de chart-functionaliteit
-                          (schaling, zoom, klikken, selectie).
+  v1.7.1 (2026-10-22)  Fase 12E: _open_report_for_selection() kent nu
+                        ook scope "Huidige filters" (§2.14). Nieuwe
+                        private helper _heeft_actieve_filters().
+  v1.7.2 (2026-10-22)  Fix 12E: _heeft_actieve_filters() keek naar de
+                        ruwe _active_filters(), maar die bevat altijd
+                        tool_key="ESR_CAPACITOR" (hardcoded). Daardoor
+                        gaf de helper altijd True, ook zonder dat de
+                        gebruiker iets gefilterd had. Nu kijkt de
+                        helper uitsluitend naar de GUI-velden die de
+                        gebruiker zelf kan zetten (manufacturer, series,
+                        datum, method, instrument, frequency). De
+                        impliciete tool_key telt niet mee.
 ================================================================================
 """
 
@@ -164,9 +153,6 @@ _ZOOM_FACTOR_IN = 0.85
 _ZOOM_FACTOR_OUT = 1.0 / _ZOOM_FACTOR_IN
 
 
-# Sinds 11H.4: chart-kleuren per thema. Alle waarden die voorheen
-# hardcoded in de chart-code stonden, staan nu hier. De sleutels zijn
-# bewust Engels, zodat ze niet botsen met de Nederlandse GUI-strings.
 CHART_COLORS: dict[str, dict[str, str]] = {
     "dark": {
         "chart_background": "#1E1E1E",
@@ -248,8 +234,6 @@ class AnalysisScreen(QWidget):
     ) -> None:
         super().__init__(parent)
         self.taal = taal
-        # 11H.4: thema bepaalt de chart-kleuren. Keyword-only, default
-        # "dark", genormaliseerd via normaliseer_thema.
         self.theme = normaliseer_thema(theme)
         self._analysis_service = analysis_service or AnalysisService()
         self._current_rows: list[dict[str, Any]] = []
@@ -270,20 +254,12 @@ class AnalysisScreen(QWidget):
         return vertaal(sleutel, taal=self.taal, **kwargs)
 
     def _colors(self) -> dict[str, str]:
-        """Actieve kleurenset voor dit thema."""
         return CHART_COLORS.get(self.theme, CHART_COLORS["dark"])
 
     # ------------------------------------------------------------------
     # Thema (11H.4)
     # ------------------------------------------------------------------
     def apply_theme(self, theme: str) -> None:
-        """Werkt het thema bij en past de chart-kleuren toe.
-
-        Geen refresh: de bestaande reeksen blijven staan, alleen de
-        kleuren van de chart en de assen worden aangepast. Als er nog
-        geen reeksen zijn (lege chart), blijft het bij het bijwerken
-        van self.theme en de state-label-kleur.
-        """
         nieuw = normaliseer_thema(theme)
         if nieuw == self.theme:
             return
@@ -316,9 +292,6 @@ class AnalysisScreen(QWidget):
                 series.setPen(pen)
             elif isinstance(series, QScatterSeries):
                 series.setBorderColor(QColor(colors["scatter_border"]))
-                # De inwendige kleur komt uit de categorie (STATUS_COLORS);
-                # die is thema-onafhankelijk. Alleen de rand en de
-                # neutrale kleur verschillen per thema.
 
         self.state_label.setStyleSheet(
             f"color: {colors['state_label']};"
@@ -860,6 +833,34 @@ class AnalysisScreen(QWidget):
             measured_to_ms=measured_to_ms,
         )
 
+    def _heeft_actieve_filters(self) -> bool:
+        """True als de gebruiker minstens één filterveld heeft gezet.
+
+        v1.7.2: kijkt uitsluitend naar de GUI-velden die de gebruiker
+        zelf kan zetten. De impliciete tool_key="ESR_CAPACITOR" telt
+        NIET mee: die staat altijd in _active_filters() en zou de
+        helper anders altijd True maken.
+
+        Roept niet _active_filters() aan: dat zou de datum-parsing
+        opnieuw uitvoeren en een ValueError kunnen gooien. In plaats
+        daarvan controleren we de GUI-velden rechtstreeks.
+        """
+        if self.filter_manufacturer.text().strip():
+            return True
+        if self.filter_series.text().strip():
+            return True
+        if self.filter_date_from.text().strip():
+            return True
+        if self.filter_date_to.text().strip():
+            return True
+        if self.filter_method.currentData() is not None:
+            return True
+        if self.filter_instrument.text().strip():
+            return True
+        if self.filter_frequency.currentData() is not None:
+            return True
+        return False
+
     def _scope_measurement_ids(self) -> list[int] | None:
         if self.export_scope_combo.currentData() != _EXPORT_SCOPE_SELECTED:
             return None
@@ -976,14 +977,6 @@ class AnalysisScreen(QWidget):
         self.selection_changed.emit()
 
     def refresh(self, preserve_selection: bool = False) -> None:
-        """Herlaad de grafiek en selectietabel.
-
-        ``preserve_selection`` (11G.5): als True blijven aangevinkte
-        metingen bewaard over de refresh heen. De GUI gebruikt dit bij
-        scope-wissel en scatter-klik, zodat de scope-selectie effect
-        heeft. Bij een gewone refresh (filterwijziging, verversen) is
-        de default False en wordt de selectie gewist, zoals voorheen.
-        """
         had_selectie = bool(self._selected_measurement_ids())
 
         if preserve_selection:
@@ -1320,10 +1313,6 @@ class AnalysisScreen(QWidget):
             self._t("analyse.aantal", aantal=len(geldige_punten))
         )
 
-    # ------------------------------------------------------------------
-    # Categorie-labels en -kleuren (11G.5, hersteld in v1.6.3)
-    # ------------------------------------------------------------------
-
     def _category_label(self, category: str | None) -> str:
         if not category:
             return self._t("analyse.status_onbekend")
@@ -1376,11 +1365,37 @@ class AnalysisScreen(QWidget):
             self.refresh(preserve_selection=True)
 
     def _open_report_for_selection(self) -> None:
+        """Open de rapportdialoog voor de huidige selectie of filters.
+
+        Volgorde (fase 12E):
+          1. Checkbox-selectie aanwezig → scope "Selectie" (bestaand, 11A.2).
+          2. Geen checkbox-selectie, maar wél actieve filters → scope
+             "Huidige filters" (nieuw, §2.14).
+          3. Niets van dat alles → "geen selectie"-melding (bestaand).
+        """
         selected_ids = self._selected_measurement_ids()
-        if not selected_ids:
-            self.state_label.setText(self._t("analyse.rapport.geen_selectie"))
+        if selected_ids:
+            self._open_report_dialog_for_ids(
+                selected_ids, scope=self._t("report.scope.selectie")
+            )
             return
 
+        if self._heeft_actieve_filters():
+            try:
+                filters = self._active_filters()
+            except ValueError as exc:
+                self.state_label.setText(str(exc))
+                return
+            self._open_report_dialog_for_filters(
+                filters, scope=self._t("report.scope.filters")
+            )
+            return
+
+        self.state_label.setText(self._t("analyse.rapport.geen_selectie"))
+
+    def _open_report_dialog_for_ids(
+        self, measurement_ids: list[int], *, scope: str
+    ) -> None:
         from app.gui.dialogs.report_dialog import ReportDialog
 
         werkplaats = ""
@@ -1393,12 +1408,37 @@ class AnalysisScreen(QWidget):
             pass
 
         dialog = ReportDialog.for_measurements(
-            selected_ids,
-            scope=self._t("report.scope.selectie"),
+            measurement_ids,
+            scope=scope,
             taal=self.taal,
             werkplaats=werkplaats,
             auteur=auteur,
             grafiek_default=False,
+            parent=self,
+        )
+        dialog.exec()
+
+    def _open_report_dialog_for_filters(
+        self, filters: dict[str, Any], *, scope: str
+    ) -> None:
+        """Open de rapportdialoog voor de actieve filters (fase 12E)."""
+        from app.gui.dialogs.report_dialog import ReportDialog
+
+        werkplaats = ""
+        auteur = ""
+        try:
+            instellingen = laad_instellingen()
+            werkplaats = instellingen.rapportage.werkplaats_bedrijf
+            auteur = instellingen.rapportage.auteur
+        except (OSError, ValueError):
+            pass
+
+        dialog = ReportDialog.for_filters(
+            filters,
+            scope=scope,
+            taal=self.taal,
+            werkplaats=werkplaats,
+            auteur=auteur,
             parent=self,
         )
         dialog.exec()

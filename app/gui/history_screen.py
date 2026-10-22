@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/history_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.18.0
-Datum:      2026-10-21
+Versie:     1.19.0
+Datum:      2026-10-22
 Auteur:     Bart Bossuyt
 
 Doel:       Compacte centrale read-only weergave van opgeslagen meethistoriek.
@@ -49,23 +49,16 @@ Wijzigingen:
                         de bestaande compatibiliteitswrappers), niet de
                         centrale helper.
   v1.18.0 (2026-10-21)  Fase 11H.5: detail-HTML en state-label per thema.
-                        - Nieuwe keyword-only parameter theme: str op
-                          __init__ (default "dark"), genormaliseerd via
-                          normaliseer_thema.
-                        - Nieuwe module-level dict DETAIL_HTML_COLORS met
-                          per thema de kleuren voor de detaildialoog
-                          (achtergrond, tekst, tabel-rand, eerste kolom).
-                        - Nieuwe methode apply_theme(theme): werkt
-                          self.theme bij en past de state-label-kleur aan.
-                        - _build_detail_html en
-                          _build_esr_capacitor_detail_html gebruiken de
-                          per-thema stylesheet voor de QTextBrowser.
-                        - state_label-kleur volgt het thema.
-                        - main_window.py geeft theme mee aan HistoryScreen
-                          en roept history_page.apply_theme aan bij een
-                          themawissel.
-                        - Geen wijziging aan de detail-inhoud, alleen de
-                          stijl.
+  v1.19.0 (2026-10-22)  Fase 12E: _show_report_for_selected() kent nu drie
+                        modi. Checkbox-selectie → scope "Selectie"
+                        (bestaand, 11A.2). Geen checkbox-selectie maar
+                        wél actieve filters → scope "Huidige filters"
+                        (nieuw, §2.14). Geen selectie en geen filters →
+                        één rij geselecteerd → scope "Eén meting"
+                        (bestaand). Nieuwe private helper
+                        _heeft_actieve_filters() om te bepalen of de
+                        filter-dict niet-leeg is. Geen wijziging aan
+                        de bestaande selectie- of filterlogica.
 ================================================================================
 """
 
@@ -575,6 +568,21 @@ class HistoryScreen(QWidget):
             measured_from_ms=measured_from_ms,
             measured_to_ms=measured_to_ms,
         )
+
+    def _heeft_actieve_filters(self) -> bool:
+        """True als er minstens één filterveld een waarde heeft.
+
+        Wordt gebruikt door _show_report_for_selected om te bepalen of
+        scope "Huidige filters" zinvol is (fase 12E, §2.14). Roept
+        _active_filters() aan en controleert of het resultaat niet leeg
+        is. Als _active_filters() een ValueError gooit (ongeldige
+        datum), beschouwen we dat als "geen actieve filters": de
+        rapport-knop valt dan terug op zijn bestaande gedrag.
+        """
+        try:
+            return bool(self._active_filters())
+        except ValueError:
+            return False
 
     def _clear_filters(self) -> None:
         self.filter_tool.setCurrentIndex(0)
@@ -1208,10 +1216,32 @@ class HistoryScreen(QWidget):
         self.repeat_requested.emit(preset)
 
     def _show_report_for_selected(self) -> None:
+        """Open de rapportdialoog voor de huidige selectie of filters.
+
+        Volgorde (fase 12E):
+          1. Checkbox-selectie aanwezig → scope "Selectie" (bestaand, 11A.2).
+          2. Geen checkbox-selectie, maar wél actieve filters → scope
+             "Huidige filters" (nieuw, §2.14).
+          3. Geen checkbox-selectie, geen filters, één rij geselecteerd →
+             scope "Eén meting" (bestaand).
+          4. Niets van dat alles → doe niets (de knop is dan uitgeschakeld,
+             maar de guard blijft).
+        """
         checkbox_ids = self._selected_measurement_ids()
         if checkbox_ids:
             self._open_report_dialog_voor_ids(
                 checkbox_ids, scope=self._t("report.scope.selectie")
+            )
+            return
+
+        if self._heeft_actieve_filters():
+            try:
+                filters = self._active_filters()
+            except ValueError as exc:
+                self.state_label.setText(str(exc))
+                return
+            self._open_report_dialog_voor_filters(
+                filters, scope=self._t("report.scope.filters")
             )
             return
 
@@ -1266,6 +1296,31 @@ class HistoryScreen(QWidget):
             werkplaats=werkplaats,
             auteur=auteur,
             grafiek_default=False,
+            parent=self,
+        )
+        dialog.exec()
+
+    def _open_report_dialog_voor_filters(
+        self, filters: dict[str, Any], *, scope: str
+    ) -> None:
+        """Open de rapportdialoog voor de actieve filters (fase 12E)."""
+        from app.gui.dialogs.report_dialog import ReportDialog
+
+        werkplaats = ""
+        auteur = ""
+        try:
+            instellingen = laad_instellingen()
+            werkplaats = instellingen.rapportage.werkplaats_bedrijf
+            auteur = instellingen.rapportage.auteur
+        except (OSError, ValueError):
+            pass
+
+        dialog = ReportDialog.for_filters(
+            filters,
+            scope=scope,
+            taal=self.taal,
+            werkplaats=werkplaats,
+            auteur=auteur,
             parent=self,
         )
         dialog.exec()

@@ -1,6 +1,6 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 3.6.0
+**Versie:** 3.7.0
 **Datum:** 2026-10-22
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
@@ -11,12 +11,17 @@ Wijzigingen:
   v3.6.0 (2026-10-22)  §2.16 en §2.20 gemarkeerd als opgelost in
                        11I.1 t/m 11I.4. Nieuwe subsectie 4.39
                        (opgeloste punten in 11I).
+  v3.7.0 (2026-10-22)  §2.14 volledig gemarkeerd als opgelost in 12E
+                       (scope "filters"). Nieuwe subsectie 4.40
+                       (opgeloste punten in 12A) en 4.41 (opgeloste
+                       punten in 12E). §2.28 staat nu als "volgende
+                       opdracht".
 
 ---
 
 ## 1. Uit Fase 4I — Zoektaal-observaties
 
-Onveranderd t.o.v. v3.5.0.
+Onveranderd t.o.v. v3.6.0.
 
 ---
 
@@ -54,9 +59,14 @@ Zie eerdere versies.
 
 ### 2.14 Nieuwe openstaande punten (na fase 8D)
 
-- **GUI voor scope "selectie" en "filters".** Deels opgelost: 11A.2
-  levert scope "selectie" via `ReportDialog.for_measurements`. Scope
-  "filters" in de Rapportage-GUI blijft open.
+- **GUI voor scope "selectie" en "filters".** **Volledig opgelost in
+  11A.2 (selectie) en 12E (filters).** `ReportDialog` heeft nu drie
+  ingangen: `ReportDialog(id, ...)` (enkelvoudig),
+  `ReportDialog.for_measurements(ids, ...)` (selectie) en
+  `ReportDialog.for_filters(filters, ...)` (huidige filters). Zowel
+  `HistoryScreen._show_report_for_selected` als
+  `AnalysisScreen._open_report_for_selection` kiezen de juiste
+  ingang automatisch.
 - **Menu-item "Rapport maken…" disabled maken zonder selectie.**
   **Opgelost in 11A.1.**
 - **PDF-fonts op Windows.** Opgelost in 9A.
@@ -82,22 +92,11 @@ Zie eerdere versies.
 ### 2.20 Cosmetische en build-technische punten (toegevoegd 2026-10-13)
 
 - **Relatief `icon_path`.** **Opgelost in 11I.2.**
-  `app/helpers/icon_paths.py` v1.1.0 heeft een expliciete
-  `sys._MEIPASS`-branch vóór de omhoog-zoeklus. Deterministisch in de
-  PyInstaller-bundel.
 - **`Architecture identifier "x64" is deprecated`.** **Opgelost in
-  11I.3.** `build_installer.bat` v2.0.3 genereert
-  `ArchitecturesInstallIn64BitMode=x64compatible` in de `.iss`.
+  11I.3.**
 - **`[rename] Fallback via robocopy`-melding.** **Opgelost in 11I.3.**
-  De melding is verduidelijkt (reden + actie), en de meerregelige
-  echo die de cmd-parser brak is tot één regel teruggebracht.
-- **`build_log.txt` blijft leeg.** **Opgelost in 11I.3.** [4] en [7]
-  loggen nu met `>> "%LOGFILE%" 2>&1`. `build_log.txt` staat
-  expliciet in `.gitignore`.
-- **Certificaten opruimen.** **Opgelost in 11I.4.** De preflight in
-  `build_and_publish.ps1` slaat verlopen certificaten over. Ze zijn
-  onschadelijk. Opruimen is optioneel en handmatig via Certificate
-  Manager. Zie `docs/packaging.md` §4.1.
+- **`build_log.txt` blijft leeg.** **Opgelost in 11I.3.**
+- **Certificaten opruimen.** **Opgelost in 11I.4.**
 
 ### 2.21 Drie visuele punten uit de 9F-sessie (2026-10-14)
 
@@ -134,7 +133,13 @@ Zie eerdere versies.
 
 ### 2.28 Metingen exporteren/importeren voor samenvoegen tussen toestellen (toegevoegd 2026-10-15)
 
-- **Status:** open; uitgesteld naar een latere sub-fase (niet 11E).
+- **Status:** **open; volgende opdracht.** Dit is een aparte fase,
+  geen restpost van 12. De exacte sub-fase-indeling wordt bij de
+  start bepaald. Vereist doordachte keuzes over het exportformaat
+  (JSON-envelope vs. SQLite-dump), de duplicate-/conflictregels en
+  de herkomst-tracking. Raakt `storage/schema.py`,
+  `storage/service.py`, `storage/models.py`, `history_service.py`,
+  de GUI en mogelijk een nieuw exportformaat.
 
 ### 2.29 Mapvoorkeuren respecteren (toegevoegd 2026-10-15)
 
@@ -143,84 +148,76 @@ Zie eerdere versies.
 
 ### 2.30 Filter-checkbox zichtbaarheid (toegevoegd 2026-10-20)
 
-- **Status:** **opgelost in 11G.7.** `styles.py` v1.6.0 geeft
-  `QGroupBox::indicator` een lichtere achtergrond (`#3C3C3C`) en een
-  dikkere rand (2px `#B0B0B0`) in unchecked-state. Checked-state is
-  blauw (`#0078D7`) met 2px rand (`#4AA3FF`). De checkbox links van
-  "Filters" valt niet meer weg tegen de groupbox-rand.
+- **Status:** **opgelost in 11G.7.**
 
 ---
 
 ## 3. Uit vroegere contextdocumenten (nog steeds relevant)
 
-Onveranderd t.o.v. v3.5.0.
+Onveranderd t.o.v. v3.6.0.
 
 ---
 
 ## 4. Uit eigen observaties tijdens recente fases
 
-Onveranderd t.o.v. v3.5.0, plus:
+Onveranderd t.o.v. v3.6.0, plus:
 
 ### 4.37 Opgeloste punten in 11G.7 (2026-10-20)
 
-- **§2.30 — filter-checkbox zichtbaarheid.** `styles.py` v1.6.0 geeft
-  `QGroupBox::indicator` een lichtere achtergrond (`#3C3C3C`) en een
-  dikkere rand (2px `#B0B0B0`) in unchecked-state. Checked-state is
-  blauw (`#0078D7`) met 2px rand (`#4AA3FF`). Hover en disabled zijn
-  consistent. Geen wijziging aan de GUI-bestanden.
-- **Nieuwe tests:** `tests/test_styles.py` v1.2.0 (+3).
-- **Baseline:** 1491 → **1494 passed** (+3 tests).
+Onveranderd t.o.v. v3.6.0.
 
 ### 4.38 Opgeloste punten in 11H (2026-10-21)
 
-- **§4.4 — light theme.** Volledig opgelost in 11H.1 t/m 11H.5:
-  - 11H.1: `styles.py` v1.7.0 met `LIGHT_THEME_STYLESHEET`,
-    `THEME_STYLESHEETS` en `apply_theme(app, thema)`.
-  - 11H.2: `settings.py` v1.8.0 met `normaliseer_thema()`;
-    `SettingsDialog` v1.7.0 met actieve `thema_combo`.
-  - 11H.3: `ToolHubWindow` met `theme`-parameter (wint van
-    `settings.json`), live wissel, en `self.setStyleSheet()` in
-    plaats van `QApplication.setStyleSheet()`. Nieuwe `conftest.py`
-    met autouse-opruimfixture. Performance: suite van 53 min naar
-    ~3 min.
-  - 11H.4: `AnalysisScreen` v1.7.0 met `theme`-parameter,
-    `CHART_COLORS` en `apply_theme()`.
-  - 11H.5: `HistoryScreen` v1.18.0 met `theme`-parameter,
-    `DETAIL_HTML_COLORS` en `apply_theme()`;
-    `main_window._toon_release_notes_dialoog` thema-afhankelijk.
-- **Nieuwe tests:** `test_theme_switch.py` (10),
-  `test_analysis_screen_theme.py` (11),
-  `test_history_screen_theme.py` (11); uitbreiding
-  `test_styles.py` (+8), `test_settings.py` (+6),
-  `test_settings_dialog.py` (+6).
-- **Baseline:** 1494 → **1546 passed** (+52 tests).
-- **Observatie:** de performance-fix in 11H.3 (v2.22.0) was
-  noodzakelijk: de globale `QApplication.setStyleSheet` in elke
-  `ToolHubWindow`-constructie liep in de testsuite op tot 50–170
-  seconden per test. Het venster beheert nu zijn eigen stylesheet.
+Onveranderd t.o.v. v3.6.0.
 
 ### 4.39 Opgeloste punten in 11I (2026-10-22)
 
-- **§2.16 — pandas/numpy pins.** Opgelost in 11I.1:
-  `requirements.txt` v1.1.0 documenteert waarom de bovengrens `<3`
-  er staat. `docs/packaging.md` §2.1. Geen pin-wijziging.
-- **§2.20 — relatief `icon_path`.** Opgelost in 11I.2:
-  `app/helpers/icon_paths.py` v1.1.0 met `sys._MEIPASS`-branch.
-  `tests/test_icon_paths.py` v1.2.0 (+2 tests).
-- **§2.20 — `Architecture identifier "x64"`.** Opgelost in 11I.3:
-  `build_installer.bat` v2.0.3, `x64compatible`.
-- **§2.20 — `[rename]`-fallback.** Opgelost in 11I.3:
-  melding verduidelijkt, en de meerregelige echo die de cmd-parser
-  brak is tot één regel teruggebracht (met `^`-escaping).
-- **§2.20 — `build_log.txt`.** Opgelost in 11I.3: [4] en [7]
-  loggen nu met `>> "%LOGFILE%" 2>&1`. `build_log.txt` staat
-  expliciet in `.gitignore`.
-- **§2.20 — certificaten opruimen.** Opgelost in 11I.4:
-  `docs/packaging.md` §4.1 documenteert dat de preflight verlopen
-  certificaten overslaat. Opruimen is optioneel en handmatig.
-  `signing-certs/` staat in `.gitignore`.
-- **Nieuwe tests:** `tests/test_icon_paths.py` v1.2.0 (+2).
-- **Baseline:** 1546 → **1548 passed** (+2 tests).
+Onveranderd t.o.v. v3.6.0.
+
+### 4.40 Opgeloste punten in 12A (2026-10-22)
+
+- **Uniform extractiemodel.** `app/documentation/extraction_models.py`
+  v1.0.0 met `ExtractionResult`, `ExtractionError` en
+  `ExtractionSourceKind` (PDF/DOCX/XLSX/URL). Frozen, slots,
+  validatie in `__post_init__`.
+- **Uniforme extractie-dispatcher.**
+  `app/documentation/extraction_service.py` v1.0.0 met
+  `extract_for_source`, `extract_for_path` en `extract_for_url`.
+  Roept de bestaande extractors aan en vertaalt hun resultaat naar
+  het uniforme model. Lokale URL-teksthepler via BeautifulSoup,
+  zodat `url_fetch.py` niet gewijzigd hoefde te worden.
+- **Bestaande modules ongewijzigd:** `pdf_extract.py`,
+  `docx_extract.py`, `xlsx_extract.py`, `url_fetch.py`,
+  `import_service.py`, `import_models.py` en de vier `*_import.py`
+  zijn onaangeroerd.
+- **Nieuwe tests:** `tests/test_documentation_extraction_models.py`
+  v1.0.0 (15 tests) en
+  `tests/test_documentation_extraction_service.py` v1.0.0
+  (22 tests).
+- **Baseline:** 1548 → **1585 passed** (+37 tests).
+
+### 4.41 Opgeloste punten in 12E (2026-10-22)
+
+- **§2.14 — scope "filters" in de Rapportage-GUI.** Volledig
+  opgelost:
+  - `app/gui/dialogs/report_dialog.py` v1.6.1 met classmethod
+    `for_filters`, `_kop_tekst`-helper en kop-update in
+    `_laad_bundle`.
+  - `app/gui/history_screen.py` v1.19.0 met drie modi in
+    `_show_report_for_selected` en een `_heeft_actieve_filters`-
+    helper.
+  - `app/gui/analysis_screen.py` v1.7.2 met drie modi in
+    `_open_report_for_selection` en een `_heeft_actieve_filters`-
+    helper die uitsluitend naar de GUI-velden kijkt.
+- **Bugfix in `AnalysisScreen._heeft_actieve_filters()`:** de
+  helper gaf altijd `True` omdat `_active_filters()` altijd
+  `tool_key="ESR_CAPACITOR"` bevat. Opgelost in v1.7.2.
+- **Bugfix in `ReportDialog.kop_label`:** toonde "0 metingen"
+  voor de filters-modus omdat `_build_ui()` vóór `_laad_bundle()`
+  loopt. Opgelost in v1.6.1.
+- **Nieuwe tests:** `tests/test_report_dialog_scope_filters.py`
+  v1.0.1 (13 tests).
+- **Baseline:** 1585 → **1598 passed** (+13 tests).
 
 ---
 

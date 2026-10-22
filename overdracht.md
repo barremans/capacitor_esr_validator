@@ -1,16 +1,17 @@
 # OVERDRACHT — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie overdracht:** 6.5.0
+**Versie overdracht:** 6.6.0
 **Datum:** 2026-10-22
 **Auteur:** Bart Bossuyt
-**Vorige versie:** 6.4.0 (2026-10-21)
+**Vorige versie:** 6.5.0 (2026-10-22)
 **Doel:** volledig overdrachtsdocument voor een nieuwe ChatGPT-sessie of
 nieuwe ontwikkelaar. Bevat projectstaat, architectuur, regels, changelog,
 teststructuur en startprompt. Alles in één bestand.
 
-**Huidige baseline:** 1548 passed
-**Laatste afgeronde fase:** 11I.5 — Afronding fase 11I
-**Volgende fase:** 12 — AI-extractie uit fabrikantdocumenten
+**Huidige baseline:** 1598 passed
+**Laatste afgeronde sub-fase:** 12E — Scope "filters" in de Rapportage-GUI
+**Volgende fase:** §2.28 — Export/import tussen toestellen
+**Op hold:** 12B — AI-model-keuze en API-koppeling
 
 ---
 
@@ -20,7 +21,7 @@ teststructuur en startprompt. Alles in één bestand.
 2. Context — projectstaat en architectuur
 3. Kernregels — bindende afspraken
 4. Stappenplan — chronologisch overzicht
-5. Wat is nieuw sinds versie 6.4.0
+5. Wat is nieuw sinds versie 6.5.0
 6. Openstaande vragen voor de nieuwe chat
 7. Teststatus — baseline en teststructuur
 8. Bestanden die de nieuwe chat moet opvragen
@@ -40,11 +41,15 @@ iets doet.
 
 - Projectmap: `C:\PY\capacitor_esr_validator`.
 - Technologie: Python 3.12 + PySide6 (Qt6, Fusion-stijl), volledig offline.
-- Baseline: **1548 passed**.
+- Baseline: **1598 passed**.
 - Huidige versie: `1.2.3`.
-- Laatste afgeronde fase: **11I — Build en cosmetica** (2026-10-22),
-  met 11I.1 t/m 11I.5.
-- Volgende fase: **12 — AI-extractie uit fabrikantdocumenten**.
+- Laatste afgeronde sub-fase: **12E — Scope "filters" in de
+  Rapportage-GUI** (2026-10-22).
+- Daarvoor afgerond: **12A — Documenttype-detectie en
+  extractie-orkestratie** (2026-10-22).
+- Op hold: **12B — AI-model-keuze en API-koppeling** (wacht op
+  provider/model-keuze).
+- Volgende opdracht: **§2.28 — Export/import tussen toestellen**.
 
 **Werkafspraken die je strikt volgt:**
 
@@ -155,10 +160,17 @@ iets doet.
    de volgende fase correct begrijpt.
 2. Geef een korte samenvatting (max 10 regels) van de huidige
    projectstaat en de eerstvolgende fase.
-3. Vraag om de bestanden uit sectie 8 van dit document **vóór** je
-   begint met implementeren.
-4. Wacht daarna op mijn instructie. Onderneem nog geen actie, behalve
-   als ik expliciet zeg: "start <sub-fase>".
+3. Stel een sub-fase-indeling voor **§2.28 (export/import tussen
+   toestellen)** voor, op basis van `docs/openvragen.md` §2.28 en de
+   bestaande storage- en historiekarchitectuur (`storage/schema.py`,
+   `storage/service.py`, `storage/models.py`,
+   `services/history_service.py`, `helpers/history_csv_export.py`,
+   `helpers/history_detail_export.py`). Vraag me om bevestiging van
+   die indeling **vóór** je begint met implementeren.
+4. Vraag om eventuele extra bestanden die je voor §2.28 nodig hebt en
+   die nog niet in de bijlagen zitten.
+5. Wacht daarna op mijn instructie "start 2.28" (of "start 2.28.x"
+   als we sub-fase-per-sub-fase werken).
 
 **Belangrijk:** als iets in de context onduidelijk is, vraag het
 eerst. Geen aannames.
@@ -182,95 +194,91 @@ eerst. Geen aannames.
 | Database | SQLite op `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\measurements.sqlite3` |
 | GitHub-repo | `https://github.com/barremans/capacitor_esr_validator` |
 | Huidige versie | `1.2.3` |
-| Huidige baseline | **1548 passed** |
-| Laatste afgeronde fase | 11I — Build en cosmetica (11I.1 t/m 11I.5) |
-| Volgende fase | 12 — AI-extractie uit fabrikantdocumenten |
+| Huidige baseline | **1598 passed** |
+| Laatste afgeronde sub-fase | 12E — Scope "filters" in de Rapportage-GUI |
+| Op hold | 12B — AI-model-keuze en API-koppeling |
+| Volgende opdracht | §2.28 — Export/import tussen toestellen |
 
 ### 2.2 Huidige applicatiearchitectuur
 
 Zie v6.0.0 §2.2 voor de volledige architectuurbeschrijving. Nieuw
-sinds v6.4.0:
+sinds v6.5.0:
 
-**Gewijzigd in 11I.1:**
-- `requirements.txt` (v1.0.0 → **v1.1.0**) — commentaar dat uitlegt
-  waarom `numpy` en `pandas` een bovengrens `<3` hebben. Geen
-  pin-wijziging.
-- `docs/future_tools.md` §5 — gelijkgetrokken met de werkelijke pins.
-- `docs/packaging.md` (v1.0.0 → **v1.1.0**) — nieuwe subsectie §2.1
-  "Dependency-pins".
+**Gewijzigd in 12A:**
+- `app/documentation/extraction_models.py` (nieuw, **v1.0.0**) —
+  uniform `ExtractionResult`, `ExtractionError`,
+  `ExtractionSourceKind` (PDF/DOCX/XLSX/URL). Frozen, slots,
+  validatie in `__post_init__`. Geen Qt, geen netwerk, geen AI.
+- `app/documentation/extraction_service.py` (nieuw, **v1.0.0**) —
+  dispatcher `extract_for_source`, `extract_for_path`,
+  `extract_for_url` die de bestaande extractors
+  (`pdf_extract`, `docx_extract`, `xlsx_extract`, `url_fetch`)
+  aanroept en hun resultaat vertaalt naar het uniforme model.
+  Lokale URL-teksthepler via BeautifulSoup, zodat `url_fetch.py`
+  niet gewijzigd hoefde te worden.
+- `tests/test_documentation_extraction_models.py` (nieuw, **v1.0.0**,
+  15 tests).
+- `tests/test_documentation_extraction_service.py` (nieuw,
+  **v1.0.0**, 22 tests).
 
-**Gewijzigd in 11I.2:**
-- `app/helpers/icon_paths.py` (v1.0.0 → **v1.1.0**) — nieuwe
-  `sys._MEIPASS`-branch in `_projectroot_default()`, vóór de
-  omhoog-zoeklus. Deterministische resolutie in de
-  PyInstaller-bundel. Geen wijziging aan de publieke API.
-- `tests/test_icon_paths.py` (v1.1.0 → **v1.2.0**, +2 tests).
+**Gewijzigd in 12E:**
+- `app/gui/dialogs/report_dialog.py` (v1.5.0 → **v1.6.1**) —
+  classmethod `for_filters`, `_kop_tekst`-helper, kop-update in
+  `_laad_bundle` voor de filters-modus.
+- `app/gui/history_screen.py` (v1.18.0 → **v1.19.0**) —
+  `_show_report_for_selected` kent drie modi (selectie / filters /
+  enkelvoudig), nieuwe `_heeft_actieve_filters`-helper.
+- `app/gui/analysis_screen.py` (v1.7.0 → **v1.7.2**) —
+  `_open_report_for_selection` kent drie modi, nieuwe
+  `_heeft_actieve_filters`-helper die uitsluitend naar de GUI-velden
+  kijkt (de hardcoded `tool_key="ESR_CAPACITOR"` telt niet mee).
+- `tests/test_report_dialog_scope_filters.py` (nieuw, **v1.0.1**,
+  13 tests).
 
-**Gewijzigd in 11I.3:**
-- `build_installer.bat` (v2.0.1 → **v2.0.3**) — `x64compatible`,
-  robocopy-melding verduidelijkt (één regel, geen meerregelige echo
-  binnen `(...)`), logging van [4] en [7] naar `build_log.txt`.
-- `build_and_publish.ps1` (v1.0.0 → **v1.1.0**) — standaard J bij
-  "Starten?".
-- `.gitignore` — `build_log.txt`.
-- `docs/packaging.md` (v1.1.0 → **v1.3.0**) — §2-tabel bijgewerkt,
-  §11 bijgewerkt.
-
-**Gewijzigd in 11I.4:**
-- `.gitignore` — `signing-certs/`.
-- `docs/packaging.md` (v1.3.0 → **v1.4.0**) — nieuwe subsectie §4.1
-  "Certificaatstore-hygiëne"; §11 bijgewerkt.
-
-**Gewijzigd in 11I.5:**
-- `docs/changelog/nl_NL.md` (→ **v1.3.0**) — nieuwe sectie "Fase 11I".
-- `docs/changelog/en_US.md` (→ **v1.3.0**) — idem in het Engels.
-- `overdracht.md` (→ **v6.5.0**) — dit document.
-- `WatNu.md` (→ **v2.3.0**) — bijgewerkt.
-- `docs/openvragen.md` (→ **v3.6.0**) — §2.16 en §2.20 gemarkeerd,
-  nieuwe subsectie 4.39.
-- `docs/packaging.md` (v1.4.0 → **v1.5.0**) — alleen de
-  changelog-regel in de header.
-
-**Samenvatting van 11I.1 t/m 11I.5 (allemaal afgerond):**
+**Samenvatting van 12A en 12E (allemaal afgerond):**
 
 | Onderdeel | Bestand | Versie |
 |---|---|---|
-| Pins gedocumenteerd | `requirements.txt` | v1.1.0 |
-| `icon_path` via `sys._MEIPASS` | `app/helpers/icon_paths.py` | v1.1.0 |
-| Build-orchestratie opgeschoond | `build_installer.bat` | v2.0.3 |
-| "Starten?"-standaard | `build_and_publish.ps1` | v1.1.0 |
-| Certificaatstore-hygiëne | `docs/packaging.md` | v1.5.0 |
+| Uniform extractiemodel | `app/documentation/extraction_models.py` | v1.0.0 |
+| Extractie-dispatcher | `app/documentation/extraction_service.py` | v1.0.0 |
+| Scope "filters" dialoog | `app/gui/dialogs/report_dialog.py` | v1.6.1 |
+| Scope "filters" historiek | `app/gui/history_screen.py` | v1.19.0 |
+| Scope "filters" analyse | `app/gui/analysis_screen.py` | v1.7.2 |
 
 ### 2.3 Belangrijke recente bugfixes
 
-Zie v6.0.0 §2.3. Nieuw sinds v6.4.0:
+Zie v6.0.0 §2.3 en v6.5.0 §2.3. Nieuw sinds v6.5.0:
 
-- **11I.3:** de meerregelige echo in de `[rename]`-fallback van
-  `build_installer.bat` brak de cmd-parser (`. was unexpected at this
-  time.`). Opgelost in v2.0.3 door de melding tot één regel terug te
-  brengen (met `^`-escaping voor de haakjes).
+- **12E:** `AnalysisScreen._heeft_actieve_filters()` gaf altijd
+  `True` omdat `_active_filters()` altijd `tool_key="ESR_CAPACITOR"`
+  bevat. Daardoor opende de rapport-knop op de Analyse-pagina altijd
+  de filters-scope, ook zonder gebruikersfilter. Opgelost in
+  `analysis_screen.py` v1.7.2: de helper kijkt nu uitsluitend naar
+  de GUI-velden.
+- **12E:** `ReportDialog.kop_label` toonde "0 metingen" voor de
+  filters-modus, omdat `_build_ui()` vóór `_laad_bundle()` loopt.
+  Opgelost in `report_dialog.py` v1.6.1: `_laad_bundle()` werkt de
+  kop bij zodra het aantal bekend is.
 
-Zie v6.3.0 §2.3 voor de bugfixes uit 11H.3 (v2.21.1, v2.21.2,
-v2.21.3, v2.22.0).
+### 2.4 Openstaande werkpunten en fase-indeling
 
-### 2.4 Openstaande werkpunten en fase 12-indeling
+**Op hold:** 12B — AI-model-keuze en API-koppeling. Wacht op een
+ontwerpbeslissing: welke provider, welk model, offline-first of
+cloud-API, en waar de API-key leeft (analoog aan
+`github_secret_local.py`). Zonder die beslissing kan 12B niet
+verantwoord ontworpen worden.
 
-Volgende fase is **12 — AI-extractie uit fabrikantdocumenten**.
+**Volgende opdracht:** **§2.28 — Export/import tussen toestellen**
+(`docs/openvragen.md` v3.7.0). Dit is een aparte fase, geen restpost
+van 12. De exacte sub-fase-indeling wordt bij de start van §2.28
+bepaald. Vraag het na.
 
-Sub-fase-indeling fase 12 (voorstel, nog niet uitgewerkt):
-
-| Sub-fase | Onderwerp | Status |
-|---|---|---|
-| **12A** | Documenttype-detectie en extractie-orkestratie | **Volgende** |
-| **12B** | AI-model-keuze en API-koppeling | Gepland |
-| **12C** | Prompt-engineering en output-validatie | Gepland |
-| **12D** | Resultaatopslag en herkomst-tracking | Gepland |
-
-De exacte indeling wordt bij de start van fase 12 bepaald. Vraag het
-na.
-
-Daarna volgen fase 13 (menselijke validatie), 14 (fabrikantdata
-koppelen) en 15 (Resistor).
+Daarna volgen (in deze volgorde, tenzij anders beslist):
+- 12C — Prompt-engineering en output-validatie (na 12B).
+- 12D — Resultaatopslag en herkomst-tracking (na 12C).
+- Fase 13 — Menselijke validatie van AI-output.
+- Fase 14 — Goedgekeurde fabrikantdata koppelen aan assessment.
+- Fase 15 — Tweede diagnosetool — Resistor.
 
 ### 2.5 Werkafspraken voor een nieuwe sessie
 
@@ -280,16 +288,23 @@ Onveranderd t.o.v. v6.0.0, aangevuld met de `conftest.py`-regel uit §1.
 
 ## 3. KERNREGELS — BINDENDE AFSPRAKEN
 
-Onveranderd t.o.v. v6.4.0, behalve:
+Onveranderd t.o.v. v6.5.0, behalve:
 
-- **`icon_paths.py` gebruikt sinds 11I.2 een expliciete
-  `sys._MEIPASS`-branch** vóór de omhoog-zoeklus.
-- **`build_installer.bat` logt sinds 11I.3 de PyInstaller-stap [4] en
-  de ISCC-stap [7]** naar `build_log.txt`; `build_log.txt` staat in
-  `.gitignore`.
-- **`build_and_publish.ps1` geeft sinds 11I.3 de bevestigingsvraag
-  "Starten?" een expliciete standaardwaarde J** bij Enter.
-- **`signing-certs/` staat sinds 11I.4 in `.gitignore`.**
+- **`app/gui/dialogs/report_dialog.py` heeft sinds 12E een
+  classmethod `for_filters(filters, *, scope, taal, ...)`.** De
+  bestaande `ReportDialog(id, ...)` en `ReportDialog.for_measurements`
+  blijven ongewijzigd. Nieuwe code die een rapport over de actieve
+  filters wil, gebruikt `for_filters`.
+- **`HistoryScreen._show_report_for_selected` en
+  `AnalysisScreen._open_report_for_selection` kennen sinds 12E drie
+  modi:** checkbox-selectie → "Selectie"; geen checkbox-selectie maar
+  wél actieve filters → "Huidige filters"; anders → bestaand gedrag.
+- **`extraction_models.py` en `extraction_service.py` zijn de uniforme
+  ingang voor tekst- en metadata-extractie sinds 12A.** Nieuwe code
+  die tekst uit een geïmporteerde bron nodig heeft, gebruikt
+  `extract_for_source`, `extract_for_path` of `extract_for_url`, niet
+  de onderliggende `pdf_extract`/`docx_extract`/`xlsx_extract`/
+  `url_fetch` rechtstreeks.
 
 ---
 
@@ -309,142 +324,125 @@ Onveranderd t.o.v. v6.4.0, behalve:
 | 11F.1 t/m 11F.4 | Documentatie-uitbreiding | ✅ |
 | 11G.1 t/m 11G.7 | Visueel donker thema | ✅ |
 | 11H.1 t/m 11H.5 | Light theme | ✅ |
-| **11I.1 t/m 11I.5** | **Build en cosmetica** | ✅ |
-| **12** | **AI-extractie uit fabrikantdocumenten** | **Volgende** |
+| 11I.1 t/m 11I.5 | Build en cosmetica | ✅ |
+| 12A | Documenttype-detectie en extractie-orkestratie | ✅ |
+| 12B | AI-model-keuze en API-koppeling | **Op hold** |
+| 12C | Prompt-engineering en output-validatie | Gepland (na 12B) |
+| 12D | Resultaatopslag en herkomst-tracking | Gepland (na 12C) |
+| 12E | Scope "filters" in de Rapportage-GUI | ✅ |
+| **§2.28** | **Export/import tussen toestellen** | **Volgende** |
 | 13 | Menselijke validatie van AI-output | Gepland |
 | 14 | Goedgekeurde fabrikantdata koppelen aan assessment | Gepland |
 | 15 | Tweede diagnosetool — Resistor | Gepland |
 
 ---
 
-## 5. WAT IS NIEUW SINDS VERSIE 6.4.0
+## 5. WAT IS NIEUW SINDS VERSIE 6.5.0
 
-### 5.1 Fase 11I.1 — Pins documenteren
+### 5.1 Fase 12A — Documenttype-detectie en extractie-orkestratie
 
-**Aanleiding:** de pandas/numpy-pins in `requirements.txt` waren niet
-gedocumenteerd. `docs/future_tools.md` §5 noemde een verouderde set.
-
-**Oplossing:**
-- `requirements.txt` v1.1.0 — commentaar dat uitlegt waarom `numpy` en
-  `pandas` een bovengrens `<3` hebben. Geen pin-wijziging.
-- `docs/packaging.md` v1.1.0 — nieuwe §2.1 "Dependency-pins".
-- `docs/future_tools.md` §5 — gelijkgetrokken.
-
-### 5.2 Fase 11I.2 — `icon_path` via `sys._MEIPASS`
-
-**Aanleiding:** het icoonpad was niet deterministisch in de
-PyInstaller-bundel.
+**Aanleiding:** de bestaande `*_import.py`-orkestratoren deden de
+import (hash → metadata → registratie → kopie), maar de tekstextractie
+(`extract_pdf_text`, `extract_docx_text`, `extract_xlsx_text`) was
+nirgens aangesloten. Voor fase 12 (AI-extractie) was er één uniforme
+ingang nodig die per brontype dezelfde vorm teruggeeft.
 
 **Oplossing:**
-- `app/helpers/icon_paths.py` v1.1.0 — nieuwe `sys._MEIPASS`-branch
-  vóór de omhoog-zoeklus.
-- `tests/test_icon_paths.py` v1.2.0 — +2 tests.
+- `app/documentation/extraction_models.py` v1.0.0 —
+  `ExtractionResult`, `ExtractionError`, `ExtractionSourceKind`.
+- `app/documentation/extraction_service.py` v1.0.0 —
+  `extract_for_source`, `extract_for_path`, `extract_for_url`.
+- Nieuwe tests: 15 + 22 = 37.
 
-### 5.3 Fase 11I.3 — Build-orchestratie opschonen
+Geen bestaande module gewijzigd: `pdf_extract.py`, `docx_extract.py`,
+`xlsx_extract.py`, `url_fetch.py`, `import_service.py`,
+`import_models.py` en de vier `*_import.py` zijn onaangeroerd.
 
-**Aanleiding:** drie cosmetische punten.
+### 5.2 Fase 12E — Scope "filters" in de Rapportage-GUI (§2.14)
 
-**Oplossing:**
-- `build_installer.bat` v2.0.3 — `x64compatible`, robocopy-melding
-  verduidelijkt, logging van [4] en [7] naar `build_log.txt`.
-- `build_and_publish.ps1` v1.1.0 — standaard J bij "Starten?".
-- `.gitignore` — `build_log.txt`.
-- `docs/packaging.md` v1.3.0 — §2-tabel en §11 bijgewerkt.
-
-### 5.4 Fase 11I.4 — Certificaatstore-hygiëne
-
-**Aanleiding:** de twee verlopen certificaten in de certificaatstore
-waren niet gedocumenteerd.
+**Aanleiding:** §2.14 was half opgelost in 11A.2 (scope "selectie"),
+maar scope "filters" in de Rapportage-GUI stond nog open. De
+`ReportService.build_bundle_from_filters(...)` bestond al sinds
+11A.2; de GUI-koppeling ontbrak.
 
 **Oplossing:**
-- `docs/packaging.md` v1.4.0 — nieuwe §4.1 "Certificaatstore-hygiëne".
-- `.gitignore` — `signing-certs/`.
+- `app/gui/dialogs/report_dialog.py` v1.6.1 — classmethod
+  `for_filters`.
+- `app/gui/history_screen.py` v1.19.0 — `_show_report_for_selected`
+  met drie modi.
+- `app/gui/analysis_screen.py` v1.7.2 — `_open_report_for_selection`
+  met drie modi.
+- Nieuwe tests: 13.
 
-### 5.5 Fase 11I.5 — Afronding
+Tijdens de implementatie gevonden en gefixt: `_heeft_actieve_filters`
+in `AnalysisScreen` gaf altijd `True` door de hardcoded
+`tool_key="ESR_CAPACITOR"`.
 
-- `docs/changelog/nl_NL.md` v1.3.0.
-- `docs/changelog/en_US.md` v1.3.0.
-- `overdracht.md` v6.5.0 (dit document).
-- `WatNu.md` v2.3.0.
-- `docs/openvragen.md` v3.6.0.
-- `docs/packaging.md` v1.5.0 (alleen changelog-regel).
-
-### 5.6 Baseline
+### 5.3 Baseline
 
 | Sub-fase | Baseline vóór | Baseline ná | Nieuw |
 |---|---|---|---|
-| 11I.1 | 1546 | 1546 | 0 |
-| 11I.2 | 1546 | 1548 | +2 |
-| 11I.3 | 1548 | 1548 | 0 |
-| 11I.4 | 1548 | 1548 | 0 |
-| 11I.5 | 1548 | **1548** | 0 |
+| 11I.5 | 1548 | 1548 | 0 |
+| 12A | 1548 | 1585 | +37 |
+| 12E | 1585 | **1598** | +13 |
 
-**Totaal 11I.1 t/m 11I.5:** 1546 → 1548 (+2 tests).
+**Totaal sinds 11I.5:** 1548 → 1598 (+50 tests).
 
-### 5.7 Gewijzigde bestanden sinds 6.4.0
+### 5.4 Gewijzigde bestanden sinds 6.5.0
 
 | Bestand | Versie / status |
 |---|---|
-| `requirements.txt` | v1.0.0 → **v1.1.0** |
-| `app/helpers/icon_paths.py` | v1.0.0 → **v1.1.0** |
-| `tests/test_icon_paths.py` | v1.1.0 → **v1.2.0** (+2 tests) |
-| `build_installer.bat` | v2.0.1 → **v2.0.3** |
-| `build_and_publish.ps1` | v1.0.0 → **v1.1.0** |
-| `.gitignore` | bijgewerkt |
-| `docs/future_tools.md` | §5 bijgewerkt |
-| `docs/packaging.md` | v1.0.0 → **v1.5.0** |
-| `docs/changelog/nl_NL.md` | → **v1.3.0** |
-| `docs/changelog/en_US.md` | → **v1.3.0** |
-| `overdracht.md` | → **v6.5.0** |
-| `WatNu.md` | → **v2.3.0** |
-| `docs/openvragen.md` | → **v3.6.0** |
+| `app/documentation/extraction_models.py` | **nieuw** v1.0.0 |
+| `app/documentation/extraction_service.py` | **nieuw** v1.0.0 |
+| `app/gui/dialogs/report_dialog.py` | v1.5.0 → **v1.6.1** |
+| `app/gui/history_screen.py` | v1.18.0 → **v1.19.0** |
+| `app/gui/analysis_screen.py` | v1.7.0 → **v1.7.2** |
+| `tests/test_documentation_extraction_models.py` | **nieuw** v1.0.0 (15 tests) |
+| `tests/test_documentation_extraction_service.py` | **nieuw** v1.0.0 (22 tests) |
+| `tests/test_report_dialog_scope_filters.py` | **nieuw** v1.0.1 (13 tests) |
+| `overdracht.md` | → **v6.6.0** |
+| `docs/openvragen.md` | → **v3.7.0** |
 
-### 5.8 Teststatus
+### 5.5 Teststatus
 
-**Baseline: 1548 passed.** Was 1546 vóór 11I.2. De toename is +2
-tests in `test_icon_paths.py`. De suite draait in ~200 s.
+**Baseline: 1598 passed.** Was 1548 vóór 12A. De toename is +37
+(12A) + 13 (12E). De suite draait in ~208 s.
 
-### 5.9 Bekende beperkingen (bijgewerkt)
+### 5.6 Bekende beperkingen (bijgewerkt)
 
-Onveranderd t.o.v. v6.4.0, maar de hardcoded kleuren in
-`analysis_screen.py` en `history_screen.py` zijn **opgelost** in
-11H.4 en 11H.5. Wat nog rest:
+Onveranderd t.o.v. v6.5.0. Wat nog rest:
 
 - **`QApplication.setStyleSheet` is verboden** behalve in `main.py`
   bij opstart. Gebruik `self.setStyleSheet(...)` op het venster.
 - **`esr_test_screen.py` en `documentation_screen.py`** bevatten nog
-  geen thema-afhankelijke kleuren. Als een latere fase daar iets aan
-  verandert, krijgen die schermen dezelfde `theme`-parameter als
-  `AnalysisScreen` en `HistoryScreen`.
+  geen thema-afhankelijke kleuren.
 - **Publiek vertrouwd (EV-)certificaat** — structurele oplossing.
 - **Fallback timestamp-server** — single point of failure.
+- **12B op hold** — wacht op provider/model-keuze.
 
 ---
 
 ## 6. OPENSTAANDE VRAGEN VOOR DE NIEUWE CHAT
 
-Zie `docs/openvragen.md` v3.6.0 voor de volledige, levende lijst.
-Samenvatting van de belangrijkste punten voor fase 12:
+Zie `docs/openvragen.md` v3.7.0 voor de volledige, levende lijst.
+Samenvatting van de belangrijkste punten voor §2.28:
 
 - §2.28 — export/import tussen toestellen.
-- §2.14 — Rapportage: scope "filters" in de Rapportage-GUI.
 - §11 packaging — publiek vertrouwd (EV-)certificaat;
   fallback timestamp-server.
 
-Opgelost in 11I.1: §2.16 (pandas/numpy pins heroverwegen).
-Opgelost in 11I.2: §2.20 (deel: relatief `icon_path`).
-Opgelost in 11I.3: §2.20 (deel: `Architecture identifier "x64"`,
-`[rename] Fallback via robocopy`, `build_log.txt`).
-Opgelost in 11I.4: §2.20 (deel: certificaten opruimen).
+Opgelost in 12A: de extractie-orkestratie (geen open vraag, wel een
+architectuurpunt).
+Opgelost in 12E: §2.14 (scope "filters" in de Rapportage-GUI).
 
-**§2.16 en §2.20 zijn nu volledig opgelost.**
+**§2.14 is nu volledig opgelost.**
 
 ---
 
 ## 7. TESTSTATUS — BASELINE EN TESTSTRUCTUUR
 
 **Datum:** 2026-10-22
-**Baseline:** 1548 passed
+**Baseline:** 1598 passed
 **Werkwijze:** eerst gerichte tests, dan volledige `pytest -q`.
 
 ### 7.1 Commando's
@@ -505,17 +503,31 @@ Voor een nieuwe sessie heeft de chat meestal nodig:
 - `docs/markdown_levering.md`
 - `conftest.py` — minimale autouse-fixture (sinds 11H.3)
 
-**Voor fase 12 (AI-extractie uit fabrikantdocumenten):**
+**Voor §2.28 (export/import tussen toestellen):**
 
-De exacte bestanden hangen af van de sub-fase-indeling van fase 12.
-Vraag die eerst na. Waarschijnlijk betrokken:
+De volledige storage-laag en de historiek-service zijn nodig:
 
-- `app/documentation/pdf_extract.py`, `docx_extract.py`,
-  `xlsx_extract.py`, `url_fetch.py`
-- `app/documentation/import_service.py`
-- `app/documentation/import_models.py`
-- `docs/documentation_import.md`
-- Nieuwe AI-module (naam nog te bepalen)
+- `app/storage/schema.py` (v1.1.0)
+- `app/storage/service.py` (v1.1.0)
+- `app/storage/models.py` (v1.1.0)
+- `app/storage/database.py`
+- `app/storage/migrations.py`
+- `app/storage/paths.py`
+- `app/storage/exceptions.py`
+- `app/services/history_service.py` (v1.1.1)
+- `docs/data_model.md`
+- `docs/context.md`
+
+Sterk aanbevolen:
+
+- `app/gui/main_window.py` (v2.22.2) — voor het menu-item.
+- `app/gui/history_screen.py` (v1.19.0) — exportknop.
+- `app/helpers/history_csv_export.py`, `history_detail_export.py` —
+  bestaand exportpatroon.
+- `tests/test_storage_schema.py`, `test_storage_service.py`,
+  `test_storage_migrations.py`, `test_storage_v1_completion.py` —
+  bestaande tests, zodat de nieuwe tests in dezelfde stijl passen.
+- `app/version.py` — als §2.28 een nieuwe app-versie krijgt.
 
 **Voor fase 13 (menselijke validatie) — nog niet nu:**
 
@@ -545,3 +557,8 @@ Onveranderd t.o.v. v6.0.0 §9, aangevuld met:
 - **`build_and_publish.ps1` geeft sinds 11I.3 de bevestigingsvraag
   "Starten?" een expliciete standaardwaarde J.**
 - **`signing-certs/` staat sinds 11I.4 in `.gitignore`.**
+- **`ReportDialog.for_filters` bestaat sinds 12E** en is de juiste
+  ingang voor een rapport over de actieve filters.
+- **`extraction_service.py` is sinds 12A de uniforme extractie-ingang.**
+  Nieuwe code gebruikt die, niet de onderliggende extractors
+  rechtstreeks.

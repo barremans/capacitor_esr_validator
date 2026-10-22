@@ -124,6 +124,24 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Versie: 1.0.3
         # Datum: 2026-10-07
         ```
+      - 📄 **/app/documentation/extraction_models.py**
+        ```text
+        # Bestandsnaam: app/documentation/extraction_models.py
+        # Beschrijving: Uniform resultaatmodel voor tekst- en metadata-extractie uit
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.0
+        # Datum: 2026-10-22
+        ```
+      - 📄 **/app/documentation/extraction_service.py**
+        ```text
+        # Bestandsnaam: app/documentation/extraction_service.py
+        # Beschrijving: Uniforme dispatcher voor tekst- en metadata-extractie uit een
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.0
+        # Datum: 2026-10-22
+        ```
       - 📄 **/app/documentation/import_models.py**
         ```text
         # Bestandsnaam: app/documentation/import_models.py
@@ -302,8 +320,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Modale dialoog voor het maken en opslaan van meetrapporten.
           # Auteur: Bart Bossuyt
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-          # Versie: 1.5.0
-          # Datum: 2026-10-16
+          # Versie: 1.6.1
+          # Datum: 2026-10-22
           ```
         - 📄 **/app/gui/dialogs/search_help_dialog.py**
           ```text
@@ -336,8 +354,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Read-only Analyse-pagina binnen het hoofdvenster.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.7.0
-        # Datum: 2026-10-21
+        # Versie: 1.7.2
+        # Datum: 2026-10-22
         ```
       - 📄 **/app/gui/documentation_screen.py**
         ```text
@@ -363,8 +381,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Compacte centrale read-only weergave van opgeslagen meethistoriek.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.18.0
-        # Datum: 2026-10-21
+        # Versie: 1.19.0
+        # Datum: 2026-10-22
         ```
       - 📄 **/app/gui/main_window.py**
         ```text
@@ -790,7 +808,6 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: GEEN APPLICATIE
       # Versie: V1.0.0
       ```
-    - 📄 **/tests/build_installer_22102026.bat**
     - 📄 **/tests/est_main_window_update_menu.py**
       ```text
       # Bestandsnaam: tests/test_main_window_update_menu.py
@@ -970,6 +987,24 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
       # Versie: 1.0.0
       # Datum: 2026-10-07
+      ```
+    - 📄 **/tests/test_documentation_extraction_models.py**
+      ```text
+      # Bestandsnaam: tests/test_documentation_extraction_models.py
+      # Beschrijving: Regressietests voor app/documentation/extraction_models.py
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-22
+      ```
+    - 📄 **/tests/test_documentation_extraction_service.py**
+      ```text
+      # Bestandsnaam: tests/test_documentation_extraction_service.py
+      # Beschrijving: Regressietests voor app/documentation/extraction_service.py
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-22
       ```
     - 📄 **/tests/test_documentation_import_models.py**
       ```text
@@ -1492,6 +1527,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
       # Versie: 1.2.0
       # Datum: 2026-10-16
+      ```
+    - 📄 **/tests/test_report_dialog_scope_filters.py**
+      ```text
+      # Bestandsnaam: tests/test_report_dialog_scope_filters.py
+      # Beschrijving: Regressietests voor fase 12E (scope "Huidige filters",
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.1
+      # Datum: 2026-10-22
       ```
     - 📄 **/tests/test_report_pdf.py**
       ```text

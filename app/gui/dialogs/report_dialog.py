@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/dialogs/report_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.5.0
-Datum:      2026-10-16
+Versie:     1.6.1
+Datum:      2026-10-22
 Auteur:     Bart Bossuyt
 
 Doel:       Modale dialoog voor het maken en opslaan van meetrapporten.
@@ -34,6 +34,19 @@ Wijzigingen:
   v1.5.0 (2026-10-16)  Fase 11C: dialoog krijgt een venstericoon via
                         de centrale helper app/helpers/icon_paths.
                         Geen wijziging aan de rapportlogica.
+  v1.6.0 (2026-10-22)  Fase 12E: classmethod for_filters voor scope
+                        "Huidige filters" (§2.14). De dialoog roept
+                        ReportService.build_bundle_from_filters aan
+                        in plaats van build_bundle_for_measurements.
+                        Grafiek-checkbox wordt uitgeschakeld (net als
+                        bij for_measurements). Bestaande flows voor
+                        enkelvoudig en for_measurements blijven
+                        ongewijzigd.
+  v1.6.1 (2026-10-22)  Fix 12E: kop_label voor _MODUS_FILTERS werd
+                        opgebouwd vóór _laad_bundle(), dus met 0
+                        metingen. _laad_bundle() werkt nu de kop bij
+                        zodra het aantal bekend is. Geen wijziging
+                        aan de andere modi.
 ================================================================================
 """
 
@@ -43,6 +56,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any, Mapping
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -73,6 +87,11 @@ from app.services.analysis_service import AnalysisService
 from app.services.report_service import ReportBundle, ReportService
 
 
+_MODUS_ENKEL = "single"
+_MODUS_MEERDERE_IDS = "multiple_ids"
+_MODUS_FILTERS = "filters"
+
+
 class ReportDialog(QDialog):
     """Modale dialoog die één of meerdere meetrapporten toont en kan opslaan."""
 
@@ -90,7 +109,9 @@ class ReportDialog(QDialog):
         scope: str = "",
     ) -> None:
         self._init_intern(
+            modus=_MODUS_ENKEL,
             measurement_ids=[int(measurement_id)],
+            filters=None,
             scope=scope or "",
             taal=taal,
             report_service=report_service,
@@ -119,7 +140,9 @@ class ReportDialog(QDialog):
             raise ValueError("measurement_ids moet een niet-lege lijst zijn.")
         dialog = cls.__new__(cls)
         dialog._init_intern(
+            modus=_MODUS_MEERDERE_IDS,
             measurement_ids=[int(mid) for mid in measurement_ids],
+            filters=None,
             scope=scope,
             taal=taal,
             report_service=report_service,
@@ -131,10 +154,60 @@ class ReportDialog(QDialog):
         )
         return dialog
 
+    @classmethod
+    def for_filters(
+        cls,
+        filters: Mapping[str, Any],
+        *,
+        scope: str = "",
+        taal: str = "nl_NL",
+        report_service: ReportService | None = None,
+        analysis_service: AnalysisService | None = None,
+        werkplaats: str = "",
+        auteur: str = "",
+        parent: QWidget | None = None,
+    ) -> "ReportDialog":
+        """Open de rapportdialoog voor alle metingen die aan ``filters``
+        voldoen (fase 12E, §2.14, scope "Huidige filters").
+
+        ``filters`` is dezelfde dict die HistoryScreen._active_filters()
+        en AnalysisScreen._active_filters() opbouwen. De ReportService
+        valideert de sleutels zelf via _ALLOWED_HISTORY_FILTERS.
+
+        De grafiek-checkbox wordt uitgeschakeld: een filter-scope kan
+        meerdere metingen bevatten, en de chart-helper ondersteunt
+        alleen één meting (zie report_chart.py).
+
+        Faalt met ValueError als ``filters`` geen mapping is, als de
+        service een lege selectie detecteert, of als de service meer
+        dan max_metingen (standaard 500) terugvindt.
+        """
+        if not isinstance(filters, Mapping):
+            raise ValueError("filters moet een Mapping zijn.")
+        filters_dict = dict(filters)
+
+        dialog = cls.__new__(cls)
+        dialog._init_intern(
+            modus=_MODUS_FILTERS,
+            measurement_ids=[],
+            filters=filters_dict,
+            scope=scope,
+            taal=taal,
+            report_service=report_service,
+            analysis_service=analysis_service,
+            werkplaats=werkplaats,
+            auteur=auteur,
+            grafiek_default=False,
+            parent=parent,
+        )
+        return dialog
+
     def _init_intern(
         self,
         *,
+        modus: str,
         measurement_ids: list[int],
+        filters: Mapping[str, Any] | None,
         scope: str,
         taal: str,
         report_service: ReportService | None,
@@ -146,9 +219,15 @@ class ReportDialog(QDialog):
     ) -> None:
         QDialog.__init__(self, parent)
 
+        self._modus = modus
         self.taal = taal
         self._measurement_ids: list[int] = list(measurement_ids)
-        self._measurement_id: int = self._measurement_ids[0]
+        self._filters: Mapping[str, Any] | None = (
+            dict(filters) if filters is not None else None
+        )
+        self._measurement_id: int = (
+            self._measurement_ids[0] if self._measurement_ids else 0
+        )
         self._scope = scope
         self._report_service = report_service or ReportService()
         self._analysis_service = analysis_service or AnalysisService()
@@ -178,21 +257,29 @@ class ReportDialog(QDialog):
     def _t(self, sleutel: str, **kwargs) -> str:
         return vertaal(sleutel, taal=self.taal, **kwargs)
 
+    def _kop_tekst(self) -> str:
+        if self._modus == _MODUS_ENKEL:
+            return self._t(
+                "report.meting_kop", measurement_id=self._measurement_id
+            )
+        if self._modus == _MODUS_MEERDERE_IDS:
+            return self._t(
+                "report.dialoog.meerdere_metingen_kop",
+                aantal=len(self._measurement_ids),
+            )
+        # _MODUS_FILTERS: aantal komt uit de bundle; kan pas na
+        # _laad_bundle() bepaald worden.
+        aantal = self._bundle.aantal_metingen if self._bundle else 0
+        return self._t(
+            "report.dialoog.meerdere_metingen_kop", aantal=aantal
+        )
+
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(14, 14, 14, 14)
         root.setSpacing(10)
 
-        if len(self._measurement_ids) == 1:
-            kop_tekst = self._t(
-                "report.meting_kop", measurement_id=self._measurement_id
-            )
-        else:
-            kop_tekst = self._t(
-                "report.dialoog.meerdere_metingen_kop",
-                aantal=len(self._measurement_ids),
-            )
-        self.kop_label = QLabel(kop_tekst)
+        self.kop_label = QLabel(self._kop_tekst())
         self.kop_label.setStyleSheet("font-size: 15px; font-weight: bold;")
         root.addWidget(self.kop_label)
 
@@ -236,7 +323,7 @@ class ReportDialog(QDialog):
 
     def _laad_bundle(self) -> None:
         try:
-            if len(self._measurement_ids) == 1:
+            if self._modus == _MODUS_ENKEL:
                 self._bundle = self._report_service.build_bundle(
                     self._measurement_id,
                     taal=self.taal,
@@ -244,9 +331,18 @@ class ReportDialog(QDialog):
                     auteur=self._auteur,
                     scope=self._scope,
                 )
-            else:
+            elif self._modus == _MODUS_MEERDERE_IDS:
                 self._bundle = self._report_service.build_bundle_for_measurements(
                     list(self._measurement_ids),
+                    taal=self.taal,
+                    werkplaats=self._werkplaats,
+                    auteur=self._auteur,
+                    scope=self._scope,
+                )
+            else:  # _MODUS_FILTERS
+                assert self._filters is not None
+                self._bundle = self._report_service.build_bundle_from_filters(
+                    self._filters,
                     taal=self.taal,
                     werkplaats=self._werkplaats,
                     auteur=self._auteur,
@@ -257,8 +353,14 @@ class ReportDialog(QDialog):
             self._bundle = None
             return
 
+        # v1.6.1: de kop voor _MODUS_FILTERS is pas bekend nadat de
+        # bundle geladen is. Werk het label bij vóór de rest van de
+        # logica, zodat de gebruiker meteen het juiste aantal ziet.
+        if self._modus == _MODUS_FILTERS:
+            self.kop_label.setText(self._kop_tekst())
+
         self._grafiek_beschikbaar = False
-        if len(self._measurement_ids) == 1:
+        if self._modus == _MODUS_ENKEL and self._bundle is not None:
             detail = self._bundle.detail
             measurement = detail.get("measurement")
             tool_key = str(getattr(measurement, "tool_key", "") or "")
@@ -267,13 +369,13 @@ class ReportDialog(QDialog):
         if not self._grafiek_beschikbaar:
             self.grafiek_checkbox.setEnabled(False)
             self.grafiek_checkbox.setChecked(False)
-            if len(self._measurement_ids) > 1:
+            if self._modus == _MODUS_ENKEL:
                 self.grafiek_hint.setText(
-                    self._t("report.dialoog.grafiek_meerdere_niet_beschikbaar")
+                    self._t("report.dialoog.grafiek_niet_beschikbaar")
                 )
             else:
                 self.grafiek_hint.setText(
-                    self._t("report.dialoog.grafiek_niet_beschikbaar")
+                    self._t("report.dialoog.grafiek_meerdere_niet_beschikbaar")
                 )
         else:
             self.grafiek_hint.setText("")
@@ -287,7 +389,7 @@ class ReportDialog(QDialog):
             return
 
         chart_map: dict[int, str] = {}
-        if self._chart_png_base64 is not None:
+        if self._chart_png_base64 is not None and self._modus == _MODUS_ENKEL:
             chart_map[self._measurement_id] = self._chart_png_base64
 
         try:
@@ -359,9 +461,12 @@ class ReportDialog(QDialog):
             pass
 
     def _default_bestandsnaam(self, extensie: str) -> str:
-        if len(self._measurement_ids) == 1:
+        if self._modus == _MODUS_ENKEL:
             return f"rapport_{self._measurement_id}.{extensie}"
-        return f"rapport_{len(self._measurement_ids)}metingen.{extensie}"
+        if self._modus == _MODUS_MEERDERE_IDS:
+            return f"rapport_{len(self._measurement_ids)}metingen.{extensie}"
+        aantal = self._bundle.aantal_metingen if self._bundle else 0
+        return f"rapport_{aantal}metingen.{extensie}"
 
     def _opslaan_html(self) -> None:
         if not self._html:
@@ -432,7 +537,7 @@ class ReportDialog(QDialog):
             self._t("report.dialoog.titel"),
             bericht,
         )
-        
+
     def _zet_eigen_icoon(self) -> None:
         try:
             from app.helpers.icon_paths import zet_venster_icoon
