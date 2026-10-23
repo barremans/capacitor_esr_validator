@@ -17,6 +17,115 @@ Opmerking over de versienummering:
 - Voor de actuele versie: zie `app/version.py` of Help → Over.
 -->
 
+### Fase §2.28 — Export/import tussen toestellen (23 oktober 2026)
+
+**Waarom deze wijziging**
+
+De app bewaart metingen lokaal op één toestel. Wie op een tweede pc
+verder wil werken, moest de database handmatig kopiëren — met alle
+risico's van dien. §2.28 voegt een expliciet uitwisselformaat toe:
+een JSON-envelope met meetketens, waarmee je metingen selectief kunt
+exporteren en op een ander toestel importeren, zonder de bestaande
+historiek te overschrijven.
+
+**Oplossing: zes sub-fases**
+
+- **28A — Formaat + modellen.** Nieuwe bindende spec
+  `docs/export_import_format.md` (v1.0.0). Nieuwe modellen in
+  `app/services/exchange/models.py` (v1.0.0): `ExportEnvelope`,
+  `ExportedMeasurementChain`, `ImportPlan`, `ImportConflict`,
+  `ImportDecision`, `ImportResult`. JSON-envelope (geen SQLite-dump),
+  UTF-8 zonder BOM, pretty-printed, `format_version="1.0"`. Natuurlijke
+  sleutel = SHA-256 over een canonieke JSON van de keten (§6 spec).
+  34 tests.
+- **28B — Export-service.** `app/services/exchange/export_service.py`
+  (v1.0.1) met `export_measurements`, `export_filters`, `write_envelope`,
+  `bereken_natural_key`, `verkrijg_machine_id` en (sinds 28F)
+  `read_envelope`. Machine-ID als UUID4 in `settings.json`
+  (`algemeen.machine_id`). 15 tests.
+- **28C — Import-planner.** `app/services/exchange/import_planner.py`
+  (v1.0.0) met `ImportPlanner.plan(envelope) -> ImportPlan`. Detecteert
+  duplicates op herkomst (`source_machine_id` + `source_measurement_id`)
+  en op natural_key. Herberekent de natural_key en weigert een
+  mismatch. `HerkomstRepositoryProtocol` voor de optionele
+  herkomst-detectie. 11 tests.
+- **28E — Schema-migratie v2 → v3.** `app/storage/schema.py`,
+  `migrations.py`, `models.py`, `service.py` (alle v1.2.0). Twee nieuwe
+  kolommen op `measurements`: `source_machine_id TEXT` en
+  `source_measurement_id INTEGER` (beide nullable). Nieuwe index
+  `ix_measurements_source_identity`. Validatie: "beide of geen van
+  beide". Bestaande metingen krijgen `NULL`. 16 tests.
+- **28D — Import-service.** `app/services/exchange/import_service.py`
+  (v1.0.0) met `ImportService.apply_plan(plan, on_conflict="conflict_copy")`.
+  Schrijft per keten via `StorageService.save_new_measurement_chain`,
+  met race-check vóór elke write. `on_conflict="skip"` of
+  `"conflict_copy"`. Per-keten rollback: een fout in één keten
+  blokkeert de rest niet. 16 tests.
+- **28F — GUI-koppeling.** Nieuwe `app/gui/dialogs/exchange_dialog.py`
+  (v1.0.1) met twee tabbladen (Exporteren / Importeren) en een
+  conflict-tabel. Twee nieuwe menu-items in `app/gui/main_window.py`
+  (v2.23.0): "Exporteren naar toestel…" (Ctrl+Shift+E) en "Importeren
+  van toestel…" (Ctrl+Shift+I). Nieuwe `exchange.json` in NL en EN.
+  Nieuwe categorie `"exchange"` in `dialog_start_directory.py`
+  (v1.0.1). Nieuwe `laatste_exchangemap` in `settings.py` (v1.8.2).
+  16 tests.
+
+**Belangrijke ontwerpbeslissingen**
+
+- **JSON-envelope, geen SQLite-dump.** Mensleesbaar, versieerbaar, werkt
+  over schemaversies heen, en sluit aan bij het bestaande patroon van
+  `snapshot_json`.
+- **Herkomst-tracking via schema-migratie v3.** Twee nullable kolommen
+  op `measurements`, gevuld bij import, `NULL` voor lokaal aangemaakte
+  metingen.
+- **Natural key = inhoud, niet `source_measurement_id`.** Twee ketens
+  met dezelfde inhoud geven dezelfde sleutel, ook op verschillende
+  toestellen (spec §6). Daardoor is een duplicate-detectie inhoudelijk
+  betrouwbaar.
+- **Conflict-copy als standaard bij een conflict.** Nooit stil
+  overslaan zonder dat de gebruiker het ziet; de GUI (28F) biedt per
+  rij een checkbox "als kopie" aan.
+- **Race-check vóór elke write.** Twee imports tegelijk of een
+  tussentijdse nieuwe meting worden correct afgehandeld.
+- **Per-keten transacties.** Een fout in één keten blokkeert de rest
+  van de import niet; `ImportResult.errors` rapporteert per keten.
+
+**Voor ontwikkelaars**
+
+- **Nieuw:** `app/services/exchange/__init__.py` (v1.0.4),
+  `models.py` (v1.0.0), `export_service.py` (v1.0.1),
+  `import_planner.py` (v1.0.0), `import_service.py` (v1.0.0).
+- **Nieuw:** `app/gui/dialogs/exchange_dialog.py` (v1.0.1).
+- **Nieuw:** `docs/export_import_format.md` (v1.0.0).
+- **Nieuw:** `i18n/locales/nl_NL/exchange.json` en
+  `i18n/locales/en_US/exchange.json`.
+- **Gewijzigd:** `app/storage/schema.py` (v1.1.0 → v1.2.0),
+  `migrations.py` (v1.1.0 → v1.2.0), `models.py` (v1.1.0 → v1.2.0),
+  `service.py` (v1.1.0 → v1.2.0).
+- **Gewijzigd:** `app/gui/main_window.py` (v2.22.2 → v2.23.0) — twee
+  menu-items + `_open_exchange_dialog`. **Bugfix:** `_show_import_wizard`
+  had een typfout `self._zet_dialoog_icono(...)` in plaats van
+  `self._zet_dialoog_icoon(...)`. Latente bug die bij het openen van de
+  import-wizard een `AttributeError` gaf.
+- **Gewijzigd:** `app/helpers/dialog_start_directory.py`
+  (v1.0.0 → v1.0.1) — categorie `"exchange"`.
+- **Gewijzigd:** `app/config/settings.py` (v1.8.1 → v1.8.2) —
+  `laatste_exchangemap`.
+- **Gewijzigd:** `app/version.py` (v1.1.0 → v1.2.0) — `__version__ =
+  "1.3.0"`.
+- **Nieuwe tests:** `tests/test_exchange_models.py` (v1.0.1, 34),
+  `tests/test_exchange_export_service.py` (v1.0.3, 15),
+  `tests/test_exchange_import_planner.py` (v1.0.2, 11),
+  `tests/test_exchange_import_service.py` (v1.0.1, 16),
+  `tests/test_exchange_dialog.py` (v1.0.1, 11),
+  `tests/test_main_window_exchange_menu.py` (v1.0.0, 5).
+- **Uitgebreid:** `tests/test_storage_schema.py` (v1.1.0 → v1.2.0),
+  `tests/test_storage_migrations.py` (v1.0.0 → v1.1.0),
+  `tests/test_storage_service.py` (v1.0.0 → v1.1.0),
+  `tests/test_storage_multitool_v2.py` (v1.0.0 → v1.0.1).
+- **Nieuwe i18n-keys:** het volledige `exchange.*`-blok in beide talen.
+- **Baseline:** 1598 → **1700 passed** (+102 tests over 28A t/m 28F).
+
 ### Fase 11I — Build en cosmetica (22 oktober 2026)
 
 **Waarom deze wijziging**

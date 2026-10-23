@@ -1,0 +1,54 @@
+{
+  "_comment": "English translation — module exchange (phase 28F).",
+  "exchange": {
+    "titel": "Exchange between devices",
+    "tab": {
+      "exporteren": "Export",
+      "importeren": "Import"
+    },
+    "menu": {
+      "exporteren": "Export to device…",
+      "importeren": "Import from device…"
+    },
+    "export": {
+      "uitleg": "Export the selected measurements or the current filters to a .esrexchange.json file. That file can be imported on another device.",
+      "scope_label": "What to export?",
+      "scope_selectie": "Current selection",
+      "scope_filters": "Current filters",
+      "aantal_label": "Count",
+      "aantal_selectie": "{aantal} measurement(s) in the selection.",
+      "aantal_filters": "Count is determined at export time.",
+      "knop": "Export…",
+      "dialoog_titel": "Save export file",
+      "bestandsfilter": "Exchange files (*.esrexchange.json)",
+      "geen_selectie": "Select one or more measurements in the history first.",
+      "geslaagd": "{aantal} measurement(s) exported to {pad}.",
+      "fout": "Export failed: {bericht}"
+    },
+    "import": {
+      "uitleg": "Choose a .esrexchange.json file. The app shows per chain whether it is new or already exists. For an existing chain you can choose to import it as a copy.",
+      "kies_knop": "Choose file…",
+      "geen_bestand": "No file chosen yet.",
+      "bestand_gekozen": "{aantal} chain(s) in {pad}.",
+      "dialoog_titel": "Choose export file",
+      "bestandsfilter": "Exchange files (*.esrexchange.json)",
+      "kolom": {
+        "index": "#",
+        "source_id": "Source ID",
+        "machine": "Machine",
+        "beslissing": "Decision",
+        "als_kopie": "As copy"
+      },
+      "toepassen_knop": "Import",
+      "decision": {
+        "nieuw": "New",
+        "duplicate": "Duplicate (skip)",
+        "kopie": "As copy",
+        "keuze": "Needs choice",
+        "onbekend": "Unknown"
+      },
+      "klaar": "{geimporteerd} imported, {kopie} as copy, {overgeslagen} skipped, {fouten} error(s).",
+      "fout": "Import failed: {bericht}"
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "_comment": "Brontaal Nederlands — module exchange (fase 28F).",
+  "exchange": {
+    "titel": "Uitwisselen tussen toestellen",
+    "tab": {
+      "exporteren": "Exporteren",
+      "importeren": "Importeren"
+    },
+    "menu": {
+      "exporteren": "Exporteren naar toestel…",
+      "importeren": "Importeren van toestel…"
+    },
+    "export": {
+      "uitleg": "Exporteer de geselecteerde metingen of de huidige filters naar een .esrexchange.json-bestand. Dat bestand kan op een ander toestel worden geïmporteerd.",
+      "scope_label": "Wat exporteren?",
+      "scope_selectie": "Huidige selectie",
+      "scope_filters": "Huidige filters",
+      "aantal_label": "Aantal",
+      "aantal_selectie": "{aantal} meting(en) in de selectie.",
+      "aantal_filters": "Aantal metingen wordt bepaald bij export.",
+      "knop": "Exporteren…",
+      "dialoog_titel": "Exportbestand opslaan",
+      "bestandsfilter": "Uitwisselbestanden (*.esrexchange.json)",
+      "geen_selectie": "Selecteer eerst één of meer metingen in de historiek.",
+      "geslaagd": "{aantal} meting(en) geëxporteerd naar {pad}.",
+      "fout": "Export mislukt: {bericht}"
+    },
+    "import": {
+      "uitleg": "Kies een .esrexchange.json-bestand. De app toont per keten of die nieuw is of al bestaat. Bij een bestaande keten kun je kiezen om die als kopie te importeren.",
+      "kies_knop": "Bestand kiezen…",
+      "geen_bestand": "Nog geen bestand gekozen.",
+      "bestand_gekozen": "{aantal} keten(s) in {pad}.",
+      "dialoog_titel": "Exportbestand kiezen",
+      "bestandsfilter": "Uitwisselbestanden (*.esrexchange.json)",
+      "kolom": {
+        "index": "#",
+        "source_id": "Bron-ID",
+        "machine": "Machine",
+        "beslissing": "Beslissing",
+        "als_kopie": "Als kopie"
+      },
+      "toepassen_knop": "Importeren",
+      "decision": {
+        "nieuw": "Nieuw",
+        "duplicate": "Duplicate (overslaan)",
+        "kopie": "Als kopie",
+        "keuze": "Keuze nodig",
+        "onbekend": "Onbekend"
+      },
+      "klaar": "{geimporteerd} geïmporteerd, {kopie} als kopie, {overgeslagen} overgeslagen, {fouten} fout(en).",
+      "fout": "Import mislukt: {bericht}"
+    }
+  }
+}

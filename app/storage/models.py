@@ -2,12 +2,12 @@
 ================================================================================
 Module:     app/storage/models.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-01
+Versie:     1.2.0
+Datum:      2026-10-23
 Auteur:     Bart Bossuyt
 
 Doel:       Immutable Python-modellen voor de zeven storage-entiteiten van
-            SQLite schema v1 en de expliciet goedgekeurde enumwaarden.
+            SQLite schema v1/v2/v3 en de expliciet goedgekeurde enumwaarden.
 
             De modellen bevatten uitsluitend persistente data. Ze voeren geen
             ESR-beoordeling, referentieselectie of verborgen meetcorrecties uit.
@@ -19,6 +19,12 @@ Wijzigingen:
                         assessment_snapshots en reference_snapshots.
   v1.1.0 (2026-10-01)  Measurement uitgebreid met tool_key voor centrale
                         multitool-historiek vanaf schema v2.
+  v1.2.0 (2026-10-23)  Fase 28E: Measurement uitgebreid met
+                        source_machine_id en source_measurement_id
+                        (nullable) voor herkomst-tracking van import
+                        tussen toestellen. Aan het einde toegevoegd,
+                        met default None, zodat bestaande constructors
+                        blijven werken.
 ================================================================================
 """
 
@@ -117,7 +123,14 @@ class MeasurementSession:
 
 @dataclass(frozen=True, slots=True)
 class Measurement:
-    """Ruwe meetdata en meetcontext van één meetrun."""
+    """Ruwe meetdata en meetcontext van één meetrun.
+
+    ``source_machine_id`` en ``source_measurement_id`` zijn samen de
+    herkomst van een geïmporteerde meting (§2.28). Beide zijn ``None``
+    voor metingen die op dit toestel zelf zijn aangemaakt. De
+    StorageService dwingt af dat ze ofwel beide gevuld zijn, ofwel
+    beide leeg.
+    """
 
     id: int
     measurement_session_id: int
@@ -151,6 +164,8 @@ class Measurement:
     invalid_reason: str | None
     created_at_ms: int
     tool_key: str
+    source_machine_id: str | None = None
+    source_measurement_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

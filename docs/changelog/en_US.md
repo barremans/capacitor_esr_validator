@@ -16,6 +16,110 @@ Note on version numbering:
 - For the current version: see `app/version.py` or Help → About.
 -->
 
+### Phase §2.28 — Export/import between devices (23 October 2026)
+
+**Motivation**
+
+The app stores measurements locally on one device. Anyone who wants to
+continue on a second PC had to copy the database by hand — with all the
+risks that entails. §2.28 adds an explicit exchange format: a JSON
+envelope of measurement chains, so you can selectively export and import
+measurements on another device without overwriting the existing history.
+
+**Solution: six sub-phases**
+
+- **28A — Format + models.** New binding spec
+  `docs/export_import_format.md` (v1.0.0). New models in
+  `app/services/exchange/models.py` (v1.0.0): `ExportEnvelope`,
+  `ExportedMeasurementChain`, `ImportPlan`, `ImportConflict`,
+  `ImportDecision`, `ImportResult`. JSON envelope (not SQLite dump),
+  UTF-8 without BOM, pretty-printed, `format_version="1.0"`. Natural
+  key = SHA-256 over a canonical JSON of the chain (§6 spec). 34 tests.
+- **28B — Export service.** `app/services/exchange/export_service.py`
+  (v1.0.1) with `export_measurements`, `export_filters`,
+  `write_envelope`, `bereken_natural_key`, `verkrijg_machine_id` and
+  (since 28F) `read_envelope`. Machine ID as UUID4 in `settings.json`
+  (`algemeen.machine_id`). 15 tests.
+- **28C — Import planner.** `app/services/exchange/import_planner.py`
+  (v1.0.0) with `ImportPlanner.plan(envelope) -> ImportPlan`. Detects
+  duplicates by origin (`source_machine_id` + `source_measurement_id`)
+  and by natural key. Recomputes the natural key and rejects a mismatch.
+  `HerkomstRepositoryProtocol` for optional origin detection. 11 tests.
+- **28E — Schema migration v2 → v3.** `app/storage/schema.py`,
+  `migrations.py`, `models.py`, `service.py` (all v1.2.0). Two new
+  columns on `measurements`: `source_machine_id TEXT` and
+  `source_measurement_id INTEGER` (both nullable). New index
+  `ix_measurements_source_identity`. Validation: "both or neither".
+  Existing measurements get `NULL`. 16 tests.
+- **28D — Import service.** `app/services/exchange/import_service.py`
+  (v1.0.0) with `ImportService.apply_plan(plan, on_conflict="conflict_copy")`.
+  Writes per chain via `StorageService.save_new_measurement_chain`,
+  with a race check before each write. `on_conflict="skip"` or
+  `"conflict_copy"`. Per-chain rollback: a failure in one chain does not
+  block the rest. 16 tests.
+- **28F — GUI integration.** New `app/gui/dialogs/exchange_dialog.py`
+  (v1.0.1) with two tabs (Export / Import) and a conflict table. Two new
+  menu items in `app/gui/main_window.py` (v2.23.0): "Export to device…"
+  (Ctrl+Shift+E) and "Import from device…" (Ctrl+Shift+I). New
+  `exchange.json` in NL and EN. New category `"exchange"` in
+  `dialog_start_directory.py` (v1.0.1). New `laatste_exchangemap` in
+  `settings.py` (v1.8.2). 16 tests.
+
+**Important design decisions**
+
+- **JSON envelope, not SQLite dump.** Human-readable, versionable,
+  works across schema versions, and matches the existing `snapshot_json`
+  pattern.
+- **Origin tracking via schema migration v3.** Two nullable columns on
+  `measurements`, filled at import, `NULL` for locally created
+  measurements.
+- **Natural key = content, not `source_measurement_id`.** Two chains
+  with the same content produce the same key, also on different devices
+  (spec §6). That makes duplicate detection content-reliable.
+- **Conflict copy is the default on a conflict.** Never silently skip
+  without the user seeing it; the GUI (28F) offers a per-row "as copy"
+  checkbox.
+- **Race check before each write.** Two simultaneous imports or an
+  intervening new measurement are handled correctly.
+- **Per-chain transactions.** A failure in one chain does not block the
+  rest of the import; `ImportResult.errors` reports per chain.
+
+**For developers**
+
+- **New:** `app/services/exchange/__init__.py` (v1.0.4),
+  `models.py` (v1.0.0), `export_service.py` (v1.0.1),
+  `import_planner.py` (v1.0.0), `import_service.py` (v1.0.0).
+- **New:** `app/gui/dialogs/exchange_dialog.py` (v1.0.1).
+- **New:** `docs/export_import_format.md` (v1.0.0).
+- **New:** `i18n/locales/nl_NL/exchange.json` and
+  `i18n/locales/en_US/exchange.json`.
+- **Changed:** `app/storage/schema.py` (v1.1.0 → v1.2.0),
+  `migrations.py` (v1.1.0 → v1.2.0), `models.py` (v1.1.0 → v1.2.0),
+  `service.py` (v1.1.0 → v1.2.0).
+- **Changed:** `app/gui/main_window.py` (v2.22.2 → v2.23.0) — two new
+  menu items + `_open_exchange_dialog`. **Bugfix:** `_show_import_wizard`
+  had a typo `self._zet_dialoog_icono(...)` instead of
+  `self._zet_dialoog_icoon(...)`. Latent bug that raised an
+  `AttributeError` when opening the import wizard.
+- **Changed:** `app/helpers/dialog_start_directory.py`
+  (v1.0.0 → v1.0.1) — category `"exchange"`.
+- **Changed:** `app/config/settings.py` (v1.8.1 → v1.8.2) —
+  `laatste_exchangemap`.
+- **Changed:** `app/version.py` (v1.1.0 → v1.2.0) — `__version__ =
+  "1.3.0"`.
+- **New tests:** `tests/test_exchange_models.py` (v1.0.1, 34),
+  `tests/test_exchange_export_service.py` (v1.0.3, 15),
+  `tests/test_exchange_import_planner.py` (v1.0.2, 11),
+  `tests/test_exchange_import_service.py` (v1.0.1, 16),
+  `tests/test_exchange_dialog.py` (v1.0.1, 11),
+  `tests/test_main_window_exchange_menu.py` (v1.0.0, 5).
+- **Extended:** `tests/test_storage_schema.py` (v1.1.0 → v1.2.0),
+  `tests/test_storage_migrations.py` (v1.0.0 → v1.1.0),
+  `tests/test_storage_service.py` (v1.0.0 → v1.1.0),
+  `tests/test_storage_multitool_v2.py` (v1.0.0 → v1.0.1).
+- **New i18n keys:** the full `exchange.*` block in both languages.
+- **Baseline:** 1598 → **1700 passed** (+102 tests across 28A through 28F).
+
 ### Phase 11I — Build and cosmetics (22 October 2026)
 
 **Motivation**

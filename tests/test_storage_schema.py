@@ -2,11 +2,11 @@
 ================================================================================
 Module:     tests/test_storage_schema.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-01
+Versie:     1.2.0
+Datum:      2026-10-23
 Auteur:     Bart Bossuyt
 
-Doel:       Gerichte regressietests voor storage models en SQLite schema v1.
+Doel:       Gerichte regressietests voor storage models en SQLite schema.
 
             Bewijst de zeven hoofdtabellen, schema_meta-singleton,
             schema-versie/timestamps, indexes, RESTRICT-relaties,
@@ -15,6 +15,10 @@ Doel:       Gerichte regressietests voor storage models en SQLite schema v1.
 
 Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste tests voor models.py en schema.py.
+  v1.1.0 (2026-10-01)  Schema v2: tool_key.
+  v1.2.0 (2026-10-23)  Fase 28E: schema v3. Nieuwe tests voor
+                        source_machine_id, source_measurement_id en
+                        ix_measurements_source_identity.
 ================================================================================
 """
 
@@ -64,8 +68,8 @@ def _column_names(
     return tuple(row[1] for row in rows)
 
 
-def test_current_schema_version_is_two() -> None:
-    assert CURRENT_SCHEMA_VERSION == 2
+def test_current_schema_version_is_three() -> None:
+    assert CURRENT_SCHEMA_VERSION == 3
 
 
 def test_schema_v1_creates_exact_main_tables() -> None:
@@ -377,4 +381,87 @@ def test_current_schema_adds_tool_key_and_index() -> None:
     assert "tool_key" in columns
     assert "ix_measurements_tool_key" in indexes
     assert indexes == set(SCHEMA_CURRENT_INDEXES)
-    assert connection.execute("SELECT schema_version FROM schema_meta").fetchone()[0] == 2
+    assert connection.execute("SELECT schema_version FROM schema_meta").fetchone()[0] == 3
+
+
+def test_current_schema_adds_source_identity_columns_and_index() -> None:
+    connection = _open_memory_database()
+    create_schema_current(connection, created_at_ms=TEST_NOW_MS)
+
+    columns = set(_column_names(connection, "measurements"))
+    indexes = {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='index' AND name NOT LIKE 'sqlite_%'"
+        )
+    }
+
+    assert "source_machine_id" in columns
+    assert "source_measurement_id" in columns
+    assert "ix_measurements_source_identity" in indexes
+    assert connection.execute(
+        "SELECT schema_version FROM schema_meta"
+    ).fetchone()[0] == 3
+
+
+def test_current_schema_source_identity_columns_are_nullable() -> None:
+    connection = _open_memory_database()
+    create_schema_current(connection, created_at_ms=TEST_NOW_MS)
+
+    rows = connection.execute(
+        "PRAGMA table_info(measurements)"
+    ).fetchall()
+    kolommen = {row[1]: row for row in rows}
+
+    # PRAGMA table_info: index 3 = notnull, index 4 = default value
+    assert kolommen["source_machine_id"][3] == 0  # nullable
+    assert kolommen["source_measurement_id"][3] == 0  # nullable
+
+
+def test_measurement_model_has_source_identity_fields_with_none_default() -> None:
+    field_names = [field.name for field in fields(Measurement)]
+    assert field_names[-2:] == [
+        "source_machine_id",
+        "source_measurement_id",
+    ]
+
+
+def test_measurement_can_be_constructed_without_source_identity() -> None:
+    """Backward-compat: bestaande constructors zonder herkomst blijven werken."""
+    measurement = Measurement(
+        id=1,
+        measurement_session_id=1,
+        measured_at_ms=0,
+        measurement_method=MeasurementMethod.EX_SITU,
+        instrument_key=None,
+        instrument_name=None,
+        instrument_profile_version=None,
+        frequency_hz=None,
+        test_voltage_vrms=None,
+        temperature_c=None,
+        power_off_confirmed=None,
+        discharged_confirmed=None,
+        residual_voltage_before_v=None,
+        residual_voltage_after_v=None,
+        capacitance_f=None,
+        esr_ohm=None,
+        dissipation_factor_d=None,
+        quality_factor_q=None,
+        impedance_z_ohm=None,
+        reactance_x_ohm=None,
+        out_of_range=False,
+        open_suspected=False,
+        short_suspected=False,
+        unstable_reading=False,
+        parallel_components_notes=None,
+        mechanical_condition_notes=None,
+        notes=None,
+        record_status=None,
+        supersedes_measurement_id=None,
+        invalid_reason=None,
+        created_at_ms=0,
+        tool_key="ESR_CAPACITOR",
+    )
+    assert measurement.source_machine_id is None
+    assert measurement.source_measurement_id is None

@@ -2,11 +2,11 @@
 ================================================================================
 Module:     tests/test_storage_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-01
+Versie:     1.1.0
+Datum:      2026-10-23
 Auteur:     Bart Bossuyt
 
-Doel:       Gerichte regressietests voor StorageService v1.
+Doel:       Gerichte regressietests voor StorageService.
 
             Bewijst create/read voor de zeven hoofdtabellen, structurele
             validatie, raw-meetdata roundtrip, transactionele volledige save,
@@ -15,6 +15,9 @@ Doel:       Gerichte regressietests voor StorageService v1.
 
 Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste StorageService-tests.
+  v1.1.0 (2026-10-23)  Fase 28E: drie nieuwe tests voor
+                        source_machine_id / source_measurement_id
+                        (roundtrip, "beide of geen", en validatie).
 ================================================================================
 """
 
@@ -225,7 +228,6 @@ def test_missing_parent_record_raises_related_record_error(service: StorageServi
             component_model_id=999999,
             sample_state="NEW",
         )
-
 
 def test_save_new_measurement_chain_commits_all_records(service: StorageService) -> None:
     result = service.save_new_measurement_chain(
@@ -449,3 +451,89 @@ def test_public_service_exposes_no_measurement_update_or_delete_api() -> None:
     assert not hasattr(StorageService, "delete_session")
     assert not hasattr(StorageService, "delete_sample")
     assert not hasattr(StorageService, "delete_model")
+
+
+# ---------------------------------------------------------------- 28E: herkomst
+
+def test_create_measurement_with_source_identity_roundtrips(
+    service: StorageService,
+) -> None:
+    model = service.create_component_model(manufacturer="Imported")
+    sample = service.create_component_sample(
+        component_model_id=model.id,
+        sample_state="NEW",
+    )
+    session = service.create_measurement_session(
+        component_sample_id=sample.id,
+        started_at_ms=NOW,
+    )
+    measurement = service.create_measurement(
+        measurement_session_id=session.id,
+        measured_at_ms=NOW + 1,
+        measurement_method="EX_SITU",
+        source_machine_id="machine-a",
+        source_measurement_id=42,
+    )
+
+    stored = service.get_measurement(measurement.id)
+    assert stored.source_machine_id == "machine-a"
+    assert stored.source_measurement_id == 42
+
+
+def test_create_measurement_rejects_source_machine_without_measurement(
+    service: StorageService,
+) -> None:
+    model = service.create_component_model()
+    sample = service.create_component_sample(
+        component_model_id=model.id,
+        sample_state="NEW",
+    )
+    session = service.create_measurement_session(
+        component_sample_id=sample.id,
+        started_at_ms=NOW,
+    )
+
+    with pytest.raises(StorageValidationError):
+        service.create_measurement(
+            measurement_session_id=session.id,
+            measured_at_ms=NOW + 1,
+            measurement_method="EX_SITU",
+            source_machine_id="machine-a",
+            source_measurement_id=None,
+        )
+
+    with pytest.raises(StorageValidationError):
+        service.create_measurement(
+            measurement_session_id=session.id,
+            measured_at_ms=NOW + 1,
+            measurement_method="EX_SITU",
+            source_machine_id=None,
+            source_measurement_id=42,
+        )
+
+
+def test_list_measurements_includes_source_identity(
+    service: StorageService,
+) -> None:
+    _create_basic_chain(service)
+    model = service.create_component_model(manufacturer="Imported")
+    sample = service.create_component_sample(
+        component_model_id=model.id,
+        sample_state="NEW",
+    )
+    session = service.create_measurement_session(
+        component_sample_id=sample.id,
+        started_at_ms=NOW + 200,
+    )
+    service.create_measurement(
+        measurement_session_id=session.id,
+        measured_at_ms=NOW + 201,
+        measurement_method="EX_SITU",
+        source_machine_id="machine-b",
+        source_measurement_id=7,
+    )
+
+    rows = service.list_measurements()
+    geimporteerd = [r for r in rows if r["measurement"].source_machine_id == "machine-b"]
+    assert len(geimporteerd) == 1
+    assert geimporteerd[0]["measurement"].source_measurement_id == 7

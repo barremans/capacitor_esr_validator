@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/storage/migrations.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-01
+Versie:     1.2.0
+Datum:      2026-10-23
 Auteur:     Bart Bossuyt
 
 Doel:       Transactioneel en sequentieel migratieframework voor de lokale
@@ -13,20 +13,30 @@ Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste migratieframework.
   v1.1.0 (2026-10-01)  Migratie v1 -> v2 toegevoegd: bestaande measurements
                         krijgen tool_key='ESR_CAPACITOR' en tool-index.
+  v1.2.0 (2026-10-23)  Fase 28E: migratie v2 -> v3 toegevoegd:
+                        herkomst-kolommen source_machine_id en
+                        source_measurement_id op measurements, plus
+                        index ix_measurements_source_identity.
 ================================================================================
 """
 from __future__ import annotations
 from collections.abc import Callable, Mapping
 import sqlite3
 from .exceptions import InvalidDatabaseSchemaError, MigrationError, UnsupportedSchemaVersionError
-from .schema import CURRENT_SCHEMA_VERSION, apply_schema_v2_structure
+from .schema import CURRENT_SCHEMA_VERSION, apply_schema_v2_structure, apply_schema_v3_structure
 
 MigrationStep = Callable[[sqlite3.Connection], None]
 
 def _migrate_v1_to_v2(connection: sqlite3.Connection) -> None:
     apply_schema_v2_structure(connection)
 
-MIGRATIONS: dict[int, MigrationStep] = {2: _migrate_v1_to_v2}
+def _migrate_v2_to_v3(connection: sqlite3.Connection) -> None:
+    apply_schema_v3_structure(connection)
+
+MIGRATIONS: dict[int, MigrationStep] = {
+    2: _migrate_v1_to_v2,
+    3: _migrate_v2_to_v3,
+}
 
 def read_schema_version(connection: sqlite3.Connection) -> int:
     table_exists = connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", ("schema_meta",)).fetchone()

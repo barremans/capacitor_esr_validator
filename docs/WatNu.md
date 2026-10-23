@@ -1,7 +1,7 @@
 # Wat nu? — Electronics Diagnostic Tool Hub
 
-**Versie:** 2.3.0
-**Datum:** 2026-10-22
+**Versie:** 2.4.0
+**Datum:** 2026-10-23
 **Auteur:** Bart Bossuyt
 **Doel:** beknopte gids voor "wat is de volgende stap" na een
 afgeronde fase. Geen volledige overdracht — die staat in
@@ -11,11 +11,13 @@ afgeronde fase. Geen volledige overdracht — die staat in
 
 ## Huidige staat
 
-- **Baseline tests:** 1548 passed.
-- **Huidige versie:** `1.2.3`.
-- **Laatste afgeronde fase:** 11I.5 — afronding fase 11I. Daarmee is
-  **11I volledig afgerond** (11I.1 t/m 11I.5).
-- **Volgende fase:** 12 — AI-extractie uit fabrikantdocumenten.
+- **Baseline tests:** 1700 passed.
+- **Huidige versie:** `1.3.0`.
+- **Database-schema:** v3 (herkomst-kolommen sinds §2.28).
+- **Laatste afgeronde fase:** §2.28 — export/import tussen toestellen
+  (zes sub-fases: 28A, 28B, 28C, 28E, 28D, 28F; +102 tests).
+- **Volgende fase:** 12B — AI-model-keuze en API-koppeling
+  (**op hold**, wacht op provider/model-keuze).
 
 Dit bestand wordt bijgewerkt na elke fase.
 
@@ -45,8 +47,7 @@ Dit bestand wordt bijgewerkt na elke fase.
 3. Fix de bug.
 4. Draai de test — die moet slagen.
 5. Draai de volledige suite.
-6. Noteer de fix in de header van het gewijzigde bestand
-   (cumulatieve wijzigingshistoriek).
+6. Noteer de fix in de header van het gewijzigde bestand.
 
 ### Als je een nieuwe functie wilt toevoegen
 
@@ -56,6 +57,7 @@ Dit bestand wordt bijgewerkt na elke fase.
    - Helper: `app/helpers/`
    - Storage: `app/storage/`
    - Documentatie: `app/documentation/`
+   - Exchange: `app/services/exchange/`
 2. Voeg nooit logica toe aan een laag die er niet voor bedoeld is.
 3. Voeg een **pure** test toe waar mogelijk (geen Qt).
 4. Voeg een **GUI**-test toe waar nodig (offscreen, geen `qtbot`).
@@ -73,44 +75,31 @@ Dit bestand wordt bijgewerkt na elke fase.
 - **Meld nieuwe i18n-keys expliciet**, met NL én EN.
 - **Python-headers zijn cumulatief.**
 - **Geen `qtbot`** — er is geen `pytest-qt`.
-- **`conftest.py` is een geaccepteerd onderdeel van de suite.** Houd
-  hem minimaal: alleen `QT_QPA_PLATFORM=offscreen` en de
-  autouse-opruimfixture. Geen projectimports.
+- **`conftest.py` is een geaccepteerd onderdeel van de suite.**
 - **Verwerk `deleteLater()` in GUI-tests** met
   `QApplication.processEvents()`.
 - **De taalparameter van `ToolHubWindow` heeft voorrang op
-  `settings.json`.** Hetzelfde geldt sinds 11H.3 voor de
-  `theme`-parameter.
+  `settings.json`.** Idem voor `theme`.
 - **`setStyleSheet` op het venster, niet op de `QApplication`.**
-  Enige uitzondering: `apply_theme(app, thema)` in `main.py` bij
-  opstart, voor dialogen zonder parent.
 - **Thema doorgeven aan schermen** met een keyword-only
-  `theme`-parameter en een `apply_theme(theme)`-methode, zoals in
-  `AnalysisScreen` (sinds 11H.4) en `HistoryScreen` (sinds 11H.5).
+  `theme`-parameter en een `apply_theme(theme)`-methode.
 - **Voor leesbare PDF's:** `QT_QPA_FONTDIR` wordt sinds 9A automatisch
   gezet in `main.py`.
-- **De ArticleSearch-flow is de bewezen build-flow.** Wijk daar niet
-  meer van af.
-- **Publiceren naar GitHub** gaat via `.\publish.ps1` vanuit de
-  repo-root. De release-gate weigert ongesigneerde installers.
-- **`QChart.zoomReset()` herstelt de range die actief was op het
-  moment van de reset, niet de oorspronkelijke.** Bewaar de originele
-  range per as en herstel die expliciet.
-- **De `export_scope_combo` in `analysis_screen.py` stuurt zowel de
-  grafiek als de export aan.** De attribuutnaam is ongewijzigd
-  gebleven voor backward-compat.
-- **Gebruik `_sluit_app()` voor expliciet afsluiten.**
-  `closeEvent` accepteert het event alleen als `_force_close` True is;
-  anders blijft het contextuele "terug naar hub"-gedrag voor de
-  venster-X op een subpagina.
+- **De ArticleSearch-flow is de bewezen build-flow.**
+- **Publiceren naar GitHub** gaat via `.\publish.ps1`.
 - **`icon_paths.py` gebruikt sinds 11I.2 een expliciete
   `sys._MEIPASS`-branch** vóór de omhoog-zoeklus.
 - **`build_installer.bat` logt sinds 11I.3 de PyInstaller-stap [4] en
-  de ISCC-stap [7]** naar `build_log.txt`; `build_log.txt` staat in
-  `.gitignore`.
+  de ISCC-stap [7]** naar `build_log.txt`.
 - **`build_and_publish.ps1` geeft sinds 11I.3 de bevestigingsvraag
   "Starten?" een expliciete standaardwaarde J.**
 - **`signing-certs/` staat sinds 11I.4 in `.gitignore`.**
+- **`app/services/exchange/` is sinds §2.28 de uniforme
+  export/import-ingang.**
+- **`docs/export_import_format.md` is bindend voor alle code in
+  `app/services/exchange/`.**
+- **Versie-bump bij de build, niet per sub-fase.** Bij de afronding
+  van een fase mag de versie in `app/version.py` mee omhoog.
 
 ---
 
@@ -125,6 +114,7 @@ Dit bestand wordt bijgewerkt na elke fase.
 | Header-standaard | `docs/python_header_standard.md` |
 | Zoektaal | `docs/search_syntax.md` |
 | Import-laag | `docs/documentation_import.md` |
+| **Exchange-formaat** | **`docs/export_import_format.md`** |
 | Roadmap | `docs/future_tools.md` |
 | Eindgebruikershelp | `docs/help/nl_NL.md`, `docs/help/en_US.md` |
 | Packaging | `docs/packaging.md` |

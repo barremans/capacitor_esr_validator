@@ -1,17 +1,18 @@
 # OVERDRACHT — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie overdracht:** 6.6.0
-**Datum:** 2026-10-22
+**Versie overdracht:** 6.7.0
+**Datum:** 2026-10-23
 **Auteur:** Bart Bossuyt
-**Vorige versie:** 6.5.0 (2026-10-22)
+**Vorige versie:** 6.6.0 (2026-10-22)
 **Doel:** volledig overdrachtsdocument voor een nieuwe ChatGPT-sessie of
 nieuwe ontwikkelaar. Bevat projectstaat, architectuur, regels, changelog,
 teststructuur en startprompt. Alles in één bestand.
 
-**Huidige baseline:** 1598 passed
-**Laatste afgeronde sub-fase:** 12E — Scope "filters" in de Rapportage-GUI
-**Volgende fase:** §2.28 — Export/import tussen toestellen
-**Op hold:** 12B — AI-model-keuze en API-koppeling
+**Huidige baseline:** 1700 passed
+**Huidige app-versie:** 1.3.0
+**Laatste afgeronde fase:** §2.28 — Export/import tussen toestellen
+**Volgende fase:** 12B — AI-model-keuze en API-koppeling (op hold)
+**Op hold:** 12B — wacht op provider/model-keuze
 
 ---
 
@@ -21,7 +22,7 @@ teststructuur en startprompt. Alles in één bestand.
 2. Context — projectstaat en architectuur
 3. Kernregels — bindende afspraken
 4. Stappenplan — chronologisch overzicht
-5. Wat is nieuw sinds versie 6.5.0
+5. Wat is nieuw sinds versie 6.6.0
 6. Openstaande vragen voor de nieuwe chat
 7. Teststatus — baseline en teststructuur
 8. Bestanden die de nieuwe chat moet opvragen
@@ -41,15 +42,16 @@ iets doet.
 
 - Projectmap: `C:\PY\capacitor_esr_validator`.
 - Technologie: Python 3.12 + PySide6 (Qt6, Fusion-stijl), volledig offline.
-- Baseline: **1598 passed**.
-- Huidige versie: `1.2.3`.
-- Laatste afgeronde sub-fase: **12E — Scope "filters" in de
-  Rapportage-GUI** (2026-10-22).
-- Daarvoor afgerond: **12A — Documenttype-detectie en
-  extractie-orkestratie** (2026-10-22).
+- Baseline: **1700 passed**.
+- Huidige versie: `1.3.0`.
+- Laatste afgeronde fase: **§2.28 — Export/import tussen toestellen**
+  (2026-10-23). Zes sub-fases (28A, 28B, 28C, 28E, 28D, 28F), +102 tests.
+- Daarvoor afgerond: **12A** (2026-10-22, extractiemodel + dispatcher,
+  +37 tests) en **12E** (2026-10-22, scope "filters" in de
+  Rapportage-GUI, +13 tests).
 - Op hold: **12B — AI-model-keuze en API-koppeling** (wacht op
-  provider/model-keuze).
-- Volgende opdracht: **§2.28 — Export/import tussen toestellen**.
+  provider/model-keuze en offline-first-vs-cloud-beslissing).
+- Volgende opdracht: **12B** — pas nadat de AI-keuze is genomen.
 
 **Werkafspraken die je strikt volgt:**
 
@@ -77,82 +79,34 @@ iets doet.
   `processEvents()`. **Gebruik geen `qtbot`-fixture**; `pytest-qt` is
   geen dependency van dit project. De lokale `_app()`-helper
   (`QApplication.instance() or QApplication([])`) blijft de standaard
-  in GUI-tests. De `conftest.py` bevat **geen** projectimports en
-  **geen** `qtbot`.
+  in GUI-tests.
 - **Verwerk `deleteLater()` in GUI-tests** met
   `QApplication.processEvents()` vóór je de menubar of andere
-  QObject-hiërarchieën inspecteert. De autouse-fixture in
-  `conftest.py` doet dit al na elke test, maar als een test
-  **binnen** zijn eigen body een `deleteLater()` uitvoert (bv. na het
-  sluiten van een dialoog), moet hij zelf `processEvents()` aanroepen.
-  **Bewaar nooit een QMenu- of QAction-pointer tussen twee
-  `processEvents()`-ronden**: die kan ongeldig worden. Lees altijd
-  alles in één keer uit.
+  QObject-hiërarchieën inspecteert.
 - **De taalparameter van `ToolHubWindow` heeft voorrang op
   `settings.json`. Hetzelfde geldt sinds 11H.3 voor de
   `theme`-parameter.**
-- **`setStyleSheet` op een venster, niet op de `QApplication`.** Een
-  venster beheert zijn eigen stijl via `self.setStyleSheet(...)`. De
-  globale `apply_theme(app, thema)` in `main.py` is de enige
-  uitzondering: die zet de default-look voor dialogen zonder parent
-  (meldingsboxen, file-dialogs). Elke onvoorwaardelijke
-  `QApplication.setStyleSheet` is verboden; die dwingt Qt bij elke
-  widget-aanmaak en elke nieuwe `setStyleSheet` de volledige
-  stylesheet opnieuw te matchen tegen alle bestaande widgets, wat in
-  de testsuite opliep tot 50–170 seconden per test.
-- **Thema doorgeven aan schermen**: schermen die thema-afhankelijke
-  kleuren hebben, krijgen een **keyword-only** `theme`-parameter
-  (default `"dark"`, genormaliseerd via `normaliseer_thema()`) en een
-  `apply_theme(theme)`-methode. Sinds 11H.4 heeft `AnalysisScreen`
-  die; sinds 11H.5 ook `HistoryScreen`. Andere schermen (ESR,
-  Documentatie) hebben nog geen thema-afhankelijke kleuren en krijgen
-  de parameter pas als ze die nodig hebben.
+- **`setStyleSheet` op een venster, niet op de `QApplication`.**
+- **Thema doorgeven aan schermen** met een keyword-only
+  `theme`-parameter en een `apply_theme(theme)`-methode.
 - **Voor leesbare PDF-rapporten:** sinds fase 9A zet `main.py`
   automatisch `QT_QPA_FONTDIR=C:\Windows\Fonts` op Windows.
 - **Bij het leveren van `.md`-bestanden die zelf codeblokken bevatten:**
   gebruik **viervoudige backticks**. Bij twijfel: altijd viervoudig.
-  **Lever nooit een `.md`-bestand in driedubbele backticks als het zelf
-  ```markdown- of ```powershell-blokken bevat.** De omhullende
-  afbakening moet langer zijn dan de langste interne afbakening, anders
-  sluit een interne afsluiting het omhullende blok voortijdig.
 - **De ArticleSearch-flow is de bewezen build-flow.**
 - **Geen aannames over de volgende fase:** vraag het na.
 - **Nooit een GitHub-token in een getrackt bestand, chat of
   context-document zetten.**
 - **Bij een verschil tussen de gedocumenteerde baseline en de werkelijke
-  `pytest -q`-uitvoer: eerst uitzoeken, dan pas doorgaan. Nooit stil
-  een nieuwe fase starten op een ongeverifieerde baseline.**
-- **Offscreen GUI-tests en `isVisible()`:** in een test waarin het
-  scherm nooit `show()` krijgt, is `isVisible()` altijd `False`, ook
-  als `setVisible(True)` op een kind is aangeroepen. Gebruik
-  `isHidden()` voor "is dit kind zichtbaar binnen zijn ouder?" en
-  gebruik in productie **nooit** `isVisible()` als conditie voor
-  "is er ooit iets gebeurd?" — gebruik daarvoor een expliciet
-  statusveld.
-- **Async-eigenaarsconventie (sinds 11E):** de aanroeper van
-  `run_async()` is eigenaar van de teruggegeven `AsyncWorker` en moet
-  die bewaren zolang de worker bezig is. In de GUI via
-  `self._xxx_worker`; in tests via `_bewaarde_workers`. Zonder die
-  referentie kan de `WorkerSignals` worden opgeruimd en faalt de emit
-  met `Signal source has been deleted`.
+  `pytest -q`-uitvoer: eerst uitzoeken, dan pas doorgaan.**
 - **Testtelling bijhouden per fase:** tel nieuwe tests per bestand
   (gerichte `pytest --collect-only -q`), niet op basis van een schatting.
-  De som van de betrokken bestanden moet overeenkomen met de
-  volledige `pytest -q`. Bij afwijking: eerst uitzoeken, dan doorgaan.
 - **Bij het herschrijven van een test-sectie: `Compare-Object` tegen
-  de vorige versie.** Dit heeft in 11F.2 twee per ongeluk verwijderde
-  tests opgespoord.
-- **`icon_paths.py` gebruikt sinds 11I.2 een expliciete
-  `sys._MEIPASS`-branch vóór de omhoog-zoeklus.** In de
-  PyInstaller-bundel staat `assets/` in `_internal/assets/`; de
-  branch maakt de resolutie deterministisch.
-- **`build_installer.bat` logt sinds 11I.3 de PyInstaller-stap [4] en
-  de ISCC-stap [7] met `>> "%LOGFILE%" 2>&1` naar `build_log.txt`.**
-  De rest blijft naar de console. `build_log.txt` staat expliciet in
-  `.gitignore`.
-- **`build_and_publish.ps1` geeft sinds 11I.3 de bevestigingsvraag
-  "Starten?" een expliciete standaardwaarde J bij Enter**, consistent
-  met de vier vragen ervoor.
+  de vorige versie.**
+- **Versie bumpen: de buildstraat (`build_and_publish.ps1` +
+  `bump_version.py`) doet dit bij de build. Bij de afronding van een
+  fase mag de versie in `app/version.py` mee omhoog; bij elke
+  sub-fase niet.**
 
 **Wat ik nu van je vraag:**
 
@@ -160,17 +114,7 @@ iets doet.
    de volgende fase correct begrijpt.
 2. Geef een korte samenvatting (max 10 regels) van de huidige
    projectstaat en de eerstvolgende fase.
-3. Stel een sub-fase-indeling voor **§2.28 (export/import tussen
-   toestellen)** voor, op basis van `docs/openvragen.md` §2.28 en de
-   bestaande storage- en historiekarchitectuur (`storage/schema.py`,
-   `storage/service.py`, `storage/models.py`,
-   `services/history_service.py`, `helpers/history_csv_export.py`,
-   `helpers/history_detail_export.py`). Vraag me om bevestiging van
-   die indeling **vóór** je begint met implementeren.
-4. Vraag om eventuele extra bestanden die je voor §2.28 nodig hebt en
-   die nog niet in de bijlagen zitten.
-5. Wacht daarna op mijn instructie "start 2.28" (of "start 2.28.x"
-   als we sub-fase-per-sub-fase werken).
+3. Wacht op mijn instructie "start 12B" of een andere opdracht.
 
 **Belangrijk:** als iets in de context onduidelijk is, vraag het
 eerst. Geen aannames.
@@ -192,86 +136,71 @@ eerst. Geen aannames.
 | Taal GUI | Nederlands + Engels (via i18n) |
 | Werkmodus | Volledig offline, lokale opslag |
 | Database | SQLite op `%LOCALAPPDATA%\ElectronicsDiagnosticToolHub\measurements.sqlite3` |
+| Database-schema | **v3** (herkomst-kolommen sinds §2.28) |
 | GitHub-repo | `https://github.com/barremans/capacitor_esr_validator` |
-| Huidige versie | `1.2.3` |
-| Huidige baseline | **1598 passed** |
-| Laatste afgeronde sub-fase | 12E — Scope "filters" in de Rapportage-GUI |
+| Huidige versie | `1.3.0` |
+| Huidige baseline | **1700 passed** |
+| Laatste afgeronde fase | §2.28 — Export/import tussen toestellen |
 | Op hold | 12B — AI-model-keuze en API-koppeling |
-| Volgende opdracht | §2.28 — Export/import tussen toestellen |
+| Volgende opdracht | 12B — pas na AI-keuze |
 
 ### 2.2 Huidige applicatiearchitectuur
 
 Zie v6.0.0 §2.2 voor de volledige architectuurbeschrijving. Nieuw
-sinds v6.5.0:
+sinds v6.6.0:
 
-**Gewijzigd in 12A:**
-- `app/documentation/extraction_models.py` (nieuw, **v1.0.0**) —
-  uniform `ExtractionResult`, `ExtractionError`,
-  `ExtractionSourceKind` (PDF/DOCX/XLSX/URL). Frozen, slots,
-  validatie in `__post_init__`. Geen Qt, geen netwerk, geen AI.
-- `app/documentation/extraction_service.py` (nieuw, **v1.0.0**) —
-  dispatcher `extract_for_source`, `extract_for_path`,
-  `extract_for_url` die de bestaande extractors
-  (`pdf_extract`, `docx_extract`, `xlsx_extract`, `url_fetch`)
-  aanroept en hun resultaat vertaalt naar het uniforme model.
-  Lokale URL-teksthepler via BeautifulSoup, zodat `url_fetch.py`
-  niet gewijzigd hoefde te worden.
-- `tests/test_documentation_extraction_models.py` (nieuw, **v1.0.0**,
-  15 tests).
-- `tests/test_documentation_extraction_service.py` (nieuw,
-  **v1.0.0**, 22 tests).
-
-**Gewijzigd in 12E:**
-- `app/gui/dialogs/report_dialog.py` (v1.5.0 → **v1.6.1**) —
-  classmethod `for_filters`, `_kop_tekst`-helper, kop-update in
-  `_laad_bundle` voor de filters-modus.
-- `app/gui/history_screen.py` (v1.18.0 → **v1.19.0**) —
-  `_show_report_for_selected` kent drie modi (selectie / filters /
-  enkelvoudig), nieuwe `_heeft_actieve_filters`-helper.
-- `app/gui/analysis_screen.py` (v1.7.0 → **v1.7.2**) —
-  `_open_report_for_selection` kent drie modi, nieuwe
-  `_heeft_actieve_filters`-helper die uitsluitend naar de GUI-velden
-  kijkt (de hardcoded `tool_key="ESR_CAPACITOR"` telt niet mee).
-- `tests/test_report_dialog_scope_filters.py` (nieuw, **v1.0.1**,
-  13 tests).
-
-**Samenvatting van 12A en 12E (allemaal afgerond):**
+**Nieuw in §2.28 (allemaal afgerond):**
 
 | Onderdeel | Bestand | Versie |
 |---|---|---|
-| Uniform extractiemodel | `app/documentation/extraction_models.py` | v1.0.0 |
-| Extractie-dispatcher | `app/documentation/extraction_service.py` | v1.0.0 |
-| Scope "filters" dialoog | `app/gui/dialogs/report_dialog.py` | v1.6.1 |
-| Scope "filters" historiek | `app/gui/history_screen.py` | v1.19.0 |
-| Scope "filters" analyse | `app/gui/analysis_screen.py` | v1.7.2 |
+| Exchange-modellen | `app/services/exchange/models.py` | v1.0.0 |
+| Exchange-package-init | `app/services/exchange/__init__.py` | v1.0.4 |
+| Export-service | `app/services/exchange/export_service.py` | v1.0.1 |
+| Import-planner | `app/services/exchange/import_planner.py` | v1.0.0 |
+| Import-service | `app/services/exchange/import_service.py` | v1.0.0 |
+| Exchange-dialoog | `app/gui/dialogs/exchange_dialog.py` | v1.0.1 |
+| Bindende spec | `docs/export_import_format.md` | v1.0.0 |
+| i18n NL | `i18n/locales/nl_NL/exchange.json` | — |
+| i18n EN | `i18n/locales/en_US/exchange.json` | — |
+| Schema (v3) | `app/storage/schema.py` | v1.2.0 |
+| Migraties (v2→v3) | `app/storage/migrations.py` | v1.2.0 |
+| Storage-modellen | `app/storage/models.py` | v1.2.0 |
+| Storage-service | `app/storage/service.py` | v1.2.0 |
+| Hoofdvenster | `app/gui/main_window.py` | v2.23.0 |
+| Startmaphelper | `app/helpers/dialog_start_directory.py` | v1.0.1 |
+| Instellingen | `app/config/settings.py` | v1.8.2 |
+
+**Samenvatting van §2.28:**
+
+Export/import tussen toestellen. JSON-envelope met meetketens, zes
+sub-fases: formaat (28A), export (28B), import-planner (28C),
+schema-migratie v2→v3 (28E), import-service (28D), GUI (28F). Twee
+nieuwe Bestand-menu-items: "Exporteren naar toestel…" (Ctrl+Shift+E)
+en "Importeren van toestel…" (Ctrl+Shift+I). Natuurlijke sleutel =
+SHA-256 over de canonieke keten (spec §6); duplicate-detectie
+inhoudelijk. Conflict-copy is de standaard. Race-check vóór elke
+write. Per-keten transacties.
+
+**Belangrijke bugfix in §2.28:** `_show_import_wizard` in
+`main_window.py` had een typfout `self._zet_dialoog_icono(...)` in
+plaats van `self._zet_dialoog_icoon(...)`. Latente bug die bij het
+openen van de import-wizard een `AttributeError` gaf.
 
 ### 2.3 Belangrijke recente bugfixes
 
-Zie v6.0.0 §2.3 en v6.5.0 §2.3. Nieuw sinds v6.5.0:
+Zie v6.0.0 §2.3 en v6.5.0 §2.3. Nieuw sinds v6.6.0:
 
-- **12E:** `AnalysisScreen._heeft_actieve_filters()` gaf altijd
-  `True` omdat `_active_filters()` altijd `tool_key="ESR_CAPACITOR"`
-  bevat. Daardoor opende de rapport-knop op de Analyse-pagina altijd
-  de filters-scope, ook zonder gebruikersfilter. Opgelost in
-  `analysis_screen.py` v1.7.2: de helper kijkt nu uitsluitend naar
-  de GUI-velden.
-- **12E:** `ReportDialog.kop_label` toonde "0 metingen" voor de
-  filters-modus, omdat `_build_ui()` vóór `_laad_bundle()` loopt.
-  Opgelost in `report_dialog.py` v1.6.1: `_laad_bundle()` werkt de
-  kop bij zodra het aantal bekend is.
+- **§2.28:** `_show_import_wizard` typfout `icono` → `icoon`. Latente
+  bug die pas bij het openen van de import-wizard optrad.
 
 ### 2.4 Openstaande werkpunten en fase-indeling
 
 **Op hold:** 12B — AI-model-keuze en API-koppeling. Wacht op een
 ontwerpbeslissing: welke provider, welk model, offline-first of
-cloud-API, en waar de API-key leeft (analoog aan
-`github_secret_local.py`). Zonder die beslissing kan 12B niet
-verantwoord ontworpen worden.
+cloud-API, en waar de API-key leeft.
 
-**Volgende opdracht:** **§2.28 — Export/import tussen toestellen**
-(`docs/openvragen.md` v3.7.0). Dit is een aparte fase, geen restpost
-van 12. De exacte sub-fase-indeling wordt bij de start van §2.28
-bepaald. Vraag het na.
+**Volgende opdracht:** **12B — AI-model-keuze en API-koppeling** —
+pas nadat de AI-keuze is genomen.
 
 Daarna volgen (in deze volgorde, tenzij anders beslist):
 - 12C — Prompt-engineering en output-validatie (na 12B).
@@ -288,23 +217,19 @@ Onveranderd t.o.v. v6.0.0, aangevuld met de `conftest.py`-regel uit §1.
 
 ## 3. KERNREGELS — BINDENDE AFSPRAKEN
 
-Onveranderd t.o.v. v6.5.0, behalve:
+Onveranderd t.o.v. v6.6.0, behalve:
 
-- **`app/gui/dialogs/report_dialog.py` heeft sinds 12E een
-  classmethod `for_filters(filters, *, scope, taal, ...)`.** De
-  bestaande `ReportDialog(id, ...)` en `ReportDialog.for_measurements`
-  blijven ongewijzigd. Nieuwe code die een rapport over de actieve
-  filters wil, gebruikt `for_filters`.
-- **`HistoryScreen._show_report_for_selected` en
-  `AnalysisScreen._open_report_for_selection` kennen sinds 12E drie
-  modi:** checkbox-selectie → "Selectie"; geen checkbox-selectie maar
-  wél actieve filters → "Huidige filters"; anders → bestaand gedrag.
-- **`extraction_models.py` en `extraction_service.py` zijn de uniforme
-  ingang voor tekst- en metadata-extractie sinds 12A.** Nieuwe code
-  die tekst uit een geïmporteerde bron nodig heeft, gebruikt
-  `extract_for_source`, `extract_for_path` of `extract_for_url`, niet
-  de onderliggende `pdf_extract`/`docx_extract`/`xlsx_extract`/
-  `url_fetch` rechtstreeks.
+- **`app/services/exchange/` is de uniforme ingang voor export/import
+  tussen toestellen sinds §2.28.** Nieuwe code die metingen wil
+  uitwisselen gebruikt `ExportService`, `ImportPlanner`,
+  `ImportService` en `read_envelope`, niet de onderliggende
+  storage-modules rechtstreeks.
+- **`docs/export_import_format.md` is bindend voor alle code in
+  `app/services/exchange/`.** Wijzigingen aan het formaat vereisen een
+  nieuwe `format_version` en een aparte sub-fase.
+- **Versie-bump: bij de build (via `build_and_publish.ps1`), niet per
+  sub-fase.** Bij de afronding van een fase mag de versie in
+  `app/version.py` mee omhoog. Bij elke sub-fase niet.
 
 ---
 
@@ -330,90 +255,119 @@ Onveranderd t.o.v. v6.5.0, behalve:
 | 12C | Prompt-engineering en output-validatie | Gepland (na 12B) |
 | 12D | Resultaatopslag en herkomst-tracking | Gepland (na 12C) |
 | 12E | Scope "filters" in de Rapportage-GUI | ✅ |
-| **§2.28** | **Export/import tussen toestellen** | **Volgende** |
+| **§2.28** | **Export/import tussen toestellen** | ✅ (28A, 28B, 28C, 28E, 28D, 28F) |
 | 13 | Menselijke validatie van AI-output | Gepland |
 | 14 | Goedgekeurde fabrikantdata koppelen aan assessment | Gepland |
 | 15 | Tweede diagnosetool — Resistor | Gepland |
 
 ---
 
-## 5. WAT IS NIEUW SINDS VERSIE 6.5.0
+## 5. WAT IS NIEUW SINDS VERSIE 6.6.0
 
-### 5.1 Fase 12A — Documenttype-detectie en extractie-orkestratie
+### 5.1 §2.28 — Export/import tussen toestellen
 
-**Aanleiding:** de bestaande `*_import.py`-orkestratoren deden de
-import (hash → metadata → registratie → kopie), maar de tekstextractie
-(`extract_pdf_text`, `extract_docx_text`, `extract_xlsx_text`) was
-nirgens aangesloten. Voor fase 12 (AI-extractie) was er één uniforme
-ingang nodig die per brontype dezelfde vorm teruggeeft.
+**Aanleiding:** de app bewaart metingen lokaal op één toestel. Wie op
+een tweede pc verder wil werken, moest de database handmatig kopiëren.
+§2.28 voegt een expliciet uitwisselformaat toe: een JSON-envelope met
+meetketens, waarmee je metingen selectief kunt exporteren en op een
+ander toestel importeren.
 
-**Oplossing:**
-- `app/documentation/extraction_models.py` v1.0.0 —
-  `ExtractionResult`, `ExtractionError`, `ExtractionSourceKind`.
-- `app/documentation/extraction_service.py` v1.0.0 —
-  `extract_for_source`, `extract_for_path`, `extract_for_url`.
-- Nieuwe tests: 15 + 22 = 37.
+**Oplossing: zes sub-fases**
 
-Geen bestaande module gewijzigd: `pdf_extract.py`, `docx_extract.py`,
-`xlsx_extract.py`, `url_fetch.py`, `import_service.py`,
-`import_models.py` en de vier `*_import.py` zijn onaangeroerd.
+| Sub-fase | Wat | Tests |
+|---|---|---|
+| 28A | Formaat + modellen | 34 |
+| 28B | Export-service | 15 |
+| 28C | Import-planner | 11 |
+| 28E | Schema-migratie v2 → v3 | 16 |
+| 28D | Import-service | 16 |
+| 28F | GUI-koppeling | 16 |
 
-### 5.2 Fase 12E — Scope "filters" in de Rapportage-GUI (§2.14)
+**Totaal:** +102 tests. Baseline 1598 → **1700 passed**.
 
-**Aanleiding:** §2.14 was half opgelost in 11A.2 (scope "selectie"),
-maar scope "filters" in de Rapportage-GUI stond nog open. De
-`ReportService.build_bundle_from_filters(...)` bestond al sinds
-11A.2; de GUI-koppeling ontbrak.
+**Belangrijke ontwerpbeslissingen:**
 
-**Oplossing:**
-- `app/gui/dialogs/report_dialog.py` v1.6.1 — classmethod
-  `for_filters`.
-- `app/gui/history_screen.py` v1.19.0 — `_show_report_for_selected`
-  met drie modi.
-- `app/gui/analysis_screen.py` v1.7.2 — `_open_report_for_selection`
-  met drie modi.
-- Nieuwe tests: 13.
+- JSON-envelope (geen SQLite-dump), UTF-8 zonder BOM, pretty-printed,
+  `format_version="1.0"`.
+- Natuurlijke sleutel = SHA-256 over de canonieke keten (§6 spec).
+- Duplicate-detectie op herkomst (`source_machine_id` +
+  `source_measurement_id`) én op natural_key.
+- Conflict-copy is de standaard bij een conflict; nooit stil
+  overslaan.
+- Race-check vóór elke write.
+- Per-keten transacties; een fout in één keten blokkeert de rest
+  niet.
+- Machine-ID als UUID4 in `settings.json` (`algemeen.machine_id`).
 
-Tijdens de implementatie gevonden en gefixt: `_heeft_actieve_filters`
-in `AnalysisScreen` gaf altijd `True` door de hardcoded
-`tool_key="ESR_CAPACITOR"`.
+**Nieuwe gebruikersfuncties:**
 
-### 5.3 Baseline
+- Bestand → "Exporteren naar toestel…" (Ctrl+Shift+E)
+- Bestand → "Importeren van toestel…" (Ctrl+Shift+I)
+
+### 5.2 Baseline
 
 | Sub-fase | Baseline vóór | Baseline ná | Nieuw |
 |---|---|---|---|
 | 11I.5 | 1548 | 1548 | 0 |
 | 12A | 1548 | 1585 | +37 |
-| 12E | 1585 | **1598** | +13 |
+| 12E | 1585 | 1598 | +13 |
+| 28A | 1598 | 1632 | +34 |
+| 28B | 1632 | 1647 | +15 |
+| 28C | 1647 | 1658 | +11 |
+| 28E | 1658 | 1668 | +16 |
+| 28D | 1668 | 1684 | +16 |
+| 28F | 1684 | **1700** | +16 |
 
-**Totaal sinds 11I.5:** 1548 → 1598 (+50 tests).
+**Totaal sinds 11I.5:** 1548 → 1700 (+152 tests).
 
-### 5.4 Gewijzigde bestanden sinds 6.5.0
+### 5.3 Gewijzigde bestanden sinds 6.6.0
 
 | Bestand | Versie / status |
 |---|---|
-| `app/documentation/extraction_models.py` | **nieuw** v1.0.0 |
-| `app/documentation/extraction_service.py` | **nieuw** v1.0.0 |
-| `app/gui/dialogs/report_dialog.py` | v1.5.0 → **v1.6.1** |
-| `app/gui/history_screen.py` | v1.18.0 → **v1.19.0** |
-| `app/gui/analysis_screen.py` | v1.7.0 → **v1.7.2** |
-| `tests/test_documentation_extraction_models.py` | **nieuw** v1.0.0 (15 tests) |
-| `tests/test_documentation_extraction_service.py` | **nieuw** v1.0.0 (22 tests) |
-| `tests/test_report_dialog_scope_filters.py` | **nieuw** v1.0.1 (13 tests) |
-| `overdracht.md` | → **v6.6.0** |
-| `docs/openvragen.md` | → **v3.7.0** |
+| `app/services/exchange/__init__.py` | **nieuw** v1.0.4 |
+| `app/services/exchange/models.py` | **nieuw** v1.0.0 |
+| `app/services/exchange/export_service.py` | **nieuw** v1.0.1 |
+| `app/services/exchange/import_planner.py` | **nieuw** v1.0.0 |
+| `app/services/exchange/import_service.py` | **nieuw** v1.0.0 |
+| `app/gui/dialogs/exchange_dialog.py` | **nieuw** v1.0.1 |
+| `docs/export_import_format.md` | **nieuw** v1.0.0 |
+| `i18n/locales/nl_NL/exchange.json` | **nieuw** |
+| `i18n/locales/en_US/exchange.json` | **nieuw** |
+| `app/storage/schema.py` | v1.1.0 → **v1.2.0** |
+| `app/storage/migrations.py` | v1.1.0 → **v1.2.0** |
+| `app/storage/models.py` | v1.1.0 → **v1.2.0** |
+| `app/storage/service.py` | v1.1.0 → **v1.2.0** |
+| `app/gui/main_window.py` | v2.22.2 → **v2.23.0** |
+| `app/helpers/dialog_start_directory.py` | v1.0.0 → **v1.0.1** |
+| `app/config/settings.py` | v1.8.1 → **v1.8.2** |
+| `app/version.py` | v1.1.0 → **v1.2.0** (`__version__ = "1.3.0"`) |
+| `tests/test_exchange_models.py` | **nieuw** v1.0.1 (34 tests) |
+| `tests/test_exchange_export_service.py` | **nieuw** v1.0.3 (15 tests) |
+| `tests/test_exchange_import_planner.py` | **nieuw** v1.0.2 (11 tests) |
+| `tests/test_exchange_import_service.py` | **nieuw** v1.0.1 (16 tests) |
+| `tests/test_exchange_dialog.py` | **nieuw** v1.0.1 (11 tests) |
+| `tests/test_main_window_exchange_menu.py` | **nieuw** v1.0.0 (5 tests) |
+| `tests/test_storage_schema.py` | v1.1.0 → **v1.2.0** |
+| `tests/test_storage_migrations.py` | v1.0.0 → **v1.1.0** |
+| `tests/test_storage_service.py` | v1.0.0 → **v1.1.0** |
+| `tests/test_storage_multitool_v2.py` | v1.0.0 → **v1.0.1** |
+| `overdracht.md` | → **v6.7.0** |
+| `docs/openvragen.md` | → **v3.8.0** |
+| `docs/changelog/nl_NL.md` | nieuwe §2.28-sectie |
+| `docs/changelog/en_US.md` | nieuwe §2.28-sectie |
+| `WatNu.md` | → **v2.4.0** |
 
-### 5.5 Teststatus
+### 5.4 Teststatus
 
-**Baseline: 1598 passed.** Was 1548 vóór 12A. De toename is +37
-(12A) + 13 (12E). De suite draait in ~208 s.
+**Baseline: 1700 passed.** Was 1598 vóór §2.28. De suite draait in
+~227 s.
 
-### 5.6 Bekende beperkingen (bijgewerkt)
+### 5.5 Bekende beperkingen (bijgewerkt)
 
 Onveranderd t.o.v. v6.5.0. Wat nog rest:
 
 - **`QApplication.setStyleSheet` is verboden** behalve in `main.py`
-  bij opstart. Gebruik `self.setStyleSheet(...)` op het venster.
+  bij opstart.
 - **`esr_test_screen.py` en `documentation_screen.py`** bevatten nog
   geen thema-afhankelijke kleuren.
 - **Publiek vertrouwd (EV-)certificaat** — structurele oplossing.
@@ -424,25 +378,25 @@ Onveranderd t.o.v. v6.5.0. Wat nog rest:
 
 ## 6. OPENSTAANDE VRAGEN VOOR DE NIEUWE CHAT
 
-Zie `docs/openvragen.md` v3.7.0 voor de volledige, levende lijst.
-Samenvatting van de belangrijkste punten voor §2.28:
+Zie `docs/openvragen.md` v3.8.0 voor de volledige, levende lijst.
+Samenvatting van de belangrijkste punten:
 
-- §2.28 — export/import tussen toestellen.
+- **12B op hold** — provider/model-keuze ontbreekt.
 - §11 packaging — publiek vertrouwd (EV-)certificaat;
   fallback timestamp-server.
 
-Opgelost in 12A: de extractie-orkestratie (geen open vraag, wel een
-architectuurpunt).
+Opgelost in 12A: de extractie-orkestratie.
 Opgelost in 12E: §2.14 (scope "filters" in de Rapportage-GUI).
+Opgelost in §2.28: §2.28 (export/import tussen toestellen).
 
-**§2.14 is nu volledig opgelost.**
+**§2.14 en §2.28 zijn nu volledig opgelost.**
 
 ---
 
 ## 7. TESTSTATUS — BASELINE EN TESTSTRUCTUUR
 
-**Datum:** 2026-10-22
-**Baseline:** 1598 passed
+**Datum:** 2026-10-23
+**Baseline:** 1700 passed
 **Werkwijze:** eerst gerichte tests, dan volledige `pytest -q`.
 
 ### 7.1 Commando's
@@ -503,37 +457,27 @@ Voor een nieuwe sessie heeft de chat meestal nodig:
 - `docs/markdown_levering.md`
 - `conftest.py` — minimale autouse-fixture (sinds 11H.3)
 
-**Voor §2.28 (export/import tussen toestellen):**
+**Voor 12B (AI-model-keuze en API-koppeling):**
 
-De volledige storage-laag en de historiek-service zijn nodig:
-
-- `app/storage/schema.py` (v1.1.0)
-- `app/storage/service.py` (v1.1.0)
-- `app/storage/models.py` (v1.1.0)
-- `app/storage/database.py`
-- `app/storage/migrations.py`
-- `app/storage/paths.py`
-- `app/storage/exceptions.py`
-- `app/services/history_service.py` (v1.1.1)
-- `docs/data_model.md`
+- `docs/export_import_format.md` (v1.0.0) — sinds §2.28 de bindende
+  spec voor uitwisseling
+- `app/services/exchange/__init__.py` (v1.0.4)
+- `app/services/exchange/models.py` (v1.0.0)
+- `app/services/exchange/export_service.py` (v1.0.1)
+- `app/services/exchange/import_planner.py` (v1.0.0)
+- `app/services/exchange/import_service.py` (v1.0.0)
+- `app/documentation/extraction_models.py` (v1.0.0)
+- `app/documentation/extraction_service.py` (v1.0.0)
 - `docs/context.md`
 
-Sterk aanbevolen:
+**Sterk aanbevolen:**
 
-- `app/gui/main_window.py` (v2.22.2) — voor het menu-item.
-- `app/gui/history_screen.py` (v1.19.0) — exportknop.
-- `app/helpers/history_csv_export.py`, `history_detail_export.py` —
-  bestaand exportpatroon.
-- `tests/test_storage_schema.py`, `test_storage_service.py`,
-  `test_storage_migrations.py`, `test_storage_v1_completion.py` —
-  bestaande tests, zodat de nieuwe tests in dezelfde stijl passen.
-- `app/version.py` — als §2.28 een nieuwe app-versie krijgt.
-
-**Voor fase 13 (menselijke validatie) — nog niet nu:**
-
-- `app/gui/documentation_screen.py`
-- `app/gui/dialogs/edit_metadata_dialog.py`
-- `app/gui/dialogs/bulk_edit_metadata_dialog.py`
+- `app/gui/main_window.py` (v2.23.0)
+- `app/gui/dialogs/exchange_dialog.py` (v1.0.1)
+- `app/config/settings.py` (v1.8.2)
+- `tests/test_exchange_import_planner.py` (v1.0.2)
+- `tests/test_exchange_import_service.py` (v1.0.1)
+- `app/version.py` (v1.2.0)
 
 ---
 
@@ -542,14 +486,11 @@ Sterk aanbevolen:
 Onveranderd t.o.v. v6.0.0 §9, aangevuld met:
 
 - **`conftest.py` is een geaccepteerd onderdeel van de suite** sinds
-  11H.3. Houd hem minimaal: alleen `QT_QPA_PLATFORM=offscreen` en de
-  autouse-opruimfixture. Geen projectimports, geen `qtbot`.
+  11H.3.
 - **`setStyleSheet` nooit onvoorwaardelijk op de `QApplication`**
-  aanroepen. Gebruik `self.setStyleSheet(...)` op het venster, of een
-  gelijkwaardige check (`_apply_theme_if_needed()`).
+  aanroepen.
 - **Thema doorgeven aan schermen** met een keyword-only
-  `theme`-parameter en een `apply_theme(theme)`-methode, zoals in
-  `AnalysisScreen` (sinds 11H.4) en `HistoryScreen` (sinds 11H.5).
+  `theme`-parameter en een `apply_theme(theme)`-methode.
 - **`icon_paths.py` gebruikt sinds 11I.2 een expliciete
   `sys._MEIPASS`-branch** vóór de omhoog-zoeklus.
 - **`build_installer.bat` logt sinds 11I.3 de PyInstaller-stap [4] en
@@ -557,8 +498,8 @@ Onveranderd t.o.v. v6.0.0 §9, aangevuld met:
 - **`build_and_publish.ps1` geeft sinds 11I.3 de bevestigingsvraag
   "Starten?" een expliciete standaardwaarde J.**
 - **`signing-certs/` staat sinds 11I.4 in `.gitignore`.**
-- **`ReportDialog.for_filters` bestaat sinds 12E** en is de juiste
-  ingang voor een rapport over de actieve filters.
+- **`ReportDialog.for_filters` bestaat sinds 12E.**
 - **`extraction_service.py` is sinds 12A de uniforme extractie-ingang.**
-  Nieuwe code gebruikt die, niet de onderliggende extractors
-  rechtstreeks.
+- **`app/services/exchange/` is sinds §2.28 de uniforme
+  export/import-ingang.**
+- **Versie-bump bij de build, niet per sub-fase.**

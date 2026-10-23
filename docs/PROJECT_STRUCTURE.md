@@ -27,8 +27,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Centrale, aanpasbare instellingen voor de app.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-        # Versie: 1.8.0
-        # Datum: 2026-10-21
+        # Versie: 1.8.2
+        # Datum: 2026-10-23
         ```
     - 📁 **data/**
       - 📁 **documentation/**
@@ -305,6 +305,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Versie: 1.2.0
           # Datum: 2026-10-20
           ```
+        - 📄 **/app/gui/dialogs/exchange_dialog.py**
+          ```text
+          # Bestandsnaam: app/gui/dialogs/exchange_dialog.py
+          # Beschrijving: Modale dialoog voor export/import tussen toestellen (§2.28F).
+          # Auteur: Bart Bossuyt
+          # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+          # Versie: 1.0.1
+          # Datum: 2026-10-23
+          ```
         - 📄 **/app/gui/dialogs/import_wizard_dialog.py**
           ```text
           # Bestandsnaam: app/gui/dialogs/import_wizard_dialog.py
@@ -390,8 +399,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Hoofdvenster van de Tool Hub met één-venster-navigatie.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 2.22.2
-        # Datum: 2026-10-21
+        # Versie: 2.23.0
+        # Datum: 2026-10-23
         ```
       - 📄 **/app/gui/styles.py**
         ```text
@@ -434,8 +443,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: GUI-onafhankelijke helper voor de beste startmap van QFileDialog-
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.0.0
-        # Datum: 2026-10-16
+        # Versie: 1.0.1
+        # Datum: 2026-10-23
         ```
       - 📄 **/app/helpers/document_source_paths.py**
         ```text
@@ -555,12 +564,60 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Datum: 2026-10-16
         ```
     - 📁 **services/**
+      - 📁 **exchange/**
+        - 📄 **/app/services/exchange/__init__.py**
+          ```text
+          # Bestandsnaam: app/services/exchange/__init__.py
+          # Beschrijving: Publieke basisexports van het exchange-package (§2.28).
+          # Auteur: Bart Bossuyt
+          # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+          # Versie: 1.0.4
+          # Datum: 2026-10-23
+          ```
+        - 📄 **/app/services/exchange/export_service.py**
+          ```text
+          # Bestandsnaam: app/services/exchange/export_service.py
+          # Beschrijving: Read-only export-service voor meetketens tussen toestellen
+          # Auteur: Bart Bossuyt
+          # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+          # Versie: 1.0.1
+          # Datum: 2026-10-23
+          ```
+        - 📄 **/app/services/exchange/import_planner.py**
+          ```text
+          # Bestandsnaam: app/services/exchange/import_planner.py
+          # Beschrijving: Pure conflictanalyse voor import tussen toestellen (§2.28C).
+          # Auteur: Bart Bossuyt
+          # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+          # Versie: 1.0.0
+          # Datum: 2026-10-23
+          ```
+        - 📄 **/app/services/exchange/import_service.py**
+          ```text
+          # Bestandsnaam: app/services/exchange/import_service.py
+          # Beschrijving: Import-service voor meetketens tussen toestellen (§2.28D).
+          # Auteur: Bart Bossuyt
+          # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+          # Versie: 1.0.0
+          # Datum: 2026-10-23
+          ```
+        - 📄 **/app/services/exchange/models.py**
+          ```text
+          # Bestandsnaam: app/services/exchange/models.py
+          # Beschrijving: Immutable modellen voor export/import tussen toestellen (§2.28).
+          # Auteur: Bart Bossuyt
+          # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+          # Versie: 1.0.0
+          # Datum: 2026-10-22
+          ```
       - 📄 **/app/services/__init__.py**
         ```text
-        # Beschrijving: Package-init voor de kernlogica (beoordeling, referentiedata,
-        # Auteur: GEEN AUTEUR
-        # Applicatie: GEEN APPLICATIE
-        # Versie: V1.0.0
+        # Bestandsnaam: app/services/__init__.py
+        # Beschrijving: Package-marker voor de servicelaag. Bewust leeg: alle
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.1.0
+        # Datum: 2026-10-22
         ```
       - 📄 **/app/services/analysis_service.py**
         ```text
@@ -650,8 +707,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Transactioneel en sequentieel migratieframework voor de lokale
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.1.0
-        # Datum: 2026-10-01
+        # Versie: 1.2.0
+        # Datum: 2026-10-23
         ```
       - 📄 **/app/storage/models.py**
         ```text
@@ -659,8 +716,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Immutable Python-modellen voor de zeven storage-entiteiten van
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.1.0
-        # Datum: 2026-10-01
+        # Versie: 1.2.0
+        # Datum: 2026-10-23
         ```
       - 📄 **/app/storage/paths.py**
         ```text
@@ -677,8 +734,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Declaratieve SQLite-DDL voor de lokale meetdatabase.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.1.0
-        # Datum: 2026-10-01
+        # Versie: 1.2.0
+        # Datum: 2026-10-23
         ```
       - 📄 **/app/storage/service.py**
         ```text
@@ -686,8 +743,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Publieke storage-service voor de lokale SQLite-meethistoriek.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.1.0
-        # Datum: 2026-10-01
+        # Versie: 1.2.0
+        # Datum: 2026-10-23
         ```
     - 📄 **/app/__init__.py**
       ```text
@@ -734,6 +791,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     - 📄 **/docs/data_model.md**
     - 📄 **/docs/documentation_catalog_architecture.md**
     - 📄 **/docs/documentation_import.md**
+    - 📄 **/docs/export_import_format.md**
     - 📄 **/docs/future_tools.md**
     - 📄 **/docs/help.md**
     - 📄 **/docs/markdown_levering.md**
@@ -754,6 +812,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         - 📄 **/i18n/locales/en_US/app.json**
         - 📄 **/i18n/locales/en_US/documentation.json**
         - 📄 **/i18n/locales/en_US/esr.json**
+        - 📄 **/i18n/locales/en_US/exchange.json**
         - 📄 **/i18n/locales/en_US/history.json**
         - 📄 **/i18n/locales/en_US/language.json**
         - 📄 **/i18n/locales/en_US/report.json**
@@ -763,6 +822,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         - 📄 **/i18n/locales/nl_NL/app.json**
         - 📄 **/i18n/locales/nl_NL/documentation.json**
         - 📄 **/i18n/locales/nl_NL/esr.json**
+        - 📄 **/i18n/locales/nl_NL/exchange.json**
         - 📄 **/i18n/locales/nl_NL/history.json**
         - 📄 **/i18n/locales/nl_NL/language.json**
         - 📄 **/i18n/locales/nl_NL/report.json**
@@ -1150,6 +1210,51 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.4.0
       # Datum: 2026-09-28
       ```
+    - 📄 **/tests/test_exchange_dialog.py**
+      ```text
+      # Bestandsnaam: tests/test_exchange_dialog.py
+      # Beschrijving: GUI-regressietests voor ExchangeDialog (fase 28F).
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.1
+      # Datum: 2026-10-23
+      ```
+    - 📄 **/tests/test_exchange_export_service.py**
+      ```text
+      # Bestandsnaam: tests/test_exchange_export_service.py
+      # Beschrijving: Regressietests voor app/services/exchange/export_service.py
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.3
+      # Datum: 2026-10-23
+      ```
+    - 📄 **/tests/test_exchange_import_planner.py**
+      ```text
+      # Bestandsnaam: tests/test_exchange_import_planner.py
+      # Beschrijving: Regressietests voor app/services/exchange/import_planner.py
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.2
+      # Datum: 2026-10-23
+      ```
+    - 📄 **/tests/test_exchange_import_service.py**
+      ```text
+      # Bestandsnaam: tests/test_exchange_import_service.py
+      # Beschrijving: Regressietests voor app/services/exchange/import_service.py
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.1
+      # Datum: 2026-10-23
+      ```
+    - 📄 **/tests/test_exchange_models.py**
+      ```text
+      # Bestandsnaam: tests/test_exchange_models.py
+      # Beschrijving: Regressietests voor app/services/exchange/models.py
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.1
+      # Datum: 2026-10-22
+      ```
     - 📄 **/tests/test_github_feedback_client.py**
       ```text
       # Bestandsnaam: tests/test_github_feedback_client.py
@@ -1420,6 +1525,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.0.1
       # Datum: 2026-10-03
       ```
+    - 📄 **/tests/test_main_window_exchange_menu.py**
+      ```text
+      # Bestandsnaam: tests/test_main_window_exchange_menu.py
+      # Beschrijving: Regressietests voor de twee Bestand-menu-items van §2.28F:
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-23
+      ```
     - 📄 **/tests/test_main_window_help_dialog.py**
       ```text
       # Bestandsnaam: tests/test_main_window_help_dialog.py
@@ -1642,8 +1756,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Gerichte regressietests voor het transactionele migratieframework.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.0
-      # Datum: 2026-10-01
+      # Versie: 1.1.0
+      # Datum: 2026-10-23
       ```
     - 📄 **/tests/test_storage_multitool_v2.py**
       ```text
@@ -1651,8 +1765,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor schema v2 multitool-discriminator en veilige
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.0
-      # Datum: 2026-10-01
+      # Versie: 1.0.1
+      # Datum: 2026-10-23
       ```
     - 📄 **/tests/test_storage_paths.py**
       ```text
@@ -1666,20 +1780,20 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     - 📄 **/tests/test_storage_schema.py**
       ```text
       # Bestandsnaam: tests/test_storage_schema.py
-      # Beschrijving: Gerichte regressietests voor storage models en SQLite schema v1.
+      # Beschrijving: Gerichte regressietests voor storage models en SQLite schema.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.1.0
-      # Datum: 2026-10-01
+      # Versie: 1.2.0
+      # Datum: 2026-10-23
       ```
     - 📄 **/tests/test_storage_service.py**
       ```text
       # Bestandsnaam: tests/test_storage_service.py
-      # Beschrijving: Gerichte regressietests voor StorageService v1.
+      # Beschrijving: Gerichte regressietests voor StorageService.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.0
-      # Datum: 2026-10-01
+      # Versie: 1.1.0
+      # Datum: 2026-10-23
       ```
     - 📄 **/tests/test_storage_v1_completion.py**
       ```text
@@ -1790,6 +1904,13 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
     # Versie: 1.1.0
     # Datum: 2026-10-21
+    ```
+  - 📄 **/diagnostic_natural_key.py**
+    ```text
+    # Beschrijving: GEEN BESCHRIJVING
+    # Auteur: GEEN AUTEUR
+    # Applicatie: GEEN APPLICATIE
+    # Versie: V1.0.0
     ```
   - 📄 **/ESR_Tester.spec**
   - 📄 **/Export-SigningCertificate.ps1**

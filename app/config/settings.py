@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/config/settings.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.8.0
-Datum:      2026-10-21
+Versie:     1.8.2
+Datum:      2026-10-23
 Auteur:     Bart Bossuyt
 
 Doel:       Centrale, aanpasbare instellingen voor de app.
@@ -47,6 +47,16 @@ Wijzigingen:
                          bestanden met "dark" of "light" blijven werken.
                        - Geen wijziging aan sla_instellingen_op(): de
                          GUI levert altijd een genormaliseerde waarde.
+  v1.8.1 (2026-10-23)  Fase 28B: machine_id toegevoegd aan
+                       AlgemeneInstellingen (default ""). Wordt door
+                       ExportService.verkrijg_machine_id() eenmalig
+                       gegenereerd als UUID4 en daarna hergebruikt.
+                       Backward-compatible: oude settings.json blijft
+                       geldig, ontbrekende key valt terug op "".
+  v1.8.2 (2026-10-23)  Fase 28F: laatste_exchangemap toegevoegd aan
+                       AlgemeneInstellingen (default ""). Wordt door
+                       de exchange-dialoog gebruikt voor de
+                       export-/import-startmap. Backward-compatible.
 ================================================================================
 """
 
@@ -141,6 +151,15 @@ class AlgemeneInstellingen:
     True toont het Help-menu een extra item om de drie-knoppen
     update-melding te forceren, ook als er geen nieuwe versie is.
     Standaard False. Niet bedoeld voor eindgebruikers.
+
+    ``machine_id`` (sinds 28B) is een eenmalig gegenereerde UUID4 die
+    het toestel identificeert in export/import tussen toestellen
+    (§2.28). Een lege string betekent "nog niet gegenereerd"; de
+    ExportService genereert en bewaart er dan één.
+
+    ``laatste_exchangemap`` (sinds 28F) is de laatst gebruikte map voor
+    export/import tussen toestellen. Staat los van de documentatie-
+    import- en exportmappen.
     """
 
     thema: str = STANDAARD_THEMA
@@ -150,9 +169,11 @@ class AlgemeneInstellingen:
     laatste_exportmap: str = ""
     laatste_importmap: str = ""
     laatste_rapportmap: str = ""
+    laatste_exchangemap: str = ""
     exportmap_openen_na_export: bool = False
     controleer_updates_bij_opstarten: bool = True
     qa_modus: bool = False
+    machine_id: str = ""
 
 
 @dataclass(frozen=True)

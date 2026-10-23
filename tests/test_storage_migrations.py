@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_storage_migrations.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-01
+Versie:     1.1.0
+Datum:      2026-10-23
 Auteur:     Bart Bossuyt
 
 Doel:       Gerichte regressietests voor het transactionele migratieframework.
@@ -14,6 +14,7 @@ Doel:       Gerichte regressietests voor het transactionele migratieframework.
 
 Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste tests voor migrations.py.
+  v1.1.0 (2026-10-23)  Fase 28E: nieuwe tests voor v1 → v3 en v2 → v3.
 ================================================================================
 """
 
@@ -181,13 +182,13 @@ def test_missing_migration_step_is_explicit_error() -> None:
 
 def test_future_schema_is_rejected() -> None:
     connection = _connection_with_v1()
-    connection.execute("UPDATE schema_meta SET schema_version = 3")
+    connection.execute("UPDATE schema_meta SET schema_version = 99")
     connection.commit()
 
     with pytest.raises(UnsupportedSchemaVersionError):
         migrate_database(
             connection,
-            target_version=2,
+            target_version=3,
             migrated_at_ms=TEST_NOW_MS + 10,
             migrations={},
         )
@@ -198,3 +199,119 @@ def test_missing_schema_meta_is_rejected() -> None:
 
     with pytest.raises(InvalidDatabaseSchemaError):
         read_schema_version(connection)
+
+
+# ---------------------------------------------------------------- 28E: v3
+
+def test_migration_v1_to_v3_in_one_call_adds_both_v2_and_v3_structure() -> None:
+    connection = _connection_with_v1()
+
+    result = migrate_database(
+        connection,
+        target_version=3,
+        migrated_at_ms=TEST_NOW_MS + 10,
+    )
+
+    assert result == 3
+
+    columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(measurements)")
+    }
+    indexes = {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='index' AND name NOT LIKE 'sqlite_%'"
+        )
+    }
+
+    assert "tool_key" in columns
+    assert "source_machine_id" in columns
+    assert "source_measurement_id" in columns
+    assert "ix_measurements_tool_key" in indexes
+    assert "ix_measurements_source_identity" in indexes
+
+
+def test_migration_v2_to_v3_adds_source_identity_columns() -> None:
+    connection = _connection_with_v1()
+    # Eerst naar v2.
+    migrate_database(
+        connection,
+        target_version=2,
+        migrated_at_ms=TEST_NOW_MS + 5,
+    )
+    assert read_schema_version(connection) == 2
+
+    # Dan naar v3.
+    migrate_database(
+        connection,
+        target_version=3,
+        migrated_at_ms=TEST_NOW_MS + 10,
+    )
+
+    columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(measurements)")
+    }
+    assert "source_machine_id" in columns
+    assert "source_measurement_id" in columns
+    assert read_schema_version(connection) == 3
+
+
+def test_migration_to_v3_preserves_existing_measurements() -> None:
+    connection = _connection_with_v1()
+
+    # Bouw een geldige meetketen op v1.
+    connection.execute(
+        "INSERT INTO component_models (manufacturer, created_at_ms) "
+        "VALUES (?, ?)",
+        ("Legacy", TEST_NOW_MS),
+    )
+    model_id = connection.execute(
+        "SELECT id FROM component_models"
+    ).fetchone()[0]
+    connection.execute(
+        "INSERT INTO component_samples "
+        "(component_model_id, sample_state, created_at_ms) "
+        "VALUES (?, 'UNKNOWN', ?)",
+        (model_id, TEST_NOW_MS),
+    )
+    sample_id = connection.execute(
+        "SELECT id FROM component_samples"
+    ).fetchone()[0]
+    connection.execute(
+        "INSERT INTO measurement_sessions "
+        "(component_sample_id, started_at_ms, created_at_ms) "
+        "VALUES (?, ?, ?)",
+        (sample_id, TEST_NOW_MS, TEST_NOW_MS),
+    )
+    session_id = connection.execute(
+        "SELECT id FROM measurement_sessions"
+    ).fetchone()[0]
+    connection.execute(
+        "INSERT INTO measurements "
+        "(measurement_session_id, measured_at_ms, measurement_method, "
+        "capacitance_f, esr_ohm, created_at_ms) "
+        "VALUES (?, ?, 'EX_SITU', 470e-6, 0.2, ?)",
+        (session_id, TEST_NOW_MS + 1, TEST_NOW_MS + 1),
+    )
+    connection.commit()
+
+    migrate_database(
+        connection,
+        target_version=3,
+        migrated_at_ms=TEST_NOW_MS + 10,
+    )
+
+    row = connection.execute(
+        "SELECT capacitance_f, esr_ohm, tool_key, "
+        "source_machine_id, source_measurement_id "
+        "FROM measurements"
+    ).fetchone()
+
+    assert row[0] == 470e-6
+    assert row[1] == 0.2
+    assert row[2] == "ESR_CAPACITOR"
+    assert row[3] is None
+    assert row[4] is None

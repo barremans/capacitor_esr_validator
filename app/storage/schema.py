@@ -2,16 +2,21 @@
 ================================================================================
 Module:     app/storage/schema.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-01
+Versie:     1.2.0
+Datum:      2026-10-23
 Auteur:     Bart Bossuyt
 
 Doel:       Declaratieve SQLite-DDL voor de lokale meetdatabase.
 
             Schema v2 maakt de historiek expliciet multitool-ready door elke
-            measurement een stabiele tool_key te geven. Bestaande ESR-records
-            krijgen ESR_CAPACITOR. De bestaande zeven hoofdtabellen blijven
-            behouden; er wordt geen ruwe meetdata herschreven.
+            measurement een stabiele tool_key te geven. Schema v3 voegt
+            herkomst-kolommen toe voor export/import tussen toestellen
+            (§2.28): source_machine_id en source_measurement_id, plus een
+            index op (source_machine_id, source_measurement_id).
+
+            Bestaande ESR-records krijgen ESR_CAPACITOR. De bestaande zeven
+            hoofdtabellen blijven behouden; er wordt geen ruwe meetdata
+            herschreven.
 
 Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste SQLite schema v1 met zeven hoofdtabellen.
@@ -19,6 +24,11 @@ Wijzigingen:
                         create_schema_current() maakt rechtstreeks de huidige
                         structuur aan, met behoud van create_schema_v1() voor
                         migratie- en regressietests.
+  v1.2.0 (2026-10-23)  Fase 28E: schema v3. Nieuwe kolommen
+                        source_machine_id en source_measurement_id op
+                        measurements, plus index
+                        ix_measurements_source_identity. Bestaande
+                        metingen krijgen NULL (lokaal aangemaakt).
 ================================================================================
 """
 
@@ -28,7 +38,7 @@ import sqlite3
 
 
 SCHEMA_V1_VERSION = 1
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 DEFAULT_TOOL_KEY = "ESR_CAPACITOR"
 
 SCHEMA_V1_TABLES = (
@@ -58,7 +68,10 @@ SCHEMA_V1_INDEXES = (
     "ix_assessment_snapshots_status",
     "ix_reference_snapshots_assessment",
 )
-SCHEMA_CURRENT_INDEXES = SCHEMA_V1_INDEXES + ("ix_measurements_tool_key",)
+SCHEMA_CURRENT_INDEXES = SCHEMA_V1_INDEXES + (
+    "ix_measurements_tool_key",
+    "ix_measurements_source_identity",
+)
 
 SCHEMA_V1_STATEMENTS = (
     """
@@ -201,10 +214,34 @@ def apply_schema_v2_structure(connection: sqlite3.Connection) -> None:
     )
 
 
+def apply_schema_v3_structure(connection: sqlite3.Connection) -> None:
+    """Voeg alleen de v3-structuur toe; commit en schema_meta-update gebeuren elders.
+
+    Schema v3 voegt herkomst-kolommen toe voor export/import tussen
+    toestellen (§2.28). Beide kolommen zijn nullable: een lokaal
+    aangemaakte meting heeft geen herkomst. De index versnelt de
+    duplicate-detectie op (source_machine_id, source_measurement_id).
+    """
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(measurements)")}
+    if "source_machine_id" not in columns:
+        connection.execute(
+            "ALTER TABLE measurements ADD COLUMN source_machine_id TEXT"
+        )
+    if "source_measurement_id" not in columns:
+        connection.execute(
+            "ALTER TABLE measurements ADD COLUMN source_measurement_id INTEGER"
+        )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS ix_measurements_source_identity "
+        "ON measurements (source_machine_id, source_measurement_id)"
+    )
+
+
 def create_schema_current(connection: sqlite3.Connection, *, created_at_ms: int) -> None:
     """Maak een nieuwe database rechtstreeks in de huidige schema-toestand."""
     create_schema_v1(connection, created_at_ms=created_at_ms)
     apply_schema_v2_structure(connection)
+    apply_schema_v3_structure(connection)
     connection.execute(
         "UPDATE schema_meta SET schema_version = ?, last_migrated_at_ms = ?",
         (CURRENT_SCHEMA_VERSION, created_at_ms),

@@ -2,12 +2,17 @@
 ================================================================================
 Module:     tests/test_storage_multitool_v2.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-01
+Versie:     1.0.1
+Datum:      2026-10-23
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor schema v2 multitool-discriminator en veilige
             migratie van bestaande ESR-historiek.
+
+Wijzigingen:
+  v1.0.0 (2026-10-01)  Eerste versie.
+  v1.0.1 (2026-10-23)  Fase 28E: assertie CURRENT_SCHEMA_VERSION == 2
+                       bijgewerkt naar == 3 na de v2->v3-migratie.
 ================================================================================
 """
 from pathlib import Path
@@ -46,7 +51,7 @@ def test_initialize_migrates_v1_measurements_to_esr_tool_key_without_data_loss(t
 
     connection = open_database(path)
     try:
-        assert connection.execute("SELECT schema_version FROM schema_meta").fetchone()[0] == CURRENT_SCHEMA_VERSION == 2
+        assert connection.execute("SELECT schema_version FROM schema_meta").fetchone()[0] == CURRENT_SCHEMA_VERSION == 3
         row = connection.execute("SELECT tool_key, capacitance_f, esr_ohm FROM measurements").fetchone()
         assert tuple(row) == ("ESR_CAPACITOR", 470e-6, 0.2)
         assert connection.execute("SELECT COUNT(*) FROM measurements").fetchone()[0] == 1

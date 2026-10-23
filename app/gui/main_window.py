@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.22.2
-Datum:      2026-10-21
+Versie:     2.23.0
+Datum:      2026-10-23
 Auteur:     Bart Bossuyt
 
 Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
@@ -67,21 +67,14 @@ Wijzigingen:
   v2.22.0 (2026-10-21)  Fix 11H.3: stylesheet op het venster, niet op
                         de QApplication.
   v2.22.1 (2026-10-21)  Fase 11H.4: AnalysisScreen krijgt theme mee.
-                        - AnalysisScreen(taal=..., theme=self.theme, ...)
-                          bij constructie.
-                        - _apply_settings geeft analysis_page.apply_theme
-                          door bij een themawissel.
   v2.22.2 (2026-10-21)  Fase 11H.5: HistoryScreen krijgt theme mee en
                         release-notes-dialoog volgt het thema.
-                        - HistoryScreen(taal=..., theme=self.theme, ...)
-                          bij constructie.
-                        - _apply_settings geeft history_page.apply_theme
-                          door bij een themawissel.
-                        - _toon_release_notes_dialoog gebruikt een
-                          thema-afhankelijke QTextBrowser-stijl.
-                        - _markdown_naar_html krijgt optionele body_bg
-                          en body_fg (default donker, voor
-                          backward-compat met de interne aanroep).
+  v2.23.0 (2026-10-23)  Fase 28F: twee nieuwe Bestand-menu-items,
+                        "Exporteren naar toestel…" (Ctrl+Shift+E) en
+                        "Importeren van toestel…" (Ctrl+Shift+I), plus
+                        _open_exchange_dialog. De dialoog krijgt de
+                        actieve selectie/filters mee en ververst na
+                        sluiten de historiek en analyse.
 ================================================================================
 """
 
@@ -487,6 +480,31 @@ class ToolHubWindow(QMainWindow):
         self._zet_icoon_op_action(import_action, "documentation")
         file_menu.addAction(import_action)
 
+        # 28F: export/import tussen toestellen.
+        self.exchange_export_action = QAction(
+            self._t("exchange.menu.exporteren"), file_menu
+        )
+        self.exchange_export_action.setShortcut(
+            QKeySequence("Ctrl+Shift+E")
+        )
+        self.exchange_export_action.triggered.connect(
+            lambda: self._open_exchange_dialog("export")
+        )
+        self._zet_icoon_op_action(self.exchange_export_action, "report")
+        file_menu.addAction(self.exchange_export_action)
+
+        self.exchange_import_action = QAction(
+            self._t("exchange.menu.importeren"), file_menu
+        )
+        self.exchange_import_action.setShortcut(
+            QKeySequence("Ctrl+Shift+I")
+        )
+        self.exchange_import_action.triggered.connect(
+            lambda: self._open_exchange_dialog("import")
+        )
+        self._zet_icoon_op_action(self.exchange_import_action, "documentation")
+        file_menu.addAction(self.exchange_import_action)
+
         self.rapport_action = QAction(self._t("menu.rapport"), file_menu)
         self.rapport_action.setShortcut(QKeySequence("Ctrl+P"))
         self.rapport_action.triggered.connect(self._open_report_dialog)
@@ -731,13 +749,79 @@ class ToolHubWindow(QMainWindow):
         from app.gui.dialogs.import_wizard_dialog import ImportWizardDialog
 
         dialog = ImportWizardDialog(taal=self.taal, parent=self)
-        self._zet_dialoog_icoon(dialog)
+        self._zet_dialoog_icono(dialog)
         dialog.import_completed.connect(self._on_import_completed)
         dialog.exec()
 
     def _on_import_completed(self, source_id: str) -> None:
         self.documentation_page.refresh()
         self.documentation_page.select_document_by_id(source_id)
+
+    # ------------------------------------------------------------------
+    # Exchange-dialoog (28F)
+    # ------------------------------------------------------------------
+
+    def _huidige_selectie_en_filters(
+        self,
+    ) -> tuple[list[int], dict]:
+        """Haal de actieve selectie en filters op uit de huidige pagina.
+
+        Op HistoryScreen en AnalysisScreen zijn die beschikbaar; op de
+        andere pagina's geven we lege waarden terug. De dialoog schakelt
+        dan automatisch naar de andere modus of toont een melding.
+        """
+        current = self.stack.currentWidget() if hasattr(self, "stack") else None
+        selected_ids: list[int] = []
+        active_filters: dict = {}
+
+        if current is getattr(self, "history_page", None):
+            try:
+                selected_ids = self.history_page._selected_measurement_ids()
+            except Exception:
+                selected_ids = []
+            try:
+                active_filters = self.history_page._active_filters()
+            except Exception:
+                active_filters = {}
+        elif current is getattr(self, "analysis_page", None):
+            try:
+                selected_ids = self.analysis_page._selected_measurement_ids()
+            except Exception:
+                selected_ids = []
+            try:
+                active_filters = self.analysis_page._active_filters()
+            except Exception:
+                active_filters = {}
+
+        return list(selected_ids), dict(active_filters)
+
+    def _open_exchange_dialog(self, mode: str) -> None:
+        from app.gui.dialogs.exchange_dialog import ExchangeDialog
+
+        selected_ids, active_filters = self._huidige_selectie_en_filters()
+
+        dialog = ExchangeDialog(
+            taal=self.taal,
+            theme=self.theme,
+            selected_measurement_ids=selected_ids,
+            active_filters=active_filters,
+            initial_tab=mode,
+            parent=self,
+        )
+        self._zet_dialoog_icoon(dialog)
+
+        def _na_uitwisseling() -> None:
+            try:
+                self.history_page.refresh()
+            except Exception:
+                pass
+            try:
+                self.analysis_page.refresh()
+            except Exception:
+                pass
+
+        dialog.exchange_completed.connect(_na_uitwisseling)
+        dialog.exec()
 
     def _open_report_dialog(self) -> None:
         current = self.stack.currentWidget() if hasattr(self, "stack") else None

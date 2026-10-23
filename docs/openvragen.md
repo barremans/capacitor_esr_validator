@@ -1,7 +1,7 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 3.7.0
-**Datum:** 2026-10-22
+**Versie:** 3.8.0
+**Datum:** 2026-10-23
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren
 is. Geen bugs, geen beloftes — alleen vragen en observaties.
@@ -9,19 +9,20 @@ is. Geen bugs, geen beloftes — alleen vragen en observaties.
 Wijzigingen:
   v1.0.0 t/m v3.5.0  zie eerdere versies.
   v3.6.0 (2026-10-22)  §2.16 en §2.20 gemarkeerd als opgelost in
-                       11I.1 t/m 11I.4. Nieuwe subsectie 4.39
-                       (opgeloste punten in 11I).
-  v3.7.0 (2026-10-22)  §2.14 volledig gemarkeerd als opgelost in 12E
-                       (scope "filters"). Nieuwe subsectie 4.40
-                       (opgeloste punten in 12A) en 4.41 (opgeloste
-                       punten in 12E). §2.28 staat nu als "volgende
-                       opdracht".
+                       11I.1 t/m 11I.4.
+  v3.7.0 (2026-10-22)  §2.14 volledig gemarkeerd als opgelost in 12E.
+                       Nieuwe subsectie 4.40 (12A) en 4.41 (12E).
+                       §2.28 staat nu als "volgende opdracht".
+  v3.8.0 (2026-10-23)  §2.28 volledig gemarkeerd als opgelost in
+                       §2.28 (zes sub-fases). Nieuwe subsectie 4.42
+                       (opgeloste punten in §2.28). De volgende
+                       opdracht is nu 12B (op hold).
 
 ---
 
 ## 1. Uit Fase 4I — Zoektaal-observaties
 
-Onveranderd t.o.v. v3.6.0.
+Onveranderd t.o.v. v3.7.0.
 
 ---
 
@@ -60,13 +61,7 @@ Zie eerdere versies.
 ### 2.14 Nieuwe openstaande punten (na fase 8D)
 
 - **GUI voor scope "selectie" en "filters".** **Volledig opgelost in
-  11A.2 (selectie) en 12E (filters).** `ReportDialog` heeft nu drie
-  ingangen: `ReportDialog(id, ...)` (enkelvoudig),
-  `ReportDialog.for_measurements(ids, ...)` (selectie) en
-  `ReportDialog.for_filters(filters, ...)` (huidige filters). Zowel
-  `HistoryScreen._show_report_for_selected` als
-  `AnalysisScreen._open_report_for_selection` kiezen de juiste
-  ingang automatisch.
+  11A.2 (selectie) en 12E (filters).**
 - **Menu-item "Rapport maken…" disabled maken zonder selectie.**
   **Opgelost in 11A.1.**
 - **PDF-fonts op Windows.** Opgelost in 9A.
@@ -79,11 +74,7 @@ Zie eerdere versies.
 
 ### 2.16 pandas/numpy pins heroverwegen (toegevoegd 2026-10-13)
 
-- **Status:** **opgelost in 11I.1.** De pins zijn bewust:
-  `numpy>=1.26,<3` en `pandas>=2.2,<3`. De bovengrens beschermt
-  tegen een major-bump die de PyInstaller-bundel of de pandas-API's
-  kan breken. Motivatie staat in `requirements.txt` v1.1.0 en in
-  `docs/packaging.md` §2.1.
+- **Status:** **opgelost in 11I.1.**
 
 ### 2.17 t/m 2.19 — beantwoord
 
@@ -100,12 +91,9 @@ Zie eerdere versies.
 
 ### 2.21 Drie visuele punten uit de 9F-sessie (2026-10-14)
 
-- **Visuele selectie in Analyse.** **Opgelost in 11A.1** (compacte
-  selectielijst) **en 11G.5** (klikbare datapunten, selectie-gedreven
-  scope).
-- **Checkbox-zichtbaarheid in donker thema.** **Deels opgelost in
-  11G.1** (focus-states, tabel-indicator, groupbox-indicator). De
-  filter-checkbox is verder opgelost in 11G.7.
+- **Visuele selectie in Analyse.** **Opgelost in 11A.1 en 11G.5.**
+- **Checkbox-zichtbaarheid in donker thema.** **Opgelost in 11G.1
+  en 11G.7.**
 - **i18n-menging in Diagnose/Result en Resultaatdetails.** **Opgelost
   in 11D.**
 
@@ -133,18 +121,15 @@ Zie eerdere versies.
 
 ### 2.28 Metingen exporteren/importeren voor samenvoegen tussen toestellen (toegevoegd 2026-10-15)
 
-- **Status:** **open; volgende opdracht.** Dit is een aparte fase,
-  geen restpost van 12. De exacte sub-fase-indeling wordt bij de
-  start bepaald. Vereist doordachte keuzes over het exportformaat
-  (JSON-envelope vs. SQLite-dump), de duplicate-/conflictregels en
-  de herkomst-tracking. Raakt `storage/schema.py`,
-  `storage/service.py`, `storage/models.py`, `history_service.py`,
-  de GUI en mogelijk een nieuw exportformaat.
+- **Status:** **volledig opgelost in §2.28 (2026-10-23).**
+  Zes sub-fases (28A, 28B, 28C, 28E, 28D, 28F), +102 tests. JSON-
+  envelope met meetketens, natuurlijke sleutel op inhoud, herkomst-
+  kolommen in schema v3, import-planner, import-service,
+  export-service, en GUI-koppeling. Twee nieuwe Bestand-menu-items.
 
 ### 2.29 Mapvoorkeuren respecteren (toegevoegd 2026-10-15)
 
-- **Status:** **opgelost in 11A.3** via
-  `app/helpers/dialog_start_directory.py`.
+- **Status:** **opgelost in 11A.3.**
 
 ### 2.30 Filter-checkbox zichtbaarheid (toegevoegd 2026-10-20)
 
@@ -154,70 +139,59 @@ Zie eerdere versies.
 
 ## 3. Uit vroegere contextdocumenten (nog steeds relevant)
 
-Onveranderd t.o.v. v3.6.0.
+Onveranderd t.o.v. v3.7.0.
 
 ---
 
 ## 4. Uit eigen observaties tijdens recente fases
 
-Onveranderd t.o.v. v3.6.0, plus:
+Onveranderd t.o.v. v3.7.0, plus:
 
-### 4.37 Opgeloste punten in 11G.7 (2026-10-20)
+### 4.37 t/m 4.39
 
-Onveranderd t.o.v. v3.6.0.
-
-### 4.38 Opgeloste punten in 11H (2026-10-21)
-
-Onveranderd t.o.v. v3.6.0.
-
-### 4.39 Opgeloste punten in 11I (2026-10-22)
-
-Onveranderd t.o.v. v3.6.0.
+Onveranderd t.o.v. v3.7.0.
 
 ### 4.40 Opgeloste punten in 12A (2026-10-22)
 
-- **Uniform extractiemodel.** `app/documentation/extraction_models.py`
-  v1.0.0 met `ExtractionResult`, `ExtractionError` en
-  `ExtractionSourceKind` (PDF/DOCX/XLSX/URL). Frozen, slots,
-  validatie in `__post_init__`.
-- **Uniforme extractie-dispatcher.**
-  `app/documentation/extraction_service.py` v1.0.0 met
-  `extract_for_source`, `extract_for_path` en `extract_for_url`.
-  Roept de bestaande extractors aan en vertaalt hun resultaat naar
-  het uniforme model. Lokale URL-teksthepler via BeautifulSoup,
-  zodat `url_fetch.py` niet gewijzigd hoefde te worden.
-- **Bestaande modules ongewijzigd:** `pdf_extract.py`,
-  `docx_extract.py`, `xlsx_extract.py`, `url_fetch.py`,
-  `import_service.py`, `import_models.py` en de vier `*_import.py`
-  zijn onaangeroerd.
-- **Nieuwe tests:** `tests/test_documentation_extraction_models.py`
-  v1.0.0 (15 tests) en
-  `tests/test_documentation_extraction_service.py` v1.0.0
-  (22 tests).
-- **Baseline:** 1548 → **1585 passed** (+37 tests).
+Onveranderd t.o.v. v3.7.0.
 
 ### 4.41 Opgeloste punten in 12E (2026-10-22)
 
-- **§2.14 — scope "filters" in de Rapportage-GUI.** Volledig
-  opgelost:
-  - `app/gui/dialogs/report_dialog.py` v1.6.1 met classmethod
-    `for_filters`, `_kop_tekst`-helper en kop-update in
-    `_laad_bundle`.
-  - `app/gui/history_screen.py` v1.19.0 met drie modi in
-    `_show_report_for_selected` en een `_heeft_actieve_filters`-
-    helper.
-  - `app/gui/analysis_screen.py` v1.7.2 met drie modi in
-    `_open_report_for_selection` en een `_heeft_actieve_filters`-
-    helper die uitsluitend naar de GUI-velden kijkt.
-- **Bugfix in `AnalysisScreen._heeft_actieve_filters()`:** de
-  helper gaf altijd `True` omdat `_active_filters()` altijd
-  `tool_key="ESR_CAPACITOR"` bevat. Opgelost in v1.7.2.
-- **Bugfix in `ReportDialog.kop_label`:** toonde "0 metingen"
-  voor de filters-modus omdat `_build_ui()` vóór `_laad_bundle()`
-  loopt. Opgelost in v1.6.1.
-- **Nieuwe tests:** `tests/test_report_dialog_scope_filters.py`
-  v1.0.1 (13 tests).
-- **Baseline:** 1585 → **1598 passed** (+13 tests).
+Onveranderd t.o.v. v3.7.0.
+
+### 4.42 Opgeloste punten in §2.28 (2026-10-23)
+
+- **§2.28 — export/import tussen toestellen.** Volledig opgelost in
+  zes sub-fases:
+  - **28A** — `docs/export_import_format.md` v1.0.0;
+    `app/services/exchange/models.py` v1.0.0. 34 tests.
+  - **28B** — `app/services/exchange/export_service.py` v1.0.1.
+    15 tests.
+  - **28C** — `app/services/exchange/import_planner.py` v1.0.0.
+    11 tests.
+  - **28E** — `app/storage/schema.py` v1.2.0,
+    `migrations.py` v1.2.0, `models.py` v1.2.0, `service.py`
+    v1.2.0. Schema-migratie v2 → v3. 16 tests.
+  - **28D** — `app/services/exchange/import_service.py` v1.0.0.
+    16 tests.
+  - **28F** — `app/gui/dialogs/exchange_dialog.py` v1.0.1,
+    `app/gui/main_window.py` v2.23.0, nieuwe
+    `exchange.json` in NL en EN. 16 tests.
+- **Belangrijke bugfix in 28F:** `_show_import_wizard` in
+  `main_window.py` had een typfout `self._zet_dialoog_icono(...)`
+  in plaats van `self._zet_dialoog_icoon(...)`. Latente bug die
+  bij het openen van de import-wizard een `AttributeError` gaf.
+- **Nieuwe i18n-keys:** het volledige `exchange.*`-blok in beide
+  talen.
+- **Baseline:** 1598 → **1700 passed** (+102 tests).
+
+### 4.43 Openstaande punten na §2.28 (2026-10-23)
+
+- **12B — AI-model-keuze en API-koppeling.** Op hold. Wacht op een
+  ontwerpbeslissing: welke provider, welk model, offline-first of
+  cloud-API, en waar de API-key leeft.
+- **Publiek vertrouwd (EV-)certificaat.** Structurele oplossing.
+- **Fallback timestamp-server.** Single point of failure.
 
 ---
 

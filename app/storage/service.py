@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/storage/service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-01
+Versie:     1.2.0
+Datum:      2026-10-23
 Auteur:     Bart Bossuyt
 
 Doel:       Publieke storage-service voor de lokale SQLite-meethistoriek.
@@ -20,6 +20,10 @@ Wijzigingen:
                         filters volgens het goedgekeurde v1-contract.
   v1.1.0 (2026-10-01)  tool_key toegevoegd aan measurements en historiekfilter.
                         Bestaande callers blijven ESR_CAPACITOR als default krijgen.
+  v1.2.0 (2026-10-23)  Fase 28E: source_machine_id en source_measurement_id
+                        toegevoegd aan create_measurement en aan de
+                        meetketen-mapping. Validatie: beide of geen van
+                        beide. Geen nieuwe historiekfilters in 28E.
 ================================================================================
 """
 
@@ -240,6 +244,8 @@ class StorageService:
         record_status: str | None = None,
         supersedes_measurement_id: int | None = None,
         invalid_reason: str | None = None,
+        source_machine_id: str | None = None,
+        source_measurement_id: int | None = None,
     ) -> Measurement:
         values = self._validated_measurement_values(
             measurement_session_id=measurement_session_id,
@@ -272,6 +278,8 @@ class StorageService:
             record_status=record_status,
             supersedes_measurement_id=supersedes_measurement_id,
             invalid_reason=invalid_reason,
+            source_machine_id=source_machine_id,
+            source_measurement_id=source_measurement_id,
             created_at_ms=self._now_ms(),
         )
         return self._create_one(self._insert_measurement, values)
@@ -387,7 +395,6 @@ class StorageService:
         reference_snapshots: Sequence[Mapping[str, Any]] = (),
     ) -> dict[str, Any]:
         """Sla model→sample→session→measurement→assessment→references atomair op."""
-        # Valideer en normaliseer eerst alles wat onafhankelijk van database-ID's is.
         model_values = self._component_model_mapping(component_model)
         sample_values = self._component_sample_mapping(component_sample)
         session_values = self._measurement_session_mapping(measurement_session)
@@ -705,7 +712,6 @@ class StorageService:
 
     # ------------------------------------------------------------------
     # Mapping helpers voor transactionele chain.
-    # FK's in de aangeleverde mappings worden bewust genegeerd/overschreven.
     # ------------------------------------------------------------------
 
     def _component_model_mapping(self, data: Mapping[str, Any]) -> dict[str, Any]:
@@ -784,6 +790,7 @@ class StorageService:
             "short_suspected", "unstable_reading", "parallel_components_notes",
             "mechanical_condition_notes", "notes", "record_status",
             "supersedes_measurement_id", "invalid_reason",
+            "source_machine_id", "source_measurement_id",
         }
         self._reject_unknown_mapping_keys("measurement", data, allowed)
         values = {key: value for key, value in data.items() if key != "measurement_session_id"}
@@ -1132,10 +1139,46 @@ class StorageService:
             values["supersedes_measurement_id"] = cls._positive_id(
                 "supersedes_measurement_id", supersedes
             )
+        # Herkomst-tracking (§2.28): beide of geen van beide.
+        source_machine_id = values.get("source_machine_id")
+        source_measurement_id = values.get("source_measurement_id")
+        source_machine_id = cls._normaliseer_herkomst_machine_id(
+            "source_machine_id", source_machine_id
+        )
+        source_measurement_id = cls._normaliseer_herkomst_measurement_id(
+            "source_measurement_id", source_measurement_id
+        )
+        if (source_machine_id is None) != (source_measurement_id is None):
+            raise StorageValidationError(
+                "source_machine_id en source_measurement_id moeten beide "
+                "gevuld of beide leeg zijn."
+            )
+        values["source_machine_id"] = source_machine_id
+        values["source_measurement_id"] = source_measurement_id
         values["created_at_ms"] = cls._epoch_ms(
             "created_at_ms", values["created_at_ms"]
         )
         return values
+
+    @staticmethod
+    def _normaliseer_herkomst_machine_id(
+        name: str, value: Any
+    ) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str) or not value.strip():
+            raise StorageValidationError(
+                f"{name} moet een niet-lege string of None zijn."
+            )
+        return value.strip()
+
+    @classmethod
+    def _normaliseer_herkomst_measurement_id(
+        cls, name: str, value: Any
+    ) -> int | None:
+        if value is None:
+            return None
+        return cls._positive_id(name, value)
 
     @staticmethod
     def _reject_unknown_mapping_keys(

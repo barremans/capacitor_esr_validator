@@ -2,22 +2,23 @@
 ================================================================================
 Module:     app/helpers/dialog_start_directory.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-16
+Versie:     1.0.1
+Datum:      2026-10-23
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-onafhankelijke helper voor de beste startmap van QFileDialog-
             aanroepen en het onthouden van de laatst gebruikte map per
-            categorie (export, import, rapport).
+            categorie (export, import, rapport, exchange).
 
             De helper leest en schrijft uitsluitend via laad_instellingen /
             sla_instellingen_op. Er wordt geen Qt geïmporteerd en er wordt
             geen database aangeraakt.
 
             Categorieën en hun velden:
-              - export  -> laatste_exportmap  -> standaard_exportmap
-              - import  -> laatste_importmap  -> standaard_importmap
-              - rapport -> laatste_rapportmap -> standaard_exportmap
+              - export   -> laatste_exportmap    -> standaard_exportmap
+              - import   -> laatste_importmap    -> standaard_importmap
+              - rapport  -> laatste_rapportmap   -> standaard_exportmap
+              - exchange -> laatste_exchangemap  -> standaard_exportmap
 
             De helper faalt stil bij onleesbare of onbeschrijfelijke
             settings.json: het kiezen van een startmap is een gemaksfunctie,
@@ -28,6 +29,8 @@ Wijzigingen:
                         startmap-logica die voorheen in history_screen,
                         analysis_screen, report_dialog en import_wizard
                         gedupliceerd stond.
+  v1.0.1 (2026-10-23)  Fase 28F: categorie 'exchange' toegevoegd voor
+                        export/import tussen toestellen (§2.28).
 ================================================================================
 """
 
@@ -44,9 +47,11 @@ from app.config.settings import (
 )
 
 
-Categorie = Literal["export", "import", "rapport"]
+Categorie = Literal["export", "import", "rapport", "exchange"]
 
-_GELDIGE_CATEGORIEEN: frozenset[str] = frozenset({"export", "import", "rapport"})
+_GELDIGE_CATEGORIEEN: frozenset[str] = frozenset(
+    {"export", "import", "rapport", "exchange"}
+)
 
 
 def _valideer_categorie(categorie: str) -> None:
@@ -62,13 +67,16 @@ def _laatste_veld(instellingen: AppInstellingen, categorie: Categorie) -> str:
         return instellingen.algemeen.laatste_exportmap
     if categorie == "import":
         return instellingen.algemeen.laatste_importmap
+    if categorie == "exchange":
+        return getattr(instellingen.algemeen, "laatste_exchangemap", "") or ""
     return instellingen.algemeen.laatste_rapportmap
 
 
 def _standaard_veld(instellingen: AppInstellingen, categorie: Categorie) -> str:
     if categorie == "import":
         return instellingen.algemeen.standaard_importmap
-    # Voor export én rapport valt de standaard terug op standaard_exportmap.
+    # Voor export, rapport én exchange valt de standaard terug op
+    # standaard_exportmap: exchange-bestanden zijn exportproducten.
     return instellingen.algemeen.standaard_exportmap
 
 
@@ -153,6 +161,10 @@ def onthoud_startmap(categorie: Categorie, pad: Path) -> None:
     elif categorie == "import":
         nieuwe_algemeen = _dc_replace(
             instellingen.algemeen, laatste_importmap=nieuwe_map
+        )
+    elif categorie == "exchange":
+        nieuwe_algemeen = _dc_replace(
+            instellingen.algemeen, laatste_exchangemap=nieuwe_map
         )
     else:
         nieuwe_algemeen = _dc_replace(
