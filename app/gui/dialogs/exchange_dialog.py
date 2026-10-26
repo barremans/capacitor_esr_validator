@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/dialogs/exchange_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.1
-Datum:      2026-10-23
+Versie:     1.0.2
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Modale dialoog voor export/import tussen toestellen (§2.28F).
@@ -28,6 +28,19 @@ Wijzigingen:
                        vulling). Zo kan de GUI-tests de tabel vullen
                        zonder een echt bestand te schrijven, en is de
                        scheiding van verantwoordelijkheden duidelijker.
+  v1.0.2 (2026-10-26)  Chat 3B (masterplan A4): de standaard-scope in
+                       de export-tab werd bepaald door twee
+                       onafhankelijke if-regels. De tweede (op
+                       active_filters) overschreef de eerste (op
+                       selected_measurement_ids). Gevolg: bij een
+                       selectie én filters bleef de scope op FILTERED
+                       staan, en op AnalysisScreen (waar
+                       _active_filters() nooit leeg is vanwege de
+                       impliciete tool_key) stond de scope altijd op
+                       FILTERED. De selectie werd daardoor genegeerd.
+                       Nu expliciete prioriteit: selectie > filters >
+                       selectie-als-fallback. Geen wijziging aan de
+                       service-laag.
 ================================================================================
 """
 
@@ -180,12 +193,18 @@ class ExchangeDialog(QDialog):
         self.export_scope_combo.addItem(
             self._t("exchange.export.scope_filters"), "FILTERED"
         )
-        if not self._selected_measurement_ids:
-            # Geen selectie: standaard op filters.
-            self.export_scope_combo.setCurrentIndex(1)
-        if not self._active_filters:
-            # Geen filters: selectie-modus forceren.
-            self.export_scope_combo.setCurrentIndex(0)
+
+        # 3B (v1.0.2): expliciete prioriteit. Selectie heeft voorrang
+        # op filters. Filters zijn de fallback als er geen selectie is.
+        # De vorige versie gebruikte twee onafhankelijke if-regels,
+        # waardoor de tweede de eerste kon overschrijven. Op
+        # AnalysisScreen (waar _active_filters() nooit leeg is vanwege
+        # de impliciete tool_key) stond de scope daardoor altijd op
+        # FILTERED, en werd de selectie genegeerd.
+        default_scope = self._bepaal_default_scope()
+        index = self.export_scope_combo.findData(default_scope)
+        self.export_scope_combo.setCurrentIndex(index if index >= 0 else 0)
+
         form.addRow(self._t("exchange.export.scope_label"), self.export_scope_combo)
 
         self.export_aantal_label = QLabel(self._export_aantal_tekst())
@@ -201,6 +220,21 @@ class ExchangeDialog(QDialog):
         knoppen.addWidget(self.export_btn)
         layout.addLayout(knoppen)
         return tab
+
+    def _bepaal_default_scope(self) -> str:
+        """Bepaal de standaard-scope voor de export-tab.
+
+        Prioriteit:
+          1. Er is een selectie → SELECTED.
+          2. Geen selectie, maar wel filters → FILTERED.
+          3. Geen van beide → SELECTED (de export-knop is dan
+             effectief uitgeschakeld; de keuze is cosmetisch).
+        """
+        if self._selected_measurement_ids:
+            return "SELECTED"
+        if self._active_filters:
+            return "FILTERED"
+        return "SELECTED"
 
     def _build_import_tab(self) -> QWidget:
         tab = QWidget()

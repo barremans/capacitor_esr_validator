@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_exchange_dialog.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.1
-Datum:      2026-10-23
+Versie:     1.0.2
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor ExchangeDialog (fase 28F).
@@ -17,6 +17,13 @@ Wijzigingen:
                        read_envelope en stopt met een foutmelding.
                        De tests gebruiken nu _toon_plan(envelope)
                        rechtstreeks, wat de eigenlijke GUI-logica is.
+  v1.0.2 (2026-10-26)  Chat 3B (masterplan A4): drie tests voor de
+                       standaard-scope. Bewijst dat een selectie
+                       voorrang heeft op filters (de oude code koos
+                       FILTERED), dat filters de fallback zijn zonder
+                       selectie, en dat een altijd-niet-lege filters-
+                       dict (zoals AnalysisScreen die geeft) de
+                       selectie niet overstemt.
 ================================================================================
 """
 
@@ -271,3 +278,47 @@ def test_apply_theme_idempotent():
     stijl_voor = dialog.state_label.styleSheet()
     dialog.apply_theme("dark")
     assert dialog.state_label.styleSheet() == stijl_voor
+
+
+# ---------------------------------------------------------------- 3B: standaard-scope (A4)
+
+def test_scope_default_is_selectie_bij_selectie_en_filters():
+    """3B (A4): een selectie heeft voorrang op filters.
+
+    Vóór de fix bleef de scope op FILTERED staan wanneer zowel een
+    selectie als filters aanwezig waren. De selectie werd daardoor
+    genegeerd. Deze test faalt op de oude code en slaagt op v1.0.2.
+    """
+    dialog = ExchangeDialog(
+        taal="nl_NL",
+        selected_measurement_ids=[42, 43],
+        active_filters={"manufacturer": "Panasonic"},
+    )
+    assert dialog.export_scope_combo.currentData() == "SELECTED"
+
+
+def test_scope_default_is_filters_zonder_selectie():
+    """3B (A4): zonder selectie is FILTERED de fallback."""
+    dialog = ExchangeDialog(
+        taal="nl_NL",
+        selected_measurement_ids=[],
+        active_filters={"manufacturer": "Panasonic"},
+    )
+    assert dialog.export_scope_combo.currentData() == "FILTERED"
+
+
+def test_analysis_screen_achtige_filters_overstemmen_selectie_niet():
+    """3B (A4): de altijd-niet-lege filters van AnalysisScreen.
+
+    AnalysisScreen._active_filters() bevat altijd minstens
+    {"tool_key": "ESR_CAPACITOR"}. Vóór de fix zorgde dat ervoor dat
+    de scope ALTIJD op FILTERED stond, ook bij een selectie. Deze
+    test bewijst dat de selectie nu voorrang krijgt, ongeacht de
+    inhoud van de filters-dict.
+    """
+    dialog = ExchangeDialog(
+        taal="nl_NL",
+        selected_measurement_ids=[42],
+        active_filters={"tool_key": "ESR_CAPACITOR"},
+    )
+    assert dialog.export_scope_combo.currentData() == "SELECTED"

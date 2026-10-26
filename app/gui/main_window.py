@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/main_window.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     2.23.0
-Datum:      2026-10-23
+Versie:     2.23.1
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Hoofdvenster van de Tool Hub met één-venster-navigatie.
@@ -75,6 +75,12 @@ Wijzigingen:
                         _open_exchange_dialog. De dialoog krijgt de
                         actieve selectie/filters mee en ververst na
                         sluiten de historiek en analyse.
+  v2.23.1 (2026-10-26)  Chat 3A (masterplan A2): typfout in
+                        _show_import_wizard() hersteld —
+                        self._zet_dialoog_icono(...) werd
+                        self._zet_dialoog_icoon(...). De typfout gaf
+                        een AttributeError vóór dialog.exec(), waardoor
+                        de import-wizard nooit opende (dode knop).
 ================================================================================
 """
 
@@ -749,7 +755,7 @@ class ToolHubWindow(QMainWindow):
         from app.gui.dialogs.import_wizard_dialog import ImportWizardDialog
 
         dialog = ImportWizardDialog(taal=self.taal, parent=self)
-        self._zet_dialoog_icono(dialog)
+        self._zet_dialoog_icoon(dialog)
         dialog.import_completed.connect(self._on_import_completed)
         dialog.exec()
 

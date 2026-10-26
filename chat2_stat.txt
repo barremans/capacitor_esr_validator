@@ -1,0 +1,13 @@
+commit 1ce260dc81266f0719102d681882fce71062fb0c
+Author: IT Cgk <bmcbarre@gmail.com>
+Date:   Mon Oct 26 07:32:31 2026 +0100
+
+    debug settings chat 2
+    
+    debug settings chat 2
+
+ collect_huidig.txt                | 1702 +++++++++++++++++++++++++++++++++++++
+ docs/PROJECT_STRUCTURE.md         |   16 +
+ docs/openvragen.md                |  231 +----
+ tests/test_settings_robustness.py |  230 +++++
+ 4 files changed, 1977 insertions(+), 202 deletions(-)
