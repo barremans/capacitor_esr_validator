@@ -363,8 +363,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Read-only Analyse-pagina binnen het hoofdvenster.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.7.2
-        # Datum: 2026-10-22
+        # Versie: 1.9.0
+        # Datum: 2026-10-26
         ```
       - 📄 **/app/gui/documentation_screen.py**
         ```text
@@ -436,6 +436,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
         # Versie: 2.0.0
         # Datum: 2026-10-16
+        ```
+      - 📄 **/app/helpers/chart_axis.py**
+        ```text
+        # Bestandsnaam: app/helpers/chart_axis.py
+        # Beschrijving: Pure, GUI- en Qt-onafhankelijke helpers voor slimme as-instellingen
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.1.1
+        # Datum: 2026-10-26
         ```
       - 📄 **/app/helpers/dialog_start_directory.py**
         ```text
@@ -524,8 +533,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Qt-specifieke grafiek-helper voor meetrapporten.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.0.3
-        # Datum: 2026-10-10
+        # Versie: 1.2.0
+        # Datum: 2026-10-26
         ```
       - 📄 **/app/helpers/report_pdf.py**
         ```text
@@ -892,8 +901,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: GUI-regressietests voor AnalysisScreen.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.6.2
-      # Datum: 2026-10-20
+      # Versie: 1.8.0
+      # Datum: 2026-10-26
       ```
     - 📄 **/tests/test_analysis_screen_nan.py**
       ```text
@@ -975,6 +984,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
       # Versie: 1.1.0
       # Datum: 2026-10-19
+      ```
+    - 📄 **/tests/test_chart_axis.py**
+      ```text
+      # Bestandsnaam: tests/test_chart_axis.py
+      # Beschrijving: Regressietests voor de pure Y-as-clamping-helper (fase 5A)
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.1.0
+      # Datum: 2026-10-26
       ```
     - 📄 **/tests/test_check_github_secret.py**
       ```text
@@ -1648,8 +1666,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor de Qt-specifieke grafiek-helper.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.0
-      # Datum: 2026-10-10
+      # Versie: 1.2.0
+      # Datum: 2026-10-26
       ```
     - 📄 **/tests/test_report_dialog.py**
       ```text

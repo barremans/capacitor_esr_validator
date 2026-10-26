@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_report_chart.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-10
+Versie:     1.2.0
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor de Qt-specifieke grafiek-helper.
@@ -11,6 +11,14 @@ Doel:       Regressietests voor de Qt-specifieke grafiek-helper.
 Wijzigingen:
   v1.0.0 (2026-10-10)  Eerste versie: base64-PNG-output, decodeerbaarheid,
                         lege reeks, niet-ESR tool.
+  v1.1.0 (2026-10-26)  Fase 5A: twee tests voor de gedeelde Y-as-clamping
+                        in de rapportgrafiek. Bewijst dat een outlier de
+                        rapportgrafiek niet onleesbaar maakt en dat de
+                       zelfde helper als AnalysisScreen wordt gebruikt.
+  v1.2.0 (2026-10-26)  Fase 5B: één test voor de leesbare X-as in de
+                        scatter-rapportgrafiek. Bewijst dat de nieuwe
+                        helper bereken_x_as_ticks() ook in
+                        render_scatter_png_base64 wordt gebruikt.
 ================================================================================
 """
 
@@ -173,3 +181,72 @@ def test_render_chart_voor_detail_zonder_measurement_geeft_none():
     png = render_chart_voor_detail({}, analysis_service=_StubAnalysisService(esr_reeks=_esr_punten()))
 
     assert png is None
+    
+# ============================================================================
+# v1.1.0 — gedeelde Y-as-clamping met outlier-detectie (fase 5A)
+# ============================================================================
+
+def test_render_esr_over_tijd_negeert_extreme_outlier():
+    """Een reeks met één 1000× uitschieter levert nog steeds een PNG."""
+    punten = _esr_punten() + [
+        TimeSeriesPoint(
+            x_ms=1_700_000_300_000,
+            y=109.5,  # 109.500 mΩ, 1000× groter dan de rest
+            measurement_id=4,
+            tool_key="ESR_CAPACITOR",
+        ),
+    ]
+    service = _StubAnalysisService(esr_reeks=punten)
+
+    png = render_esr_over_tijd_png_base64(service)
+
+    assert png is not None
+    base64.b64decode(png)  # decodeerbaar
+
+
+def test_render_scatter_negeert_extreme_outlier():
+    """Een scatter met één extreme uitschieter levert nog steeds een PNG."""
+    punten = _scatter_punten() + [
+        ScatterPoint(
+            x=480e-6,
+            y=109.5,  # 109.500 mΩ, 1000× groter
+            measurement_id=4,
+            tool_key="ESR_CAPACITOR",
+            category="goed",
+        ),
+    ]
+    service = _StubAnalysisService(scatter_reeks=punten)
+
+    png = render_scatter_png_base64(service)
+
+    assert png is not None
+    base64.b64decode(png)
+    
+# ============================================================================
+# v1.2.0 — leesbare X-as-labels in de scatter (fase 5B)
+# ============================================================================
+
+def test_render_scatter_gebruikt_adaptieve_x_as_ticks():
+    """De scatter-rapportgrafiek gebruikt dezelfde X-as-helper."""
+    punten = [
+        ScatterPoint(
+            x=0.1e-6,
+            y=0.1,
+            measurement_id=1,
+            tool_key="ESR_CAPACITOR",
+            category="goed",
+        ),
+        ScatterPoint(
+            x=1.16e-3,
+            y=0.2,
+            measurement_id=2,
+            tool_key="ESR_CAPACITOR",
+            category="goed",
+        ),
+    ]
+    service = _StubAnalysisService(scatter_reeks=punten)
+
+    png = render_scatter_png_base64(service)
+
+    assert png is not None
+    base64.b64decode(png)  # decodeerbaar

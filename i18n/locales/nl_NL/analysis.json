@@ -15,6 +15,7 @@
     "leeg": "Geen gegevens voor deze filters.",
     "geen_gegevens": "Geen gegevens",
     "aantal": "{aantal} punt(en) weergegeven.",
+    "outliers_verborgen": "{aantal} punt(en) weergegeven, {verborgen} buiten bereik (niet getoond).",
     "fout": "Analyse kon niet worden geladen: {bericht}",
     "status_onbekend": "Geen status",
     "grafiektype": {

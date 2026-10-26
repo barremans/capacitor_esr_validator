@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_analysis_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.6.2
-Datum:      2026-10-20
+Versie:     1.8.0
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor AnalysisScreen.
@@ -31,6 +31,16 @@ Wijzigingen:
                         test_selectie_wordt_gewist_bij_refresh is
                         ongewijzigd; de productiecode uit v1.6.2 zet de
                         "gewist"-melding weer bij een gewone refresh.
+  v1.7.0 (2026-10-26)  Fase 5A: vier tests voor slimme Y-as-clamping
+                        met outlier-detectie. Bewijst dat de as leesbaar
+                        blijft ondanks een extreme waarde, dat de
+                        indicator verschijnt, en dat de scatter-variant
+                        dezelfde helper gebruikt.
+  v1.8.0 (2026-10-26)  Fase 5B: twee tests voor de leesbare X-as in de
+                        scatter. Bewijst dat het labelFormat, tickCount
+                        en de labelsAngle kloppen voor het echte
+                        CSV-bereik en voor een klein bereik. Nieuwe
+                        helper _x_value_axis() toegevoegd.
 ================================================================================
 """
 
@@ -607,6 +617,15 @@ def _x_datetime_axis(screen: AnalysisScreen) -> QDateTimeAxis | None:
     return None
 
 
+def _x_value_axis(screen: AnalysisScreen) -> QValueAxis | None:
+    for axis in screen.chart.axes():
+        if isinstance(axis, QValueAxis) and (
+            axis.alignment() & Qt.AlignmentFlag.AlignBottom
+        ):
+            return axis
+    return None
+
+
 def test_esr_y_as_heeft_tickformaat() -> None:
     """ESR in mΩ gebruikt %.0f (geen decimalen)."""
     _app()
@@ -992,5 +1011,182 @@ def test_scope_wijziging_hertekent_grafiek() -> None:
             widget.export_scope_combo.findData(_EXPORT_SCOPE_FILTERED)
         )
         assert any(call[0] == "esr" for call in stub.calls)
+    finally:
+        widget.deleteLater()
+
+
+# ============================================================================
+# v1.7.0 — slimme Y-as-clamping met outlier-detectie (fase 5A)
+# ============================================================================
+
+def test_y_as_negeert_extreme_outlier_in_tijdreeks() -> None:
+    """Een reeks met één 1000× uitschieter houdt een leesbare as."""
+    _app()
+    stub = _StubAnalysisService(
+        esr_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.0015, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.0020, 2, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 3), 0.0025, 3, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 4), 0.0030, 4, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 5), 0.0035, 5, "ESR_CAPACITOR"),
+            # Extreme uitschieter: 109,5 Ω = 109500 mΩ, 1000× groter.
+            TimeSeriesPoint(_ms(2026, 10, 6), 109.5, 6, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.refresh()
+        axis_y = _y_axis(widget)
+        assert axis_y is not None
+        # Zonder clamping zou max > 100000 zijn; met clamping < 1000.
+        assert axis_y.max() < 1000.0, (
+            f"As-max {axis_y.max()} toont de outlier"
+        )
+        # De normale punten (1,5–3,5 mΩ) blijven zichtbaar.
+        assert axis_y.min() <= 1.5
+        assert axis_y.max() >= 3.5
+    finally:
+        widget.deleteLater()
+
+
+def test_y_as_indicator_verschijnt_bij_outlier() -> None:
+    """state_label meldt het aantal verborgen punten."""
+    _app()
+    stub = _StubAnalysisService(
+        esr_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.0015, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.0020, 2, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 3), 0.0025, 3, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 4), 0.0030, 4, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 5), 109.5, 5, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.refresh()
+        tekst = widget.state_label.text().lower()
+        assert "buiten bereik" in tekst or "out of range" in tekst
+    finally:
+        widget.deleteLater()
+
+
+def test_y_as_zonder_outlier_geen_indicator() -> None:
+    """Bij een reeks zonder outliers verschijnt de gewone telling."""
+    _app()
+    stub = _StubAnalysisService(
+        esr_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.0015, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.0020, 2, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 3), 0.0025, 3, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 4), 0.0030, 4, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.refresh()
+        tekst = widget.state_label.text().lower()
+        assert "buiten bereik" not in tekst
+        assert "out of range" not in tekst
+    finally:
+        widget.deleteLater()
+
+
+def test_scatter_y_as_gebruikt_dezelfde_clamping() -> None:
+    """De scatter-variant past dezelfde helper toe op de Y-as (ESR)."""
+    _app()
+    stub = _StubAnalysisService(
+        rows=[
+            _row(1, _ms(2026, 10, 1), esr_ohm=0.0015, capacitance_f=470e-6),
+            _row(2, _ms(2026, 10, 2), esr_ohm=0.0020, capacitance_f=471e-6),
+            _row(3, _ms(2026, 10, 3), esr_ohm=0.0025, capacitance_f=472e-6),
+            _row(4, _ms(2026, 10, 4), esr_ohm=0.0030, capacitance_f=473e-6),
+            _row(5, _ms(2026, 10, 5), esr_ohm=109.5, capacitance_f=474e-6),
+        ],
+        scatter=[
+            ScatterPoint(470e-6, 0.0015, 1, "ESR_CAPACITOR", None),
+            ScatterPoint(471e-6, 0.0020, 2, "ESR_CAPACITOR", None),
+            ScatterPoint(472e-6, 0.0025, 3, "ESR_CAPACITOR", None),
+            ScatterPoint(473e-6, 0.0030, 4, "ESR_CAPACITOR", None),
+            ScatterPoint(474e-6, 109.5, 5, "ESR_CAPACITOR", None),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.chart_type_combo.setCurrentIndex(
+            widget.chart_type_combo.findData(_CHART_TYPE_SCATTER)
+        )
+        widget.refresh()
+        axis_y = _y_axis(widget)
+        assert axis_y is not None
+        assert axis_y.max() < 1000.0, (
+            f"Scatter-as-max {axis_y.max()} toont de outlier"
+        )
+        tekst = widget.state_label.text().lower()
+        assert "buiten bereik" in tekst or "out of range" in tekst
+    finally:
+        widget.deleteLater()
+
+
+# ============================================================================
+# v1.8.0 — leesbare X-as-labels in de scatter (fase 5B)
+# ============================================================================
+
+def test_scatter_x_as_gebruikt_adaptieve_ticks_voor_echte_csv() -> None:
+    """Het echte bereik 0,1–1.160 µF: %.0f, 5 ticks, -45° na 5%-marge.
+
+    De GUI past eerst de 5%-marge toe op het ruwe bereik. Voor
+    0,1–1.160 µF wordt dat ongeveer -57,9 tot 1.218 µF, een breedte
+    van ~1.276 µF. Dat valt in de categorie "breedte < 1500", dus 5 ticks.
+    """
+    _app()
+    stub = _StubAnalysisService(
+        rows=[
+            _row(1, _ms(2026, 10, 1), esr_ohm=0.1, capacitance_f=0.1e-6),
+            _row(2, _ms(2026, 10, 2), esr_ohm=0.2, capacitance_f=1.16e-3),
+        ],
+        scatter=[
+            ScatterPoint(0.1e-6, 0.1, 1, "ESR_CAPACITOR", None),
+            ScatterPoint(1.16e-3, 0.2, 2, "ESR_CAPACITOR", None),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.chart_type_combo.setCurrentIndex(
+            widget.chart_type_combo.findData(_CHART_TYPE_SCATTER)
+        )
+        widget.refresh()
+        axis_x = _x_value_axis(widget)
+        assert axis_x is not None
+        assert axis_x.labelFormat() == "%.0f"
+        assert axis_x.tickCount() == 5
+        assert axis_x.labelsAngle() == -45
+    finally:
+        widget.deleteLater()
+
+
+def test_scatter_x_as_klein_bereik_gebruikt_decimalen() -> None:
+    """Een bereik < 1 µF: %.2f, 4 ticks, 0°."""
+    _app()
+    stub = _StubAnalysisService(
+        rows=[
+            _row(1, _ms(2026, 10, 1), esr_ohm=0.1, capacitance_f=0.1e-6),
+            _row(2, _ms(2026, 10, 2), esr_ohm=0.2, capacitance_f=0.5e-6),
+        ],
+        scatter=[
+            ScatterPoint(0.1e-6, 0.1, 1, "ESR_CAPACITOR", None),
+            ScatterPoint(0.5e-6, 0.2, 2, "ESR_CAPACITOR", None),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.chart_type_combo.setCurrentIndex(
+            widget.chart_type_combo.findData(_CHART_TYPE_SCATTER)
+        )
+        widget.refresh()
+        axis_x = _x_value_axis(widget)
+        assert axis_x is not None
+        assert axis_x.labelFormat() == "%.2f"
+        assert axis_x.tickCount() == 4
+        assert axis_x.labelsAngle() == 0
     finally:
         widget.deleteLater()

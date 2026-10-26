@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/helpers/report_chart.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.3
-Datum:      2026-10-10
+Versie:     1.2.0
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Qt-specifieke grafiek-helper voor meetrapporten.
@@ -24,6 +24,11 @@ Doel:       Qt-specifieke grafiek-helper voor meetrapporten.
             setRange() aan op basis van een nog niet geattache reeks en
             gaf dan "Attempting to set invalid range for value axis".
 
+            Sinds v1.1.0 gebruiken beide render-functies dezelfde pure
+            Y-as-clamping-helper als AnalysisScreen (app/helpers/
+            chart_axis.py), zodat de rapportgrafiek en de GUI-grafiek
+            nooit uit elkaar lopen.
+
 Wijzigingen:
   v1.0.0 (2026-10-10)  Eerste versie: render_esr_over_tijd_png_base64(),
                         render_scatter_png_base64(), render_chart_voor_detail().
@@ -40,6 +45,17 @@ Wijzigingen:
                         render_esr_over_tijd_png_base64 de x-as op
                         [1970-01-01, 2100-01-01] zodat een absurde x_ms
                         QDateTime niet laat overlopen.
+  v1.1.0 (2026-10-26)  Fase 5A: dezelfde slimme Y-as-clamping als
+                        AnalysisScreen via de nieuwe pure helper
+                        app/helpers/chart_axis.py. render_esr_over_tijd_
+                        png_base64 en render_scatter_png_base64 gebruiken
+                        bereken_y_as_range(). Voorkomt drift tussen de
+                        GUI-grafiek en de rapportgrafiek.
+  v1.2.0 (2026-10-26)  Fase 5B: leesbare X-as-labels in
+                        render_scatter_png_base64 via de nieuwe pure
+                        helper bereken_x_as_ticks(). Voorkomt dat Qt bij
+                        een log-verdeeld bereik (bv. 0,1 µF tot 1.160 µF)
+                        de labels afkapt tot "...".
 ================================================================================
 """
 
@@ -66,6 +82,7 @@ from app.helpers.analysis_series import (
     ScatterPoint,
     TimeSeriesPoint,
 )
+from app.helpers.chart_axis import bereken_x_as_ticks, bereken_y_as_range
 from app.helpers.history_filters import build_history_filters
 from app.services.analysis_service import AnalysisService
 
@@ -82,8 +99,6 @@ def _is_finite(value: Any) -> bool:
     """True als value een eindig getal is (geen NaN, geen ±Inf).
 
     Accepteert uitsluitend int en float (geen bool, geen string).
-    Strings worden bewust geweigerd: als de storage een string teruggeeft
-    waar een getal hoort, is dat een bug die we willen zien, niet verbergen.
     """
     if value is None or isinstance(value, bool):
         return False
@@ -107,7 +122,6 @@ def _veilige_x_ms(value: int) -> int:
 def _zorg_voor_qapplication() -> None:
     """Zorg dat er een QApplication bestaat vóór we widgets maken."""
     if QApplication.instance() is None:
-        # In tests draait dit offscreen; in de GUI bestaat de app al.
         QApplication([])
 
 
@@ -198,12 +212,7 @@ def render_esr_over_tijd_png_base64(
     )
 
     y_values = [y for _, y in ruwe]
-    y_min = min(y_values)
-    y_max = max(y_values)
-    if y_min == y_max:
-        margin = abs(y_min) * 0.1 or 1.0
-        y_min -= margin
-        y_max += margin
+    y_min, y_max, _n_outliers = bereken_y_as_range(y_values)
     axis_y.setRange(y_min, y_max)
 
     return _chart_naar_base64_png(chart)
@@ -262,12 +271,24 @@ def render_scatter_png_base64(
             series.append(punt.x * 1e6, punt.y * 1000.0)
         chart.addSeries(series)
 
+    x_min = min(x_geschaald)
+    x_max = max(x_geschaald)
+    if x_min == x_max:
+        x_min -= 1.0
+        x_max += 1.0
+
+    x_tick_count, x_label_format, x_labels_angle = bereken_x_as_ticks(
+        x_min, x_max
+    )
+
     axis_x = QValueAxis()
     axis_x.setTitleText("C (µF)")
+    axis_x.setLabelFormat(x_label_format)
+    axis_x.setTickCount(x_tick_count)
+    axis_x.setLabelsAngle(x_labels_angle)
     axis_x.setLabelsColor(QColor("#F0F0F0"))
     axis_x.setTitleBrush(QColor("#F0F0F0"))
     axis_x.setGridLineColor(QColor("#3A3A3A"))
-    # v1.0.3: applyNiceNumbers() verwijderd (zie moduleheader).
 
     axis_y = QValueAxis()
     axis_y.setTitleText("ESR (mΩ)")
@@ -281,8 +302,9 @@ def render_scatter_png_base64(
         series.attachAxis(axis_x)
         series.attachAxis(axis_y)
 
-    axis_x.setRange(min(x_geschaald), max(x_geschaald))
-    axis_y.setRange(min(y_geschaald), max(y_geschaald))
+    axis_x.setRange(x_min, x_max)
+    y_min, y_max, _n_outliers = bereken_y_as_range(y_geschaald)
+    axis_y.setRange(y_min, y_max)
 
     return _chart_naar_base64_png(chart)
 
@@ -293,13 +315,7 @@ def render_chart_voor_detail(
     analysis_service: AnalysisService | None = None,
     taal: str = "nl_NL",
 ) -> str | None:
-    """Kies de juiste grafiek voor één detail en geef base64-PNG terug.
-
-    - Alleen voor tool_key == 'ESR_CAPACITOR'. Andere tools → None.
-    - Gebruikt de component-identiteit van de meting als filter, zodat
-      de grafiek alleen de reeks van die component toont.
-    - Geeft None terug als er minder dan 2 geldige punten zijn.
-    """
+    """Kies de juiste grafiek voor één detail en geef base64-PNG terug."""
     measurement = detail.get("measurement")
     if measurement is None:
         return None

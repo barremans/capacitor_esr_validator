@@ -15,6 +15,7 @@
     "leeg": "No data for these filters.",
     "geen_gegevens": "No data",
     "aantal": "{aantal} point(s) shown.",
+    "outliers_verborgen": "{aantal} point(s) shown, {verborgen} out of range (not shown).",
     "fout": "Analysis could not be loaded: {bericht}",
     "status_onbekend": "No status",
     "grafiektype": {

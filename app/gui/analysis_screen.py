@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/analysis_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.7.2
-Datum:      2026-10-22
+Versie:     1.9.0
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only Analyse-pagina binnen het hoofdvenster.
@@ -46,6 +46,19 @@ Wijzigingen:
                         gebruiker zelf kan zetten (manufacturer, series,
                         datum, method, instrument, frequency). De
                         impliciete tool_key telt niet mee.
+  v1.8.0 (2026-10-26)  Fase 5A: slimme Y-as-clamping via de nieuwe pure
+                        helper app/helpers/chart_axis.py. _draw_time_series
+                        en _draw_scatter gebruiken bereken_y_as_range();
+                        state_label toont het aantal punten buiten bereik.
+                        Geen wijziging aan de selectie-, export- of
+                        rapportlogica.
+  v1.9.0 (2026-10-26)  Fase 5B: leesbare X-as-labels in _draw_scatter.
+                        Nieuwe pure helper bereken_x_as_ticks() in
+                        app/helpers/chart_axis.py kiest tick_count,
+                        label_format en labels_angle op basis van het
+                        X-bereik. Voorkomt dat Qt bij een log-verdeeld
+                        bereik (bv. 0,1 µF tot 1.160 µF) de labels
+                        afkapt tot "...".
 ================================================================================
 """
 
@@ -95,6 +108,7 @@ from app.helpers.analysis_series import (
     ScatterPoint,
     TimeSeriesPoint,
 )
+from app.helpers.chart_axis import bereken_x_as_ticks, bereken_y_as_range
 from app.helpers.dialog_start_directory import (
     beste_startmap as _beste_startmap_helper,
     onthoud_startmap as _onthoud_startmap_helper,
@@ -834,17 +848,7 @@ class AnalysisScreen(QWidget):
         )
 
     def _heeft_actieve_filters(self) -> bool:
-        """True als de gebruiker minstens één filterveld heeft gezet.
-
-        v1.7.2: kijkt uitsluitend naar de GUI-velden die de gebruiker
-        zelf kan zetten. De impliciete tool_key="ESR_CAPACITOR" telt
-        NIET mee: die staat altijd in _active_filters() en zou de
-        helper anders altijd True maken.
-
-        Roept niet _active_filters() aan: dat zou de datum-parsing
-        opnieuw uitvoeren en een ValueError kunnen gooien. In plaats
-        daarvan controleren we de GUI-velden rechtstreeks.
-        """
+        """True als de gebruiker minstens één filterveld heeft gezet."""
         if self.filter_manufacturer.text().strip():
             return True
         if self.filter_series.text().strip():
@@ -1169,16 +1173,7 @@ class AnalysisScreen(QWidget):
         )
 
         y_values = [y for _, y in scaled]
-        y_min = min(y_values)
-        y_max = max(y_values)
-        if y_min == y_max:
-            marge = abs(y_min) * 0.1 or 1.0
-            y_min -= marge
-            y_max += marge
-        else:
-            marge = (y_max - y_min) * _Y_AS_MARGE_FRACTIE
-            y_min -= marge
-            y_max += marge
+        y_min, y_max, n_outliers = bereken_y_as_range(y_values)
         axis_y.setRange(y_min, y_max)
 
         self._bewaar_oorspronkelijke_range(
@@ -1186,9 +1181,18 @@ class AnalysisScreen(QWidget):
             x_datetime_range=(eerste_ms, laatste_ms),
         )
 
-        self.state_label.setText(
-            self._t("analyse.aantal", aantal=len(scaled))
-        )
+        if n_outliers > 0:
+            self.state_label.setText(
+                self._t(
+                    "analyse.outliers_verborgen",
+                    aantal=len(scaled),
+                    verborgen=n_outliers,
+                )
+            )
+        else:
+            self.state_label.setText(
+                self._t("analyse.aantal", aantal=len(scaled))
+            )
 
     def _scale_for(self, chart_type: str) -> tuple[float, str]:
         if chart_type == _CHART_TYPE_ESR:
@@ -1237,10 +1241,25 @@ class AnalysisScreen(QWidget):
             key=lambda c: (c is None, c or ""),
         )
 
+        x_min = min(x_geschaald)
+        x_max = max(x_geschaald)
+        if x_min == x_max:
+            x_min -= 1.0
+            x_max += 1.0
+        else:
+            marge = (x_max - x_min) * _Y_AS_MARGE_FRACTIE
+            x_min -= marge
+            x_max += marge
+
+        x_tick_count, x_label_format, x_labels_angle = bereken_x_as_ticks(
+            x_min, x_max
+        )
+
         axis_x = QValueAxis()
         axis_x.setTitleText(self._t("analyse.as.capaciteit_uf"))
-        axis_x.setLabelFormat("%.0f")
-        axis_x.setTickCount(6)
+        axis_x.setLabelFormat(x_label_format)
+        axis_x.setTickCount(x_tick_count)
+        axis_x.setLabelsAngle(x_labels_angle)
         axis_x.setLabelsColor(QColor(colors["axis_label"]))
         axis_x.setTitleBrush(QColor(colors["axis_title"]))
         axis_x.setGridLineColor(QColor(colors["axis_grid"]))
@@ -1281,25 +1300,7 @@ class AnalysisScreen(QWidget):
                 lambda _punt, reeks=series: self._on_scatter_clicked(reeks)
             )
 
-        x_min = min(x_geschaald)
-        x_max = max(x_geschaald)
-        if x_min == x_max:
-            x_min -= 1.0
-            x_max += 1.0
-        else:
-            marge = (x_max - x_min) * _Y_AS_MARGE_FRACTIE
-            x_min -= marge
-            x_max += marge
-
-        y_min = min(y_geschaald)
-        y_max = max(y_geschaald)
-        if y_min == y_max:
-            y_min -= 1.0
-            y_max += 1.0
-        else:
-            marge = (y_max - y_min) * _Y_AS_MARGE_FRACTIE
-            y_min -= marge
-            y_max += marge
+        y_min, y_max, n_outliers_y = bereken_y_as_range(y_geschaald)
 
         axis_x.setRange(x_min, x_max)
         axis_y.setRange(y_min, y_max)
@@ -1309,9 +1310,18 @@ class AnalysisScreen(QWidget):
             y_range=(y_min, y_max),
         )
 
-        self.state_label.setText(
-            self._t("analyse.aantal", aantal=len(geldige_punten))
-        )
+        if n_outliers_y > 0:
+            self.state_label.setText(
+                self._t(
+                    "analyse.outliers_verborgen",
+                    aantal=len(geldige_punten),
+                    verborgen=n_outliers_y,
+                )
+            )
+        else:
+            self.state_label.setText(
+                self._t("analyse.aantal", aantal=len(geldige_punten))
+            )
 
     def _category_label(self, category: str | None) -> str:
         if not category:
@@ -1365,14 +1375,7 @@ class AnalysisScreen(QWidget):
             self.refresh(preserve_selection=True)
 
     def _open_report_for_selection(self) -> None:
-        """Open de rapportdialoog voor de huidige selectie of filters.
-
-        Volgorde (fase 12E):
-          1. Checkbox-selectie aanwezig → scope "Selectie" (bestaand, 11A.2).
-          2. Geen checkbox-selectie, maar wél actieve filters → scope
-             "Huidige filters" (nieuw, §2.14).
-          3. Niets van dat alles → "geen selectie"-melding (bestaand).
-        """
+        """Open de rapportdialoog voor de huidige selectie of filters."""
         selected_ids = self._selected_measurement_ids()
         if selected_ids:
             self._open_report_dialog_for_ids(
