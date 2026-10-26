@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/storage/schema.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.0
-Datum:      2026-10-23
+Versie:     1.3.0
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Declaratieve SQLite-DDL voor de lokale meetdatabase.
@@ -12,7 +12,9 @@ Doel:       Declaratieve SQLite-DDL voor de lokale meetdatabase.
             measurement een stabiele tool_key te geven. Schema v3 voegt
             herkomst-kolommen toe voor export/import tussen toestellen
             (§2.28): source_machine_id en source_measurement_id, plus een
-            index op (source_machine_id, source_measurement_id).
+            index op (source_machine_id, source_measurement_id). Schema v4
+            voegt een expliciete meetstatus toe (NORMAL, OL, UNDER_RANGE,
+            OVER_RANGE, UNKNOWN) voor de OL-status-koppeling (B3).
 
             Bestaande ESR-records krijgen ESR_CAPACITOR. De bestaande zeven
             hoofdtabellen blijven behouden; er wordt geen ruwe meetdata
@@ -29,6 +31,16 @@ Wijzigingen:
                         measurements, plus index
                         ix_measurements_source_identity. Bestaande
                         metingen krijgen NULL (lokaal aangemaakt).
+  v1.3.0 (2026-10-26)  Chat 4 / 4B: schema v4. Nieuwe kolom
+                        meetstatus op measurements (TEXT NOT NULL
+                        DEFAULT 'NORMAL'), met CHECK op de vijf
+                        toegestane waarden en index
+                        ix_measurements_meetstatus. Bestaande
+                        metingen krijgen NORMAL (ze zijn nooit als OL
+                        opgeslagen geweest; die kolom bestond niet).
+                        out_of_range blijft bestaan als assessment-
+                        flag; meetstatus is het nieuwe opslagcontract
+                        voor de GUI-keuze. Beide leven naast elkaar.
 ================================================================================
 """
 
@@ -38,7 +50,7 @@ import sqlite3
 
 
 SCHEMA_V1_VERSION = 1
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 DEFAULT_TOOL_KEY = "ESR_CAPACITOR"
 
 SCHEMA_V1_TABLES = (
@@ -71,6 +83,7 @@ SCHEMA_V1_INDEXES = (
 SCHEMA_CURRENT_INDEXES = SCHEMA_V1_INDEXES + (
     "ix_measurements_tool_key",
     "ix_measurements_source_identity",
+    "ix_measurements_meetstatus",
 )
 
 SCHEMA_V1_STATEMENTS = (
@@ -237,11 +250,40 @@ def apply_schema_v3_structure(connection: sqlite3.Connection) -> None:
     )
 
 
+def apply_schema_v4_structure(connection: sqlite3.Connection) -> None:
+    """Voeg alleen de v4-structuur toe; commit en schema_meta-update gebeuren elders.
+
+    Schema v4 voegt de kolom ``meetstatus`` toe aan ``measurements``
+    (B3, OL-status). De kolom is NOT NULL met default 'NORMAL' en een
+    CHECK-beperking op de vijf toegestane waarden. Bestaande metingen
+    krijgen NORMAL, want ze zijn nooit als OL opgeslagen geweest
+    (die kolom bestond niet).
+
+    ``out_of_range`` blijft bestaan als assessment-flag; ``meetstatus``
+    is het nieuwe opslagcontract voor de GUI-keuze. Beide leven naast
+    elkaar; ``meetstatus != 'NORMAL'`` impliceert in de praktijk
+    ``out_of_range = 1``, maar dat is een consistentie-afspraak, geen
+    database-CHECK.
+    """
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(measurements)")}
+    if "meetstatus" not in columns:
+        connection.execute(
+            "ALTER TABLE measurements ADD COLUMN meetstatus TEXT NOT NULL "
+            "DEFAULT 'NORMAL' "
+            "CHECK (meetstatus IN ('NORMAL','OL','UNDER_RANGE','OVER_RANGE','UNKNOWN'))"
+        )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS ix_measurements_meetstatus "
+        "ON measurements (meetstatus)"
+    )
+
+
 def create_schema_current(connection: sqlite3.Connection, *, created_at_ms: int) -> None:
     """Maak een nieuwe database rechtstreeks in de huidige schema-toestand."""
     create_schema_v1(connection, created_at_ms=created_at_ms)
     apply_schema_v2_structure(connection)
     apply_schema_v3_structure(connection)
+    apply_schema_v4_structure(connection)
     connection.execute(
         "UPDATE schema_meta SET schema_version = ?, last_migrated_at_ms = ?",
         (CURRENT_SCHEMA_VERSION, created_at_ms),

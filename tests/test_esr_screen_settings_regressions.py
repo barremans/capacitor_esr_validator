@@ -2,24 +2,19 @@
 ================================================================================
 Module:     tests/test_esr_screen_settings_regressions.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.4.0
-Datum:      2026-09-28
+Versie:     1.5.1
+Datum:      2026-10-26
 Auteur:     Ontwikkelaar
 
 Doel:       GUI-regressietests voor opgeslagen ESR/Condensator-defaults en
             de optionele bevestiging bij Wissen.
 
 Wijzigingen:
-  v1.0.0 (2026-09-28)  Eerste versie voor EsrTestScreen v1.6.1.
-  v1.1.0 (2026-09-28)  Regressietests toegevoegd voor afzonderlijke
-                       doorvoer van OL/out-of-range en open/short.
-  v1.2.0 (2026-09-28)  Regressietest toegevoegd: OL/out-of-range moet
-                       een lege numerieke ESR-invoer toelaten.
-  v1.3.0 (2026-09-29)  Regressietest toegevoegd: OL/out-of-range moet
-                       een lege gemeten capaciteit toelaten.
-  v1.4.0 (2026-09-29)  Invoervalidatieblok uitgebreid: normale lege
-                       meetwaarden blijven ongeldig, OL mag beide lege
-                       meetvelden toelaten en ongeldige tekst blijft fout.
+  v1.0.0 t/m v1.5.0  zie eerdere versies.
+  v1.5.1 (2026-10-26) Chat 4 / 4C: twee tests voor de familie-check in
+                       _on_assess. Low ESR krijgt een referentie;
+                       tantaal krijgt geen referentie (maar wel de
+                       waarschuwing uit de assessment-service).
 ================================================================================
 """
 
@@ -33,6 +28,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 import app.gui.esr_test_screen as esr_screen_module
 from app.config.settings import AppInstellingen
 from app.gui.esr_test_screen import EsrTestScreen
+from app.storage.models import Meetstatus
 
 
 def _app():
@@ -213,9 +209,6 @@ def _vul_geldige_meting_in(screen):
     screen.meas_cap_input.setText("465")
     screen.meas_esr_input.setText("100")
     screen.safety_check.setChecked(True)
-
-
-
 
 
 def test_normale_meting_laat_lege_esr_niet_toe(monkeypatch):
@@ -508,3 +501,187 @@ def test_open_short_wordt_afzonderlijk_doorgestuurd(monkeypatch):
     assert ontvangen["meetwaarde_buiten_bereik"] is False
     assert ontvangen["vermoedelijke_open_verbinding_of_kortsluiting"] is True
 
+
+# ---------------------------------------------------------------- 4B: meetstatus
+
+def test_meetstatus_voor_opslag_normal_zonder_checkboxes():
+    """4B: geen checkboxen aan -> Meetstatus.NORMAL."""
+    _app()
+    screen = EsrTestScreen()
+
+    assert screen._meetstatus_voor_opslag() == Meetstatus.NORMAL
+
+
+def test_meetstatus_voor_opslag_ol_met_out_of_range_checkbox():
+    """4B: alleen out_of_range_check aan -> Meetstatus.OL."""
+    _app()
+    screen = EsrTestScreen()
+    screen.out_of_range_check.setChecked(True)
+
+    assert screen._meetstatus_voor_opslag() == Meetstatus.OL
+
+
+def test_meetstatus_voor_opslag_unknown_met_open_connection_checkbox():
+    """4B: alleen open_connection_check aan -> Meetstatus.UNKNOWN."""
+    _app()
+    screen = EsrTestScreen()
+    screen.open_connection_check.setChecked(True)
+
+    assert screen._meetstatus_voor_opslag() == Meetstatus.UNKNOWN
+
+
+def test_meetstatus_voor_opslag_ol_wint_van_open_connection():
+    """4B: beide checkboxen aan -> Meetstatus.OL (out_of_range wint)."""
+    _app()
+    screen = EsrTestScreen()
+    screen.out_of_range_check.setChecked(True)
+    screen.open_connection_check.setChecked(True)
+
+    assert screen._meetstatus_voor_opslag() == Meetstatus.OL
+
+
+# ---------------------------------------------------------------- 4C: type-match
+
+def test_low_esr_krijgt_referentie_via_gui(monkeypatch):
+    """4C: de familie-check in _on_assess zorgt dat 'Aluminium
+    elektrolytisch — Low ESR' een referentie krijgt. Vóór 4C gaf de
+    exacte string-match geen referentie, een regressie van 4A."""
+    _app()
+    instellingen = _instellingen(bevestig_wissen=False)
+    monkeypatch.setattr(esr_screen_module, "laad_instellingen", lambda: instellingen)
+
+    # Vervang zoek_referentie door een stub die de aanroep registreert
+    # en een dummy ReferentieContext teruggeeft.
+    from app.services.assessment_service import ReferentieContext
+
+    referentie_aanroepen = []
+
+    def fake_zoek_referentie(cap, volt, condensatortype=..., meetfrequentie_hz=None):
+        referentie_aanroepen.append((cap, volt, condensatortype, meetfrequentie_hz))
+        return ReferentieContext(
+            esr_waarde=400,
+            eenheid="mΩ",
+            bron="test",
+            referentieniveau=5,
+            frequentie_hz=1000,
+            typisch_of_maximaal="maximaal",
+            condensatortype="Aluminium elektrolytisch",
+        )
+
+    monkeypatch.setattr(esr_screen_module, "zoek_referentie", fake_zoek_referentie)
+
+    ontvangen = {}
+
+    class FakeResultaat:
+        taal = "nl_NL"
+        waarschuwingen = ()
+        eindstatus = type("E", (), {"value": "waarschijnlijk_goed"})()
+        capaciteit = type("C", (), {
+            "afwijking_percent": 0.0,
+            "nominale_waarde": 470,
+            "tolerantie_percent": 20,
+            "eenheid": "µF",
+            "gemeten_waarde": 470,
+        })()
+        esr = type("E2", (), {
+            "factor": 1.0,
+            "frequentie_wijkt_af": False,
+            "referentie_esr_ohm": 0.4,
+            "gemeten_esr_ohm": 0.4,
+            "referentiebron": "test",
+            "referentieniveau": 5,
+        })()
+        consistentie = type("Co", (), {"toelichting": ""})()
+        betrouwbaarheid = type("B", (), {"niveau": type("N", (), {"value": "middel"})(), "verlagende_factoren": ()})()
+        redenen = ()
+        aanbevolen_vervolgstap = ""
+        instrument_code = "LCR_ST1"
+        testspanning_vrms = 0.6
+        referentiefrequentie_hz = 1000
+
+    def fake_beoordeel_meting(**kwargs):
+        ontvangen.update(kwargs)
+        return FakeResultaat()
+
+    monkeypatch.setattr(esr_screen_module, "beoordeel_meting", fake_beoordeel_meting)
+    monkeypatch.setattr(EsrTestScreen, "_show_result", lambda self, resultaat: None)
+
+    screen = EsrTestScreen()
+    _vul_geldige_meting_in(screen)
+    # Wijzig condensatortype naar Low ESR.
+    idx = screen.type_combo.findText("Aluminium elektrolytisch — Low ESR")
+    assert idx >= 0
+    screen.type_combo.setCurrentIndex(idx)
+
+    screen._on_assess()
+
+    # De GUI moet zoek_referentie hebben aangeroepen met Low ESR.
+    assert referentie_aanroepen
+    assert referentie_aanroepen[0][2] == "Aluminium elektrolytisch — Low ESR"
+    # En de referentie moet aan beoordeel_meting zijn doorgegeven.
+    assert ontvangen["referentie"] is not None
+
+
+def test_tantaal_krijgt_geen_referentie_via_gui(monkeypatch):
+    """4C: tantaal is niet-elektrolytisch; de GUI roept zoek_referentie
+    niet aan en geeft referentie=None door aan beoordeel_meting."""
+    _app()
+    instellingen = _instellingen(bevestig_wissen=False)
+    monkeypatch.setattr(esr_screen_module, "laad_instellingen", lambda: instellingen)
+
+    referentie_aanroepen = []
+
+    def fake_zoek_referentie(*args, **kwargs):
+        referentie_aanroepen.append((args, kwargs))
+        return None
+
+    monkeypatch.setattr(esr_screen_module, "zoek_referentie", fake_zoek_referentie)
+
+    ontvangen = {}
+
+    class FakeResultaat:
+        taal = "nl_NL"
+        waarschuwingen = ()
+        eindstatus = type("E", (), {"value": "niet_te_beoordelen"})()
+        capaciteit = type("C", (), {
+            "afwijking_percent": None,
+            "nominale_waarde": 470,
+            "tolerantie_percent": 20,
+            "eenheid": "µF",
+            "gemeten_waarde": 470,
+        })()
+        esr = type("E2", (), {
+            "factor": None,
+            "frequentie_wijkt_af": False,
+            "referentie_esr_ohm": None,
+            "gemeten_esr_ohm": None,
+            "referentiebron": None,
+            "referentieniveau": None,
+        })()
+        consistentie = type("Co", (), {"toelichting": ""})()
+        betrouwbaarheid = type("B", (), {"niveau": type("N", (), {"value": "laag"})(), "verlagende_factoren": ()})()
+        redenen = ()
+        aanbevolen_vervolgstap = ""
+        instrument_code = "LCR_ST1"
+        testspanning_vrms = 0.6
+        referentiefrequentie_hz = None
+
+    def fake_beoordeel_meting(**kwargs):
+        ontvangen.update(kwargs)
+        return FakeResultaat()
+
+    monkeypatch.setattr(esr_screen_module, "beoordeel_meting", fake_beoordeel_meting)
+    monkeypatch.setattr(EsrTestScreen, "_show_result", lambda self, resultaat: None)
+
+    screen = EsrTestScreen()
+    _vul_geldige_meting_in(screen)
+    idx = screen.type_combo.findText("Tantaal elektrolytisch")
+    assert idx >= 0
+    screen.type_combo.setCurrentIndex(idx)
+
+    screen._on_assess()
+
+    # De GUI mag zoek_referentie NIET hebben aangeroepen voor tantaal.
+    assert referentie_aanroepen == []
+    # En de referentie moet None zijn.
+    assert ontvangen["referentie"] is None

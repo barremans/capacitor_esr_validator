@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/config/settings.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.8.2
-Datum:      2026-10-23
+Versie:     1.9.1
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Centrale, aanpasbare instellingen voor de app.
@@ -57,15 +57,35 @@ Wijzigingen:
                        AlgemeneInstellingen (default ""). Wordt door
                        de exchange-dialoog gebruikt voor de
                        export-/import-startmap. Backward-compatible.
+  v1.9.0 (2026-10-26)  Chat 4 / 4A: type- en keuzelijst-validatie.
+                       - Nieuwe constanten in BeoordelingsInstellingen:
+                         esr_min_realistisch_ohm (default 1 µΩ) en
+                         capaciteit_min_realistisch_f (default 1 pF).
+                       - Nieuwe pure helper valideer_en_normaliseer()
+                         die per veld type- en keuzelijst-validatie
+                         toepast, zelfherstellend naar de dataclass-
+                         default.
+                       - taal wordt NIET genormaliseerd (dat is OV-S1,
+                         gerouteerd naar chat 8).
+  v1.9.1 (2026-10-26)  Chat 4 / 4A: bugfix in _normaliseer_veld.
+                       De str-branch negeerde de `allowed`-parameter,
+                       waardoor een string die wel een geldig type
+                       maar geen geldige keuze was (bv.
+                       condensatortype="xyz", meetmethode=
+                       "HALF_IN_CIRCUIT") niet naar de default
+                       terugviel. Nu respecteert de str-branch
+                       `allowed` net zoals de int-branch. Twee
+                       settings-tests die dit blootlegden zijn groen
+                       zonder aanpassing van de tests.
 ================================================================================
 """
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields, replace
 import json
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, Optional, TypeVar
 
 
 SETTINGS_PATH = Path("settings.json")
@@ -130,7 +150,14 @@ def normaliseer_thema(waarde: Any) -> str:
 
 @dataclass(frozen=True)
 class BeoordelingsInstellingen:
-    """Configureerbare grenswaarden voor de indicatieve beoordeling."""
+    """Configureerbare grenswaarden voor de indicatieve beoordeling.
+
+    ``esr_min_realistisch_ohm`` en ``capaciteit_min_realistisch_f`` zijn
+    sinds 4A SANITY-drempels: een waarde eronder is fysiek onrealistisch
+    en wordt niet numeriek beoordeeld. Ze zijn géén goed/fout-grens; de
+    gewone beoordelingsdrempels (esr_factor_*, capaciteit_marge_binnen,
+    consistentie_*) blijven ongewijzigd.
+    """
 
     esr_factor_normaal: float = 1.0
     esr_factor_aandachtspunt: float = 2.0
@@ -138,6 +165,9 @@ class BeoordelingsInstellingen:
     capaciteit_marge_binnen: float = 0.9
     consistentie_marge: float = 2.0
     consistentie_eenhedenfout_drempel: float = 100.0
+    # 4A sanity-drempels. Zie bovenstaande docstring.
+    esr_min_realistisch_ohm: float = 1e-6
+    capaciteit_min_realistisch_f: float = 1e-12
 
 
 @dataclass(frozen=True)
@@ -182,7 +212,7 @@ class EsrCondensatorInstellingen:
 
     capaciteitseenheid: str = "µF"
     tolerantie_percent: float = 20.0
-    werkspanning_v: float | None = None
+    werkspanning_v: Optional[float] = None
     condensatortype: str = "Aluminium elektrolytisch"
     fabrikant: str = ""
     meetmethode: str = "EX_SITU"
@@ -232,6 +262,12 @@ def _dataclass_from_dict(cls: type[T], data: Any) -> T:
     Onbekende sleutels worden genegeerd zodat een settings.json uit een
     nieuwere versie de huidige versie niet volledig onbruikbaar maakt.
     Ontbrekende sleutels vallen terug op de dataclass-default.
+
+    Opgelet: deze functie doet GEEN type-checking. Dat is bewust: de
+    per-veld normalisatie gebeurt in `valideer_en_normaliseer`, die door
+    `laad_instellingen` na het samenstellen wordt aangeroepen. Zo blijft
+    elke groep ook bruikbaar als één veld corrupt is (in plaats van de
+    hele groep te laten vallen).
     """
     if not isinstance(data, dict):
         return cls()
@@ -244,13 +280,181 @@ def _dataclass_from_dict(cls: type[T], data: Any) -> T:
         return cls()
 
 
+def _normaliseer_veld(
+    waarde: Any,
+    default: Any,
+    allowed: Optional[tuple] = None,
+) -> Any:
+    """Normaliseert één settings-veld naar zijn default bij afwijking.
+
+    - ``bool``-velden: alleen ``bool`` wordt geaccepteerd.
+    - ``int``-velden: alleen ``int`` (niet ``bool``); als ``allowed`` is
+      opgegeven, moet de waarde in die tuple zitten.
+    - ``float``-velden: ``int`` of ``float`` (niet ``bool``); wordt
+      gecast naar ``float``.
+    - ``str``-velden: alleen ``str``; als ``allowed`` is opgegeven, moet
+      de waarde in die tuple zitten (sinds v1.9.1; voor v1.9.1 werd
+      ``allowed`` in de str-branch genegeerd, waardoor bv.
+      ``condensatortype="xyz"`` niet naar de default terugviel).
+    - ``Optional``-velden: ``None`` plus het binnenste type.
+
+    In alle andere gevallen wordt ``default`` teruggegeven. Puur, GUI-
+    vrij, en zelfherstellend (consistent met `normaliseer_thema`).
+    """
+    if waarde is None:
+        return default
+    if isinstance(default, bool):
+        return waarde if isinstance(waarde, bool) else default
+    if isinstance(default, int):
+        if isinstance(waarde, bool) or not isinstance(waarde, int):
+            return default
+        if allowed is not None and waarde not in allowed:
+            return default
+        return waarde
+    if isinstance(default, float):
+        if isinstance(waarde, bool) or not isinstance(waarde, (int, float)):
+            return default
+        return float(waarde)
+    if isinstance(default, str):
+        if not isinstance(waarde, str):
+            return default
+        if allowed is not None and waarde not in allowed:
+            return default
+        return waarde
+    return waarde
+
+
+def valideer_en_normaliseer(instellingen: AppInstellingen) -> AppInstellingen:
+    """Past per veld type- en keuzelijst-validatie toe, zelfherstellend.
+
+    Wordt door `laad_instellingen` aangeroepen ná het samenstellen van
+    `AppInstellingen`, zodat een handmatig bewerkte `settings.json` met
+    een verkeerd type (bv. ``meetfrequentie_hz="hoog"``) of een waarde
+    buiten de keuzelijst nooit in de app terechtkomt.
+
+    `taal` wordt NIET genormaliseerd: dat is OV-S1, gerouteerd naar
+    chat 8. `thema` wordt al door `normaliseer_thema` afgehandeld.
+    """
+    algemeen = instellingen.algemeen
+    esr = instellingen.esr_condensator
+    rapportage = instellingen.rapportage
+    beoordeling = instellingen.beoordeling
+
+    algemeen_genormaliseerd = replace(
+        algemeen,
+        thema=normaliseer_thema(algemeen.thema),
+        tooltips_ingeschakeld=_normaliseer_veld(
+            algemeen.tooltips_ingeschakeld, True
+        ),
+        standaard_exportmap=_normaliseer_veld(algemeen.standaard_exportmap, ""),
+        standaard_importmap=_normaliseer_veld(algemeen.standaard_importmap, ""),
+        laatste_exportmap=_normaliseer_veld(algemeen.laatste_exportmap, ""),
+        laatste_importmap=_normaliseer_veld(algemeen.laatste_importmap, ""),
+        laatste_rapportmap=_normaliseer_veld(algemeen.laatste_rapportmap, ""),
+        laatste_exchangemap=_normaliseer_veld(algemeen.laatste_exchangemap, ""),
+        exportmap_openen_na_export=_normaliseer_veld(
+            algemeen.exportmap_openen_na_export, False
+        ),
+        controleer_updates_bij_opstarten=_normaliseer_veld(
+            algemeen.controleer_updates_bij_opstarten, True
+        ),
+        qa_modus=_normaliseer_veld(algemeen.qa_modus, False),
+        machine_id=_normaliseer_veld(algemeen.machine_id, ""),
+    )
+
+    esr_genormaliseerd = replace(
+        esr,
+        capaciteitseenheid=_normaliseer_veld(
+            esr.capaciteitseenheid, "µF", EENHEDEN_CAPACITEIT
+        ),
+        tolerantie_percent=_normaliseer_veld(esr.tolerantie_percent, 20.0),
+        werkspanning_v=(
+            esr.werkspanning_v
+            if (
+                esr.werkspanning_v is None
+                or (
+                    not isinstance(esr.werkspanning_v, bool)
+                    and isinstance(esr.werkspanning_v, (int, float))
+                )
+            )
+            else None
+        ),
+        condensatortype=_normaliseer_veld(
+            esr.condensatortype, "Aluminium elektrolytisch", CONDENSATORTYPES
+        ),
+        fabrikant=_normaliseer_veld(esr.fabrikant, ""),
+        meetmethode=_normaliseer_veld(esr.meetmethode, "EX_SITU", MEETMETHODEN),
+        instrument_code=_normaliseer_veld(esr.instrument_code, "LCR_ST1"),
+        meetfrequentie_hz=_normaliseer_veld(
+            esr.meetfrequentie_hz, 1_000, MEETFREQUENTIES_HZ
+        ),
+        testspanning_vrms=_normaliseer_veld(
+            esr.testspanning_vrms, 0.3, TESTSPANNINGEN_VRMS
+        ),
+        temperatuur_c=_normaliseer_veld(esr.temperatuur_c, 20.0),
+        esr_eenheid=_normaliseer_veld(esr.esr_eenheid, "mΩ", EENHEDEN_ESR),
+        bevestig_wissen=_normaliseer_veld(esr.bevestig_wissen, True),
+    )
+
+    rapportage_genormaliseerd = replace(
+        rapportage,
+        grafiek_opnemen=_normaliseer_veld(rapportage.grafiek_opnemen, False),
+        technische_details_opnemen=_normaliseer_veld(
+            rapportage.technische_details_opnemen, True
+        ),
+        referentiebron_opnemen=_normaliseer_veld(
+            rapportage.referentiebron_opnemen, True
+        ),
+        datum_tijd_opnemen=_normaliseer_veld(
+            rapportage.datum_tijd_opnemen, True
+        ),
+        werkplaats_bedrijf=_normaliseer_veld(rapportage.werkplaats_bedrijf, ""),
+        auteur=_normaliseer_veld(rapportage.auteur, ""),
+    )
+
+    beoordeling_genormaliseerd = replace(
+        beoordeling,
+        esr_factor_normaal=_normaliseer_veld(beoordeling.esr_factor_normaal, 1.0),
+        esr_factor_aandachtspunt=_normaliseer_veld(
+            beoordeling.esr_factor_aandachtspunt, 2.0
+        ),
+        esr_factor_verdacht=_normaliseer_veld(
+            beoordeling.esr_factor_verdacht, 3.0
+        ),
+        capaciteit_marge_binnen=_normaliseer_veld(
+            beoordeling.capaciteit_marge_binnen, 0.9
+        ),
+        consistentie_marge=_normaliseer_veld(beoordeling.consistentie_marge, 2.0),
+        consistentie_eenhedenfout_drempel=_normaliseer_veld(
+            beoordeling.consistentie_eenhedenfout_drempel, 100.0
+        ),
+        esr_min_realistisch_ohm=_normaliseer_veld(
+            beoordeling.esr_min_realistisch_ohm, 1e-6
+        ),
+        capaciteit_min_realistisch_f=_normaliseer_veld(
+            beoordeling.capaciteit_min_realistisch_f, 1e-12
+        ),
+    )
+
+    return replace(
+        instellingen,
+        algemeen=algemeen_genormaliseerd,
+        esr_condensator=esr_genormaliseerd,
+        rapportage=rapportage_genormaliseerd,
+        beoordeling=beoordeling_genormaliseerd,
+    )
+
+
 def laad_instellingen() -> AppInstellingen:
     """Laadt settings.json, of veilige defaults wanneer laden niet lukt.
 
     Oude bestanden zonder de nieuwste velden blijven geldig; die velden
     vallen terug op hun dataclass-default. Sinds 11H.2 wordt het geladen
     thema genormaliseerd: een ongeldige waarde (bv. "blauw") valt terug
-    op STANDAARD_THEMA.
+    op STANDAARD_THEMA. Sinds 4A wordt elk veld apart genormaliseerd via
+    `valideer_en_normaliseer`: een verkeerd type (bv. "hoog" voor een
+    int-veld) of een waarde buiten de keuzelijst valt terug op de
+    dataclass-default, zonder de andere velden te raken.
     """
     if SETTINGS_PATH.exists():
         try:
@@ -270,7 +474,7 @@ def laad_instellingen() -> AppInstellingen:
                 }
             )
 
-            return AppInstellingen(
+            samengesteld = AppInstellingen(
                 taal=data.get("language", "nl_NL"),
                 algemeen=algemeen,
                 esr_condensator=_dataclass_from_dict(
@@ -285,6 +489,7 @@ def laad_instellingen() -> AppInstellingen:
                     BeoordelingsInstellingen, data.get("beoordeling", {})
                 ),
             )
+            return valideer_en_normaliseer(samengesteld)
         except (OSError, json.JSONDecodeError, TypeError, ValueError):
             pass
 

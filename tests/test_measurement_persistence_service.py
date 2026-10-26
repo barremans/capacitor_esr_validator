@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_measurement_persistence_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.0
-Datum:      2026-10-01
+Versie:     1.1.0
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Gerichte regressietests voor de koppeling van een reeds beoordeelde
@@ -12,6 +12,11 @@ Doel:       Gerichte regressietests voor de koppeling van een reeds beoordeelde
 Wijzigingen:
   v1.0.0 (2026-10-01)  Test transactionele mapping, NULL bij lege OL-waarden,
                         snapshotvelden en lazy database-initialisatie.
+  v1.1.0 (2026-10-26)  Chat 4 / 4B: drie tests voor de nieuwe
+                        meetstatus-parameter. Default is NORMAL; een
+                        expliciete OL of UNKNOWN wordt opgeslagen in
+                        de meetstatus-kolom. Dit dekt de save-aanroep
+                        die de GUI sinds v1.15.0 doet.
 ================================================================================
 """
 
@@ -27,6 +32,7 @@ from app.services.measurement_persistence_service import (
     EsrMeasurementSaveData,
     MeasurementPersistenceService,
 )
+from app.storage.models import Meetstatus
 from app.storage.service import StorageService
 
 
@@ -251,3 +257,67 @@ def test_reference_maximum_keeps_distinct_value_kind(tmp_path: Path) -> None:
 
     assert stored.value_kind == "MAXIMUM"
     assert stored.reference_value == 0.2
+
+
+# ---------------------------------------------------------------- 4B: meetstatus
+
+def test_save_default_meetstatus_is_normal(tmp_path: Path) -> None:
+    """4B: zonder expliciete meetstatus krijgt de opgeslagen meting
+    Meetstatus.NORMAL (default)."""
+    paths = _Paths(tmp_path / "runtime")
+    service = MeasurementPersistenceService(
+        path_service_factory=lambda: paths,
+        clock=lambda: 1_800_000_000_123,
+    )
+
+    saved = service.save_esr_measurement(_data())
+
+    storage = StorageService(paths.database_path, clock=lambda: 1_800_000_000_123)
+    measurement = storage.get_measurement(saved["measurement"].id)
+    assert measurement.meetstatus == Meetstatus.NORMAL
+
+
+def test_save_roundtrips_explicit_ol_meetstatus(tmp_path: Path) -> None:
+    """4B: een expliciete meetstatus=OL wordt opgeslagen en teruggelezen.
+    Dit is de save-flow die de GUI sinds v1.15.0 gebruikt."""
+    paths = _Paths(tmp_path / "runtime")
+    service = MeasurementPersistenceService(
+        path_service_factory=lambda: paths,
+        clock=lambda: 1_800_000_000_123,
+    )
+
+    saved = service.save_esr_measurement(
+        _data(
+            measured_capacitance_value=None,
+            measured_esr_value=None,
+            out_of_range=True,
+            reference=None,
+        ),
+        meetstatus=Meetstatus.OL,
+    )
+
+    storage = StorageService(paths.database_path, clock=lambda: 1_800_000_000_123)
+    measurement = storage.get_measurement(saved["measurement"].id)
+    assert measurement.meetstatus == Meetstatus.OL
+    assert measurement.out_of_range is True
+
+
+def test_save_roundtrips_explicit_unknown_meetstatus(tmp_path: Path) -> None:
+    """4B: meetstatus=UNKNOWN (open verbinding) wordt opgeslagen en
+    teruggelezen. out_of_range blijft False in dit scenario."""
+    paths = _Paths(tmp_path / "runtime")
+    service = MeasurementPersistenceService(
+        path_service_factory=lambda: paths,
+        clock=lambda: 1_800_000_000_123,
+    )
+
+    saved = service.save_esr_measurement(
+        _data(open_suspected=True),
+        meetstatus=Meetstatus.UNKNOWN,
+    )
+
+    storage = StorageService(paths.database_path, clock=lambda: 1_800_000_000_123)
+    measurement = storage.get_measurement(saved["measurement"].id)
+    assert measurement.meetstatus == Meetstatus.UNKNOWN
+    assert measurement.out_of_range is False
+    assert measurement.open_suspected is True

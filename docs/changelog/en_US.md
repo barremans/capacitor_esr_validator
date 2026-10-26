@@ -16,6 +16,61 @@ Note on version numbering:
 - For the current version: see `app/version.py` or Help → About.
 -->
 
+### Chat 3 — Import wizard and exchange selection (26 October 2026)
+
+**Why this change**
+
+Two previously reported points from the master plan turned out not to
+work, or not to work correctly, in practice: the "Import document…"
+button did not open the import wizard (A2), and the exchange dialog
+exported the filters instead of the checked selection (A4). Both are
+debug points, not new features.
+
+**Solution: two sub-phases**
+
+- **3A — Import wizard (master plan A2).** The button "File → Import
+  document…" and the "Import" button on the Documentation page did
+  nothing. Cause: a typo in `main_window._show_import_wizard()` —
+  `self._zet_dialoog_icono(...)` instead of
+  `self._zet_dialoog_icoon(...)`. The error raised an
+  `AttributeError` before `dialog.exec()`. Fix: one line in
+  `app/gui/main_window.py` (v2.23.0 → v2.23.1). New test:
+  `tests/test_main_window_import_menu.py` (v1.0.1, 4 tests).
+  Baseline 1711 → **1715**.
+- **3B — Exchange selection (master plan A4).** The exchange dialog
+  exported the filters instead of the selection. Cause: two
+  independent `if` rules in `ExchangeDialog._build_export_tab()`
+  determined the default scope; the second (on `active_filters`)
+  overwrote the first (on `selected_measurement_ids`). On
+  AnalysisScreen `_active_filters()` is never empty because of the
+  implicit `tool_key="ESR_CAPACITOR"`, so the scope there was always
+  FILTERED. Fix: new private helper `_bepaal_default_scope()` with an
+  explicit priority — selection > filters > selection-as-fallback.
+  `exchange_dialog.py` v1.0.1 → v1.0.2. New tests: 3 in
+  `tests/test_exchange_dialog.py` (v1.0.1 → v1.0.2). Baseline
+  1715 → **1718**.
+
+**Important observation**
+
+The typo from 3A had already been mentioned in `overdracht.md` §2.2
+since §2.28 as "important bugfix in §2.28", but the code in
+`main_window.py` v2.23.0 still contained it. Documentation and code
+had drifted apart. Lesson: with every handover, check whether the
+mentioned bugfixes are actually present in the supplied files.
+
+**For developers**
+
+- **Changed:** `app/gui/main_window.py` (v2.23.0 → v2.23.1) — typo
+  in `_show_import_wizard()`.
+- **Changed:** `app/gui/dialogs/exchange_dialog.py`
+  (v1.0.1 → v1.0.2) — `_bepaal_default_scope()` with explicit
+  priority.
+- **New tests:** `tests/test_main_window_import_menu.py`
+  (v1.0.1, 4 tests).
+- **Extended:** `tests/test_exchange_dialog.py` (v1.0.1 → v1.0.2,
+  11 → 14 tests).
+- **Baseline:** 1711 → **1718 passed** (+7 tests across 3A and 3B).
+
 ### Phase §2.28 — Export/import between devices (23 October 2026)
 
 **Motivation**
@@ -100,7 +155,9 @@ measurements on another device without overwriting the existing history.
   menu items + `_open_exchange_dialog`. **Bugfix:** `_show_import_wizard`
   had a typo `self._zet_dialoog_icono(...)` instead of
   `self._zet_dialoog_icoon(...)`. Latent bug that raised an
-  `AttributeError` when opening the import wizard.
+  `AttributeError` when opening the import wizard. **Note
+  (2026-10-26):** that bugfix was only actually applied to the code in
+  chat 3A; in v2.23.0 the typo was still present.
 - **Changed:** `app/helpers/dialog_start_directory.py`
   (v1.0.0 → v1.0.1) — category `"exchange"`.
 - **Changed:** `app/config/settings.py` (v1.8.1 → v1.8.2) —
@@ -111,7 +168,7 @@ measurements on another device without overwriting the existing history.
   `tests/test_exchange_export_service.py` (v1.0.3, 15),
   `tests/test_exchange_import_planner.py` (v1.0.2, 11),
   `tests/test_exchange_import_service.py` (v1.0.1, 16),
-  `tests/test_exchange_dialog.py` (v1.0.1, 11),
+  `tests/test_exchange_dialog.py` (v1.0.1, 11; later v1.0.2, 14),
   `tests/test_main_window_exchange_menu.py` (v1.0.0, 5).
 - **Extended:** `tests/test_storage_schema.py` (v1.1.0 → v1.2.0),
   `tests/test_storage_migrations.py` (v1.0.0 → v1.1.0),
@@ -401,28 +458,34 @@ unused i18n keys.
 
 - **11F.1 — Archive reason.** `ImportService.archive(source_id, *,
   reason=None)` in `import_service.py` (v1.5.0). `ImportSource` gains
-  `archive_reason` (v1.4.0), backward-compatible. `ChangeStatusDialog`
-  (v1.2.0) shows an optional reason field when archiving.
-  `DocumentationScreen` (v2.4.0) shows the reason as a tooltip on the
-  Status column for an archived user import.
+  `archive_reason` (v1.4.0), backward-compatible. `revoke` keeps the
+  reason; `replace_source` and `update_metadata` leave the field
+  untouched. `ChangeStatusDialog` (v1.2.0) shows an optional reason
+  field when archiving. `DocumentationScreen` (v2.4.0) shows the
+  reason as a tooltip on the Status column for an archived user
+  import.
 - **11F.2 — Status filter.** `DocumentationScreen` (v2.5.0) replaces
   the "Show archived" checkbox with a `status_filter_combo` with four
-  options (All / Draft / Active / Archived). New i18n keys under
-  `documentatie.status_filter.*`.
+  options (All / Draft / Active / Archived). The GUI filters on
+  `import_status` after fetching from the service. New i18n keys under
+  `documentatie.status_filter.*`; the old
+  `documentatie.toon_gearchiveerd(_tooltip)` are removed.
 - **11F.3 — Bulk edit and bulk status change.** Two new dialogs:
   `BulkEditMetadataDialog` (v1.0.0) with a checkbox per field, and
-  `BulkChangeStatusDialog` (v1.0.0) with a fixed target status.
-  `DocumentationScreen` (v2.6.0) is on `ExtendedSelection` with two
-  new buttons. New i18n keys under `documentatie.bulk_edit.*`,
+  `BulkChangeStatusDialog` (v1.0.0) with a fixed target status choice
+  and an optional reason when archiving. `DocumentationScreen` (v2.6.0)
+  is on `ExtendedSelection` with two new buttons "Bulk edit…" and
+  "Bulk status…". New i18n keys under `documentatie.bulk_edit.*`,
   `documentatie.bulk_status.*` and `documentatie.bulk_resultaat.*`.
 - **11F.4 — Date parsing + cosmetic points + i18n cleanup.**
   `EditMetadataDialog` (v1.2.0) has a new pure helper
-  `_parse_datum_naar_qdate` that accepts multiple date formats.
-  §4.21 resolved: `test_icon_paths.py` (v1.1.0) uses the project
-  `_app()` helper. §4.23 resolved: `_fake_translate` in
+  `_parse_datum_naar_qdate` that accepts, besides `yyyy-MM-dd`, also
+  `yyyy/MM/dd`, `dd-MM-yyyy`, `yyyy-MM` (day 1) and `yyyy` (1
+  January). §4.21 resolved: `test_icon_paths.py` (v1.1.0) uses the
+  project-wide `_app()` helper. §4.23 resolved: `_fake_translate` in
   `test_gui_language_switch.py` (v1.3.1) does real format
-  substitution. i18n cleanup: unused keys
-  `dialog.documentatie_placeholder` and
+  substitution where the key contains `{placeholders}`. i18n cleanup:
+  unused keys `dialog.documentatie_placeholder` and
   `documentatie.info.ondersteunt` removed from NL and EN.
 
 **For developers**
@@ -430,7 +493,7 @@ unused i18n keys.
 - **Changed:** `app/gui/documentation_screen.py` (v2.4.0 → v2.6.0) —
   status filter dropdown, `ExtendedSelection`, two bulk buttons.
 - **Changed:** `app/gui/dialogs/edit_metadata_dialog.py`
-  (v1.1.0 → v1.2.0) — `_parse_datum_naar_qdate`.
+  (v1.1.0 → v1.2.0) — `_parse_datum_naar_qdate` with fallback chain.
 - **New:** `app/gui/dialogs/bulk_edit_metadata_dialog.py` (v1.0.0).
 - **New:** `app/gui/dialogs/bulk_change_status_dialog.py` (v1.0.0).
 - **New tests:** `tests/test_bulk_edit_metadata_dialog.py` (11 tests),
@@ -491,7 +554,9 @@ caller is the owner** and must keep the return value. In the GUI,
 **Small bugfix in 11E.3**
 
 `app/gui/main_window.py` (v2.19.1) uses a double `getattr` in
-`_build_menu()` and `_apply_settings()`.
+`_build_menu()` and `_apply_settings()`, so that a test or an older
+`settings.json` without an `algemeen` namespace does not raise an
+`AttributeError`.
 
 **For developers**
 

@@ -27,8 +27,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Centrale, aanpasbare instellingen voor de app.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-        # Versie: 1.8.2
-        # Datum: 2026-10-23
+        # Versie: 1.9.1
+        # Datum: 2026-10-26
         ```
     - 📁 **data/**
       - 📁 **documentation/**
@@ -77,8 +77,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Laadt de ingebouwde referentietabellen uit esr_references.json
           # Auteur: Ontwikkelaar
           # Applicatie: Condensator- en ESR-validator (Windows)
-          # Versie: 2.0.0
-          # Datum: 2026-10-15
+          # Versie: 2.1.0
+          # Datum: 2026-10-26
           ```
         - 📄 **/app/data/references/esr_references.json**
       - 📄 **/app/data/.gitkeep**
@@ -311,8 +311,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Modale dialoog voor export/import tussen toestellen (§2.28F).
           # Auteur: Bart Bossuyt
           # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-          # Versie: 1.0.1
-          # Datum: 2026-10-23
+          # Versie: 1.0.2
+          # Datum: 2026-10-26
           ```
         - 📄 **/app/gui/dialogs/import_wizard_dialog.py**
           ```text
@@ -381,8 +381,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Compact ESR-diagnosescherm voor nominale gegevens, meetcontext,
         # Auteur: Ontwikkelaar
         # Applicatie: Condensator- en ESR-validator (Windows)
-        # Versie: 1.14.0
-        # Datum: 2026-10-16
+        # Versie: 1.15.1
+        # Datum: 2026-10-26
         ```
       - 📄 **/app/gui/history_screen.py**
         ```text
@@ -399,8 +399,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Hoofdvenster van de Tool Hub met één-venster-navigatie.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 2.23.0
-        # Datum: 2026-10-23
+        # Versie: 2.23.1
+        # Datum: 2026-10-26
         ```
       - 📄 **/app/gui/styles.py**
         ```text
@@ -545,6 +545,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Versie: 1.4.0
         # Datum: 2026-10-12
         ```
+      - 📄 **/app/helpers/technology.py**
+        ```text
+        # Bestandsnaam: app/helpers/technology.py
+        # Beschrijving: Eén bron van waarheid voor de vraag "hoort dit condensatortype
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.0
+        # Datum: 2026-10-26
+        ```
       - 📄 **/app/helpers/units.py**
         ```text
         # Bestandsnaam: app/helpers/units.py
@@ -634,8 +643,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Kernlogica van de indicatieve beoordeling: capaciteitsvalidatie,
         # Auteur: Ontwikkelaar
         # Applicatie: Condensator- en ESR-validator (Windows)
-        # Versie: 1.6.0
-        # Datum: 2026-10-16
+        # Versie: 1.7.1
+        # Datum: 2026-10-26
         ```
       - 📄 **/app/services/history_service.py**
         ```text
@@ -652,8 +661,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Applicatielaag tussen de ESR-GUI en StorageService.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.1.0
-        # Datum: 2026-10-01
+        # Versie: 1.2.0
+        # Datum: 2026-10-26
         ```
       - 📄 **/app/services/repeat_measurement_service.py**
         ```text
@@ -707,8 +716,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Transactioneel en sequentieel migratieframework voor de lokale
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.2.0
-        # Datum: 2026-10-23
+        # Versie: 1.3.0
+        # Datum: 2026-10-26
         ```
       - 📄 **/app/storage/models.py**
         ```text
@@ -716,8 +725,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Immutable Python-modellen voor de zeven storage-entiteiten van
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.2.0
-        # Datum: 2026-10-23
+        # Versie: 1.3.0
+        # Datum: 2026-10-26
         ```
       - 📄 **/app/storage/paths.py**
         ```text
@@ -734,8 +743,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Declaratieve SQLite-DDL voor de lokale meetdatabase.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.2.0
-        # Datum: 2026-10-23
+        # Versie: 1.3.0
+        # Datum: 2026-10-26
         ```
       - 📄 **/app/storage/service.py**
         ```text
@@ -743,8 +752,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Publieke storage-service voor de lokale SQLite-meethistoriek.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.2.0
-        # Datum: 2026-10-23
+        # Versie: 1.3.0
+        # Datum: 2026-10-26
         ```
     - 📄 **/app/__init__.py**
       ```text
@@ -925,11 +934,11 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     - 📄 **/tests/test_assessment.py**
       ```text
       # Bestandsnaam: tests/test_assessment.py
-      # Beschrijving: Unit tests voor de assessment_service. Test alle 20 testgevallen
+      # Beschrijving: Unit tests voor de assessment_service.
       # Auteur: Ontwikkelaar
       # Applicatie: Condensator- en ESR-validator (Windows)
-      # Versie: 1.5.1
-      # Datum: 2026-10-16
+      # Versie: 1.6.2
+      # Datum: 2026-10-26
       ```
     - 📄 **/tests/test_async_worker.py**
       ```text
@@ -1207,8 +1216,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: GUI-regressietests voor opgeslagen ESR/Condensator-defaults en
       # Auteur: Ontwikkelaar
       # Applicatie: Condensator- en ESR-validator (Windows)
-      # Versie: 1.4.0
-      # Datum: 2026-09-28
+      # Versie: 1.5.1
+      # Datum: 2026-10-26
       ```
     - 📄 **/tests/test_exchange_dialog.py**
       ```text
@@ -1216,8 +1225,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: GUI-regressietests voor ExchangeDialog (fase 28F).
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.1
-      # Datum: 2026-10-23
+      # Versie: 1.0.2
+      # Datum: 2026-10-26
       ```
     - 📄 **/tests/test_exchange_export_service.py**
       ```text
@@ -1552,6 +1561,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.3.0
       # Datum: 2026-10-16
       ```
+    - 📄 **/tests/test_main_window_import_menu.py**
+      ```text
+      # Bestandsnaam: tests/test_main_window_import_menu.py
+      # Beschrijving: GUI-regressietests voor het Bestand-menu-item "Document
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.1
+      # Datum: 2026-10-26
+      ```
     - 📄 **/tests/test_main_window_report_menu.py**
       ```text
       # Bestandsnaam: tests/test_main_window_report_menu.py
@@ -1594,8 +1612,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Gerichte regressietests voor de koppeling van een reeds beoordeelde
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.0
-      # Datum: 2026-10-01
+      # Versie: 1.1.0
+      # Datum: 2026-10-26
       ```
     - 📄 **/tests/test_navigation_regressions.py**
       ```text
@@ -1612,8 +1630,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor app/data/references/__init__.py.
       # Auteur: Ontwikkelaar
       # Applicatie: Condensator- en ESR-validator (Windows)
-      # Versie: 1.1.0
-      # Datum: 2026-10-15
+      # Versie: 1.2.0
+      # Datum: 2026-10-26
       ```
     - 📄 **/tests/test_repeat_measurement_service.py**
       ```text
@@ -1729,8 +1747,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor de robuustheid van laad_instellingen tegen
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-      # Versie: 1.0.1
-      # Datum: 2026-10-24
+      # Versie: 1.1.0
+      # Datum: 2026-10-26
       ```
     - 📄 **/tests/test_shortcuts.py**
       ```text
@@ -1765,8 +1783,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Gerichte regressietests voor het transactionele migratieframework.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.1.0
-      # Datum: 2026-10-23
+      # Versie: 1.2.0
+      # Datum: 2026-10-26
       ```
     - 📄 **/tests/test_storage_multitool_v2.py**
       ```text
@@ -1774,8 +1792,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor schema v2 multitool-discriminator en veilige
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.1
-      # Datum: 2026-10-23
+      # Versie: 1.0.2
+      # Datum: 2026-10-26
       ```
     - 📄 **/tests/test_storage_paths.py**
       ```text
@@ -1792,8 +1810,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Gerichte regressietests voor storage models en SQLite schema.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.2.0
-      # Datum: 2026-10-23
+      # Versie: 1.3.0
+      # Datum: 2026-10-26
       ```
     - 📄 **/tests/test_storage_service.py**
       ```text
@@ -1801,8 +1819,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Gerichte regressietests voor StorageService.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.1.0
-      # Datum: 2026-10-23
+      # Versie: 1.2.0
+      # Datum: 2026-10-26
       ```
     - 📄 **/tests/test_storage_v1_completion.py**
       ```text
@@ -1882,6 +1900,14 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     # Auteur: Bart Bossuyt
     # Applicatie: GEEN APPLICATIE
     # Versie: 2.0.0
+    ```
+  - 📄 **/chat2_stat.txt**
+    ```text
+    # Beschrijving: GEEN BESCHRIJVING
+    # Auteur: IT Cgk <bmcbarre@gmail.com>
+    # Applicatie: GEEN APPLICATIE
+    # Versie: V1.0.0
+    # Datum: Mon Oct 26 07:32:31 2026 +0100
     ```
   - 📄 **/check_github_secret.py**
     ```text

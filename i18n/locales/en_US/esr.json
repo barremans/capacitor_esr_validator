@@ -52,7 +52,10 @@
     "eenhedenfout": "Strong indication of a unit error in C, ESR, or D — check the entered values.",
     "one_leg": "Measurement with one terminal disconnected; more reliable than fully in-circuit, but still context-dependent.",
     "referentietype_wijkt_af": "The reference capacitor type differs from the component being assessed.",
-    "buiten_bereik": "The meter indicates an out-of-range/OL value; numerical assessment is not reliable."
+    "buiten_bereik": "The meter indicates an out-of-range/OL value; numerical assessment is not reliable.",
+    "esr_onrealistisch": "The measured ESR is below the physically realistic lower bound; the value was not assessed numerically.",
+    "capaciteit_onrealistisch": "The measured capacitance is below the physically realistic lower bound; the value was not assessed numerically.",
+    "geen_elektrolytische_referentie": "No electrolytic ESR reference is available for this capacitor type; the assessment was performed without an ESR comparison."
   },
   "status": {
     "capaciteit": {
@@ -91,13 +94,15 @@
   "toelichting": {
     "capaciteit": {
       "tolerantie_onbekend": "Tolerance unknown; capacitance cannot be assessed.",
-      "resultaat": "Measured {gemeten:.4g} {eenheid} vs. nominal {nominaal:.4g} {eenheid}: deviation {afwijking:+.2f}% (tolerance ±{tolerantie:.2f}%)."
+      "resultaat": "Measured {gemeten:.4g} {eenheid} vs. nominal {nominaal:.4g} {eenheid}: deviation {afwijking:+.2f}% (tolerance ±{tolerantie:.2f}%).",
+      "fysiek_onrealistisch": "Measured {gemeten:.4g} {eenheid} is below the physically realistic lower bound for a capacitor; the value was not assessed numerically."
     },
     "esr": {
       "geen_referentie": "No suitable reference available (validation_rules.md §2).",
       "referentie_ongeldig": "Reference value is invalid (≤ 0); ESR cannot be assessed.",
       "resultaat": "Measured/reference ratio = {factor:.2f}× (source: {bron}, level {niveau}, {frequentie:.0f} Hz, {typisch_of_maximaal}).",
-      "frequentie_waarschuwing": " Note: measured at {meetfrequentie:.0f} Hz, reference applies to {referentiefrequentie:.0f} Hz — no automatic conversion performed."
+      "frequentie_waarschuwing": " Note: measured at {meetfrequentie:.0f} Hz, reference applies to {referentiefrequentie:.0f} Hz — no automatic conversion performed.",
+      "fysiek_onrealistisch": "Measured {gemeten:.4g} {eenheid} is below the physically realistic lower bound for a capacitor; the value was not assessed numerically."
     },
     "consistentie": {
       "geen_d": "No D value entered; consistency check not performed.",

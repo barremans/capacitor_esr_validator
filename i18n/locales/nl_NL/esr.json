@@ -52,7 +52,10 @@
     "eenhedenfout": "Sterke aanwijzing voor een eenhedenfout in C, ESR of D — controleer de invoer.",
     "one_leg": "Meting met één aansluiting los; betrouwbaarder dan volledig in-circuit, maar nog contextafhankelijk.",
     "referentietype_wijkt_af": "Het condensatortype van de referentie wijkt af van het te beoordelen component.",
-    "buiten_bereik": "Het meettoestel geeft een waarde buiten meetbereik/OL aan; numerieke beoordeling is niet betrouwbaar."
+    "buiten_bereik": "Het meettoestel geeft een waarde buiten meetbereik/OL aan; numerieke beoordeling is niet betrouwbaar.",
+    "esr_onrealistisch": "De gemeten ESR ligt onder de fysiek realistische ondergrens; de waarde is niet numeriek beoordeeld.",
+    "capaciteit_onrealistisch": "De gemeten capaciteit ligt onder de fysiek realistische ondergrens; de waarde is niet numeriek beoordeeld.",
+    "geen_elektrolytische_referentie": "Voor dit condensatortype is geen elektrolytische ESR-referentie beschikbaar; de beoordeling is zonder ESR-vergelijking uitgevoerd."
   },
   "status": {
     "capaciteit": {
@@ -91,13 +94,15 @@
   "toelichting": {
     "capaciteit": {
       "tolerantie_onbekend": "Tolerantie onbekend; capaciteit kan niet beoordeeld worden.",
-      "resultaat": "Gemeten {gemeten:.4g} {eenheid} t.o.v. nominaal {nominaal:.4g} {eenheid}: afwijking {afwijking:+.2f}% (tolerantie ±{tolerantie:.2f}%)."
+      "resultaat": "Gemeten {gemeten:.4g} {eenheid} t.o.v. nominaal {nominaal:.4g} {eenheid}: afwijking {afwijking:+.2f}% (tolerantie ±{tolerantie:.2f}%).",
+      "fysiek_onrealistisch": "Gemeten {gemeten:.4g} {eenheid} ligt onder de fysiek realistische ondergrens voor een condensator; de waarde wordt niet numeriek beoordeeld."
     },
     "esr": {
       "geen_referentie": "Geen geschikte referentie beschikbaar (validation_rules.md §2).",
       "referentie_ongeldig": "Referentiewaarde is ongeldig (≤ 0); ESR kan niet beoordeeld worden.",
       "resultaat": "Verhouding gemeten/referentie = {factor:.2f}× (bron: {bron}, niveau {niveau}, {frequentie:.0f} Hz, {typisch_of_maximaal}).",
-      "frequentie_waarschuwing": " Let op: gemeten bij {meetfrequentie:.0f} Hz, referentie geldt voor {referentiefrequentie:.0f} Hz — geen automatische omrekening uitgevoerd (§9 context)."
+      "frequentie_waarschuwing": " Let op: gemeten bij {meetfrequentie:.0f} Hz, referentie geldt voor {referentiefrequentie:.0f} Hz — geen automatische omrekening uitgevoerd (§9 context).",
+      "fysiek_onrealistisch": "Gemeten {gemeten:.4g} {eenheid} ligt onder de fysiek realistische ondergrens voor een condensator; de waarde wordt niet numeriek beoordeeld."
     },
     "consistentie": {
       "geen_d": "Geen D-waarde ingevoerd; consistentiecontrole niet uitgevoerd.",

@@ -2,12 +2,12 @@
 ================================================================================
 Module:     app/storage/models.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.0
-Datum:      2026-10-23
+Versie:     1.3.0
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Immutable Python-modellen voor de zeven storage-entiteiten van
-            SQLite schema v1/v2/v3 en de expliciet goedgekeurde enumwaarden.
+            SQLite schema v1/v2/v3/v4 en de expliciet goedgekeurde enumwaarden.
 
             De modellen bevatten uitsluitend persistente data. Ze voeren geen
             ESR-beoordeling, referentieselectie of verborgen meetcorrecties uit.
@@ -25,6 +25,13 @@ Wijzigingen:
                         tussen toestellen. Aan het einde toegevoegd,
                         met default None, zodat bestaande constructors
                         blijven werken.
+  v1.3.0 (2026-10-26)  Chat 4 / 4B: nieuwe enum Meetstatus en het veld
+                        meetstatus op Measurement (default
+                        Meetstatus.NORMAL). Aan het einde toegevoegd,
+                        met default, zodat bestaande constructors
+                        blijven werken. out_of_range blijft bestaan
+                        als assessment-flag; meetstatus is het nieuwe
+                        opslagcontract voor de GUI-keuze (B3).
 ================================================================================
 """
 
@@ -53,6 +60,31 @@ class MeasurementMethod(str, Enum):
     EX_SITU = "EX_SITU"
     ONE_LEG = "ONE_LEG"
     IN_CIRCUIT = "IN_CIRCUIT"
+
+
+class Meetstatus(str, Enum):
+    """Meetbereik-status van een meting (sinds schema v4, B3).
+
+    ``NORMAL``       — de meter gaf een normale waarde binnen bereik.
+    ``OL``           — de meter gaf OL / buiten meetbereik, zonder
+                       verdere specificatie.
+    ``UNDER_RANGE``  — de meter gaf under-range aan.
+    ``OVER_RANGE``   — de meter gaf over-range aan.
+    ``UNKNOWN``      — de meetwaarde is om een andere reden niet
+                       bruikbaar (bv. vermoede open verbinding of
+                       kortsluiting).
+
+    ``out_of_range`` op ``Measurement`` blijft het assessment-veld
+    (True/False); ``meetstatus`` is het fijnmazige opslagcontract.
+    In de praktijk: ``meetstatus != NORMAL`` impliceert
+    ``out_of_range = True``.
+    """
+
+    NORMAL = "NORMAL"
+    OL = "OL"
+    UNDER_RANGE = "UNDER_RANGE"
+    OVER_RANGE = "OVER_RANGE"
+    UNKNOWN = "UNKNOWN"
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +162,11 @@ class Measurement:
     voor metingen die op dit toestel zelf zijn aangemaakt. De
     StorageService dwingt af dat ze ofwel beide gevuld zijn, ofwel
     beide leeg.
+
+    ``meetstatus`` (sinds schema v4, B3) is de fijnmazige meetbereik-
+    status. ``out_of_range`` blijft het assessment-veld. In de praktijk
+    impliceert ``meetstatus != NORMAL`` dat ``out_of_range = True`` is;
+    dat is een consistentie-afspraak, geen database-CHECK.
     """
 
     id: int
@@ -166,6 +203,7 @@ class Measurement:
     tool_key: str
     source_machine_id: str | None = None
     source_measurement_id: int | None = None
+    meetstatus: Meetstatus = Meetstatus.NORMAL
 
 
 @dataclass(frozen=True, slots=True)

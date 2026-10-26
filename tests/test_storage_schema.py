@@ -2,16 +2,11 @@
 ================================================================================
 Module:     tests/test_storage_schema.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.0
-Datum:      2026-10-23
+Versie:     1.3.0
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Gerichte regressietests voor storage models en SQLite schema.
-
-            Bewijst de zeven hoofdtabellen, schema_meta-singleton,
-            schema-versie/timestamps, indexes, RESTRICT-relaties,
-            goedgekeurde enumwaarden en het ontbreken van verborgen
-            gecorrigeerde ESR-velden.
 
 Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste tests voor models.py en schema.py.
@@ -19,6 +14,10 @@ Wijzigingen:
   v1.2.0 (2026-10-23)  Fase 28E: schema v3. Nieuwe tests voor
                         source_machine_id, source_measurement_id en
                         ix_measurements_source_identity.
+  v1.3.0 (2026-10-26)  Chat 4 / 4B: schema v4. Nieuwe tests voor
+                        meetstatus-kolom, Meetstatus-enum en
+                        ix_measurements_meetstatus. Assertie
+                        CURRENT_SCHEMA_VERSION == 3 -> == 4.
 ================================================================================
 """
 
@@ -34,6 +33,7 @@ from app.storage.models import (
     Measurement,
     MeasurementMethod,
     MeasurementSession,
+    Meetstatus,
     ReferenceSnapshot,
     SampleState,
     SchemaMeta,
@@ -68,8 +68,8 @@ def _column_names(
     return tuple(row[1] for row in rows)
 
 
-def test_current_schema_version_is_three() -> None:
-    assert CURRENT_SCHEMA_VERSION == 3
+def test_current_schema_version_is_four() -> None:
+    assert CURRENT_SCHEMA_VERSION == 4
 
 
 def test_schema_v1_creates_exact_main_tables() -> None:
@@ -239,6 +239,17 @@ def test_measurement_method_values_match_approved_set() -> None:
     }
 
 
+def test_meetstatus_values_match_approved_set() -> None:
+    """B3: de vijf Meetstatus-waarden zijn exact zoals in het schema-CHECK."""
+    assert {status.value for status in Meetstatus} == {
+        "NORMAL",
+        "OL",
+        "UNDER_RANGE",
+        "OVER_RANGE",
+        "UNKNOWN",
+    }
+
+
 def test_measurements_schema_contains_no_hidden_corrected_esr_fields() -> None:
     connection = _open_memory_database()
     create_schema_v1(
@@ -381,7 +392,7 @@ def test_current_schema_adds_tool_key_and_index() -> None:
     assert "tool_key" in columns
     assert "ix_measurements_tool_key" in indexes
     assert indexes == set(SCHEMA_CURRENT_INDEXES)
-    assert connection.execute("SELECT schema_version FROM schema_meta").fetchone()[0] == 3
+    assert connection.execute("SELECT schema_version FROM schema_meta").fetchone()[0] == 4
 
 
 def test_current_schema_adds_source_identity_columns_and_index() -> None:
@@ -402,7 +413,7 @@ def test_current_schema_adds_source_identity_columns_and_index() -> None:
     assert "ix_measurements_source_identity" in indexes
     assert connection.execute(
         "SELECT schema_version FROM schema_meta"
-    ).fetchone()[0] == 3
+    ).fetchone()[0] == 4
 
 
 def test_current_schema_source_identity_columns_are_nullable() -> None:
@@ -419,16 +430,93 @@ def test_current_schema_source_identity_columns_are_nullable() -> None:
     assert kolommen["source_measurement_id"][3] == 0  # nullable
 
 
+def test_current_schema_adds_meetstatus_column_and_index() -> None:
+    """4B: schema v4 voegt meetstatus toe met NOT NULL DEFAULT 'NORMAL'
+    en een index ix_measurements_meetstatus."""
+    connection = _open_memory_database()
+    create_schema_current(connection, created_at_ms=TEST_NOW_MS)
+
+    columns = set(_column_names(connection, "measurements"))
+    indexes = {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='index' AND name NOT LIKE 'sqlite_%'"
+        )
+    }
+
+    assert "meetstatus" in columns
+    assert "ix_measurements_meetstatus" in indexes
+
+
+def test_meetstatus_column_has_check_constraint_on_approved_values() -> None:
+    """De CHECK-beperking staat alleen de vijf Meetstatus-waarden toe.
+    Een ongeldige waarde moet een sqlite3.IntegrityError geven."""
+    connection = _open_memory_database()
+    create_schema_current(connection, created_at_ms=TEST_NOW_MS)
+
+    # Bouw minimale keten op.
+    connection.execute(
+        "INSERT INTO component_models (created_at_ms) VALUES (?)",
+        (TEST_NOW_MS,),
+    )
+    model_id = connection.execute(
+        "SELECT id FROM component_models"
+    ).fetchone()[0]
+    connection.execute(
+        "INSERT INTO component_samples "
+        "(component_model_id, sample_state, created_at_ms) "
+        "VALUES (?, 'NEW', ?)",
+        (model_id, TEST_NOW_MS),
+    )
+    sample_id = connection.execute(
+        "SELECT id FROM component_samples"
+    ).fetchone()[0]
+    connection.execute(
+        "INSERT INTO measurement_sessions "
+        "(component_sample_id, started_at_ms, created_at_ms) "
+        "VALUES (?, ?, ?)",
+        (sample_id, TEST_NOW_MS, TEST_NOW_MS),
+    )
+    session_id = connection.execute(
+        "SELECT id FROM measurement_sessions"
+    ).fetchone()[0]
+
+    with pytest.raises(sqlite3.IntegrityError):
+        connection.execute(
+            "INSERT INTO measurements "
+            "(measurement_session_id, measured_at_ms, measurement_method, "
+            "meetstatus, created_at_ms) "
+            "VALUES (?, ?, 'EX_SITU', 'BOGUS', ?)",
+            (session_id, TEST_NOW_MS, TEST_NOW_MS),
+        )
+
+    # Geldige waarde werkt wel.
+    connection.execute(
+        "INSERT INTO measurements "
+        "(measurement_session_id, measured_at_ms, measurement_method, "
+        "meetstatus, created_at_ms) "
+        "VALUES (?, ?, 'EX_SITU', 'OL', ?)",
+        (session_id, TEST_NOW_MS + 1, TEST_NOW_MS + 1),
+    )
+    stored = connection.execute(
+        "SELECT meetstatus FROM measurements"
+    ).fetchone()
+    assert stored[0] == "OL"
+
+
 def test_measurement_model_has_source_identity_fields_with_none_default() -> None:
     field_names = [field.name for field in fields(Measurement)]
-    assert field_names[-2:] == [
+    assert field_names[-3:] == [
         "source_machine_id",
         "source_measurement_id",
+        "meetstatus",
     ]
 
 
 def test_measurement_can_be_constructed_without_source_identity() -> None:
-    """Backward-compat: bestaande constructors zonder herkomst blijven werken."""
+    """Backward-compat: bestaande constructors zonder herkomst en zonder
+    meetstatus blijven werken. meetstatus valt terug op NORMAL."""
     measurement = Measurement(
         id=1,
         measurement_session_id=1,
@@ -465,3 +553,4 @@ def test_measurement_can_be_constructed_without_source_identity() -> None:
     )
     assert measurement.source_machine_id is None
     assert measurement.source_measurement_id is None
+    assert measurement.meetstatus == Meetstatus.NORMAL

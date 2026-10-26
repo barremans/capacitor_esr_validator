@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_settings_robustness.py
 Project:    Electronics Diagnostic Tool Hub / ESR Validator (Windows)
-Versie:     1.0.1
-Datum:      2026-10-24
+Versie:     1.1.0
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor de robuustheid van laad_instellingen tegen
@@ -28,6 +28,16 @@ Wijzigingen:
                        de foutieve waarde wordt opgeslagen in plaats van
                        geweigerd. Dat is een open punt voor chat 4
                        (schema v4), geen bugfix voor chat 2.
+  v1.1.0 (2026-10-26)  Chat 4 / 4A: OV-S4 opgelost. `laad_instellingen`
+                       roept nu `valideer_en_normaliseer` aan, die per
+                       veld type- en keuzelijst-validatie toepast en
+                       zelfherstellend terugvalt op de dataclass-default.
+                       De 2 verwijderde tests keren terug in verbeterde
+                       vorm: niet alleen "hoog" voor een int-veld, maar
+                       ook een int buiten de keuzelijst
+                       (meetfrequentie_hz=2000). Plus een test voor de
+                       familie- en keuzelijst-validatie van
+                       condensatortype.
 ================================================================================
 """
 
@@ -36,6 +46,7 @@ import json
 import app.config.settings as settings_module
 from app.config.settings import (
     AppInstellingen,
+    BeoordelingsInstellingen,
     EsrCondensatorInstellingen,
     laad_instellingen,
     sla_instellingen_op,
@@ -179,12 +190,165 @@ def test_language_null_crasht_niet_en_geeft_none_terug(tmp_path, monkeypatch):
     """'language': null — geen crash. Vastleggen dat de waarde letterlijk
     als None wordt doorgegeven (geen stille correctie), zodat de GUI-laag
     er bewust mee omgaat (zie i18n.vertaal: valt terug op de sleutel).
+
+    Noot: taal wordt bewust NIET genormaliseerd in 4A (dat is OV-S1,
+    gerouteerd naar chat 8).
     """
     _schrijf(tmp_path, monkeypatch, {"language": None})
 
     instellingen = laad_instellingen()
 
     assert instellingen.taal is None
+
+
+# ============================================================================
+# C — 4A: type- en keuzelijst-validatie van scalaire velden (OV-S4)
+# ============================================================================
+
+def test_meetfrequentie_hz_als_string_wordt_teruggezet_naar_default(
+    tmp_path, monkeypatch
+):
+    """OV-S4: meetfrequentie_hz='hoog' (string) moet terugvallen op de
+    dataclass-default (1000 Hz), niet als string opgeslagen worden.
+    Zonder 4A-fix zou dit 'hoog' blijven."""
+    _schrijf(
+        tmp_path,
+        monkeypatch,
+        {"esr_condensator": {"meetfrequentie_hz": "hoog"}},
+    )
+
+    instellingen = laad_instellingen()
+
+    assert isinstance(instellingen.esr_condensator.meetfrequentie_hz, int)
+    assert instellingen.esr_condensator.meetfrequentie_hz == 1_000
+
+
+def test_meetfrequentie_hz_buiten_keuzelijst_valt_terug_op_default(
+    tmp_path, monkeypatch
+):
+    """OV-S4 (aanvullend): 2000 is een geldige int, maar staat niet in
+    MEETFREQUENTIES_HZ. Moet terugvallen op de default."""
+    _schrijf(
+        tmp_path,
+        monkeypatch,
+        {"esr_condensator": {"meetfrequentie_hz": 2_000}},
+    )
+
+    instellingen = laad_instellingen()
+
+    assert instellingen.esr_condensator.meetfrequentie_hz == 1_000
+
+
+def test_meetfrequentie_hz_bool_wordt_teruggezet_naar_default(
+    tmp_path, monkeypatch
+):
+    """bool is technisch een int in Python, maar mag niet als frequentie
+    geaccepteerd worden. True == 1, False == 0; geen van beide is een
+    geldige frequentie."""
+    _schrijf(
+        tmp_path,
+        monkeypatch,
+        {"esr_condensator": {"meetfrequentie_hz": True}},
+    )
+
+    instellingen = laad_instellingen()
+
+    assert instellingen.esr_condensator.meetfrequentie_hz == 1_000
+
+
+def test_condensatortype_buiten_keuzelijst_valt_terug_op_default(
+    tmp_path, monkeypatch
+):
+    """condensatortype='xyz' staat niet in CONDENSATORTYPES. Moet
+    terugvallen op 'Aluminium elektrolytisch'."""
+    _schrijf(
+        tmp_path,
+        monkeypatch,
+        {"esr_condensator": {"condensatortype": "xyz"}},
+    )
+
+    instellingen = laad_instellingen()
+
+    assert (
+        instellingen.esr_condensator.condensatortype
+        == "Aluminium elektrolytisch"
+    )
+
+
+def test_meetmethode_buiten_keuzelijst_valt_terug_op_default(
+    tmp_path, monkeypatch
+):
+    _schrijf(
+        tmp_path,
+        monkeypatch,
+        {"esr_condensator": {"meetmethode": "HALF_IN_CIRCUIT"}},
+    )
+
+    instellingen = laad_instellingen()
+
+    assert instellingen.esr_condensator.meetmethode == "EX_SITU"
+
+
+def test_andere_velden_in_dezelfde_groep_blijven_behouden(tmp_path, monkeypatch):
+    """Als één veld ongeldig is, mogen de andere geldige velden van
+    dezelfde groep niet naar default vallen. Dit is de belangrijkste
+    verbetering t.o.v. de oude cls(**waarden)-catch: die liet de HELE
+    groep vallen."""
+    _schrijf(
+        tmp_path,
+        monkeypatch,
+        {
+            "esr_condensator": {
+                "meetfrequentie_hz": "hoog",     # ongeldig
+                "tolerantie_percent": 15.0,      # geldig
+                "condensatortype": "Aluminium elektrolytisch — Low ESR",  # geldig
+            },
+        },
+    )
+
+    instellingen = laad_instellingen()
+
+    # Het ongeldige veld valt terug op default.
+    assert instellingen.esr_condensator.meetfrequentie_hz == 1_000
+    # De geldige velden blijven behouden.
+    assert instellingen.esr_condensator.tolerantie_percent == 15.0
+    assert (
+        instellingen.esr_condensator.condensatortype
+        == "Aluminium elektrolytisch — Low ESR"
+    )
+
+
+def test_esr_min_realistisch_ohm_als_negatieve_string_valt_terug_op_default(
+    tmp_path, monkeypatch
+):
+    """4A: de nieuwe sanity-drempel in BeoordelingsInstellingen volgt
+    dezelfde validatie. 'negatief' (string) valt terug op 1e-6."""
+    _schrijf(
+        tmp_path,
+        monkeypatch,
+        {"beoordeling": {"esr_min_realistisch_ohm": "negatief"}},
+    )
+
+    instellingen = laad_instellingen()
+
+    assert instellingen.beoordeling.esr_min_realistisch_ohm == 1e-6
+    # De rest van de groep blijft default.
+    assert instellingen.beoordeling == BeoordelingsInstellingen()
+
+
+def test_esr_min_realistisch_ohm_geldige_override_blijft_behouden(
+    tmp_path, monkeypatch
+):
+    """Een geldige float-override voor de sanity-drempel blijft behouden."""
+    _schrijf(
+        tmp_path,
+        monkeypatch,
+        {"beoordeling": {"esr_min_realistisch_ohm": 0.5}},
+    )
+
+    instellingen = laad_instellingen()
+
+    assert instellingen.beoordeling.esr_min_realistisch_ohm == 0.5
 
 
 # ============================================================================

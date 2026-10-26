@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/services/assessment_service.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.6.0
-Datum:      2026-10-16
+Versie:     1.7.1
+Datum:      2026-10-26
 Auteur:     Ontwikkelaar
 
 Doel:       Kernlogica van de indicatieve beoordeling: capaciteitsvalidatie,
@@ -12,62 +12,35 @@ Doel:       Kernlogica van de indicatieve beoordeling: capaciteitsvalidatie,
             GEEN GUI-code en raakt de database niet rechtstreeks aan.
 
 Wijzigingen:
-  v1.0.0 (2026-08-11)  Initiele versie. Volledige beoordelingsketen:
-                       C-validatie -> ESR -> consistentie -> betrouwbaarheid
-                       -> eindstatus. Alle regels uit validation_rules.md
-                       geimplementeerd.
-  v1.1.0 (2026-09-26)  Meetmethode als expliciete enum toegevoegd
-                       (EX_SITU / ONE_LEG / IN_CIRCUIT), out-of-range/OL
-                       toegevoegd en type-mismatch van referenties bewaakt.
-  v1.2.0 (2026-09-26)  Instrumentcode en testspanning toegevoegd aan de
-                       meetcontext van het resultaat; nog zonder effect op
-                       de ESR-grensfactoren.
-  v1.3.0 (2026-09-29)  Referentie zonder frequentie veilig afgehandeld:
-                       ESR wordt niet numeriek beoordeeld en betrouwbaarheid
-                       blijft conservatief laag; geen verborgen conversie.
-  v1.4.0 (2026-10-15)  Fase 10B: Beoordeling krijgt het veld
-                       `referentiefrequentie_hz`, gevuld vanuit de gebruikte
-                       ReferentieContext. Maakt het voor de GUI mogelijk de
-                       werkelijke referentiefrequentie te tonen i.p.v. een
-                       aangenomen 100 kHz. Geen wijziging aan de drempels
-                       of aan de beoordelingslogica zelf.
-  v1.5.0 (2026-10-16)  Fase 11B: onderscheid tussen inhoudelijke en
-                       administratieve betrouwbaarheidsverlagers.
-                       `BetrouwbaarheidsResultaat` krijgt het extra veld
-                       `inhoudelijke_verlagers`. `bepaal_eindstatus` gebruikt
-                       niet langer `betrouwbaarheid.niveau == LAAG` als
-                       trigger voor AANDACHTSPUNT, maar de aanwezigheid van
-                       minstens één inhoudelijke verlager (frequentieverschil,
-                       in-circuit/one-leg, type-mismatch, inconsistentie,
-                       onbekend/niet-elektrolytisch condensatortype).
-                       Administratieve verlagers (fabrikant/serie onbekend,
-                       temperatuur onbekend, typische referentiewaarde) verlagen
-                       de betrouwbaarheid wel, maar verhogen het minimum van de
-                       eindstatus niet. Geen wijziging aan drempels of aan de
-                       ESR-classificatie zelf.
-  v1.6.0 (2026-10-16)  Fase 11D: `Beoordeling` krijgt het veld `taal`,
-                       gevuld met de taalparameter van `beoordeel_meting`.
-                       Hierdoor kan de GUI zien in welke taal de reeds
-                       vertaalde strings (`toelichting`, `redenen`,
-                       `waarschuwingen`, `aanbevolen_vervolgstap`) zijn
-                       opgesteld, en na een live taalwissel correct
-                       reageren zonder het Beoordeling-object opnieuw te
-                       hoeven te interpreteren. Geen wijziging aan de
-                       beoordelingslogica of aan de drempels.
+  v1.0.0 (2026-08-11)  Initiele versie. Volledige beoordelingsketen.
+  v1.1.0 (2026-09-26)  Meetmethode als expliciete enum.
+  v1.2.0 (2026-09-26)  Instrumentcode en testspanning in resultaat.
+  v1.3.0 (2026-09-29)  Referentie zonder frequentie veilig afgehandeld.
+  v1.4.0 (2026-10-15)  Beoordeling.referentiefrequentie_hz.
+  v1.5.0 (2026-10-16)  Inhoudelijke vs. administratieve verlagers.
+  v1.6.0 (2026-10-16)  Beoordeling.taal.
+  v1.7.0 (2026-10-26)  Chat 4 / 4A: B1 (familie-predicaat) en B2
+                       (fysieke plausibiliteitscheck).
+  v1.7.1 (2026-10-26)  Chat 4 / 4C: harde type-match §14.
+                       - De lokale definities van `is_elektrolytisch_type`
+                         en `_zelfde_technologie_familie` zijn verplaatst
+                         naar app.helpers.technology (één bron van
+                         waarheid, gedeeld met app.data.references en
+                         app.gui.esr_test_screen). De namen blijven
+                         beschikbaar via re-export.
+                       - `beoordeel_meting` voegt een extra waarschuwing
+                         toe (`veiligheid.geen_elektrolytische_referentie`)
+                         wanneer het condensatortype niet elektrolytisch
+                         is. Zo ziet de gebruiker expliciet dat de
+                         beoordeling zonder elektrolytische ESR-referentie
+                         is uitgevoerd, ook al geeft de GUI standaard al
+                         geen referentie meer.
 
 Referentie: docs/validation_rules.md (volledig), in het bijzonder:
             §2 referentiehiërarchie, §3 capaciteitsvalidatie,
             §4 indicatieve ESR-beoordeling, §5 consistentiecontrole,
-            §6 betrouwbaarheid, §7 eindstatus, §10 veiligheidsteksten.
-
-Multilanguage: GEEN enkele weergavetekst staat hier hardcoded. Elke functie
-neemt een `taal`-parameter (default "nl_NL") en haalt alle tekst op via
-app.helpers.i18n.vertaal().
-
-Belangrijk (§9 en §26 van PROJECT_CONTEXT): er wordt hier NERGENS een
-automatische frequentieconversie uitgevoerd. Een frequentieverschil
-tussen meting en referentie leidt uitsluitend tot een waarschuwing en
-een lagere betrouwbaarheid — nooit tot een herberekende waarde.
+            §6 betrouwbaarheid, §7 eindstatus, §10 veiligheidsteksten,
+            §14 type-match.
 ================================================================================
 """
 
@@ -84,13 +57,15 @@ from app.config.settings import (
     laad_instellingen,
 )
 from app.helpers.i18n import STANDAARD_TAAL, vertaal
+from app.helpers.technology import (
+    is_elektrolytisch_type,
+    zelfde_technologie_familie,
+)
 from app.helpers.units import converteer_esr
 
 
 # ---------------------------------------------------------------------------
-# Statussen — neutrale, taalonafhankelijke codes (§17 context, §3-§7
-# validation_rules.md). De .value is de vertaalsleutel-suffix, NOOIT het
-# weergegeven label.
+# Statussen — neutrale, taalonafhankelijke codes.
 # ---------------------------------------------------------------------------
 class CapaciteitsStatus(str, Enum):
     BINNEN_TOLERANTIE = "binnen_tolerantie"
@@ -145,27 +120,49 @@ _BETROUWBAARHEID_ORDINAAL = {
 _ORDINAAL_NAAR_BETROUWBAARHEID = {v: k for k, v in _BETROUWBAARHEID_ORDINAAL.items()}
 
 
-def status_label(namespace: str, status_waarde: str, taal: str = STANDAARD_TAAL) -> str:
-    """Vertaalt een statuscode naar het weergegeven label.
+# Re-export voor backward-compat: bestaande tests importeren
+# `is_elektrolytisch_type` uit deze module. De implementatie staat in
+# app.helpers.technology (sinds 4C).
+__all__ = [
+    "is_elektrolytisch_type",
+    "zelfde_technologie_familie",
+    "status_label",
+    "veiligheidswaarschuwingen",
+    "CapaciteitsStatus",
+    "EsrStatus",
+    "ConsistentieStatus",
+    "Betrouwbaarheid",
+    "Meetmethode",
+    "Eindstatus",
+    "CapaciteitsResultaat",
+    "ReferentieContext",
+    "EsrResultaat",
+    "ConsistentieResultaat",
+    "BetrouwbaarheidsResultaat",
+    "Beoordeling",
+    "beoordeel_capaciteit",
+    "beoordeel_esr",
+    "controleer_consistentie",
+    "bepaal_betrouwbaarheid",
+    "bepaal_eindstatus",
+    "beoordeel_meting",
+]
 
-    Bv. status_label("status.capaciteit", CapaciteitsStatus.OP_GRENS.value)
-    -> "op grens" (nl_NL) of "at the boundary" (en_US).
-    """
+
+def status_label(namespace: str, status_waarde: str, taal: str = STANDAARD_TAAL) -> str:
+    """Vertaalt een statuscode naar het weergegeven label."""
     return vertaal(f"{namespace}.{status_waarde}", taal=taal)
 
 
 def veiligheidswaarschuwingen(taal: str = STANDAARD_TAAL) -> tuple[str, ...]:
-    """Vaste veiligheidswaarschuwingen (§19 context, §10 validation_rules.md),
-    vertaald naar de gevraagde taal. Letterlijk te tonen op elk scherm met
-    meetinvoer of -resultaat.
-    """
+    """Vaste veiligheidswaarschuwingen (§19 context, §10 validation_rules.md)."""
     return tuple(
         vertaal(f"veiligheid.waarschuwing_{i}", taal=taal) for i in range(1, 10)
     )
 
 
 # ---------------------------------------------------------------------------
-# Resultaatstructuren — elk resultaat is transparant opgebouwd (§18 context)
+# Resultaatstructuren
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class CapaciteitsResultaat:
@@ -182,17 +179,15 @@ class CapaciteitsResultaat:
 @dataclass(frozen=True)
 class ReferentieContext:
     """Alle informatie over de referentiebron die voor de ESR-vergelijking
-    gebruikt wordt. Wordt door de aanroepende code samengesteld op basis
-    van de referentiehiërarchie (§2 validation_rules.md) — deze module
-    kiest zelf geen referentie, ze past ze enkel toe.
+    gebruikt wordt.
     """
 
     esr_waarde: float
     eenheid: str
     bron: str
-    referentieniveau: int  # 1 (exacte datasheet) t.e.m. 7 (relatieve vergelijking)
+    referentieniveau: int
     frequentie_hz: float
-    typisch_of_maximaal: str  # "typisch" | "maximaal"
+    typisch_of_maximaal: str
     temperatuur_c: Optional[float] = None
     condensatortype: Optional[str] = None
     fabrikant: Optional[str] = None
@@ -224,16 +219,6 @@ class ConsistentieResultaat:
 class BetrouwbaarheidsResultaat:
     """Betrouwbaarheid met onderscheid tussen inhoudelijke en administratieve
     verlagers (fase 11B).
-
-    ``verlagende_factoren`` bevat alle verlagende factoren, in dezelfde
-    volgorde als ze toegepast zijn. ``inhoudelijke_verlagers`` is de
-    deelverzameling die de meetcontext zelf raakt (frequentieverschil,
-    in-circuit/one-leg, type-mismatch, inconsistentie, onbekend of
-    niet-elektrolytisch condensatortype). Alleen die deelverzameling
-    verhoogt het minimum van de eindstatus; administratieve verlagers
-    (fabrikant/serie onbekend, temperatuur onbekend, typische
-    referentiewaarde) verlagen de betrouwbaarheid wel, maar niet het
-    minimum van de eindstatus.
     """
 
     niveau: Betrouwbaarheid
@@ -244,13 +229,6 @@ class BetrouwbaarheidsResultaat:
 @dataclass(frozen=True)
 class Beoordeling:
     """Het volledige, transparante eindresultaat van een meting (§18 context).
-
-    Sinds fase 11D bevat dit object ook het veld ``taal``: de taal waarin
-    alle reeds vertaalde strings (``toelichting``, ``redenen``,
-    ``waarschuwingen``, ``aanbevolen_vervolgstap``) zijn opgesteld. De GUI
-    kan daarmee detecteren dat een live taalwissel het object niet heeft
-    meegenomen, en in plaats van een stille mengeling een nette banner
-    tonen.
     """
 
     eindstatus: Eindstatus
@@ -282,14 +260,36 @@ def beoordeel_capaciteit(
 ) -> CapaciteitsResultaat:
     """Beoordeelt de gemeten capaciteit t.o.v. de nominale waarde en
     tolerantie (docs/validation_rules.md §3).
-
-    De eenheidsconversie tussen `eenheid_nominaal` en `eenheid_gemeten`
-    is toegelaten (expliciete eenheidsconversie, geen frequentieconversie).
     """
-
     from app.helpers.units import converteer_capaciteit  # lokale import: geen cirkel
 
     instellingen = instellingen or laad_instellingen().beoordeling
+
+    gemeten_in_nominale_eenheid = converteer_capaciteit(
+        gemeten_capaciteit, eenheid_gemeten, eenheid_nominaal
+    )
+    gemeten_in_farad = (
+        gemeten_in_nominale_eenheid
+        * CAPACITEIT_FACTOR_NAAR_FARAD[eenheid_nominaal]
+    )
+
+    # 4A sanity: capaciteit moet fysiek realistisch zijn vóór beoordeling.
+    if gemeten_in_farad < instellingen.capaciteit_min_realistisch_f:
+        return CapaciteitsResultaat(
+            status=CapaciteitsStatus.NIET_BEOORDEELBAAR,
+            nominale_waarde=nominale_capaciteit,
+            gemeten_waarde=gemeten_in_nominale_eenheid,
+            eenheid=eenheid_nominaal,
+            tolerantie_percent=tolerantie_percent,
+            afwijking_absoluut=None,
+            afwijking_percent=None,
+            toelichting=vertaal(
+                "toelichting.capaciteit.fysiek_onrealistisch",
+                taal=taal,
+                gemeten=gemeten_in_nominale_eenheid,
+                eenheid=eenheid_nominaal,
+            ),
+        )
 
     if tolerantie_percent is None:
         return CapaciteitsResultaat(
@@ -303,9 +303,6 @@ def beoordeel_capaciteit(
             toelichting=vertaal("toelichting.capaciteit.tolerantie_onbekend", taal=taal),
         )
 
-    gemeten_in_nominale_eenheid = converteer_capaciteit(
-        gemeten_capaciteit, eenheid_gemeten, eenheid_nominaal
-    )
     afwijking_absoluut = gemeten_in_nominale_eenheid - nominale_capaciteit
     afwijking_percent = (afwijking_absoluut / nominale_capaciteit) * 100.0
     abs_afwijking_percent = abs(afwijking_percent)
@@ -353,13 +350,8 @@ def beoordeel_esr(
     taal: str = STANDAARD_TAAL,
 ) -> EsrResultaat:
     """Vergelijkt de gemeten ESR met de gekozen referentie
-    (docs/validation_rules.md §4). Geeft NIET_TE_BEOORDELEN als er geen
-    referentie is (§2: geen enkel hiërarchieniveau leverde bruikbare data).
-
-    Er wordt GEEN automatische frequentieconversie uitgevoerd; een
-    frequentieverschil leidt enkel tot een waarschuwing in de toelichting.
+    (docs/validation_rules.md §4).
     """
-
     instellingen = instellingen or laad_instellingen().beoordeling
 
     if referentie is None:
@@ -377,9 +369,24 @@ def beoordeel_esr(
     gemeten_ohm = converteer_esr(gemeten_esr, eenheid_gemeten_esr, "Ω")
     referentie_ohm = converteer_esr(referentie.esr_waarde, referentie.eenheid, "Ω")
 
-    # Een ESR-referentie zonder meetfrequentie is volgens het datamodel
-    # onvolledig en mag niet als numerieke vergelijkingsgrens worden gebruikt.
-    # Er wordt bewust geen frequentie aangenomen of omgerekend.
+    # 4A sanity: ESR moet fysiek realistisch zijn vóór beoordeling.
+    if gemeten_ohm < instellingen.esr_min_realistisch_ohm:
+        return EsrResultaat(
+            status=EsrStatus.NIET_TE_BEOORDELEN,
+            factor=None,
+            gemeten_esr_ohm=gemeten_ohm,
+            referentie_esr_ohm=referentie_ohm,
+            referentiebron=referentie.bron,
+            referentieniveau=referentie.referentieniveau,
+            frequentie_wijkt_af=False,
+            toelichting=vertaal(
+                "toelichting.esr.fysiek_onrealistisch",
+                taal=taal,
+                gemeten=gemeten_esr,
+                eenheid=eenheid_gemeten_esr,
+            ),
+        )
+
     if referentie.frequentie_hz is None:
         return EsrResultaat(
             status=EsrStatus.NIET_TE_BEOORDELEN,
@@ -447,7 +454,7 @@ def beoordeel_esr(
 
 
 # ---------------------------------------------------------------------------
-# §5 — Interne C-ESR-D-consistentiecontrole (signaal, geen afkeurregel)
+# §5 — Interne C-ESR-D-consistentiecontrole
 # ---------------------------------------------------------------------------
 def controleer_consistentie(
     gemeten_capaciteit: float,
@@ -460,12 +467,7 @@ def controleer_consistentie(
     taal: str = STANDAARD_TAAL,
 ) -> ConsistentieResultaat:
     """Grove plausibiliteitscheck: D ≈ 2·π·f·C·ESR (docs/validation_rules.md §5).
-
-    Dit is uitdrukkelijk GEEN goed/afkeurregel — enkel een signaal om
-    eenhedenfouten, mΩ/Ω-verwisseling of een verkeerde frequentie te
-    helpen detecteren. Zonder D-waarde wordt geen controle uitgevoerd.
     """
-
     instellingen = instellingen or laad_instellingen().beoordeling
 
     if D is None:
@@ -537,23 +539,6 @@ def controleer_consistentie(
 
 # ---------------------------------------------------------------------------
 # §6 — Betrouwbaarheid
-#
-# Fase 11B: elke verlagende factor wordt geclassificeerd als inhoudelijk
-# (raakt de meetcontext zelf) of administratief (raakt enkel de documentatie
-# van de referentie/omgeving). Alleen inhoudelijke verlagers verhogen het
-# minimum van de eindstatus.
-#
-# Classificatie:
-#   inhoudelijk:
-#     - referentiefrequentie wijkt af van meetfrequentie
-#     - condensatortype onbekend of niet-elektrolytisch
-#     - referentietype wijkt af van condensatortype
-#     - mogelijke inconsistentie tussen C, ESR en D
-#     - meetmethode ONE_LEG of IN_CIRCUIT
-#   administratief:
-#     - omgevingstemperatuur onbekend
-#     - referentiewaarde is typisch i.p.v. maximaal
-#     - fabrikant en/of serie onbekend
 # ---------------------------------------------------------------------------
 def bepaal_betrouwbaarheid(
     referentieniveau: Optional[int],
@@ -570,19 +555,7 @@ def bepaal_betrouwbaarheid(
     taal: str = STANDAARD_TAAL,
 ) -> BetrouwbaarheidsResultaat:
     """Bepaalt betrouwbaarheid uit bronkwaliteit en meetcontext.
-
-    De meetmethode is geen losse boolean meer:
-    EX_SITU  -> geen extra bovengrens;
-    ONE_LEG  -> betrouwbaarheid maximaal MIDDEL;
-    IN_CIRCUIT -> betrouwbaarheid maximaal LAAG.
-
-    Andere verlagende factoren blijven cumulatief van toepassing.
-
-    Elke verlagende factor wordt geclassificeerd als inhoudelijk of
-    administratief (fase 11B). Alleen inhoudelijke verlagers komen in
-    ``inhoudelijke_verlagers`` terecht.
     """
-
     try:
         methode = meetmethode if isinstance(meetmethode, Meetmethode) else Meetmethode(meetmethode)
     except ValueError as exc:
@@ -601,8 +574,6 @@ def bepaal_betrouwbaarheid(
     inhoudelijke_verlagers: list[str] = []
 
     if referentiefrequentie_hz is None:
-        # Zonder bekende referentiefrequentie is een ESR-vergelijking niet
-        # voldoende onderbouwd; betrouwbaarheid blijft daarom maximaal LAAG.
         start_niveau = Betrouwbaarheid.LAAG
     elif referentiefrequentie_hz != meetfrequentie_hz:
         tekst = vertaal("betrouwbaarheid_factor.referentiefrequentie_wijkt_af", taal=taal)
@@ -614,14 +585,15 @@ def bepaal_betrouwbaarheid(
             vertaal("betrouwbaarheid_factor.temperatuur_onbekend", taal=taal)
         )
 
-    if condensatortype != "Aluminium elektrolytisch":
+    # Familie-predicaat via de gedeelde helper.
+    if not is_elektrolytisch_type(condensatortype):
         tekst = vertaal("betrouwbaarheid_factor.condensatortype_onbekend", taal=taal)
         verlagende_factoren.append(tekst)
         inhoudelijke_verlagers.append(tekst)
 
-    if (
-        referentie_condensatortype
-        and referentie_condensatortype != condensatortype
+    # Type-mismatch tussen referentie en meting via de gedeelde helper.
+    if referentie_condensatortype and not zelfde_technologie_familie(
+        referentie_condensatortype, condensatortype
     ):
         tekst = vertaal("betrouwbaarheid_factor.referentietype_wijkt_af", taal=taal)
         verlagende_factoren.append(tekst)
@@ -659,11 +631,8 @@ def bepaal_betrouwbaarheid(
         inhoudelijke_verlagers.append(tekst)
         ordinaal = _BETROUWBAARHEID_ORDINAAL[Betrouwbaarheid.LAAG]
 
-    # Een bewust gekozen referentie van een ander condensatortype is nooit
-    # betrouwbaarder dan LAAG.
-    if (
-        referentie_condensatortype
-        and referentie_condensatortype != condensatortype
+    if referentie_condensatortype and not zelfde_technologie_familie(
+        referentie_condensatortype, condensatortype
     ):
         ordinaal = _BETROUWBAARHEID_ORDINAAL[Betrouwbaarheid.LAAG]
 
@@ -678,12 +647,6 @@ def bepaal_betrouwbaarheid(
 
 # ---------------------------------------------------------------------------
 # §7 — Eindstatus
-#
-# Fase 11B: de regel "betrouwbaarheid LAAG -> minimaal AANDACHTSPUNT" is
-# vervangen door "minstens één inhoudelijke verlager -> minimaal
-# AANDACHTSPUNT". Administratieve verlagers (fabrikant/serie onbekend,
-# temperatuur onbekend, typische referentiewaarde) verlagen de
-# betrouwbaarheid wel, maar niet het minimum van de eindstatus.
 # ---------------------------------------------------------------------------
 def bepaal_eindstatus(
     capaciteit: CapaciteitsResultaat,
@@ -697,12 +660,8 @@ def bepaal_eindstatus(
     taal: str = STANDAARD_TAAL,
 ) -> tuple[Eindstatus, tuple[str, ...], str]:
     """Stelt de eindstatus samen uit de deelresultaten
-    (docs/validation_rules.md §7). Kiest bij twijfel altijd het
-    voorzichtigste (laagste) niveau — nooit optimistisch afronden.
-
-    Geeft (eindstatus, redenen, aanbevolen_vervolgstap) terug.
+    (docs/validation_rules.md §7).
     """
-
     if meetwaarde_buiten_bereik:
         return (
             Eindstatus.NIET_TE_BEOORDELEN,
@@ -789,8 +748,6 @@ def bepaal_eindstatus(
             vertaal("eindstatus_vervolgstap.vergelijk_of_ontkoppel", taal=taal),
         )
 
-    # Fase 11B: niet langer "betrouwbaarheid.niveau == LAAG" als trigger,
-    # maar de aanwezigheid van minstens één inhoudelijke verlager.
     if (
         capaciteit.status == CapaciteitsStatus.OP_GRENS
         or esr.status == EsrStatus.AANDACHTSPUNT
@@ -820,9 +777,6 @@ def bepaal_eindstatus(
         and esr.status == EsrStatus.WAARSCHIJNLIJK_NORMAAL
         and not sterke_inconsistentie
     ):
-        # Fase 11B: een lage betrouwbaarheid door uitsluitend administratieve
-        # verlagers (fabrikant/serie onbekend, temperatuur onbekend, typische
-        # referentiewaarde) verhindert "waarschijnlijk goed" niet meer.
         if betrouwbaarheid.niveau == Betrouwbaarheid.LAAG:
             niveau_label = status_label(
                 "status.betrouwbaarheid", betrouwbaarheid.niveau.value, taal
@@ -850,8 +804,6 @@ def bepaal_eindstatus(
             vertaal("eindstatus_vervolgstap.geen_actie", taal=taal),
         )
 
-    # Vangnet: geen enkele striktere regel was van toepassing. Conservatief
-    # ingeschat als aandachtspunt in plaats van optimistisch af te ronden.
     return (
         Eindstatus.AANDACHTSPUNT,
         (
@@ -864,7 +816,7 @@ def bepaal_eindstatus(
 
 
 # ---------------------------------------------------------------------------
-# Orkestratie: alle stappen samen (§1 volgorde van beoordeling)
+# Orkestratie: alle stappen samen
 # ---------------------------------------------------------------------------
 def beoordeel_meting(
     *,
@@ -893,12 +845,7 @@ def beoordeel_meting(
     taal: str = STANDAARD_TAAL,
 ) -> Beoordeling:
     """Voert de volledige beoordelingsketen uit.
-
-    `meetmethode` is verplicht en exclusief. `meetwaarde_buiten_bereik`
-    forceert de eindstatus naar NIET_TE_BEOORDELEN; ingevoerde numerieke
-    waarden worden dan alleen als registratie beschouwd.
     """
-
     instellingen = instellingen or laad_instellingen().beoordeling
     methode = meetmethode if isinstance(meetmethode, Meetmethode) else Meetmethode(meetmethode)
 
@@ -912,11 +859,11 @@ def beoordeel_meting(
         taal,
     )
 
-    # Automatische type mismatch wordt niet aanvaard als betrouwbare bron.
+    # 4C: technologie-match via de gedeelde helper.
     referentie_type_mismatch = bool(
         referentie
         and referentie.condensatortype
-        and referentie.condensatortype != condensatortype
+        and not zelfde_technologie_familie(referentie.condensatortype, condensatortype)
     )
 
     esr_resultaat = beoordeel_esr(
@@ -998,6 +945,33 @@ def beoordeel_meting(
     ):
         waarschuwingen.append(
             vertaal("veiligheid.eenhedenfout", taal=taal)
+        )
+
+    if (
+        esr_resultaat.gemeten_esr_ohm is not None
+        and esr_resultaat.gemeten_esr_ohm < instellingen.esr_min_realistisch_ohm
+    ):
+        waarschuwingen.append(
+            vertaal("veiligheid.esr_onrealistisch", taal=taal)
+        )
+    if (
+        capaciteit_resultaat.gemeten_waarde is not None
+        and capaciteit_resultaat.eenheid is not None
+        and capaciteit_resultaat.gemeten_waarde
+        * CAPACITEIT_FACTOR_NAAR_FARAD[capaciteit_resultaat.eenheid]
+        < instellingen.capaciteit_min_realistisch_f
+    ):
+        waarschuwingen.append(
+            vertaal("veiligheid.capaciteit_onrealistisch", taal=taal)
+        )
+
+    # 4C: expliciete waarschuwing wanneer het condensatortype niet
+    # elektrolytisch is. De GUI geeft in dat geval al geen referentie
+    # meer, maar de waarschuwing maakt het ook zichtbaar voor andere
+    # aanroepers van de assessment-service.
+    if not is_elektrolytisch_type(condensatortype):
+        waarschuwingen.append(
+            vertaal("veiligheid.geen_elektrolytische_referentie", taal=taal)
         )
 
     referentiefrequentie_hz = referentie.frequentie_hz if referentie else None

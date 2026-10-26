@@ -2,24 +2,21 @@
 ================================================================================
 Module:     tests/test_references.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.1.0
-Datum:      2026-10-15
+Versie:     1.2.0
+Datum:      2026-10-26
 Auteur:     Ontwikkelaar
 
 Doel:       Regressietests voor app/data/references/__init__.py.
-            Test profielselectie op frequentie, fallback, kleine
-            capaciteiten en de officiële ESR70-tabel. Sinds fase 10B
-            ook de geschatte profielen voor 100 Hz / 1 kHz / 10 kHz.
 
 Wijzigingen:
   v1.0.0 (2026-10-15)  Eerste versie voor fase 10A (profielen-model).
-  v1.1.0 (2026-10-15)  Fase 10B: tests aangepast aan de gevulde
-                       geschatte profielen. 1 kHz en 10 kHz vallen
-                       niet meer terug op 100 kHz. Nieuwe tests voor
-                       de schalingsfactoren (×1,15 / ×1,50 / ×2,00).
-
-Referentie: overdracht.md §8 (fase 10), docs/validation_rules.md §2,
-            docs/phase10_analysis.md.
+  v1.1.0 (2026-10-15)  Fase 10B: tests voor geschatte profielen.
+  v1.2.0 (2026-10-26)  Chat 4 / 4C: harde type-match §14. Nieuwe tests
+                       voor familie-match (Low ESR, Bipolair/NP) en
+                       voor de blokkade van niet-elektrolytische types.
+                       `test_onbekend_condensatortype_geeft_none` en
+                       `test_polymer_geeft_none` blijven ongewijzigd
+                       groen (zelfde resultaat, andere reden).
 ================================================================================
 """
 
@@ -116,9 +113,6 @@ class TestSchalingsfactoren(unittest.TestCase):
     """Controleer dat de geschatte profielen de juiste Nichicon-factor
     toepassen op de ESR70-basiswaarden."""
 
-    def _verwacht(self, basis_mohm, factor):
-        return round(basis_mohm * factor)
-
     def test_470uf_25v_op_1khz_is_600_mohm(self):
         """ESR70 470 µF / 25 V = 400 mΩ. ×1,50 = 600 mΩ."""
         r = zoek_referentie(470, 25, meetfrequentie_hz=1000)
@@ -150,12 +144,9 @@ class TestSchalingsfactoren(unittest.TestCase):
         self.assertEqual(r.esr_waarde, 285)
 
     def test_1000uf_25v_op_10khz_is_218_mohm(self):
-        """ESR70 1000 µF / 25 V = 190 mΩ. ×1,15 = 218,5 → afgerond 218 mΩ
-        (Python round naar even: 218.5 → 218)."""
+        """ESR70 1000 µF / 25 V = 190 mΩ. ×1,15 = 218,5 → 218 mΩ."""
         r = zoek_referentie(1000, 25, meetfrequentie_hz=10000)
         self.assertIsNotNone(r)
-        # 190 * 1.15 = 218.5 → round() in Python geeft 218 (banker's rounding).
-        # In JSON staat de handmatig afgeronde waarde 218.
         self.assertEqual(r.esr_waarde, 218)
 
     def test_4_7uf_50v_op_1khz_is_42000_mohm(self):
@@ -169,8 +160,6 @@ class TestKleineCapaciteiten(unittest.TestCase):
     def test_1uf_50v_wordt_gevonden(self):
         r = zoek_referentie(1.0, 50, meetfrequentie_hz=100000)
         self.assertIsNotNone(r)
-        # ESR70 begint bij 4.7 µF; 1.0 µF valt binnen 20% van 4.7? Nee.
-        # Dus dichtstbijzijnde ESR70-regel is 4.7 µF → 28000 mΩ (50V)
         self.assertGreater(r.esr_waarde, 0)
 
     def test_0_1uf_50v_wordt_gevonden(self):
@@ -186,6 +175,76 @@ class TestOnbekendType(unittest.TestCase):
     def test_polymer_geeft_none(self):
         r = zoek_referentie(470, 25, condensatortype="Polymer")
         self.assertIsNone(r)
+
+
+# ============================================================================
+# 4C — Type-match §14
+# ============================================================================
+
+class TestTypeMatch(unittest.TestCase):
+    """4C: harde type-match. Een niet-elektrolytisch type levert nooit
+    een elektrolytisch profiel; een elektrolytische variant matcht wel
+    via de familie-logica."""
+
+    def test_low_esr_matcht_met_standaardprofiel(self):
+        """'Aluminium elektrolytisch — Low ESR' is een geldige
+        elektrolytische variant en moet het standaardprofiel krijgen."""
+        r = zoek_referentie(
+            470, 25,
+            condensatortype="Aluminium elektrolytisch — Low ESR",
+            meetfrequentie_hz=100000,
+        )
+        self.assertIsNotNone(r)
+        self.assertEqual(r.esr_waarde, 400)
+        self.assertEqual(r.condensatortype, "Aluminium elektrolytisch")
+
+    def test_bipolair_matcht_met_standaardprofiel(self):
+        """'Aluminium elektrolytisch — Bipolair/NP' is ook een geldige
+        variant en moet matchen."""
+        r = zoek_referentie(
+            470, 25,
+            condensatortype="Aluminium elektrolytisch — Bipolair/NP",
+            meetfrequentie_hz=100000,
+        )
+        self.assertIsNotNone(r)
+        self.assertEqual(r.esr_waarde, 400)
+
+    def test_tantaal_geeft_none(self):
+        """Tantaal is geen elektrolytische familie; harde blokkade."""
+        r = zoek_referentie(
+            470, 25,
+            condensatortype="Tantaal elektrolytisch",
+            meetfrequentie_hz=100000,
+        )
+        self.assertIsNone(r)
+
+    def test_tantaal_polymer_geeft_none(self):
+        r = zoek_referentie(
+            470, 25,
+            condensatortype="Tantaal polymer",
+            meetfrequentie_hz=100000,
+        )
+        self.assertIsNone(r)
+
+    def test_conductive_polymer_geeft_none(self):
+        r = zoek_referentie(
+            470, 25,
+            condensatortype="Conductive polymer",
+            meetfrequentie_hz=100000,
+        )
+        self.assertIsNone(r)
+
+    def test_none_condensatortype_matcht_alle_profielen(self):
+        """De escape-hatch: condensatortype=None matcht op alle
+        profielen, ongeacht technologie. Nuttig voor toekomstige
+        technologieën of geavanceerd gebruik."""
+        r = zoek_referentie(
+            470, 25,
+            condensatortype=None,
+            meetfrequentie_hz=100000,
+        )
+        self.assertIsNotNone(r)
+        self.assertEqual(r.esr_waarde, 400)
 
 
 if __name__ == "__main__":

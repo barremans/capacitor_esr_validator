@@ -17,6 +17,61 @@ Opmerking over de versienummering:
 - Voor de actuele versie: zie `app/version.py` of Help → Over.
 -->
 
+### Chat 3 — Import-wizard en exchange-selectie (26 oktober 2026)
+
+**Waarom deze wijziging**
+
+Twee eerder gemelde punten uit het masterplan bleken in de praktijk
+niet of niet correct te werken: de knop "Document importeren…" opende
+de import-wizard niet (A2), en de exchange-dialoog exporteerde de
+filters in plaats van de aangevinkte selectie (A4). Beide zijn
+debug-punten, geen nieuwe functies.
+
+**Oplossing: twee sub-fases**
+
+- **3A — Import-wizard (masterplan A2).** De knop "Bestand → Document
+  importeren…" en de "Importeren"-knop op de Documentatie-pagina
+  deden niets. Oorzaak: een typfout in
+  `main_window._show_import_wizard()` — `self._zet_dialoog_icono(...)`
+  in plaats van `self._zet_dialoog_icoon(...)`. De fout gaf een
+  `AttributeError` vóór `dialog.exec()`. Fix: één regel in
+  `app/gui/main_window.py` (v2.23.0 → v2.23.1). Nieuwe test:
+  `tests/test_main_window_import_menu.py` (v1.0.1, 4 tests). Baseline
+  1711 → **1715**.
+- **3B — Exchange-selectie (masterplan A4).** De exchange-dialoog
+  exporteerde de filters in plaats van de selectie. Oorzaak: twee
+  onafhankelijke `if`-regels in `ExchangeDialog._build_export_tab()`
+  bepaalden de standaard-scope; de tweede (op `active_filters`)
+  overschreef de eerste (op `selected_measurement_ids`). Op
+  AnalysisScreen is `_active_filters()` nooit leeg vanwege de
+  impliciete `tool_key="ESR_CAPACITOR"`, dus de scope stond daar
+  altijd op FILTERED. Fix: nieuwe private helper
+  `_bepaal_default_scope()` met expliciete prioriteit — selectie >
+  filters > selectie-als-fallback. `exchange_dialog.py`
+  v1.0.1 → v1.0.2. Nieuwe tests: 3 in `tests/test_exchange_dialog.py`
+  (v1.0.1 → v1.0.2). Baseline 1715 → **1718**.
+
+**Belangrijke observatie**
+
+De typfout uit 3A stond al sinds §2.28 in `overdracht.md` §2.2
+vermeld als "belangrijke bugfix in §2.28", maar de code in
+`main_window.py` v2.23.0 bevatte hem nog. Documentatie en code liepen
+uit elkaar. Les: bij elke overdracht controleren of genoemde bugfixes
+daadwerkelijk in de geleverde bestanden zitten.
+
+**Voor ontwikkelaars**
+
+- **Gewijzigd:** `app/gui/main_window.py` (v2.23.0 → v2.23.1) —
+  typfout in `_show_import_wizard()`.
+- **Gewijzigd:** `app/gui/dialogs/exchange_dialog.py`
+  (v1.0.1 → v1.0.2) — `_bepaal_default_scope()` met expliciete
+  prioriteit.
+- **Nieuwe tests:** `tests/test_main_window_import_menu.py`
+  (v1.0.1, 4 tests).
+- **Uitgebreid:** `tests/test_exchange_dialog.py` (v1.0.1 → v1.0.2,
+  11 → 14 tests).
+- **Baseline:** 1711 → **1718 passed** (+7 tests over 3A en 3B).
+
 ### Fase §2.28 — Export/import tussen toestellen (23 oktober 2026)
 
 **Waarom deze wijziging**
@@ -106,7 +161,9 @@ historiek te overschrijven.
   menu-items + `_open_exchange_dialog`. **Bugfix:** `_show_import_wizard`
   had een typfout `self._zet_dialoog_icono(...)` in plaats van
   `self._zet_dialoog_icoon(...)`. Latente bug die bij het openen van de
-  import-wizard een `AttributeError` gaf.
+  import-wizard een `AttributeError` gaf. **Noot (2026-10-26):** deze
+  bugfix is pas in chat 3A daadwerkelijk in de code doorgevoerd; in
+  v2.23.0 zat de typfout nog.
 - **Gewijzigd:** `app/helpers/dialog_start_directory.py`
   (v1.0.0 → v1.0.1) — categorie `"exchange"`.
 - **Gewijzigd:** `app/config/settings.py` (v1.8.1 → v1.8.2) —
@@ -117,7 +174,7 @@ historiek te overschrijven.
   `tests/test_exchange_export_service.py` (v1.0.3, 15),
   `tests/test_exchange_import_planner.py` (v1.0.2, 11),
   `tests/test_exchange_import_service.py` (v1.0.1, 16),
-  `tests/test_exchange_dialog.py` (v1.0.1, 11),
+  `tests/test_exchange_dialog.py` (v1.0.1, 11; later v1.0.2, 14),
   `tests/test_main_window_exchange_menu.py` (v1.0.0, 5).
 - **Uitgebreid:** `tests/test_storage_schema.py` (v1.1.0 → v1.2.0),
   `tests/test_storage_migrations.py` (v1.0.0 → v1.1.0),

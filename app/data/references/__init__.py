@@ -2,14 +2,21 @@
 ================================================================================
 Module:     app/data/references/__init__.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     2.0.0
-Datum:      2026-10-15
+Versie:     2.1.0
+Datum:      2026-10-26
 Auteur:     Ontwikkelaar
 
 Doel:       Laadt de ingebouwde referentietabellen uit esr_references.json
             en biedt een functie om de beste matching referentie te vinden
             voor een gegeven condensator. Ondersteunt meerdere profielen
             per frequentie. Kiest op basis van meetfrequentie.
+
+            Sinds 4C wordt de technologie-match hard afgedwongen: een
+            niet-elektrolytisch condensatortype levert geen referentie
+            terug, ook niet via de default-parameter. De match werkt via
+            de familie-logica uit app.helpers.technology, zodat
+            "Aluminium elektrolytisch — Low ESR" wel matcht met het
+            standaardprofiel.
 
 Wijzigingen:
   v1.0.0 (2026-08-11)  Initiele versie. JSON-lader voor Peak Atlas ESR70
@@ -21,9 +28,22 @@ Wijzigingen:
                        dichtstbijzijnde profiel gekozen met fallback-
                        waarschuwing. Kleine capaciteiten (0,1–2,2 µF)
                        krijgen een apart screeningsprofiel.
+  v2.1.0 (2026-10-26)  Chat 4 / 4C: harde type-match §14. De
+                       standaardparameter blijft "Aluminium elektrolytisch"
+                       voor backward-compat, maar:
+                       - Een niet-elektrolytisch type levert None terug,
+                         ongeacht of het via de default of expliciet
+                         wordt doorgegeven. Geen stille terugval op een
+                         elektrolytisch profiel.
+                       - De profielselectie gebruikt familie-logica via
+                         is_elektrolytisch_type, zodat Low ESR en
+                         Bipolair/NP wel matchen.
+                       - condensatortype=None matcht op alle profielen
+                         (escape-hatch voor geavanceerd gebruik of
+                         toekomstige technologieën).
 
-Referentie: docs/validation_rules.md §2 (referentiehiërarchie),
-            overdracht.md §8 (fase 10).
+Referentie: docs/validation_rules.md §2 (referentiehiërarchie) en §14
+            (type-match), docs/context.md §14, overdracht.md §8.
 ================================================================================
 """
 
@@ -34,6 +54,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from app.helpers.technology import is_elektrolytisch_type
 from app.services.assessment_service import ReferentieContext
 
 
@@ -106,22 +127,43 @@ def _laad_profielen() -> list[EsrReferentieProfiel]:
     return _PROFIELEN
 
 
+def _profiel_matcht_type(
+    profiel: EsrReferentieProfiel,
+    condensatortype: Optional[str],
+) -> bool:
+    """Bepaalt of een profiel bij het opgegeven condensatortype past.
+
+    Sinds 4C: familie-match via is_elektrolytisch_type in plaats van
+    exacte string-gelijkheid. Twee elektrolytische varianten matchen
+    elkaar (bv. "Low ESR" met het standaardprofiel). Een
+    niet-elektrolytisch type matcht nooit een elektrolytisch profiel.
+
+    ``condensatortype=None`` matcht op alle profielen (escape-hatch).
+    """
+    if condensatortype is None:
+        return True
+    return is_elektrolytisch_type(profiel.condensatortype) == is_elektrolytisch_type(
+        condensatortype
+    )
+
+
 def _beste_profiel_voor_frequentie(
     profielen: list[EsrReferentieProfiel],
     frequentie_hz: float,
-    condensatortype: str,
+    condensatortype: Optional[str],
 ) -> Optional[EsrReferentieProfiel]:
     """Kies het profiel met de dichtstbijzijnde frequentie.
 
     Voorkeur:
     1. Exacte frequentie-match.
     2. Dichtstbijzijnde frequentie.
-    Alleen profielen met regels komen in aanmerking.
+    Alleen profielen met regels en met een passend technologie-type
+    komen in aanmerking.
     """
     kandidaten = [
         p
         for p in profielen
-        if p.condensatortype == condensatortype and len(p.regels) > 0
+        if _profiel_matcht_type(p, condensatortype) and len(p.regels) > 0
     ]
     if not kandidaten:
         return None
@@ -161,7 +203,7 @@ def _beste_regel(
         ]
         if zelfde_cap:
             return min(
-                zelfde_cap,
+               zelfde_cap,
                 key=lambda r: abs(r.spanningsklasse_v - spanningsklasse_v),
             )
 
@@ -178,7 +220,7 @@ def _beste_regel(
 def zoek_referentie(
     capaciteit_uf: float,
     spanningsklasse_v: float,
-    condensatortype: str = "Aluminium elektrolytisch",
+    condensatortype: Optional[str] = "Aluminium elektrolytisch",
     meetfrequentie_hz: Optional[float] = None,
 ) -> Optional[ReferentieContext]:
     """Zoekt de beste matching referentie.
@@ -187,13 +229,26 @@ def zoek_referentie(
     profiel met de dichtstbijzijnde frequentie. Wanneer die parameter
     ontbreekt, valt de functie terug op het eerst beschikbare profiel
     met regels (doorgaans ESR70 100 kHz), voor backward-compatibiliteit.
+
+    Sinds 4C wordt de technologie-match hard afgedwongen:
+    - Een niet-elektrolytisch type (tantaal, polymer, film, keramisch,
+      supercondensator, Anders, Onbekend) levert ``None`` terug. Er is
+      geen stille terugval op een elektrolytisch profiel.
+    - Twee elektrolytische varianten matchen elkaar via de familie-
+      logica (bv. "Low ESR" met het standaardprofiel).
+    - ``condensatortype=None`` matcht op alle profielen (escape-hatch).
     """
+    # 4C: harde blokkade vóór profielselectie. Een niet-elektrolytisch
+    # type mag nooit een elektrolytisch profiel krijgen.
+    if condensatortype is not None and not is_elektrolytisch_type(condensatortype):
+        return None
+
     profielen = _laad_profielen()
 
     if meetfrequentie_hz is None:
-        # Backward-compatible: kies het eerste profiel met regels.
+        # Backward-compatible: kies het eerste passende profiel met regels.
         for p in profielen:
-            if p.condensatortype == condensatortype and len(p.regels) > 0:
+            if _profiel_matcht_type(p, condensatortype) and len(p.regels) > 0:
                 profiel = p
                 break
         else:

@@ -2,113 +2,26 @@
 ================================================================================
 Module:     app/gui/esr_test_screen.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     1.14.0
-Datum:      2026-10-16
+Versie:     1.15.1
+Datum:      2026-10-26
 Auteur:     Ontwikkelaar
 
 Doel:       Compact ESR-diagnosescherm voor nominale gegevens, meetcontext,
             meetwaarden en transparante beoordeling zonder primaire scrollbar.
 
 Wijzigingen:
-  v1.0.0 (2026-08-11)  Initiele versie.
-  v1.1.0 (2026-08-12)  Alle GUI-teksten via i18n-sleutels.
-  v1.2.0 (2026-09-26)  GUI compact herwerkt zonder QScrollArea; vaste
-                       veiligheidstekst achter knop; drie exclusieve
-                       meetmethoden toegevoegd; numerieke velden versmald;
-                       OL/out-of-range toegevoegd; resultaat samengevat met
-                       afzonderlijke detaildialoog.
-  v1.3.0 (2026-09-26)  Geschikt gemaakt als pagina in één hoofdvenster;
-                       terugnavigatie, instrumentprofiel en instelbare
-                       testspanning toegevoegd.
-  v1.3.1 (2026-09-26)  Contrast van de veiligheidsbevestiging verbeterd:
-                       donkere tekst op lichte achtergrond, witte tekst
-                       op groene achtergrond wanneer bevestigd.
-  v1.4.0 (2026-09-26)  Expliciete veiligheidscheckbox toegevoegd; standaard-
-                       voorstel ±20% voor aluminium elektrolytisch wordt
-                       werkelijk als invoer gebruikt; detailweergave en
-                       invoervelden kregen beter donker-thema-contrast.
-  v1.5.0 (2026-09-26)  Frequenties gebruiksvriendelijk als 100 Hz / 1 kHz /
-                       10 kHz weergegeven. Resultaat toont capaciteitsgrenzen,
-                       ESR-referentie en indicatieve ESR-zones; Details toont
-                       dezelfde grenzen met expliciete broncontext.
-  v1.5.1 (2026-09-26)  Resultaatsamenvatting over echte regels verdeeld;
-                       gemeten C en ESR toegevoegd voor snellere interpretatie.
-  v1.5.2 (2026-09-27)  Compacte GUI-opruiming: labelkolommen flexibeler gemaakt,
-                       dubbele GroupBox-styling verwijderd en ESR-paginatitel
-                       minder dominant gemaakt. Beoordelingslogica ongewijzigd.
-  v1.5.3 (2026-09-27)  Breedteverdeling van de drie hoofdgroepen verfijnd zodat
-                       lange Meetcontext-labels, waaronder Omgevingstemperatuur,
-                       volledig leesbaar blijven. Geen logica gewijzigd.
-  v1.5.4 (2026-09-27)  Omgevingstemperatuur-label compact gemaakt met volledige
-                       tekst als tooltip, zodat de drie-kolommenlayout stabiel
-                       blijft. Geen beoordelingslogica gewijzigd.
-  v1.6.0 (2026-09-28)  Opgeslagen ESR/Condensator-defaults gekoppeld aan het
-                       invoerscherm. Wissen herstelt configuratiedefaults maar
-                       wist meetresultaten. Beoordelingslogica ongewijzigd.
-  v1.6.1 (2026-09-28)  Instelling bevestig_wissen gekoppeld: optionele
-                       bevestigingsvraag vóór Wissen. Bestaande wis- en
-                       beoordelingslogica verder ongewijzigd.
-  v1.6.2 (2026-09-28)  OL/out-of-range laat een lege ESR-invoer toe;
-                       intern wordt alleen voor de serviceketen 0,0 gebruikt.
-                       Normale metingen blijven een numerieke ESR vereisen.
-  v1.6.3 (2026-09-29)  OL/out-of-range laat ook een lege gemeten
-                       capaciteit toe; intern wordt alleen voor de serviceketen
-                       0,0 gebruikt. Normale metingen blijven numeriek verplicht.
-  v1.6.4 (2026-09-29)  Contrast van resultaat- en veiligheidsdialogen expliciet
-                       vastgelegd voor betrouwbare leesbaarheid in donker thema.
-  v1.7.0 (2026-10-01)  Na beoordeling kan de exact beoordeelde meetrun lokaal
-                       worden opgeslagen via MeasurementPersistenceService.
-                       OL/out-of-range met lege C/ESR blijft in storage NULL.
-  v1.8.0 (2026-10-01)  Veilige "Herhaal meting"-preset toegevoegd: component-
-                       en meetcontext worden hersteld, maar meetwaarden, safety,
-                       resultaat en assessment blijven leeg/nieuw.
-  v1.8.1 (2026-10-01)  Live taalwissel toegevoegd voor statische ESR-GUI-teksten.
-                       Invoer, selectie, safety, assessment en resultaat blijven
-                       behouden; bestaand resultaat wordt alleen opnieuw gerenderd.
-  v1.6.5 (2026-09-29)  Compact resultaat maakt frequentiemismatch expliciet bij
-                       de ESR-factor; vergelijking blijft zichtbaar maar wordt
-                       duidelijk als indicatief gemarkeerd.
-  v1.11.0 (2026-10-05) Sneltoetsen toegevoegd (Fase 4F): Esc (terug),
-                       Ctrl+Return (beoordelen), Ctrl+S (opslaan),
-                       Ctrl+W (wissen), Ctrl+I (meetinstructies).
-                       Alleen lokale QShortcuts op de pagina-root met
-                       WidgetWithChildrenShortcut; geen nieuwe i18n-keys.
-  v1.12.0 (2026-10-15) Fase 10B: _show_result gebruikt nu de werkelijke
-                       referentiefrequentie uit het Beoordeling-resultaat
-                       (`referentiefrequentie_hz`) i.p.v. de aanname dat de
-                       referentie altijd op 100 kHz staat. Geen wijziging
-                       aan de beoordelingslogica zelf.
-  v1.13.0 (2026-10-16) Fase 11C: het scherm krijgt een venstericoon via
-                        de centrale helper app/helpers/icon_paths, zodat
-                        het ook los van het hoofdvenster het juiste
-                        icoon toont. Geen wijziging aan de beoordelings-
-                        of opslaglogica.
-  v1.14.0 (2026-10-16) Fase 11D: i18n-menging opgelost. _show_result en
-                        _build_result_html gebruiken nu `resultaat.taal`
-                        voor alle reeds vertaalde strings uit het
-                        Beoordeling-object. Na een live taalwissel toont
-                        het scherm een nette banner in plaats van een
-                        stille mengeling van oude en nieuwe taal; de
-                        gebruiker wordt gevraagd opnieuw te beoordelen.
-                        De losse `*`-toelichting bij een frequentie-
-                        verschil loopt nu via i18n-keys i.p.v. een
-                        hardcoded string. Geen wijziging aan de
-                        beoordelings- of opslaglogica.
-                        Bugfix: apply_language gebruikte
-                        `result_group.isVisible()` als conditie om het
-                        bestaande resultaat opnieuw te renderen. In
-                        offscreen/headless situaties is dat False,
-                        waardoor de mismatch-banner nooit verscheen.
-                        Nu wordt `_laatste_resultaat is not None`
-                        gebruikt, wat dezelfde bedoeling uitdrukt
-                        zonder van de zichtbaarheid van het scherm af
-                        te hangen.
-
-Versiebeheer:
-  - MAJOR: incompatibele architectuur/API-wijziging.
-  - MINOR: nieuwe functionaliteit met behoud van projectdoel.
-  - PATCH: bugfix/refactor zonder functionele uitbreiding.
-  - Bij elke wijziging: Versie, Datum en Wijzigingen hierboven bijwerken.
+  v1.0.0 t/m v1.15.0  zie eerdere versies.
+  v1.15.1 (2026-10-26) Chat 4 / 4C: harde type-match §14. De check of
+                        een referentie gezocht moet worden gebruikt nu
+                        is_elektrolytisch_type() uit app.helpers.technology
+                        in plaats van de exacte string-match
+                        `cond_type == "Aluminium elektrolytisch"`. Dat
+                        lost de 4A-regressie op: "Aluminium elektrolytisch
+                        — Low ESR" en "— Bipolair/NP" krijgen weer een
+                        elektrolytische referentie. Voor tantaal/polymer
+                        blijft de referentie None; de assessment-service
+                        voegt daar een expliciete waarschuwing aan toe
+                        (veiligheid.geen_elektrolytische_referentie).
 ================================================================================
 """
 
@@ -149,6 +62,7 @@ from app.gui.styles import (
     STATUS_COLORS,
 )
 from app.helpers.i18n import vertaal
+from app.helpers.technology import is_elektrolytisch_type
 from app.helpers.units import parse_decimaal
 from app.services.assessment_service import (
     Meetmethode,
@@ -161,6 +75,7 @@ from app.services.measurement_persistence_service import (
     MeasurementPersistenceService,
 )
 from app.storage.exceptions import StorageError
+from app.storage.models import Meetstatus
 
 
 NUMERIC_WIDTH = 115
@@ -205,6 +120,7 @@ class EsrTestScreen(QWidget):
         self._laatste_resultaat_html = ""
         self._laatste_resultaat = None
         self._laatste_opslag_payload: EsrMeasurementSaveData | None = None
+        self._laatste_opslag_meetstatus: Meetstatus = Meetstatus.NORMAL
         self._repeat_source_measurement_id: int | None = None
         self._persistence_service = (
             persistence_service
@@ -276,13 +192,7 @@ class EsrTestScreen(QWidget):
         self._on_save_measurement()
 
     def apply_language(self, taal: str) -> None:
-        """Vertalingen vernieuwen zonder meet- of assessmenttoestand te wissen.
-
-        Fase 11D: de GUI-chrome gebruikt de nieuwe taal. Een reeds beoordeeld
-        resultaat is opgesteld in de taal van het Beoordeling-object; de
-        renderer detecteert een mismatch en toont een nette banner in
-        plaats van een stille mengeling.
-        """
+        """Vertalingen vernieuwen zonder meet- of assessmenttoestand te wissen."""
         self.taal = taal
 
         self.back_btn.setText(self._t("knop.terug"))
@@ -349,16 +259,6 @@ class EsrTestScreen(QWidget):
                 )
             )
 
-        # Fase 11D: render exact hetzelfde Beoordeling-object opnieuw. De
-        # renderer detecteert een taal-mismatch en toont een banner in
-        # plaats van de oude strings stil te mengen met de nieuwe GUI-taal.
-        #
-        # Bugfix: we checken NIET `result_group.isVisible()`. Dat is False
-        # zolang het scherm zelf niet getoond is (offscreen tests, of een
-        # pagina die nog niet actief is in de QStackedWidget). De juiste
-        # conditie is `_laatste_resultaat is not None`: dat veld wordt
-        # gezet door _show_result en gewist door _on_clear en
-        # apply_repeat_preset.
         if self._laatste_resultaat is not None:
             self._show_result(self._laatste_resultaat)
 
@@ -385,7 +285,6 @@ class EsrTestScreen(QWidget):
         )
         root.addWidget(self.repeat_banner)
 
-        # Fase 11D: banner voor taal-mismatch na een live taalwissel.
         self.result_language_banner = QLabel()
         self.result_language_banner.setWordWrap(True)
         self.result_language_banner.setVisible(False)
@@ -467,16 +366,7 @@ class EsrTestScreen(QWidget):
         return row
 
     def _recommended_documentation(self) -> tuple[str, str]:
-        """Bepaal de meest relevante instructie voor de huidige meetcontext.
-
-        Prioriteit:
-        1. IN_CIRCUIT -> beperkingen van in-circuit meten;
-        2. LCR-instrument -> LCR-meetinstructie;
-        3. ESR-instrument -> ESR-meterinstructie;
-        4. fallback -> algemene meetmethoden.
-
-        Dit beïnvloedt uitsluitend navigatie naar documentatie en nooit assessment.
-        """
+        """Bepaal de meest relevante instructie voor de huidige meetcontext."""
         method = self.method_combo.currentData() if hasattr(self, "method_combo") else None
         instrument_code = (
             str(self.instrument_combo.currentData() or "")
@@ -894,7 +784,6 @@ class EsrTestScreen(QWidget):
             "" if preset.temperature_c is None else f"{preset.temperature_c:g}"
         )
 
-        # Nieuwe run: historische meetuitkomst en safety nooit overnemen.
         self.meas_cap_input.clear()
         self.meas_esr_input.clear()
         self.d_input.clear()
@@ -906,6 +795,7 @@ class EsrTestScreen(QWidget):
         self._laatste_resultaat_html = ""
         self._laatste_resultaat = None
         self._laatste_opslag_payload = None
+        self._laatste_opslag_meetstatus = Meetstatus.NORMAL
         self.save_btn.setEnabled(False)
 
         self._repeat_source_measurement_id = preset.source_measurement_id
@@ -928,6 +818,19 @@ class EsrTestScreen(QWidget):
                 self._t("fout.ongeldig_getal", waarde=text)
             ) from exc
 
+    def _meetstatus_voor_opslag(self) -> Meetstatus:
+        """Map de bestaande checkboxes naar de Meetstatus-enum (B3).
+
+        - out_of_range_check aan (met of zonder open_connection) -> OL
+        - alleen open_connection_check aan -> UNKNOWN
+        - geen van beide -> NORMAL
+        """
+        if self.out_of_range_check.isChecked():
+            return Meetstatus.OL
+        if self.open_connection_check.isChecked():
+            return Meetstatus.UNKNOWN
+        return Meetstatus.NORMAL
+
     def _on_assess(self) -> None:
         if not self.safety_check.isChecked():
             QMessageBox.warning(
@@ -945,8 +848,6 @@ class EsrTestScreen(QWidget):
             out_of_range = self.out_of_range_check.isChecked()
 
             if out_of_range and not self.meas_cap_input.text().strip():
-                # Alleen voor de bestaande assessment-API is 0,0 technisch nodig.
-                # Voor storage bewaren we hieronder expliciet None/NULL.
                 raw_meas_cap = None
                 meas_cap = 0.0
             else:
@@ -954,8 +855,6 @@ class EsrTestScreen(QWidget):
                 meas_cap = raw_meas_cap
 
             if out_of_range and not self.meas_esr_input.text().strip():
-                # Alleen voor de bestaande assessment-API is 0,0 technisch nodig.
-                # Voor storage bewaren we hieronder expliciet None/NULL.
                 raw_meas_esr = None
                 meas_esr = 0.0
             else:
@@ -979,11 +878,15 @@ class EsrTestScreen(QWidget):
                 nom_cap, self.nom_cap_unit.currentText(), "µF"
             )
 
+            # 4C: familie-check i.p.v. exacte string-match. Low ESR en
+            # Bipolair/NP horen bij de familie en krijgen dus weer een
+            # elektrolytische referentie. Tantaal/polymer krijgen None.
             referentie = None
-            if cond_type == "Aluminium elektrolytisch" and nom_voltage:
+            if is_elektrolytisch_type(cond_type) and nom_voltage:
                 referentie = zoek_referentie(
                     nom_cap_uf,
                     nom_voltage,
+                    condensatortype=cond_type,
                     meetfrequentie_hz=freq_hz,
                 )
 
@@ -1039,6 +942,7 @@ class EsrTestScreen(QWidget):
                 assessment=resultaat,
                 reference=referentie,
             )
+            self._laatste_opslag_meetstatus = self._meetstatus_voor_opslag()
             self.save_btn.setEnabled(True)
 
         except ValueError as exc:
@@ -1057,7 +961,8 @@ class EsrTestScreen(QWidget):
 
         try:
             saved = self._persistence_service.save_esr_measurement(
-                self._laatste_opslag_payload
+                self._laatste_opslag_payload,
+                meetstatus=self._laatste_opslag_meetstatus,
             )
             measurement_id = saved["measurement"].id
         except StorageError as exc:
@@ -1093,19 +998,10 @@ class EsrTestScreen(QWidget):
         )
 
     def _show_result(self, resultaat) -> None:
-        """Render het Beoordeling-object in zijn eigen taal.
-
-        Fase 11D: de GUI gebruikt `resultaat.taal` voor alle strings die
-        uit het Beoordeling-object komen (status, samenvatting, details),
-        zodat er nooit een stil mengeling ontstaat tussen de GUI-taal en
-        de taal van het resultaat. Bij een mismatch tonen we een nette
-        banner in de GUI-taal en verwijzen we naar een nieuwe beoordeling.
-        """
+        """Render het Beoordeling-object in zijn eigen taal."""
         self._laatste_resultaat = resultaat
         resultaat_taal = getattr(resultaat, "taal", self.taal)
 
-        # Fase 11D: banner tonen als het resultaat in een andere taal is
-        # opgesteld dan de huidige GUI-taal.
         if resultaat_taal != self.taal:
             self.result_language_banner.setText(
                 self._t(
@@ -1146,8 +1042,6 @@ class EsrTestScreen(QWidget):
             f"{esr.factor:.2f}×" if esr.factor is not None else "—"
         )
         if esr.factor is not None and esr.frequentie_wijkt_af:
-            # Fase 10B: gebruik de werkelijke referentiefrequentie uit het
-            # resultaat i.p.v. de aanname dat de referentie op 100 kHz staat.
             ref_freq_tekst = _format_frequency(resultaat.referentiefrequentie_hz)
             meet_freq_tekst = _format_frequency(self.freq_combo.currentData())
             esr_factor = (
@@ -1174,7 +1068,6 @@ class EsrTestScreen(QWidget):
         )
         esr_gemeten = _format_esr_ohm(esr.gemeten_esr_ohm)
 
-        # Fase 11D: samenvatting vertalen in de taal van het resultaat.
         summary_text = self._t_voor(
             resultaat_taal,
             "resultaat.samenvatting_grenzen",
@@ -1198,12 +1091,7 @@ class EsrTestScreen(QWidget):
         self.result_group.setVisible(True)
 
     def _build_result_html(self, resultaat) -> str:
-        """Bouw de detail-HTML in de taal van het Beoordeling-object.
-
-        Fase 11D: alle labels die het resultaat zelf beschrijven, worden
-        vertaald in `resultaat.taal`. De GUI-chrome (groepstitels,
-        knoppen) blijft via `self.taal` lopen.
-        """
+        """Bouw de detail-HTML in de taal van het Beoordeling-object."""
         resultaat_taal = getattr(resultaat, "taal", self.taal)
         t = lambda sleutel, **kwargs: self._t_voor(resultaat_taal, sleutel, **kwargs)
 
@@ -1331,7 +1219,6 @@ class EsrTestScreen(QWidget):
             if antwoord != QMessageBox.StandardButton.Yes:
                 return
 
-        # Meetresultaten en toestand wissen; configuratiedefaults daarna herstellen.
         for widget in (
             self.meas_cap_input,
             self.meas_esr_input,
@@ -1347,6 +1234,7 @@ class EsrTestScreen(QWidget):
         self._laatste_resultaat_html = ""
         self._laatste_resultaat = None
         self._laatste_opslag_payload = None
+        self._laatste_opslag_meetstatus = Meetstatus.NORMAL
         self.save_btn.setEnabled(False)
         self._repeat_source_measurement_id = None
         self.repeat_banner.setVisible(False)

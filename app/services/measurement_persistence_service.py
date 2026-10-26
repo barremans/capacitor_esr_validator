@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/services/measurement_persistence_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-01
+Versie:     1.2.0
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Applicatielaag tussen de ESR-GUI en StorageService.
@@ -22,6 +22,14 @@ Wijzigingen:
                         bestaande unit-helper F niet als doeleenheid accepteert.
   v1.1.0 (2026-10-01)  ESR-opslag labelt iedere meetrun expliciet met
                         tool_key=ESR_CAPACITOR voor centrale multitool-historiek.
+  v1.2.0 (2026-10-26)  Chat 4 / 4B: meetstatus-parameter toegevoegd aan
+                        save_esr_measurement. De GUI kan de meetbereik-
+                        status (NORMAL, OL, UNDER_RANGE, OVER_RANGE,
+                        UNKNOWN) meegeven; die wordt via de bestaande
+                        meetketen-mapping opgeslagen in de nieuwe
+                        meetstatus-kolom (schema v4). Default is
+                        Meetstatus.NORMAL, zodat bestaande callers
+                        blijven werken.
 ================================================================================
 """
 
@@ -35,7 +43,7 @@ from typing import Any
 from app.config.settings import CAPACITEIT_FACTOR_NAAR_FARAD
 from app.helpers.units import converteer_esr
 from app.storage.database import utc_now_ms
-from app.storage.models import SampleState
+from app.storage.models import Meetstatus, SampleState
 from app.storage.paths import PathService
 from app.storage.service import StorageService
 
@@ -94,8 +102,15 @@ class MeasurementPersistenceService:
     def save_esr_measurement(
         self,
         data: EsrMeasurementSaveData,
+        *,
+        meetstatus: Meetstatus | str = Meetstatus.NORMAL,
     ) -> dict[str, Any]:
-        """Sla exact één assessmentketen transactioneel op."""
+        """Sla exact één assessmentketen transactioneel op.
+
+        ``meetstatus`` (sinds 4B) is de meetbereik-status van de GUI.
+        Default is Meetstatus.NORMAL. De waarde wordt door de
+        StorageService gevalideerd en in de meetstatus-kolom opgeslagen.
+        """
         now_ms = int(self._clock())
 
         paths = self._path_service_factory()
@@ -192,6 +207,7 @@ class MeasurementPersistenceService:
             "record_status": None,
             "supersedes_measurement_id": None,
             "invalid_reason": None,
+            "meetstatus": meetstatus,
         }
 
         assessment_snapshot = {

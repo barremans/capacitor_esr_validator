@@ -2,22 +2,18 @@
 ================================================================================
 Module:     tests/test_storage_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-23
+Versie:     1.2.0
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Gerichte regressietests voor StorageService.
 
-            Bewijst create/read voor de zeven hoofdtabellen, structurele
-            validatie, raw-meetdata roundtrip, transactionele volledige save,
-            rollback, snapshots, historiekfilters/sortering/paginatie en selectie
-            van de nieuwste assessment-snapshot.
-
 Wijzigingen:
   v1.0.0 (2026-10-01)  Eerste StorageService-tests.
   v1.1.0 (2026-10-23)  Fase 28E: drie nieuwe tests voor
-                        source_machine_id / source_measurement_id
-                        (roundtrip, "beide of geen", en validatie).
+                        source_machine_id / source_measurement_id.
+  v1.2.0 (2026-10-26)  Chat 4 / 4B: twee nieuwe tests voor
+                        meetstatus (roundtrip en ongeldige waarde).
 ================================================================================
 """
 
@@ -30,7 +26,7 @@ from app.storage.exceptions import (
     RelatedRecordNotFoundError,
     StorageValidationError,
 )
-from app.storage.models import MeasurementMethod, SampleState
+from app.storage.models import MeasurementMethod, Meetstatus, SampleState
 from app.storage.service import StorageService
 
 
@@ -537,3 +533,67 @@ def test_list_measurements_includes_source_identity(
     geimporteerd = [r for r in rows if r["measurement"].source_machine_id == "machine-b"]
     assert len(geimporteerd) == 1
     assert geimporteerd[0]["measurement"].source_measurement_id == 7
+
+
+# ---------------------------------------------------------------- 4B: meetstatus
+
+def test_create_measurement_with_default_meetstatus_is_normal(
+    service: StorageService,
+) -> None:
+    """Zonder expliciete meetstatus krijgt een nieuwe meting NORMAL."""
+    *_, measurement, _, _ = _create_basic_chain(service)
+
+    stored = service.get_measurement(measurement.id)
+
+    assert stored.meetstatus == Meetstatus.NORMAL
+
+
+def test_create_measurement_with_explicit_meetstatus_roundtrips(
+    service: StorageService,
+) -> None:
+    """4B: een expliciete meetstatus (bv. OL) wordt opgeslagen en
+    teruggelezen als Meetstatus-enum."""
+    model = service.create_component_model()
+    sample = service.create_component_sample(
+        component_model_id=model.id,
+        sample_state="NEW",
+    )
+    session = service.create_measurement_session(
+        component_sample_id=sample.id,
+        started_at_ms=NOW,
+    )
+    measurement = service.create_measurement(
+        measurement_session_id=session.id,
+        measured_at_ms=NOW + 1,
+        measurement_method="EX_SITU",
+        out_of_range=True,
+        meetstatus=Meetstatus.OL,
+    )
+
+    stored = service.get_measurement(measurement.id)
+    assert stored.meetstatus == Meetstatus.OL
+    assert stored.out_of_range is True
+
+
+def test_create_measurement_rejects_invalid_meetstatus(
+    service: StorageService,
+) -> None:
+    """4B: een ongeldige meetstatus-waarde wordt door de service geweigerd
+    vóór de database-CHECK ooit bereikt wordt."""
+    model = service.create_component_model()
+    sample = service.create_component_sample(
+        component_model_id=model.id,
+        sample_state="NEW",
+    )
+    session = service.create_measurement_session(
+        component_sample_id=sample.id,
+        started_at_ms=NOW,
+    )
+
+    with pytest.raises(StorageValidationError):
+        service.create_measurement(
+            measurement_session_id=session.id,
+            measured_at_ms=NOW + 1,
+            measurement_method="EX_SITU",
+            meetstatus="BOGUS",
+        )

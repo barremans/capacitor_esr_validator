@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/storage/service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.2.0
-Datum:      2026-10-23
+Versie:     1.3.0
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Publieke storage-service voor de lokale SQLite-meethistoriek.
@@ -24,6 +24,12 @@ Wijzigingen:
                         toegevoegd aan create_measurement en aan de
                         meetketen-mapping. Validatie: beide of geen van
                         beide. Geen nieuwe historiekfilters in 28E.
+  v1.3.0 (2026-10-26)  Chat 4 / 4B: meetstatus (Meetstatus-enum) toegevoegd
+                        aan create_measurement, _validated_measurement_values,
+                        _measurement_mapping en _row_measurement. Default
+                        Meetstatus.NORMAL, zodat bestaande callers blijven
+                        werken. out_of_range blijft ongewijzigd bestaan als
+                        assessment-flag.
 ================================================================================
 """
 
@@ -52,6 +58,7 @@ from .models import (
     Measurement,
     MeasurementMethod,
     MeasurementSession,
+    Meetstatus,
     ReferenceSnapshot,
     SampleState,
 )
@@ -246,6 +253,7 @@ class StorageService:
         invalid_reason: str | None = None,
         source_machine_id: str | None = None,
         source_measurement_id: int | None = None,
+        meetstatus: Meetstatus | str = Meetstatus.NORMAL,
     ) -> Measurement:
         values = self._validated_measurement_values(
             measurement_session_id=measurement_session_id,
@@ -280,6 +288,7 @@ class StorageService:
             invalid_reason=invalid_reason,
             source_machine_id=source_machine_id,
             source_measurement_id=source_measurement_id,
+            meetstatus=meetstatus,
             created_at_ms=self._now_ms(),
         )
         return self._create_one(self._insert_measurement, values)
@@ -790,7 +799,7 @@ class StorageService:
             "short_suspected", "unstable_reading", "parallel_components_notes",
             "mechanical_condition_notes", "notes", "record_status",
             "supersedes_measurement_id", "invalid_reason",
-            "source_machine_id", "source_measurement_id",
+            "source_machine_id", "source_measurement_id", "meetstatus",
         }
         self._reject_unknown_mapping_keys("measurement", data, allowed)
         values = {key: value for key, value in data.items() if key != "measurement_session_id"}
@@ -976,6 +985,7 @@ class StorageService:
         ):
             if values[key] is not None:
                 values[key] = bool(values[key])
+        values["meetstatus"] = cls._meetstatus_from_storage(values["meetstatus"])
         return Measurement(**values)
 
     @staticmethod
@@ -1073,6 +1083,13 @@ class StorageService:
             raise StorageValidationError("Ongeldige measurement_method.") from exc
 
     @staticmethod
+    def _meetstatus(value: Meetstatus | str) -> Meetstatus:
+        try:
+            return value if isinstance(value, Meetstatus) else Meetstatus(value)
+        except (TypeError, ValueError) as exc:
+            raise StorageValidationError("Ongeldige meetstatus.") from exc
+
+    @staticmethod
     def _sample_state_from_storage(value: Any) -> SampleState:
         try:
             return SampleState(value)
@@ -1087,6 +1104,13 @@ class StorageService:
             raise StoredDataFormatError(
                 "Ongeldige measurement_method in database."
             ) from exc
+
+    @staticmethod
+    def _meetstatus_from_storage(value: Any) -> Meetstatus:
+        try:
+            return Meetstatus(value)
+        except (TypeError, ValueError) as exc:
+            raise StoredDataFormatError("Ongeldige meetstatus in database.") from exc
 
     @staticmethod
     def _tool_key(value: Any) -> str:
@@ -1155,6 +1179,10 @@ class StorageService:
             )
         values["source_machine_id"] = source_machine_id
         values["source_measurement_id"] = source_measurement_id
+        # 4B: meetstatus normaliseren naar enum-waarde.
+        values["meetstatus"] = cls._meetstatus(
+            values.get("meetstatus", Meetstatus.NORMAL)
+        ).value
         values["created_at_ms"] = cls._epoch_ms(
             "created_at_ms", values["created_at_ms"]
         )
