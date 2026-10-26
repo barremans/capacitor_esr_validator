@@ -1723,6 +1723,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.0.1
       # Datum: 2026-09-27
       ```
+    - 📄 **/tests/test_settings_robustness.py**
+      ```text
+      # Bestandsnaam: tests/test_settings_robustness.py
+      # Beschrijving: Regressietests voor de robuustheid van laad_instellingen tegen
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Validator (Windows)
+      # Versie: 1.0.1
+      # Datum: 2026-10-24
+      ```
     - 📄 **/tests/test_shortcuts.py**
       ```text
       # Bestandsnaam: tests/test_shortcuts.py
@@ -1881,6 +1890,13 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     # Auteur: Bart Bossuyt
     # Applicatie: GEEN APPLICATIE
     # Versie: 1.0.0
+    ```
+  - 📄 **/collect_huidig.txt**
+    ```text
+    # Beschrijving: GEEN BESCHRIJVING
+    # Auteur: GEEN AUTEUR
+    # Applicatie: GEEN APPLICATIE
+    # Versie: V1.0.0
     ```
   - 📄 **/collect_v1_12_1.txt**
     ```text
