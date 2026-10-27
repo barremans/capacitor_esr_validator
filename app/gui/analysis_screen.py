@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/analysis_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.9.1
-Datum:      2026-10-26
+Versie:     1.10.2
+Datum:      2026-10-27
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only Analyse-pagina binnen het hoofdvenster.
@@ -70,6 +70,48 @@ Wijzigingen:
                         voorkomt een dubbele emit per klik. Geen
                         wijziging aan de scope-semantiek, export- of
                         rapportlogica.
+  v1.10.0 (2026-10-27) Fase 5D: nieuwe grafiekoptie "Vergelijk reeksen"
+                        in chart_type_combo. Nieuwe _draw_vergelijk()
+                        tekent per aangevinkte meting een QLineSeries
+                        met een vaste kleur-cyclus. Max 5 reeksen; bij
+                        meer toont de GUI een melding. Bij scope
+                        FILTERED of zonder selectie toont de GUI een
+                        melding in de statusbalk. De Y-as gebruikt
+                        dezelfde 5A-clamping (Tukey-fence) op alle
+                        reeksen samen, zodat de vergelijking eerlijk
+                        blijft. Legenda toont de meet-id en de eerste
+                        ESR-waarde.
+  v1.10.1 (2026-10-27) Fix 5D: _draw_vergelijk() gebruikte
+                        _selected_measurement_ids() in plaats van
+                        _scope_measurement_ids(). Tijdens een
+                        refresh(preserve_selection=True) is de
+                        selectietabel tijdelijk leeg (de refresh wist
+                        eerst de checkStates en herstelt ze pas na
+                        _draw_vergelijk). Daardoor zag _draw_vergelijk
+                        altijd "geen selectie", ook al was er wel een.
+                        Fix: gebruik dezelfde bron als de rest van
+                        refresh(), namelijk _scope_measurement_ids().
+                        Die kijkt eerst naar _te_herstellen_selectie
+                        en pas daarna naar de huidige selectie. Geen
+                        wijziging aan de tests; de productiecode is
+                        nu consistent met de GUI-flow.
+  v1.10.2 (2026-10-27) Fix 5D Y-as-clamping in de vergelijkingsmodus.
+                        De test test_vergelijk_y_as_gebruikt_clamping
+                        faalde: axis_y.max() was 114970 in plaats van
+                        < 1000. Oorzaak: QtCharts respecteert een
+                        setRange() op een as met MEERDERE reeksen
+                        niet betrouwbaar. Als één reeks een punt
+                        buiten de range bevat, rekt Qt de as op om
+                        dat punt toch te tonen. Fix: in _draw_vergelijk
+                        worden alleen punten aan de QLineSeries
+                        toegevoegd waarvan y_ms binnen [y_min, y_max]
+                        valt. De as-range wordt op (y_min, y_max)
+                        gezet. Het aantal verborgen punten wordt in
+                        state_label gemeld via de bestaande key
+                        analyse.outliers_verborgen. Dit is dezelfde
+                        aanpak als 5A in de tijdreeks-modus, maar
+                        explicieter: niet toevoegen wat je niet wilt
+                        tonen, dan kan Qt de as niet oprekken.
 ================================================================================
 """
 
@@ -118,6 +160,7 @@ from app.config.settings import laad_instellingen, normaliseer_thema
 from app.helpers.analysis_series import (
     ScatterPoint,
     TimeSeriesPoint,
+    VergelijkReeks,
 )
 from app.helpers.chart_axis import bereken_x_as_ticks, bereken_y_as_range
 from app.helpers.dialog_start_directory import (
@@ -150,6 +193,7 @@ _CHART_TYPE_ESR = "ESR"
 _CHART_TYPE_CAPACITANCE = "CAPACITANCE"
 _CHART_TYPE_DISSIPATION = "DISSIPATION"
 _CHART_TYPE_SCATTER = "SCATTER_ESR_C"
+_CHART_TYPE_VERGELIJK = "COMPARE_SERIES"
 
 _AGGREGATION_RAW = "raw"
 _AGGREGATION_DAY = "day"
@@ -164,6 +208,20 @@ _EXPORT_SCOPE_SELECTED = "SELECTED"
 _EXPORT_SCOPE_FILTERED = "FILTERED"
 
 _UNKNOWN_STATUS_COLOR = "#9E9E9E"
+
+# Vaste kleur-cyclus voor de vergelijkingsmodus (5D). Bewust niet
+# STATUS_COLORS: die is per eindstatus en zou bij meerdere reeksen met
+# dezelfde status dezelfde kleur geven. Deze cyclus geeft elke reeks
+# een eigen kleur, ongeacht de status.
+_VERGELIJK_COLORS: tuple[str, ...] = (
+    "#4AA3FF",  # blauw
+    "#FF9800",  # oranje
+    "#4CAF50",  # groen
+    "#F44336",  # rood
+    "#9C27B0",  # paars
+)
+
+_MAX_VERGELIJK_REEKSEN = 5
 
 _MIN_MS = 0
 _MAX_MS = 4_102_444_800_000
@@ -231,6 +289,8 @@ def _tick_formaat_voor(chart_type: str) -> str:
     if chart_type == _CHART_TYPE_DISSIPATION:
         return "%.3f"
     if chart_type == _CHART_TYPE_SCATTER:
+        return "%.0f"
+    if chart_type == _CHART_TYPE_VERGELIJK:
         return "%.0f"
     return "%.0f"
 
@@ -590,6 +650,7 @@ class AnalysisScreen(QWidget):
                 _CHART_TYPE_CAPACITANCE,
                 _CHART_TYPE_DISSIPATION,
                 _CHART_TYPE_SCATTER,
+                _CHART_TYPE_VERGELIJK,
             ):
                 self.chart_type_combo.addItem("", data)
             index = self.chart_type_combo.findData(current)
@@ -728,6 +789,7 @@ class AnalysisScreen(QWidget):
             _CHART_TYPE_CAPACITANCE: "analyse.grafiektype.capaciteit",
             _CHART_TYPE_DISSIPATION: "analyse.grafiektype.d",
             _CHART_TYPE_SCATTER: "analyse.grafiektype.scatter_esr_c",
+            _CHART_TYPE_VERGELIJK: "analyse.grafiektype.vergelijk",
         }
         return self._t(mapping.get(data, data))
 
@@ -1056,6 +1118,8 @@ class AnalysisScreen(QWidget):
                     filters, measurement_ids=measurement_ids
                 )
                 self._draw_scatter(points)
+            elif chart_type == _CHART_TYPE_VERGELIJK:
+                self._draw_vergelijk(filters)
             else:
                 series = self._analysis_service_for(
                     chart_type, aggregation, filters, measurement_ids
@@ -1349,6 +1413,198 @@ class AnalysisScreen(QWidget):
         else:
             self.state_label.setText(
                 self._t("analyse.aantal", aantal=len(geldige_punten))
+            )
+
+    def _draw_vergelijk(self, filters: dict[str, Any]) -> None:
+        """Teken de vergelijkingsmodus (fase 5D).
+
+        Volgt de scope-semantiek van 5C:
+        - Bij scope FILTERED: melding dat vergelijken alleen bij
+          SELECTED werkt, en een lege grafiek.
+        - Bij scope SELECTED zonder aangevinkte metingen: melding
+          dat er niets te vergelijken is.
+        - Bij meer dan _MAX_VERGELIJK_REEKSEN: melding met het
+          maximum, en een lege grafiek.
+        - Anders: per aangevinkte meting een QLineSeries met een
+          vaste kleur-cyclus.
+
+        De Y-as gebruikt dezelfde 5A-clamping (Tukey-fence) op alle
+        reeksen samen, zodat één uitschieter de vergelijking niet
+        onleesbaar maakt. De X-as is een QDateTimeAxis.
+
+        v1.10.1: gebruikt _scope_measurement_ids() in plaats van
+        _selected_measurement_ids(). Tijdens een refresh(preserve_
+        selection=True) is de selectietabel tijdelijk leeg (de
+        refresh wist eerst de checkStates en herstelt ze pas na
+        deze functie). _scope_measurement_ids() kijkt eerst naar
+        _te_herstellen_selectie en pas daarna naar de huidige
+        selectie, en is dus de enige bron die in beide situaties
+        klopt.
+
+        v1.10.2: QtCharts respecteert een setRange() op een as met
+        meerdere reeksen niet betrouwbaar. Als één reeks een punt
+        buiten de range bevat, rekt Qt de as op om dat punt toch te
+        tonen. Daarom worden alleen punten aan de QLineSeries
+        toegevoegd waarvan y_ms binnen [y_min, y_max] valt. Het
+        aantal verborgen punten wordt in state_label gemeld via de
+        bestaande key analyse.outliers_verborgen. Dit is dezelfde
+        aanpak als 5A in de tijdreeks-modus, maar explicieter: niet
+        toevoegen wat je niet wilt tonen, dan kan Qt de as niet
+        oprekken.
+        """
+        colors = self._colors()
+        title = self._chart_type_label(_CHART_TYPE_VERGELIJK)
+        self._prepare_chart(title=title, show_legend=True)
+
+        if self.export_scope_combo.currentData() != _EXPORT_SCOPE_SELECTED:
+            self._replace_chart_empty(
+                self._t("analyse.vergelijk.alleen_bij_selectie")
+            )
+            self.state_label.setText(
+                self._t("analyse.vergelijk.alleen_bij_selectie")
+            )
+            return
+
+        selected_ids = self._scope_measurement_ids() or []
+        if not selected_ids:
+            self._replace_chart_empty(
+                self._t("analyse.vergelijk.geen_selectie")
+            )
+            self.state_label.setText(
+                self._t("analyse.vergelijk.geen_selectie")
+            )
+            return
+
+        if len(selected_ids) > _MAX_VERGELIJK_REEKSEN:
+            self._replace_chart_empty(
+                self._t(
+                    "analyse.vergelijk.te_veel_reeksen",
+                    aantal=len(selected_ids),
+                    maximum=_MAX_VERGELIJK_REEKSEN,
+                )
+            )
+            self.state_label.setText(
+                self._t(
+                    "analyse.vergelijk.te_veel_reeksen",
+                    aantal=len(selected_ids),
+                    maximum=_MAX_VERGELIJK_REEKSEN,
+                )
+            )
+            return
+
+        try:
+            reeksen = self._analysis_service.vergelijken(
+                selected_ids,
+                max_reeksen=_MAX_VERGELIJK_REEKSEN,
+                filters=filters,
+            )
+        except ValueError as exc:
+            self._replace_chart_empty(str(exc))
+            self.state_label.setText(str(exc))
+            return
+
+        # Verzamel alle punten voor de Y-as-clamping en de tijd-as.
+        alle_x_ms: list[int] = []
+        alle_y_ms: list[float] = []
+        voorbereid: list[tuple[VergelijkReeks, list[tuple[int, float]]]] = []
+
+        for reeks in reeksen:
+            punten: list[tuple[int, float]] = []
+            for p in reeks.points:
+                if not _is_finite(p.y) or not _is_finite(p.x_ms):
+                    continue
+                y_ms = p.y * 1000.0  # Ω → mΩ
+                if not _is_finite(y_ms):
+                    continue
+                x_ms = _veilige_x_ms(p.x_ms)
+                punten.append((x_ms, float(y_ms)))
+                alle_x_ms.append(x_ms)
+                alle_y_ms.append(float(y_ms))
+            voorbereid.append((reeks, punten))
+
+        if not alle_x_ms or not alle_y_ms:
+            self._replace_chart_empty(self._t("analyse.geen_gegevens"))
+            self.state_label.setText(self._t("analyse.leeg"))
+            return
+
+        # Bereken de geclampte Y-as-range op ALLE punten.
+        y_min, y_max, n_outliers = bereken_y_as_range(alle_y_ms)
+        if y_min >= y_max:
+            # Veilige fallback: geen geldige range.
+            self._replace_chart_empty(self._t("analyse.geen_gegevens"))
+            self.state_label.setText(self._t("analyse.leeg"))
+            return
+
+        eerste_ms = _veilige_x_ms(min(alle_x_ms))
+        laatste_ms = _veilige_x_ms(max(alle_x_ms))
+        if eerste_ms == laatste_ms:
+            eerste_ms = _veilige_x_ms(eerste_ms - 60_000)
+            laatste_ms = _veilige_x_ms(laatste_ms + 60_000)
+        if eerste_ms >= laatste_ms:
+            laatste_ms = eerste_ms + 60_000
+        bereik_ms = laatste_ms - eerste_ms
+
+        axis_x = QDateTimeAxis()
+        axis_x.setFormat(_datetime_formaat_voor(bereik_ms))
+        axis_x.setTitleText(self._t("analyse.as.datum"))
+        axis_x.setTickCount(min(6, max(2, len(alle_x_ms))))
+        axis_x.setLabelsColor(QColor(colors["axis_label"]))
+        axis_x.setTitleBrush(QColor(colors["axis_title"]))
+        axis_x.setGridLineColor(QColor(colors["axis_grid"]))
+
+        axis_y = QValueAxis()
+        axis_y.setTitleText(self._t("analyse.as.esr_mohm"))
+        axis_y.setLabelFormat("%.0f")
+        axis_y.setTickCount(6)
+        axis_y.setLabelsColor(QColor(colors["axis_label"]))
+        axis_y.setTitleBrush(QColor(colors["axis_title"]))
+        axis_y.setGridLineColor(QColor(colors["axis_grid"]))
+
+        self.chart.addAxis(axis_x, Qt.AlignmentFlag.AlignBottom)
+        self.chart.addAxis(axis_y, Qt.AlignmentFlag.AlignLeft)
+
+        # Voeg per reeks alleen punten toe die binnen [y_min, y_max]
+        # vallen. Punten daarbuiten zijn outliers; die worden niet
+        # getekend, en Qt kan de as dus niet oprekken.
+        for reeks, punten in voorbereid:
+            series = QLineSeries()
+            series.setName(reeks.label)
+            kleur = _VERGELIJK_COLORS[reeks.color_index % len(_VERGELIJK_COLORS)]
+            pen = QPen(QColor(kleur))
+            pen.setWidth(2)
+            series.setPen(pen)
+            for x_ms, y_ms in punten:
+                if y_min <= y_ms <= y_max:
+                    series.append(float(x_ms), float(y_ms))
+            self.chart.addSeries(series)
+            series.attachAxis(axis_x)
+            series.attachAxis(axis_y)
+
+        axis_x.setRange(
+            QDateTime.fromMSecsSinceEpoch(eerste_ms),
+            QDateTime.fromMSecsSinceEpoch(laatste_ms),
+        )
+        axis_y.setRange(y_min, y_max)
+
+        self._bewaar_oorspronkelijke_range(
+            y_range=(y_min, y_max),
+            x_datetime_range=(eerste_ms, laatste_ms),
+        )
+
+        if n_outliers > 0:
+            self.state_label.setText(
+                self._t(
+                    "analyse.outliers_verborgen",
+                    aantal=len(alle_y_ms),
+                    verborgen=n_outliers,
+                )
+            )
+        else:
+            self.state_label.setText(
+                self._t(
+                    "analyse.vergelijk.aantal_reeksen",
+                    aantal=len(reeksen),
+                )
             )
 
     def _category_label(self, category: str | None) -> str:

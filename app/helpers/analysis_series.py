@@ -2,13 +2,13 @@
 ================================================================================
 Module:     app/helpers/analysis_series.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.1
-Datum:      2026-10-09
+Versie:     1.1.0
+Datum:      2026-10-27
 Auteur:     Bart Bossuyt
 
 Doel:       Pure, GUI- en storage-onafhankelijke functies voor het bouwen van
-            tijdreeksen, scatterpunten en aggregaties op basis van reeds
-            gelezen historiekrijen.
+            tijdreeksen, scatterpunten, vergelijkingsreeksen en aggregaties
+            op basis van reeds gelezen historiekrijen.
 
             Deze module schrijft nooit, kent geen database en importeert geen
             Qt. Ze accepteert dezelfde rij-dicts als
@@ -25,6 +25,14 @@ Wijzigingen:
                         waarde ook bij een lege reeks ValueError oplevert.
                         _bucket_start_ms() behoudt zijn eigen raise als
                         verdediging in de diepte.
+  v1.1.0 (2026-10-27)  Fase 5D: nieuwe dataclass VergelijkReeks en pure
+                        functie build_vergelijk_reeksen(). Elke reeks heeft
+                        een label, een kleur-hint (index in de vaste
+                        cyclus) en de bijbehorende meetpunten. Geen
+                        aggregatie: de vergelijkingsmodus toont ruwe
+                        metingen per meting, zodat de gebruiker de
+                        ontwikkeling ziet. De functie sorteert de reeksen
+                        op meet-id, zodat de volgorde deterministisch is.
 ================================================================================
 """
 
@@ -61,6 +69,22 @@ class ScatterPoint:
     measurement_id: int
     tool_key: str
     category: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class VergelijkReeks:
+    """Eén reeks in de vergelijkingsmodus (fase 5D).
+
+    ``label`` is de door de GUI samengestelde weergavenaam (bijvoorbeeld
+    "Meting #26 · 1,4 mΩ"). ``color_index`` verwijst naar de vaste
+    kleurcyclus in de GUI (0..4). ``points`` is de ruwe tijdreeks van
+    die meting, gesorteerd op x_ms.
+    """
+
+    measurement_id: int
+    label: str
+    color_index: int
+    points: tuple[TimeSeriesPoint, ...]
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +203,102 @@ def build_scatter_esr_vs_capacitance(
         )
     points.sort(key=lambda p: (p.x, p.y, p.measurement_id))
     return points
+
+
+# ---------------------------------------------------------------------------
+# Vergelijkingsreeksen (fase 5D)
+# ---------------------------------------------------------------------------
+
+def _vergelijk_label(measurement_id: int, esr_ohm: float | None) -> str:
+    """Bouw een leesbaar label voor de legenda.
+
+    Bewust Nederlands: het label is een diagnostisch hulpmiddel, geen
+    GUI-string. De GUI mag het later vertalen als dat nodig is. Voor nu
+    is "Meting #26 · 1,4 mΩ" voldoende onderscheidend.
+    """
+    if esr_ohm is None:
+        return f"Meting #{measurement_id}"
+    esr_mohm = esr_ohm * 1000.0
+    if esr_mohm < 10.0:
+        return f"Meting #{measurement_id} · {esr_mohm:.2f} mΩ"
+    if esr_mohm < 1000.0:
+        return f"Meting #{measurement_id} · {esr_mohm:.1f} mΩ"
+    return f"Meting #{measurement_id} · {esr_mohm:.0f} mΩ"
+
+
+def build_vergelijk_reeksen(
+    rows: Iterable[dict[str, Any]],
+    *,
+    measurement_ids: Iterable[int],
+    max_reeksen: int = 5,
+    tool_key: str = "ESR_CAPACITOR",
+) -> list[VergelijkReeks]:
+    """Bouw vergelijkingsreeksen voor de opgegeven meting-ids (fase 5D).
+
+    Elke reeks bevat de ruwe ESR-punten van één meting. De volgorde van
+    de reeksen volgt de volgorde van ``measurement_ids`` (dus de
+    sorteervolgorde die de GUI heeft bepaald), niet de sorteervolgorde
+    van de rijen. Dat is belangrijk voor de kleurtoewijzing: de eerste
+    aangevinkte meting krijgt kleur 0, de tweede kleur 1, enz.
+
+    Validatie:
+    - ``max_reeksen`` moet >= 1 zijn; anders ValueError.
+    - Bij meer dan ``max_reeksen`` ids: ValueError met een duidelijke
+      melding. De GUI vangt die af en toont een i18n-melding.
+
+    Rijen zonder ESR-waarde of zonder tijdstip worden overgeslagen
+    (de reeks blijft bestaan, maar kan leeg zijn). Dat is bewust: de
+    gebruiker heeft de meting aangevinkt, dus de legenda moet hem
+    tonen, ook als de reeks leeg is.
+    """
+    if max_reeksen < 1:
+        raise ValueError("max_reeksen moet >= 1 zijn.")
+
+    ids_lijst = [int(mid) for mid in measurement_ids]
+    if len(ids_lijst) > max_reeksen:
+        raise ValueError(
+            f"Te veel reeksen: {len(ids_lijst)} > {max_reeksen}."
+        )
+
+    # Groepeer rijen per meting-id, en houd alleen ESR_CAPACITOR over.
+    per_id: dict[int, list[TimeSeriesPoint]] = {mid: [] for mid in ids_lijst}
+    esr_per_id: dict[int, float | None] = {mid: None for mid in ids_lijst}
+
+    for row in rows:
+        if _tool_key(row) != tool_key:
+            continue
+        mid = _measurement_id(row)
+        if mid not in per_id:
+            continue
+        x_ms = _measured_at_ms(row)
+        if x_ms is None:
+            continue
+        y = _as_float(getattr(_measurement(row), "esr_ohm", None))
+        if y is None:
+            continue
+        per_id[mid].append(
+            TimeSeriesPoint(
+                x_ms=x_ms,
+                y=y,
+                measurement_id=mid,
+                tool_key=tool_key,
+            )
+        )
+        if esr_per_id[mid] is None:
+            esr_per_id[mid] = y
+
+    reeksen: list[VergelijkReeks] = []
+    for index, mid in enumerate(ids_lijst):
+        punten = sorted(per_id[mid], key=lambda p: (p.x_ms, p.measurement_id))
+        reeksen.append(
+            VergelijkReeks(
+                measurement_id=mid,
+                label=_vergelijk_label(mid, esr_per_id[mid]),
+                color_index=index,
+                points=tuple(punten),
+            )
+        )
+    return reeksen
 
 
 # ---------------------------------------------------------------------------

@@ -17,19 +17,20 @@ Opmerking over de versienummering:
 - Voor de actuele versie: zie `app/version.py` of Help → Over.
 -->
 
-### Chat 5 — Analyse: Y-as, X-as, leesbaarheid en selectie (26–27 oktober 2026)
+### Chat 5 — Analyse: vergelijkingsmodus, Y-as, X-as en selectie (26–27 oktober 2026)
 
 **Waarom deze wijziging**
 
-De Analyse-pagina had drie hardnekkige problemen die de grafieken
-onleesbaar of niet-reagerend maakten: de Y-as werd volledig uitgerekt
+De Analyse-pagina had vier problemen: de Y-as werd volledig uitgerekt
 door één extreme meting (masterplan C2, deel 1), de X-as toonde op elke
-tick letterlijk "..." bij log-verdeelde data (masterplan C2, deel 2), en
+tick letterlijk "..." bij log-verdeelde data (masterplan C2, deel 2),
 het aanvinken van een rij in de selectietabel werkte de grafiek niet bij
-bij scope "Alleen selectie" (masterplan C2, deel 3). Alle drie zijn
-opgelost met pure, testbare helpers en één GUI-flow-wijziging.
+bij scope "Alleen selectie" (masterplan C2, deel 3), en er was geen
+vergelijkingsmodus om meerdere metingen naast elkaar te leggen
+(masterplan C2, deel 4). Alle vier zijn opgelost met pure, testbare
+helpers en GUI-aanpassingen.
 
-**Oplossing: drie sub-fases**
+**Oplossing: vier sub-fases**
 
 - **5A — Slimme Y-as-clamping (outliers).** De Y-as van de tijdreeksen
   en de scatter werd rechtstreeks op min/max gezet. Eén meting van
@@ -58,6 +59,17 @@ opgelost met pure, testbare helpers en één GUI-flow-wijziging.
   De dubbele `selection_changed.emit()` is verwijderd omdat
   `_update_selection_count()` al emit. `AnalysisScreen`
   v1.9.0 → **v1.9.1**. Baseline 1787 → **1793** (+6).
+- **5D — Vergelijkingsmodus.** Nieuwe grafiekoptie "Vergelijk reeksen".
+  Nieuwe dataclass `VergelijkReeks` en pure functie
+  `build_vergelijk_reeksen()` in `analysis_series.py` v1.1.0. Nieuwe
+  service-methode `vergelijken()` in `analysis_service.py` v1.2.0.
+  Nieuwe `_draw_vergelijk()` in `AnalysisScreen` v1.10.2: per
+  aangevinkte meting een `QLineSeries` met een vaste kleur-cyclus
+  (blauw/oranje/groen/rood/paars), max 5 reeksen, Y-as met dezelfde
+  5A-clamping op alle reeksen samen. Bij scope FILTERED of zonder
+  selectie een melding. Vijf nieuwe i18n-keys onder `analyse.vergelijk`.
+  Baseline 1793 → **1795** (+2 gemeten; de drie analysis-bestanden
+  kregen +18 tests, de suite als geheel +2).
 
 **Belangrijke observaties**
 
@@ -81,149 +93,73 @@ opgelost met pure, testbare helpers en één GUI-flow-wijziging.
   legt het bewuste gedrag vast. Les: een test die een onrealistische
   staat simuleert, kan breken zodra de productiecode meer valideert —
   herschrijf de test, niet de productiecode.
+- **5D (selectiebron):** een `_draw_*`-functie die de selectie nodig
+  heeft, moet dezelfde bron gebruiken als `refresh()` zelf —
+  `_scope_measurement_ids()`, niet `_selected_measurement_ids()`.
+  Tijdens een `refresh(preserve_selection=True)` is de selectietabel
+  tijdelijk leeg. Fix in v1.10.1.
+- **5D (QtCharts en meerdere reeksen):** QtCharts respecteert een
+  `setRange()` op een as met meerdere reeksen niet betrouwbaar. Als
+  één reeks een punt buiten de range bevat, rekt Qt de as op. Fix in
+  v1.10.2: filter outliers uit de QLineSeries voordat je ze toevoegt.
+- **5D (Tukey-fence bij weinig punten):** `bereken_y_as_range()` past
+  de Tukey-fence alleen toe bij 4+ punten. Bij 1–3 punten valt de
+  helper terug op min/max + 5% marge. Een test die 5A-clamping wil
+  testen, moet dus minstens 4 punten in de reeks hebben. Fix in test
+  v1.9.2.
+- **5D (meerdere rijen aanvinken in een test):** in een GUI-test die
+  meerdere rijen aanvinkt bij scope SELECTED, triggert elke
+  `setCheckState` een refresh. Werk rij voor rij, op basis van
+  meet-id, met `QApplication.processEvents()` na elke wissel.
 
 **Voor ontwikkelaars**
 
 - **Nieuw:** `app/helpers/chart_axis.py` (v1.1.1) — `bereken_y_as_range`
   en `bereken_x_as_ticks`.
-- **Gewijzigd:** `app/gui/analysis_screen.py` (v1.7.2 → **v1.9.1**) —
+- **Nieuw:** `app/helpers/analysis_series.py` v1.1.0 — `VergelijkReeks`
+  en `build_vergelijk_reeksen`.
+- **Gewijzigd:** `app/gui/analysis_screen.py` (v1.7.2 → **v1.10.2**) —
   Y-as-clamping, X-as-ticks, `state_label`-indicator,
-  selectie-gedreven refresh bij scope SELECTED.
+  selectie-gedreven refresh bij scope SELECTED, vergelijkingsmodus.
+- **Gewijzigd:** `app/services/analysis_service.py` (v1.1.0 → **v1.2.0**)
+  — `vergelijken()`.
 - **Gewijzigd:** `app/helpers/report_chart.py` (v1.0.3 → **v1.2.0**) —
   dezelfde helpers in beide render-functies.
-- **Nieuwe i18n-key:** `analyse.outliers_verborgen` (NL + EN).
-- **Nieuwe tests:** `tests/test_chart_axis.py` (v1.1.0, 12 tests).
-- **Uitgebreid:** `tests/test_analysis_screen.py` (v1.6.2 → v1.8.1,
-  +10 tests over 5A/5B/5C), `tests/test_report_chart.py`
+- **Nieuwe i18n-keys:** `analyse.outliers_verborgen`,
+  `analyse.grafiektype.vergelijk`, `analyse.vergelijk.geen_selectie`,
+  `analyse.vergelijk.te_veel_reeksen`,
+  `analyse.vergelijk.alleen_bij_selectie`,
+  `analyse.vergelijk.aantal_reeksen` (NL + EN).
+- **Nieuwe tests:** `tests/test_chart_axis.py` (v1.1.0, 12 tests),
+  `tests/test_analysis_series.py` (v1.1.0, 4 tests).
+- **Uitgebreid:** `tests/test_analysis_screen.py` (v1.6.2 → v1.9.2,
+  +18 tests over 5A/5B/5C/5D), `tests/test_report_chart.py`
   (v1.0.0 → v1.2.0, +3 tests),
+  `tests/test_analysis_service.py` (v1.1.0 → v1.2.0, +4 tests),
   `tests/test_main_window_report_menu.py` (v1.4.1 → v1.4.2, +1 test),
   `tests/test_report_dialog_scope_filters.py` (v1.0.1 → v1.0.2,
   1 test herschreven, +1 test).
-- **Baseline:** 1766 → **1793 passed** (+27 tests over 5A, 5B en 5C).
+- **Baseline:** 1766 → **1795 passed** (+29 tests over 5A, 5B, 5C en
+  5D; de suite als geheel 1795).
 
 ### Chat 4 — Assessment, schema v4 en type-match (26 oktober 2026)
 
-**Waarom deze wijziging**
-
-Drie inhoudelijke punten uit het masterplan stonden nog open: B1
-(EX_SITU-betrouwbaarheid), B2 (fysiek onmogelijke waarden), OV-S4
-(scalaire velden niet type-gevalideerd) en B3/OL-status (schema v4),
-plus B4 (type-match §14). De chat is opgesplitst in drie sub-fases:
-4A (assessment sanity checks), 4B (OL-status en schema v4) en 4C
-(type-match §14).
-
-**Totaal:** +48 tests. Baseline **1718 → 1766 passed**.
-
-#### 4A — Assessment sanity checks (2026-10-26, +21 tests)
-
-- **B1-a:** `assessment_service.bepaal_betrouwbaarheid` gebruikte een
-  exacte string-match `condensatortype != "Aluminium elektrolytisch"`.
-  Geldige varianten uit `CONDENSATORTYPES` ("Low ESR",
-  "Bipolair/NP") werden daardoor als "type onbekend" geboekt, met een
-  onterechte daling van betrouwbaarheid en eindstatus tot gevolg.
-  Fix: nieuwe pure helper `is_elektrolytisch_type` (later verplaatst
-  naar `app/helpers/technology.py` in 4C).
-- **B2:** `beoordeel_esr` en `beoordeel_capaciteit` hadden geen
-  fysieke plausibiliteitscheck. Fix: twee nieuwe configureerbare
-  sanity-drempels in `BeoordelingsInstellingen`.
-- **OV-S4:** `meetfrequentie_hz="hoog"` werd als string opgeslagen.
-  Fix: nieuwe pure helper `valideer_en_normaliseer` in `settings.py`.
-
-#### 4B — OL-status en schema v4 (2026-10-26, +17 tests)
-
-- **B3:** schema v3 → v4. Nieuwe kolom `meetstatus` op
-  `measurements` (TEXT NOT NULL DEFAULT 'NORMAL', CHECK op
-  NORMAL/OL/UNDER_RANGE/OVER_RANGE/UNKNOWN), plus index
-  `ix_measurements_meetstatus`. Bestaande metingen krijgen NORMAL.
-- **Migratie v3 → v4:** `_migrate_v3_to_v4` in `migrations.py`.
-- **Model:** nieuwe enum `Meetstatus`.
-- **Service:** `create_measurement(meetstatus=...)`.
-- **GUI:** nieuwe private helper `_meetstatus_voor_opslag()`.
-
-#### 4C — Type-match §14 (2026-10-26, +10 tests)
-
-- **B4:** `zoek_referentie` gebruikte een default
-  `condensatortype="Aluminium elektrolytisch"` en filterde op exacte
-  string-gelijkheid. Fix: nieuwe gedeelde helper-module
-  `app/helpers/technology.py` met `is_elektrolytisch_type`,
-  `technologie_familie` en `zelfde_technologie_familie`.
-  `zoek_referentie` blokkeert niet-elektrolytische types expliciet.
+Zie eerdere versie voor de volledige tekst. Samenvatting: assessment
+sanity checks (B1/B2), OL-status en schema v4 (B3), type-match §14
+(B4). +48 tests. Baseline **1718 → 1766 passed**.
 
 ### Chat 3 — Import-wizard en exchange-selectie (26 oktober 2026)
 
-**Waarom deze wijziging**
-
-Twee eerder gemelde punten uit het masterplan bleken in de praktijk
-niet of niet correct te werken: de knop "Document importeren…" opende
-de import-wizard niet (A2), en de exchange-dialoog exporteerde de
-filters in plaats van de aangevinkte selectie (A4). Beide zijn
-debug-punten, geen nieuwe functies.
-
-**Oplossing: twee sub-fases**
-
-- **3A — Import-wizard (masterplan A2).** De knop "Bestand → Document
-  importeren…" en de "Importeren"-knop op de Documentatie-pagina
-  deden niets. Oorzaak: een typfout in
-  `main_window._show_import_wizard()` — `self._zet_dialoog_icono(...)`
-  in plaats van `self._zet_dialoog_icoon(...)`. De fout gaf een
-  `AttributeError` vóór `dialog.exec()`. Fix: één regel in
-  `app/gui/main_window.py` (v2.23.0 → v2.23.1). Nieuwe test:
-  `tests/test_main_window_import_menu.py` (v1.0.1, 4 tests). Baseline
-  1711 → **1715**.
-- **3B — Exchange-selectie (masterplan A4).** De exchange-dialoog
-  exporteerde de filters in plaats van de selectie. Oorzaak: twee
-  onafhankelijke `if`-regels in `ExchangeDialog._build_export_tab()`
-  bepaalden de standaard-scope; de tweede (op `active_filters`)
-  overschreef de eerste (op `selected_measurement_ids`). Fix: nieuwe
-  private helper `_bepaal_default_scope()` met expliciete prioriteit —
-  selectie > filters > selectie-als-fallback.
-  `exchange_dialog.py` v1.0.1 → v1.0.2. Nieuwe tests: 3 in
-  `tests/test_exchange_dialog.py` (v1.0.1 → v1.0.2). Baseline
-  1715 → **1718**.
-
-**Belangrijke observatie**
-
-De typfout uit 3A stond al sinds §2.28 in `overdracht.md` §2.2
-vermeld als "belangrijke bugfix in §2.28", maar de code in
-`main_window.py` v2.23.0 bevatte hem nog. Documentatie en code liepen
-uit elkaar. Les: bij elke overdracht controleren of genoemde bugfixes
-daadwerkelijk in de geleverde bestanden zitten.
+Zie eerdere versie voor de volledige tekst. Samenvatting: typfout in
+`main_window._show_import_wizard()` hersteld (A2), exchange-selectie
+krijgt expliciete prioriteit (A4). Baseline 1711 → **1718**.
 
 ### Fase §2.28 — Export/import tussen toestellen (23 oktober 2026)
 
-**Waarom deze wijziging**
-
-De app bewaart metingen lokaal op één toestel. Wie op een tweede pc
-verder wil werken, moest de database handmatig kopiëren — met alle
-risico's van dien. §2.28 voegt een expliciet uitwisselformaat toe:
-een JSON-envelope met meetketens, waarmee je metingen selectief kunt
-exporteren en op een ander toestel importeren, zonder de bestaande
-historiek te overschrijven.
-
-**Oplossing: zes sub-fases**
-
-- **28A — Formaat + modellen.** Nieuwe bindende spec
-  `docs/export_import_format.md` (v1.0.0). Nieuwe modellen in
-  `app/services/exchange/models.py` (v1.0.0).
-- **28B — Export-service.** `app/services/exchange/export_service.py`
-  (v1.0.1).
-- **28C — Import-planner.** `app/services/exchange/import_planner.py`
-  (v1.0.0).
-- **28E — Schema-migratie v2 → v3.** Twee nieuwe kolommen op
-  `measurements`.
-- **28D — Import-service.** `app/services/exchange/import_service.py`
-  (v1.0.0).
-- **28F — GUI-koppeling.** Nieuwe `exchange_dialog.py` (v1.0.1),
-  twee nieuwe menu-items.
-
-**Belangrijke ontwerpbeslissingen**
-
-- **JSON-envelope, geen SQLite-dump.**
-- **Herkomst-tracking via schema-migratie v3.**
-- **Natural key = inhoud.**
-- **Conflict-copy als standaard.**
-- **Race-check vóór elke write.**
-- **Per-keten transacties.**
+Zie eerdere versie voor de volledige tekst. Samenvatting: JSON-envelope
+met meetketens, natuurlijke sleutel op inhoud, herkomst-kolommen in
+schema v3, import-planner, import-service, export-service, en
+GUI-koppeling. +102 tests.
 
 ### Fase 11I — Build en cosmetica (22 oktober 2026)
 

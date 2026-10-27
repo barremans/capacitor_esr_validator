@@ -22,7 +22,8 @@
       "esr": "ESR over tijd",
       "capaciteit": "Capaciteit over tijd",
       "d": "D over tijd",
-      "scatter_esr_c": "ESR vs. capaciteit"
+      "scatter_esr_c": "ESR vs. capaciteit",
+      "vergelijk": "Vergelijk reeksen"
     },
     "aggregatie": {
       "ruw": "Ruwe metingen",
@@ -56,6 +57,12 @@
       "geselecteerd_aantal": "{aantal} geselecteerd",
       "geen_selectie": "Selecteer eerst één of meer metingen in de lijst.",
       "gewijzigd_bij_verversen": "Selectie gewist bij verversen."
+    },
+    "vergelijk": {
+      "geen_selectie": "Selecteer eerst één of meer metingen in de lijst.",
+      "te_veel_reeksen": "Te veel reeksen: {aantal} aangevinkt, maximaal {maximum}. Vink minder metingen aan.",
+      "alleen_bij_selectie": "Vergelijken werkt alleen bij scope 'Alleen selectie'.",
+      "aantal_reeksen": "{aantal} reeks(en) weergegeven."
     },
     "rapport": {
       "knop": "Rapport maken…",

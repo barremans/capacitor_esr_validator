@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_analysis_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.8.1
-Datum:      2026-10-26
+Versie:     1.9.2
+Datum:      2026-10-27
 Auteur:     Bart Bossuyt
 
 Doel:       GUI-regressietests voor AnalysisScreen.
@@ -48,6 +48,40 @@ Wijzigingen:
                         ververst bij SELECTED, dat de selectie bewaard
                         blijft, en dat de rapport-knop correct blijft
                         reageren in beide scopes.
+  v1.9.0 (2026-10-27)  Fase 5D: zes tests voor de vergelijkingsmodus.
+                        Bewijst dat de nieuwe grafiekoptie bestaat,
+                        dat scope FILTERED een melding geeft, dat
+                        zonder selectie een melding verschijnt, dat
+                        meer dan 5 reeksen een melding geeft, dat
+                        bij 2 reeksen twee QLineSeries met een vaste
+                        kleur verschijnen, en dat de Y-as-clamping
+                        dezelfde helper gebruikt.
+  v1.9.1 (2026-10-27)  Fix 5D: de drie GUI-tests die meerdere rijen
+                        aanvinken, doen dat nu één voor één via
+                        _select_measurement_row_by_id, met
+                        QApplication.processEvents() na elke aanvink-
+                        wissel. Zonder die werkwijze triggert de
+                        eerste setCheckState de 5C-refresh, die de
+                        tabel opnieuw opbouwt; de volgende
+                        setCheckState in de lus landt dan op een
+                        verouderd item, en de selectie raakt leeg.
+                        De productiecode is niet gewijzigd: de fix
+                        zit volledig in de tests, die nu de echte
+                        GUI-flow volgen.
+  v1.9.2 (2026-10-27)  Fix 5D Y-as-clamping-test: de test
+                        test_vergelijk_y_as_gebruikt_clamping had
+                        maar 2 punten (één per reeks). Bij minder
+                        dan 4 punten past bereken_y_as_range() de
+                        Tukey-fence niet toe (bewuste 5A-keuze:
+                        IQR is dan onbetrouwbaar), en valt hij
+                        terug op min/max + 5% marge. Daardoor was
+                        axis_y.max() 114970 in plaats van < 1000.
+                        De test gebruikt nu 5 punten in één reeks
+                        (4 normale ESR-waarden + 1 uitschieter),
+                        zodat de Tukey-fence wél triggert. De
+                        productiecode is niet gewijzigd; de fix
+                        zit volledig in de test, die nu de echte
+                        5A-semantiek test.
 ================================================================================
 """
 
@@ -61,12 +95,12 @@ from typing import Any
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtCharts import QDateTimeAxis, QValueAxis
+from PySide6.QtCharts import QDateTimeAxis, QLineSeries, QValueAxis
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QApplication
 
-from app.helpers.analysis_series import ScatterPoint, TimeSeriesPoint
+from app.helpers.analysis_series import ScatterPoint, TimeSeriesPoint, VergelijkReeks
 from app.gui.analysis_screen import (
     _AGGREGATION_DAY,
     _AGGREGATION_MONTH,
@@ -75,11 +109,13 @@ from app.gui.analysis_screen import (
     _CHART_TYPE_DISSIPATION,
     _CHART_TYPE_ESR,
     _CHART_TYPE_SCATTER,
+    _CHART_TYPE_VERGELIJK,
     _EXPORT_SCOPE_FILTERED,
     _EXPORT_SCOPE_SELECTED,
     _EXPORT_TYPE_BOTH,
     _EXPORT_TYPE_DETAIL,
     _EXPORT_TYPE_OVERVIEW,
+    _VERGELIJK_COLORS,
     AnalysisScreen,
 )
 
@@ -149,14 +185,19 @@ class _StubAnalysisService:
         capacitance_series: list[TimeSeriesPoint] | None = None,
         dissipation_series: list[TimeSeriesPoint] | None = None,
         scatter: list[ScatterPoint] | None = None,
+        vergelijk: list[VergelijkReeks] | None = None,
+        vergelijk_raises: bool = False,
     ) -> None:
         self._rows = rows or []
         self._esr = esr_series or []
         self._c = capacitance_series or []
         self._d = dissipation_series or []
         self._scatter = scatter or []
+        self._vergelijk = vergelijk or []
+        self._vergelijk_raises = vergelijk_raises
         self.calls: list[tuple[str, dict[str, Any], str]] = []
         self.measurement_id_calls: list[list[int] | None] = []
+        self.vergelijk_calls: list[tuple[list[int], dict[str, Any]]] = []
         self.detail_calls: list[int] = []
 
     def load_rows(self, filters=None, *, measurement_ids=None):
@@ -193,6 +234,13 @@ class _StubAnalysisService:
             list(measurement_ids) if measurement_ids is not None else None
         )
         return list(self._scatter)
+
+    def vergelijken(self, measurement_ids, *, max_reeksen=5, filters=None):
+        self.calls.append(("vergelijk", dict(filters or {}), ""))
+        self.vergelijk_calls.append((list(measurement_ids), dict(filters or {})))
+        if self._vergelijk_raises:
+            raise ValueError("Te veel reeksen: 6 > 5.")
+        return list(self._vergelijk)
 
     def _history(self):
         outer = self
@@ -259,7 +307,7 @@ def screen(stub_service: _StubAnalysisService) -> AnalysisScreen:
 def test_screen_builds_with_expected_widgets(screen: AnalysisScreen) -> None:
     assert screen.back_btn.text() != ""
     assert screen.title_label.text() != ""
-    assert screen.chart_type_combo.count() == 4
+    assert screen.chart_type_combo.count() == 5
     assert screen.aggregation_combo.count() == 4
     assert screen.export_scope_combo.count() == 2
     assert screen.export_type_combo.count() == 3
@@ -844,12 +892,7 @@ def test_zoom_reset_knop_i18n() -> None:
 # ============================================================================
 
 def test_scope_selectie_beperkt_grafiek_tot_selectie() -> None:
-    """Scope SELECTED + 1 aangevinkte meting -> service krijgt die ids.
-
-    Volgt de echte GUI-flow: eerst refresh (selectie leeg), dan een
-    meting aanvinken, dan refresh(preserve_selection=True) zoals de
-    GUI doet bij scope-wissel of scatter-klik.
-    """
+    """Scope SELECTED + 1 aangevinkte meting -> service krijgt die ids."""
     _app()
     stub = _StubAnalysisService(
         rows=[
@@ -865,7 +908,6 @@ def test_scope_selectie_beperkt_grafiek_tot_selectie() -> None:
     widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
     try:
         widget.refresh()
-        # Rij 0 is de meest recente meting (id=3) vanwege de sortering.
         widget.selection_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
         stub.measurement_id_calls.clear()
 
@@ -916,16 +958,12 @@ def test_klik_op_scatter_punt_selecteert_rij() -> None:
     )
     widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
     try:
-        # Zet eerst de scope op FILTERED zodat de klik-route niet
-        # door een refresh() wordt overschreven.
         widget.export_scope_combo.setCurrentIndex(
             widget.export_scope_combo.findData(_EXPORT_SCOPE_FILTERED)
         )
         widget.chart_type_combo.setCurrentIndex(
             widget.chart_type_combo.findData(_CHART_TYPE_SCATTER)
         )
-        # Expliciete refresh: garantie dat de scatter getekend is,
-        # ongeacht of de signalen in de testomgeving al zijn verwerkt.
         widget.refresh()
 
         from PySide6.QtCharts import QScatterSeries
@@ -970,7 +1008,6 @@ def test_klik_op_scatter_punt_zonder_scope_selectie_hertekent_niet() -> None:
 
         widget._on_scatter_clicked(reeksen[0])
 
-        # Geen nieuwe service-calls (geen refresh).
         assert stub.calls == []
     finally:
         widget.deleteLater()
@@ -1036,7 +1073,6 @@ def test_y_as_negeert_extreme_outlier_in_tijdreeks() -> None:
             TimeSeriesPoint(_ms(2026, 10, 3), 0.0025, 3, "ESR_CAPACITOR"),
             TimeSeriesPoint(_ms(2026, 10, 4), 0.0030, 4, "ESR_CAPACITOR"),
             TimeSeriesPoint(_ms(2026, 10, 5), 0.0035, 5, "ESR_CAPACITOR"),
-            # Extreme uitschieter: 109,5 Ω = 109500 mΩ, 1000× groter.
             TimeSeriesPoint(_ms(2026, 10, 6), 109.5, 6, "ESR_CAPACITOR"),
         ],
     )
@@ -1045,11 +1081,9 @@ def test_y_as_negeert_extreme_outlier_in_tijdreeks() -> None:
         widget.refresh()
         axis_y = _y_axis(widget)
         assert axis_y is not None
-        # Zonder clamping zou max > 100000 zijn; met clamping < 1000.
         assert axis_y.max() < 1000.0, (
             f"As-max {axis_y.max()} toont de outlier"
         )
-        # De normale punten (1,5–3,5 mΩ) blijven zichtbaar.
         assert axis_y.min() <= 1.5
         assert axis_y.max() >= 3.5
     finally:
@@ -1139,12 +1173,7 @@ def test_scatter_y_as_gebruikt_dezelfde_clamping() -> None:
 # ============================================================================
 
 def test_scatter_x_as_gebruikt_adaptieve_ticks_voor_echte_csv() -> None:
-    """Het echte bereik 0,1–1.160 µF: %.0f, 5 ticks, -45° na 5%-marge.
-
-    De GUI past eerst de 5%-marge toe op het ruwe bereik. Voor
-    0,1–1.160 µF wordt dat ongeveer -57,9 tot 1.218 µF, een breedte
-    van ~1.276 µF. Dat valt in de categorie "breedte < 1500", dus 5 ticks.
-    """
+    """Het echte bereik 0,1–1.160 µF: %.0f, 5 ticks, -45° na 5%-marge."""
     _app()
     stub = _StubAnalysisService(
         rows=[
@@ -1204,12 +1233,7 @@ def test_scatter_x_as_klein_bereik_gebruikt_decimalen() -> None:
 # ============================================================================
 
 def test_selectie_bij_scope_selected_ververst_grafiek() -> None:
-    """Scope SELECTED: aanvinken van een rij ververst de grafiek direct.
-
-    Vóór 5C gebeurde dat pas bij een expliciete refresh of scope-wissel.
-    Nu roept _on_selection_item_changed refresh(preserve_selection=True)
-    aan, en de service krijgt de aangevinkte id.
-    """
+    """Scope SELECTED: aanvinken van een rij ververst de grafiek direct."""
     _app()
     stub = _StubAnalysisService(
         rows=[
@@ -1228,7 +1252,6 @@ def test_selectie_bij_scope_selected_ververst_grafiek() -> None:
         assert widget.export_scope_combo.currentData() == _EXPORT_SCOPE_SELECTED
         stub.measurement_id_calls.clear()
 
-        # Rij 0 is de meest recente meting (id=3) vanwege de sortering.
         widget.selection_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
 
         assert any(
@@ -1239,12 +1262,7 @@ def test_selectie_bij_scope_selected_ververst_grafiek() -> None:
 
 
 def test_selectie_bij_scope_filtered_ververst_niet() -> None:
-    """Scope FILTERED: aanvinken van een rij ververst de grafiek NIET.
-
-    Dit is bewust gedrag: bij scope FILTERED bepalen de filters de
-    grafiek, niet de tabelselectie. Alleen de teller en de rapport-
-    knop worden bijgewerkt. Geen nieuwe service-calls.
-    """
+    """Scope FILTERED: aanvinken van een rij ververst de grafiek NIET."""
     _app()
     stub = _StubAnalysisService(
         rows=[
@@ -1269,7 +1287,6 @@ def test_selectie_bij_scope_filtered_ververst_niet() -> None:
         widget.selection_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
 
         assert stub.calls == [], stub.calls
-        # Teller is wel bijgewerkt.
         assert "1" in widget.selection_count_label.text()
     finally:
         widget.deleteLater()
@@ -1319,18 +1336,204 @@ def test_rapport_knop_blijft_correct_bij_scope_wissel() -> None:
     )
     widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
     try:
-        # Scope SELECTED: aanvinken -> rapport-knop aan.
         widget.refresh()
         assert widget.report_btn.isEnabled() is False
         widget.selection_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
         assert widget.report_btn.isEnabled() is True
 
-        # Scope FILTERED: aanvinken -> rapport-knop aan (selectie telt).
         widget.export_scope_combo.setCurrentIndex(
             widget.export_scope_combo.findData(_EXPORT_SCOPE_FILTERED)
         )
         widget.refresh(preserve_selection=True)
         widget.selection_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
         assert widget.report_btn.isEnabled() is True
+    finally:
+        widget.deleteLater()
+
+
+# ============================================================================
+# v1.9.0 — vergelijkingsmodus (fase 5D)
+# ============================================================================
+
+def test_vergelijk_grafiekoptie_bestaat(screen: AnalysisScreen) -> None:
+    """De nieuwe grafiekoptie 'Vergelijk reeksen' staat in de combobox."""
+    index = screen.chart_type_combo.findData(_CHART_TYPE_VERGELIJK)
+    assert index >= 0
+    assert screen.chart_type_combo.itemText(index) != ""
+
+
+def test_vergelijk_alleen_bij_scope_selected() -> None:
+    """Bij scope FILTERED toont de vergelijkingsmodus een melding."""
+    _app()
+    stub = _StubAnalysisService(
+        rows=[_row(1, _ms(2026, 10, 1), esr_ohm=0.1)]
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.export_scope_combo.setCurrentIndex(
+            widget.export_scope_combo.findData(_EXPORT_SCOPE_FILTERED)
+        )
+        widget.chart_type_combo.setCurrentIndex(
+            widget.chart_type_combo.findData(_CHART_TYPE_VERGELIJK)
+        )
+        widget.refresh()
+        tekst = widget.state_label.text().lower()
+        assert "selectie" in tekst or "selection" in tekst
+    finally:
+        widget.deleteLater()
+
+
+def test_vergelijk_zonder_selectie_toont_melding() -> None:
+    """Zonder aangevinkte metingen toont de vergelijkingsmodus een melding."""
+    _app()
+    stub = _StubAnalysisService(
+        rows=[_row(1, _ms(2026, 10, 1), esr_ohm=0.1)]
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.chart_type_combo.setCurrentIndex(
+            widget.chart_type_combo.findData(_CHART_TYPE_VERGELIJK)
+        )
+        widget.refresh()
+        tekst = widget.state_label.text().lower()
+        assert "selecteer" in tekst or "select" in tekst
+    finally:
+        widget.deleteLater()
+
+
+def _vink_rijen_aan_op_id(
+    widget: AnalysisScreen, measurement_ids: list[int]
+) -> None:
+    """Vink rijen aan op basis van meet-id, met processEvents na elke wissel.
+
+    Sinds 5C triggert elke setCheckState bij scope SELECTED een
+    refresh(preserve_selection=True). Die refresh bouwt de tabel
+    opnieuw op. Wie in een lus op rij-index werkt, grijpt na de
+    eerste wissel een verouderd item aan. Deze helper zoekt de rij
+    telkens opnieuw op via _select_measurement_row_by_id en laat Qt
+    even ademen, zodat de selectie klopt wanneer de lus klaar is.
+    """
+    for mid in measurement_ids:
+        assert widget._select_measurement_row_by_id(mid), (
+            f"meting {mid} niet gevonden in de selectietabel"
+        )
+        QApplication.processEvents()
+
+
+def test_vergelijk_te_veel_reeksen_toont_melding() -> None:
+    """Bij meer dan 5 aangevinkte metingen toont de GUI een melding."""
+    _app()
+    rijen = [_row(i, _ms(2026, 10, 1), esr_ohm=0.1) for i in range(1, 8)]
+    stub = _StubAnalysisService(rows=rijen)
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.chart_type_combo.setCurrentIndex(
+            widget.chart_type_combo.findData(_CHART_TYPE_VERGELIJK)
+        )
+        widget.refresh()
+        _vink_rijen_aan_op_id(widget, [1, 2, 3, 4, 5, 6])
+        widget.refresh(preserve_selection=True)
+        tekst = widget.state_label.text().lower()
+        assert "maximum" in tekst or "maximaal" in tekst
+        assert "6" in tekst
+    finally:
+        widget.deleteLater()
+
+
+def test_vergelijk_twee_reeksen_tekent_twee_lijnen() -> None:
+    """Bij 2 aangevinkte metingen verschijnen 2 QLineSeries met vaste kleur."""
+    _app()
+    stub = _StubAnalysisService(
+        rows=[
+            _row(1, _ms(2026, 10, 1), esr_ohm=0.1),
+            _row(2, _ms(2026, 10, 2), esr_ohm=0.2),
+            _row(3, _ms(2026, 10, 3), esr_ohm=0.3),
+        ],
+        vergelijk=[
+            VergelijkReeks(
+                measurement_id=3,
+                label="Meting #3 · 300 mΩ",
+                color_index=0,
+                points=(
+                    TimeSeriesPoint(_ms(2026, 10, 3), 0.3, 3, "ESR_CAPACITOR"),
+                ),
+            ),
+            VergelijkReeks(
+                measurement_id=1,
+                label="Meting #1 · 100 mΩ",
+                color_index=1,
+                points=(
+                    TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR"),
+                ),
+            ),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.chart_type_combo.setCurrentIndex(
+            widget.chart_type_combo.findData(_CHART_TYPE_VERGELIJK)
+        )
+        widget.refresh()
+        _vink_rijen_aan_op_id(widget, [3, 1])
+        widget.refresh(preserve_selection=True)
+        lijnen = [
+            s for s in widget.chart.series() if isinstance(s, QLineSeries)
+        ]
+        assert len(lijnen) == 2
+        # Kleur 0 = eerste kleur in de vaste cyclus.
+        eerste_kleur = lijnen[0].pen().color().name().lower()
+        assert eerste_kleur == _VERGELIJK_COLORS[0].lower()
+    finally:
+        widget.deleteLater()
+
+
+def test_vergelijk_y_as_gebruikt_clamping() -> None:
+    """De vergelijkingsmodus past dezelfde 5A-clamping toe op de Y-as.
+
+    v1.9.2: deze test gebruikt nu 5 punten in één reeks (4 normale
+    ESR-waarden + 1 uitschieter). Bij minder dan 4 punten past
+    bereken_y_as_range() de Tukey-fence niet toe (bewuste 5A-keuze:
+    IQR is dan onbetrouwbaar) en valt hij terug op min/max + 5% marge.
+    Met 5 punten triggert de Tukey-fence wél en blijft axis_y.max()
+    ruim onder 1000.
+    """
+    _app()
+    stub = _StubAnalysisService(
+        rows=[
+            _row(1, _ms(2026, 10, 1), esr_ohm=0.1),
+            _row(2, _ms(2026, 10, 2), esr_ohm=0.11),
+            _row(3, _ms(2026, 10, 3), esr_ohm=0.12),
+            _row(4, _ms(2026, 10, 4), esr_ohm=0.13),
+            _row(5, _ms(2026, 10, 5), esr_ohm=109.5),
+        ],
+        vergelijk=[
+            VergelijkReeks(
+                measurement_id=1,
+                label="Meting #1 · 100 mΩ",
+                color_index=0,
+                points=(
+                    TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR"),
+                    TimeSeriesPoint(_ms(2026, 10, 2), 0.11, 2, "ESR_CAPACITOR"),
+                    TimeSeriesPoint(_ms(2026, 10, 3), 0.12, 3, "ESR_CAPACITOR"),
+                    TimeSeriesPoint(_ms(2026, 10, 4), 0.13, 4, "ESR_CAPACITOR"),
+                    TimeSeriesPoint(_ms(2026, 10, 5), 109.5, 5, "ESR_CAPACITOR"),
+                ),
+            ),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.chart_type_combo.setCurrentIndex(
+            widget.chart_type_combo.findData(_CHART_TYPE_VERGELIJK)
+        )
+        widget.refresh()
+        _vink_rijen_aan_op_id(widget, [1])
+        widget.refresh(preserve_selection=True)
+        axis_y = _y_axis(widget)
+        assert axis_y is not None
+        # Met 5 punten (4 normaal + 1 uitschieter) past de Tukey-fence
+        # toe en blijft max < 1000. Zonder clamping zou max ~ 114970
+        # zijn (109.5 Ω * 1000 * 1.05).
+        assert axis_y.max() < 1000.0, axis_y.max()
     finally:
         widget.deleteLater()

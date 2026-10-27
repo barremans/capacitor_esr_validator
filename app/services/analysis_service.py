@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/services/analysis_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-20
+Versie:     1.2.0
+Datum:      2026-10-27
 Auteur:     Bart Bossuyt
 
 Doel:       Read-only applicatieservice voor grafieken en trends.
@@ -23,6 +23,12 @@ Wijzigingen:
                         wordt na het ophalen toegepast, zodat de
                         bestaande service-API per bron atomair blijft en
                         de paginering ongewijzigd werkt.
+  v1.2.0 (2026-10-27)  Fase 5D: nieuwe methode vergelijken(). Bouwt per
+                        meting een VergelijkReeks met ruwe ESR-punten.
+                        De methode heeft een max_reeksen-parameter
+                        (default 5) en valideert dat aantal. Geen
+                        aggregatie: de vergelijkingsmodus toont ruwe
+                        metingen.
 ================================================================================
 """
 
@@ -35,11 +41,13 @@ from app.helpers.analysis_series import (
     Aggregation,
     ScatterPoint,
     TimeSeriesPoint,
+    VergelijkReeks,
     aggregate_time_series,
     build_capacitance_series,
     build_dissipation_series,
     build_esr_series,
     build_scatter_esr_vs_capacitance,
+    build_vergelijk_reeksen,
 )
 from app.services.history_service import MeasurementHistoryService
 
@@ -155,3 +163,32 @@ class AnalysisService:
     ) -> list[ScatterPoint]:
         rows = self.load_rows(filters, measurement_ids=measurement_ids)
         return build_scatter_esr_vs_capacitance(rows)
+
+    def vergelijken(
+        self,
+        measurement_ids: list[int],
+        *,
+        max_reeksen: int = 5,
+        filters: Mapping[str, Any] | None = None,
+    ) -> list[VergelijkReeks]:
+        """Bouw vergelijkingsreeksen voor de opgegeven meting-ids (5D).
+
+        ``measurement_ids`` is de geordende lijst van aangevinkte ids.
+        De volgorde bepaalt de kleurtoewijzing in de GUI.
+
+        ``max_reeksen`` (default 5) begrenst het aantal reeksen.
+        Bij meer ids: ValueError met een duidelijke melding.
+
+        ``filters`` is optioneel en wordt gebruikt om de onderliggende
+        historiekqueries te beperken (dezelfde filters als de
+        Analyse-pagina). Bij ``None`` worden alle rijen opgehaald.
+        """
+        if not measurement_ids:
+            raise ValueError("measurement_ids mag niet leeg zijn.")
+
+        rows = self.load_rows(filters, measurement_ids=measurement_ids)
+        return build_vergelijk_reeksen(
+            rows,
+            measurement_ids=measurement_ids,
+            max_reeksen=max_reeksen,
+        )

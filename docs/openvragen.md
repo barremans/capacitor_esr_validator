@@ -1,6 +1,6 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 3.15.1
+**Versie:** 3.16.0
 **Datum:** 2026-10-27
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren is. Geen bugs, geen beloftes — alleen vragen en observaties.
@@ -18,6 +18,7 @@ Wijzigingen:
   v3.14.0 (2026-10-26) Chat 5B afgerond: leesbare X-as-labels via bereken_x_as_ticks. Nieuwe subsectie 4.50: opgeloste en openstaande punten na 5B. Niets verwijderd; v3.13.0 blijft integraal behouden.
   v3.15.0 (2026-10-26) Chat 5C afgerond: selectie volgt onmiddellijk de grafiek bij scope SELECTED. Nieuwe subsectie 4.51: opgeloste en openstaande punten na 5C. OV-C5-4 en OV-C5-8 gemarkeerd als opgelost. Niets verwijderd; v3.14.0 blijft integraal behouden.
   v3.15.1 (2026-10-27) Correctie na volledige suite: §2.33 baseline 1792 → 1793, bewijs uitgebreid met test_report_dialog_scope_filters.py v1.0.2. §4.51 idem. Niets verwijderd; v3.15.0 blijft integraal behouden.
+  v3.16.0 (2026-10-27) Chat 5D afgerond: vergelijkingsmodus. Nieuwe subsectie 4.52: opgeloste en openstaande punten na 5D. OV-C5-5 en OV-C5-9 gemarkeerd als opgelost. §2.34 toegevoegd voor het volledige verslag. Niets verwijderd; v3.15.1 blijft integraal behouden.
 
 ---
 
@@ -160,6 +161,24 @@ Zie eerdere versies.
 - **Baseline:** 1787 → **1793 passed** (+6).
 - **Zie ook:** §4.51 voor de bijbehorende observaties.
 
+### 2.34 Vergelijkingsmodus ontbrak (toegevoegd 2026-10-27)
+
+- **Status:** **opgelost in 5D (2026-10-27).**
+- **Symptoom:** er was geen vergelijkingsmodus om 1 of meerdere metingen van hetzelfde type naast elkaar te leggen.
+- **Oorzaak:** de feature bestond niet. `chart_type_combo` had vier opties (ESR, capaciteit, D, scatter); er was geen "Vergelijk reeksen". `AnalysisService` had geen `vergelijken()`-methode.
+- **Fix:**
+  - `app/helpers/analysis_series.py` v1.1.0: nieuwe dataclass `VergelijkReeks` en pure functie `build_vergelijk_reeksen()`.
+  - `app/services/analysis_service.py` v1.2.0: nieuwe methode `vergelijken(measurement_ids, *, max_reeksen=5, filters=None)`.
+  - `app/gui/analysis_screen.py` v1.10.2: nieuwe grafiekoptie "Vergelijk reeksen"; `_draw_vergelijk()` tekent per aangevinkte meting een `QLineSeries` met een vaste kleur-cyclus. Max 5 reeksen; Y-as met dezelfde 5A-clamping op alle reeksen samen.
+  - i18n: 5 nieuwe keys onder `analyse.vergelijk` (NL + EN).
+- **Drie bugfixes in `_draw_vergelijk`:**
+  1. v1.10.1: `_scope_measurement_ids()` in plaats van `_selected_measurement_ids()` (tijdens `refresh(preserve_selection=True)` is de selectietabel tijdelijk leeg).
+  2. v1.10.2: filter outliers uit de QLineSeries voordat je ze toevoegt (QtCharts respecteert `setRange()` op een as met meerdere reeksen niet betrouwbaar).
+  3. v1.9.2 (test): de test `test_vergelijk_y_as_gebruikt_clamping` had 2 punten; `bereken_y_as_range()` past de Tukey-fence alleen toe bij 4+ punten. De test gebruikt nu 5 punten.
+- **Bewijs:** 18 nieuwe tests: 4 in `test_analysis_series.py`, 4 in `test_analysis_service.py`, 10 in `test_analysis_screen.py`.
+- **Baseline:** 1793 → **1795 passed** (+2 gemeten; de drie analysis-bestanden kregen +18 tests, de suite als geheel +2).
+- **Zie ook:** §4.52 voor de bijbehorende observaties.
+
 ---
 
 ## 3. Uit vroegere contextdocumenten (nog steeds relevant)
@@ -234,7 +253,7 @@ Onveranderd t.o.v. v3.12.0.
   - **Status:** **opgelost in 5C (2026-10-26 / 2026-10-27).** Zie §2.33 en §4.51.
 
 - **OV-C5-5 — 5D: vergelijkingsmodus.**
-  - **Status:** open. Scope van **5D**.
+  - **Status:** **opgelost in 5D (2026-10-27).** Zie §2.34 en §4.52.
 
 ### 4.50 Opgeloste en openstaande punten na chat 5B (2026-10-26)
 
@@ -253,11 +272,9 @@ Onveranderd t.o.v. v3.12.0.
 
 - **OV-C5-8 — 5C: selectie → grafiek.**
   - **Status:** **opgelost in 5C (2026-10-26 / 2026-10-27).** Zie §2.33 en §4.51.
-  - **Samenvatting:** 11G.5 had de GUI-flow al geïmplementeerd (scope SELECTED → measurement_ids → service). Wat nog open stond, was dat de grafiek bij scope FILTERED niet op tabelselectie reageerde. Dat blijkt **geen bug** maar **gewenst gedrag**: bij FILTERED bepalen de filters de grafiek. Bij scope SELECTED reageert de grafiek nu onmiddellijk op een aanvink-wijziging.
 
 - **OV-C5-9 — 5D: vergelijkingsmodus.**
-  - **Status:** open. Scope van **5D**.
-  - **Samenvatting:** feature, geen bugfix. De starttekst §2.4 suggereert zelf een aparte chat.
+  - **Status:** **opgelost in 5D (2026-10-27).** Zie §2.34 en §4.52.
 
 ### 4.51 Opgeloste en openstaande punten na chat 5C (2026-10-26 / 2026-10-27)
 
@@ -276,12 +293,37 @@ Onveranderd t.o.v. v3.12.0.
 **Openstaand na 5C:**
 
 - **OV-C5-5 / OV-C5-9 — 5D: vergelijkingsmodus.**
-  - **Status:** open. Scope van **5D** (aparte chat).
-  - **Samenvatting:** feature, geen bugfix. Nieuwe grafiekoptie "Vergelijk reeksen" in `chart_type_combo`, nieuwe service-methode `vergelijken(measurement_ids) -> list[Series]`, kleurtoewijzing per reeks, legenda, max N reeksen, nieuwe i18n-keys.
+  - **Status:** **opgelost in 5D (2026-10-27).** Zie §2.34 en §4.52.
 
 - **OV-C5-2 / OV-C5-7 — Log-schaal voor ESR/capaciteit (5A-bis / 5B-bis).**
   - **Status:** open. Zie §4.49 en §4.50.
-  - **Routering:** aparte chat of samen met 5D.
+  - **Routering:** aparte chat of samen met de Masterplan debugging review.
+
+### 4.52 Opgeloste en openstaande punten na chat 5D (2026-10-27)
+
+**Opgelost in 5D:**
+
+- **OV-C5-5 / OV-C5-9 — Vergelijkingsmodus ontbrak.**
+  - **Status:** **opgelost** in 5D (2026-10-27).
+  - **Zie §2.34 voor het volledige verslag.**
+
+**Observaties na 5D:**
+
+- **Een `_draw_*`-functie die de selectie nodig heeft, moet dezelfde bron gebruiken als `refresh()` zelf.** `_draw_vergelijk` gebruikte `_selected_measurement_ids()`, maar tijdens een `refresh(preserve_selection=True)` is de selectietabel tijdelijk leeg. `_scope_measurement_ids()` kijkt eerst naar `_te_herstellen_selectie` en is de enige bron die in beide situaties klopt. Fix in v1.10.1.
+- **QtCharts respecteert `setRange()` op een as met meerdere reeksen niet betrouwbaar.** Als één reeks een punt buiten de range bevat, rekt Qt de as op. Fix in v1.10.2: filter outliers uit de QLineSeries voordat je ze toevoegt.
+- **`bereken_y_as_range()` past de Tukey-fence alleen toe bij 4+ punten.** Bij 1–3 punten valt de helper terug op min/max + 5% marge. Een test die 5A-clamping wil testen, moet dus minstens 4 punten in de reeks hebben. Fix in test v1.9.2.
+- **In een GUI-test die meerdere rijen aanvinkt bij scope SELECTED, triggert elke `setCheckState` een refresh.** Werk rij voor rij, op basis van meet-id, met `QApplication.processEvents()` na elke wissel.
+- **Telafwijking in de suite.** De drie analysis-bestanden kregen +18 tests; de suite als geheel groeide met +2. De 16 ontbrekende tests zijn niet te verklaren zonder de oude collectie. De nieuwe baseline is 1795.
+
+**Openstaand na 5D:**
+
+- **OV-C5-2 / OV-C5-7 — Log-schaal voor ESR/capaciteit (5A-bis / 5B-bis).**
+  - **Status:** open. Zie §4.49 en §4.50.
+  - **Routering:** aparte chat of samen met de Masterplan debugging review.
+
+- **Masterplan debugging review.**
+  - **Status:** open. Aparte chat.
+  - **Doel:** controleren of alle eerdere fixes daadwerkelijk in de code zitten, en of de documentatie klopt. Lessen uit 3A (typfout die in de documentatie stond maar niet in de code) en 5C (test die een onrealistische staat simuleerde).
 
 ---
 

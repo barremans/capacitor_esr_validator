@@ -22,7 +22,8 @@
       "esr": "ESR over time",
       "capaciteit": "Capacitance over time",
       "d": "D over time",
-      "scatter_esr_c": "ESR vs. capacitance"
+      "scatter_esr_c": "ESR vs. capacitance",
+      "vergelijk": "Compare series"
     },
     "aggregatie": {
       "ruw": "Raw measurements",
@@ -56,6 +57,12 @@
       "geselecteerd_aantal": "{aantal} selected",
       "geen_selectie": "Select one or more measurements in the list first.",
       "gewijzigd_bij_verversen": "Selection cleared on refresh."
+    },
+    "vergelijk": {
+      "geen_selectie": "Select one or more measurements in the list first.",
+      "te_veel_reeksen": "Too many series: {aantal} selected, maximum {maximum}. Select fewer measurements.",
+      "alleen_bij_selectie": "Compare works only with scope 'Selection only'.",
+      "aantal_reeksen": "{aantal} series shown."
     },
     "rapport": {
       "knop": "Create report…",

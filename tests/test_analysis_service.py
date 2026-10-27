@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_analysis_service.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.1.0
-Datum:      2026-10-20
+Versie:     1.2.0
+Datum:      2026-10-27
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor AnalysisService.
@@ -14,6 +14,9 @@ Wijzigingen:
   v1.1.0 (2026-10-20)  Fase 11G.5: tests voor de optionele
                         measurement_ids-filter in load_rows en in de
                         reeksfuncties.
+  v1.2.0 (2026-10-27)  Fase 5D: vier tests voor vergelijken(). Bewijst
+                        de volgorde, de max_reeksen-validatie, het
+                        lege-input-gedrag en de lege rijen-input.
 ================================================================================
 """
 
@@ -27,6 +30,7 @@ import pytest
 from app.helpers.analysis_series import (
     ScatterPoint,
     TimeSeriesPoint,
+    VergelijkReeks,
 )
 from app.services.analysis_service import AnalysisService
 
@@ -138,3 +142,42 @@ def test_load_rows_measurement_ids_none_geeft_alle_rijen() -> None:
     ])
     rows = service.load_rows(measurement_ids=None)
     assert [r["measurement"].id for r in rows] == [1, 2]
+
+
+# ============================================================================
+# v1.2.0 — vergelijken() (fase 5D)
+# ============================================================================
+
+def test_vergelijken_volgt_ids_volgorde() -> None:
+    """De volgorde van de reeksen volgt de ids, niet de sortering van rijen."""
+    service = _make_service([
+        _row(1, 1_000, esr_ohm=0.1),
+        _row(2, 2_000, esr_ohm=0.2),
+        _row(3, 3_000, esr_ohm=0.3),
+    ])
+    reeksen = service.vergelijken([3, 1])
+    assert all(isinstance(r, VergelijkReeks) for r in reeksen)
+    assert [r.measurement_id for r in reeksen] == [3, 1]
+    assert [r.color_index for r in reeksen] == [0, 1]
+
+
+def test_vergelijken_te_veel_reeksen_faalt() -> None:
+    """Bij meer dan max_reeksen: ValueError."""
+    service = _make_service([_row(i, i * 1_000, esr_ohm=0.1) for i in range(1, 7)])
+    with pytest.raises(ValueError, match="Te veel reeksen"):
+        service.vergelijken([1, 2, 3, 4, 5, 6], max_reeksen=5)
+
+
+def test_vergelijken_leeg_input_faalt() -> None:
+    """Lege measurement_ids: ValueError."""
+    service = _make_service([])
+    with pytest.raises(ValueError, match="measurement_ids"):
+        service.vergelijken([])
+
+
+def test_vergelijken_lege_rijen_geeft_lege_reeksen() -> None:
+    """Bij een lege service blijven de reeksen bestaan, maar zonder punten."""
+    service = _make_service([])
+    reeksen = service.vergelijken([1, 2])
+    assert len(reeksen) == 2
+    assert all(r.points == () for r in reeksen)

@@ -363,8 +363,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Read-only Analyse-pagina binnen het hoofdvenster.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.9.1
-        # Datum: 2026-10-26
+        # Versie: 1.10.2
+        # Datum: 2026-10-27
         ```
       - 📄 **/app/gui/documentation_screen.py**
         ```text
@@ -425,8 +425,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Pure, GUI- en storage-onafhankelijke functies voor het bouwen van
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.0.1
-        # Datum: 2026-10-09
+        # Versie: 1.1.0
+        # Datum: 2026-10-27
         ```
       - 📄 **/app/helpers/async_worker.py**
         ```text
@@ -643,8 +643,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Read-only applicatieservice voor grafieken en trends.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.1.0
-        # Datum: 2026-10-20
+        # Versie: 1.2.0
+        # Datum: 2026-10-27
         ```
       - 📄 **/app/services/assessment_service.py**
         ```text
@@ -901,8 +901,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: GUI-regressietests voor AnalysisScreen.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.8.1
-      # Datum: 2026-10-26
+      # Versie: 1.9.2
+      # Datum: 2026-10-27
       ```
     - 📄 **/tests/test_analysis_screen_nan.py**
       ```text
@@ -928,8 +928,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor de pure analyse-reeksfuncties.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.0.0
-      # Datum: 2026-10-09
+      # Versie: 1.1.0
+      # Datum: 2026-10-27
       ```
     - 📄 **/tests/test_analysis_service.py**
       ```text
@@ -937,8 +937,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Beschrijving: Regressietests voor AnalysisService.
       # Auteur: Bart Bossuyt
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-      # Versie: 1.1.0
-      # Datum: 2026-10-20
+      # Versie: 1.2.0
+      # Datum: 2026-10-27
       ```
     - 📄 **/tests/test_assessment.py**
       ```text
@@ -1936,6 +1936,13 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
     # Versie: 1.0.0
     ```
   - 📄 **/collect_huidig.txt**
+    ```text
+    # Beschrijving: GEEN BESCHRIJVING
+    # Auteur: GEEN AUTEUR
+    # Applicatie: GEEN APPLICATIE
+    # Versie: V1.0.0
+    ```
+  - 📄 **/collect_nu.txt**
     ```text
     # Beschrijving: GEEN BESCHRIJVING
     # Auteur: GEEN AUTEUR

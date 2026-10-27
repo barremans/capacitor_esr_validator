@@ -16,20 +16,20 @@ Note on version numbering:
 - For the current version: see `app/version.py` or Help → About.
 -->
 
-### Chat 5 — Analysis: Y-axis, X-axis, readability and selection (26–27 October 2026)
+### Chat 5 — Analysis: comparison mode, Y-axis, X-axis and selection (26–27 October 2026)
 
 **Why this change**
 
-The Analysis page had three persistent problems that made the charts
-unreadable or unresponsive: the Y-axis was completely stretched by a
-single extreme measurement (master plan C2, part 1), the X-axis showed
-literally "..." on every tick for log-distributed data (master plan
-C2, part 2), and checking a row in the selection table did not update
-the chart at scope "Selection only" (master plan C2, part 3). All
-three have been fixed with pure, testable helpers and one GUI-flow
-change.
+The Analysis page had four problems: the Y-axis was completely
+stretched by a single extreme measurement (master plan C2, part 1),
+the X-axis showed literally "..." on every tick for log-distributed
+data (master plan C2, part 2), checking a row in the selection table
+did not update the chart at scope "Selection only" (master plan C2,
+part 3), and there was no comparison mode to put multiple measurements
+side by side (master plan C2, part 4). All four have been fixed with
+pure, testable helpers and GUI changes.
 
-**Solution: three sub-phases**
+**Solution: four sub-phases**
 
 - **5A — Smart Y-axis clamping (outliers).** The Y-axis of the time
   series and the scatter plot was set directly to min/max. One
@@ -58,6 +58,17 @@ change.
   `selection_changed.emit()` was removed because
   `_update_selection_count()` already emits. `AnalysisScreen`
   v1.9.0 → **v1.9.1**. Baseline 1787 → **1793** (+6).
+- **5D — Comparison mode.** New chart type "Compare series". New
+  dataclass `VergelijkReeks` and pure function
+  `build_vergelijk_reeksen()` in `analysis_series.py` v1.1.0. New
+  service method `vergelijken()` in `analysis_service.py` v1.2.0.
+  New `_draw_vergelijk()` in `AnalysisScreen` v1.10.2: one
+  `QLineSeries` per checked measurement with a fixed colour cycle
+  (blue/orange/green/red/purple), max 5 series, Y-axis with the same
+  5A clamping on all series together. At scope FILTERED or without a
+  selection, a message is shown. Five new i18n keys under
+  `analyse.vergelijk`. Baseline 1793 → **1795** (+2 measured; the
+  three analysis files gained +18 tests, the suite as a whole +2).
 
 **Important observations**
 
@@ -83,149 +94,74 @@ change.
   test that simulates an unrealistic state can break as soon as the
   production code validates more — rewrite the test, not the
   production code.
+- **5D (selection source):** a `_draw_*` function that needs the
+  selection must use the same source as `refresh()` itself —
+  `_scope_measurement_ids()`, not `_selected_measurement_ids()`.
+  During a `refresh(preserve_selection=True)` the selection table is
+  temporarily empty. Fixed in v1.10.1.
+- **5D (QtCharts and multiple series):** QtCharts does not reliably
+  respect a `setRange()` on an axis with multiple series. If one
+  series contains a point outside the range, Qt expands the axis.
+  Fixed in v1.10.2: filter outliers out of the QLineSeries before
+  adding them.
+- **5D (Tukey fence with few points):** `bereken_y_as_range()` only
+  applies the Tukey fence with 4 or more points. With 1–3 points the
+  helper falls back to min/max + 5% margin. A test that wants to
+  verify 5A clamping must therefore have at least 4 points in the
+  series. Fixed in test v1.9.2.
+- **5D (checking multiple rows in a test):** in a GUI test that checks
+  multiple rows at scope SELECTED, each `setCheckState` triggers a
+  refresh. Work row by row, by measurement id, with
+  `QApplication.processEvents()` after each change.
 
 **For developers**
 
 - **New:** `app/helpers/chart_axis.py` (v1.1.1) — `bereken_y_as_range`
   and `bereken_x_as_ticks`.
-- **Changed:** `app/gui/analysis_screen.py` (v1.7.2 → **v1.9.1**) —
+- **New:** `app/helpers/analysis_series.py` v1.1.0 — `VergelijkReeks`
+  and `build_vergelijk_reeksen`.
+- **Changed:** `app/gui/analysis_screen.py` (v1.7.2 → **v1.10.2**) —
   Y-axis clamping, X-axis ticks, `state_label` indicator,
-  selection-driven refresh at scope SELECTED.
+  selection-driven refresh at scope SELECTED, comparison mode.
+- **Changed:** `app/services/analysis_service.py` (v1.1.0 → **v1.2.0**)
+  — `vergelijken()`.
 - **Changed:** `app/helpers/report_chart.py` (v1.0.3 → **v1.2.0**) —
   the same helpers in both render functions.
-- **New i18n key:** `analyse.outliers_verborgen` (NL + EN).
-- **New tests:** `tests/test_chart_axis.py` (v1.1.0, 12 tests).
-- **Extended:** `tests/test_analysis_screen.py` (v1.6.2 → v1.8.1,
-  +10 tests across 5A/5B/5C), `tests/test_report_chart.py`
+- **New i18n keys:** `analyse.outliers_verborgen`,
+  `analyse.grafiektype.vergelijk`, `analyse.vergelijk.geen_selectie`,
+  `analyse.vergelijk.te_veel_reeksen`,
+  `analyse.vergelijk.alleen_bij_selectie`,
+  `analyse.vergelijk.aantal_reeksen` (NL + EN).
+- **New tests:** `tests/test_chart_axis.py` (v1.1.0, 12 tests),
+  `tests/test_analysis_series.py` (v1.1.0, 4 tests).
+- **Extended:** `tests/test_analysis_screen.py` (v1.6.2 → v1.9.2,
+  +18 tests across 5A/5B/5C/5D), `tests/test_report_chart.py`
   (v1.0.0 → v1.2.0, +3 tests),
+  `tests/test_analysis_service.py` (v1.1.0 → v1.2.0, +4 tests),
   `tests/test_main_window_report_menu.py` (v1.4.1 → v1.4.2, +1 test),
   `tests/test_report_dialog_scope_filters.py` (v1.0.1 → v1.0.2,
   1 test rewritten, +1 test).
-- **Baseline:** 1766 → **1793 passed** (+27 tests across 5A, 5B and
-  5C).
+- **Baseline:** 1766 → **1795 passed** (+29 tests across 5A, 5B, 5C
+  and 5D; the suite as a whole 1795).
 
 ### Chat 4 — Assessment, schema v4 and type matching (26 October 2026)
 
-**Why this change**
-
-Three substantive points from the master plan were still open: B1
-(EX_SITU reliability), B2 (physically impossible values), OV-S4
-(scalar fields not type-validated) and B3/OL status (schema v4), plus
-B4 (type matching §14). The chat was split into three sub-phases:
-4A (assessment sanity checks), 4B (OL status and schema v4) and 4C
-(type matching §14).
-
-**Total:** +48 tests. Baseline **1718 → 1766 passed**.
-
-#### 4A — Assessment sanity checks (2026-10-26, +21 tests)
-
-- **B1-a:** `assessment_service.bepaal_betrouwbaarheid` used an exact
-  string match `condensatortype != "Aluminium elektrolytisch"`. Valid
-  variants from `CONDENSATORTYPES` ("Low ESR", "Bipolar/NP") were
-  therefore booked as "type unknown", with an unwarranted drop in
-  reliability and final status. Fix: new pure helper
-  `is_elektrolytisch_type` (later moved to
-  `app/helpers/technology.py` in 4C).
-- **B2:** `beoordeel_esr` and `beoordeel_capaciteit` had no physical
-  plausibility check. Fix: two new configurable sanity thresholds in
-  `BeoordelingsInstellingen`.
-- **OV-S4:** `meetfrequentie_hz="hoog"` was stored as a string. Fix:
-  new pure helper `valideer_en_normaliseer` in `settings.py`.
-
-#### 4B — OL status and schema v4 (2026-10-26, +17 tests)
-
-- **B3:** schema v3 → v4. New column `meetstatus` on `measurements`
-  (TEXT NOT NULL DEFAULT 'NORMAL', CHECK on
-  NORMAL/OL/UNDER_RANGE/OVER_RANGE/UNKNOWN), plus index
-  `ix_measurements_meetstatus`. Existing measurements get NORMAL.
-- **Migration v3 → v4:** `_migrate_v3_to_v4` in `migrations.py`.
-- **Model:** new enum `Meetstatus`.
-- **Service:** `create_measurement(meetstatus=...)`.
-- **GUI:** new private helper `_meetstatus_voor_opslag()`.
-
-#### 4C — Type matching §14 (2026-10-26, +10 tests)
-
-- **B4:** `zoek_referentie` used a default
-  `condensatortype="Aluminium elektrolytisch"` and filtered on exact
-  string equality. Fix: new shared helper module
-  `app/helpers/technology.py` with `is_elektrolytisch_type`,
-  `technologie_familie` and `zelfde_technologie_familie`.
-  `zoek_referentie` explicitly blocks non-electrolytic types.
+See earlier version for the full text. Summary: assessment sanity
+checks (B1/B2), OL status and schema v4 (B3), type matching §14 (B4).
++48 tests. Baseline **1718 → 1766 passed**.
 
 ### Chat 3 — Import wizard and exchange selection (26 October 2026)
 
-**Why this change**
-
-Two previously reported points from the master plan turned out not to
-work, or not to work correctly, in practice: the "Import document…"
-button did not open the import wizard (A2), and the exchange dialog
-exported the filters instead of the checked selection (A4). Both are
-debug points, not new features.
-
-**Solution: two sub-phases**
-
-- **3A — Import wizard (master plan A2).** The button "File → Import
-  document…" and the "Import" button on the Documentation page did
-  nothing. Cause: a typo in `main_window._show_import_wizard()` —
-  `self._zet_dialoog_icono(...)` instead of
-  `self._zet_dialoog_icoon(...)`. The error raised an
-  `AttributeError` before `dialog.exec()`. Fix: one line in
-  `app/gui/main_window.py` (v2.23.0 → v2.23.1). New test:
-  `tests/test_main_window_import_menu.py` (v1.0.1, 4 tests).
-  Baseline 1711 → **1715**.
-- **3B — Exchange selection (master plan A4).** The exchange dialog
-  exported the filters instead of the selection. Cause: two
-  independent `if` rules in `ExchangeDialog._build_export_tab()`
-  determined the default scope; the second (on `active_filters`)
-  overwrote the first (on `selected_measurement_ids`). Fix: new
-  private helper `_bepaal_default_scope()` with an explicit priority —
-  selection > filters > selection-as-fallback.
-  `exchange_dialog.py` v1.0.1 → v1.0.2. New tests: 3 in
-  `tests/test_exchange_dialog.py` (v1.0.1 → v1.0.2). Baseline
-  1715 → **1718**.
-
-**Important observation**
-
-The typo from 3A had already been mentioned in `overdracht.md` §2.2
-since §2.28 as "important bugfix in §2.28", but the code in
-`main_window.py` v2.23.0 still contained it. Documentation and code
-had drifted apart. Lesson: with every handover, check whether the
-mentioned bugfixes are actually present in the supplied files.
+See earlier version for the full text. Summary: typo in
+`main_window._show_import_wizard()` fixed (A2), exchange selection
+gets explicit priority (A4). Baseline 1711 → **1718**.
 
 ### Phase §2.28 — Export/import between devices (23 October 2026)
 
-**Motivation**
-
-The app stores measurements locally on one device. Anyone who wants to
-continue on a second PC had to copy the database by hand — with all the
-risks that entails. §2.28 adds an explicit exchange format: a JSON
-envelope of measurement chains, so you can selectively export and import
-measurements on another device without overwriting the existing history.
-
-**Solution: six sub-phases**
-
-- **28A — Format + models.** New binding spec
-  `docs/export_import_format.md` (v1.0.0). New models in
-  `app/services/exchange/models.py` (v1.0.0).
-- **28B — Export service.** `app/services/exchange/export_service.py`
-  (v1.0.1).
-- **28C — Import planner.** `app/services/exchange/import_planner.py`
-  (v1.0.0).
-- **28E — Schema migration v2 → v3.** Two new columns on
-  `measurements`.
-- **28D — Import service.** `app/services/exchange/import_service.py`
-  (v1.0.0).
-- **28F — GUI integration.** New `exchange_dialog.py` (v1.0.1),
-  two new menu items.
-
-**Important design decisions**
-
-- **JSON envelope, not SQLite dump.**
-- **Origin tracking via schema migration v3.**
-- **Natural key = content.**
-- **Conflict copy is the default.**
-- **Race check before each write.**
-- **Per-chain transactions.**
+See earlier version for the full text. Summary: JSON envelope of
+measurement chains, natural key on content, origin columns in schema
+v3, import planner, import service, export service, and GUI
+integration. +102 tests.
 
 ### Phase 11I — Build and cosmetics (22 October 2026)
 
