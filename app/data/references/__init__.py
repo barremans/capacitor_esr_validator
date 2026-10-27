@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/data/references/__init__.py
 Project:    Condensator- en ESR-validator (Windows)
-Versie:     2.1.0
-Datum:      2026-10-26
+Versie:     2.1.1
+Datum:      2026-10-27
 Auteur:     Ontwikkelaar
 
 Doel:       Laadt de ingebouwde referentietabellen uit esr_references.json
@@ -41,6 +41,13 @@ Wijzigingen:
                        - condensatortype=None matcht op alle profielen
                          (escape-hatch voor geavanceerd gebruik of
                          toekomstige technologieën).
+  v2.1.1 (2026-10-27)  Chat 6B (cosmetisch): inspringing in _beste_regel
+                       gecorrigeerd (15 → 16 spaties op de regel
+                       `zelfde_cap,`). Geen functionele wijziging; alleen
+                       stijl. Aanleiding: review van 6B constateerde een
+                       kleine stijlafwijking die bij een volgende refactor
+                       verwarrend kan zijn. Geen wijziging aan de
+                       selectie-, match- of blokkeerlogica.
 
 Referentie: docs/validation_rules.md §2 (referentiehiërarchie) en §14
             (type-match), docs/context.md §14, overdracht.md §8.
@@ -203,7 +210,7 @@ def _beste_regel(
         ]
         if zelfde_cap:
             return min(
-               zelfde_cap,
+                zelfde_cap,
                 key=lambda r: abs(r.spanningsklasse_v - spanningsklasse_v),
             )
 

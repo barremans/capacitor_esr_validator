@@ -131,6 +131,22 @@
       "bestandsnaam_detail": "historiek_detail_{timestamp}.csv",
       "beide_dialoog_titel": "Kies map voor overzicht + detail",
       "beide_geslaagd": "{aantal} meting(en) als overzicht en detail geëxporteerd naar {pad}."
+    },
+    "import": {
+      "knop": "Importeren",
+      "dialoog_titel": "Historiek importeren uit CSV of Excel",
+      "bestandsfilter": "CSV- of Excel-bestanden (*.csv *.xlsx)",
+      "ongeldig_type": "Niet-ondersteund bestandstype: {extensie}. Gebruik .csv of .xlsx.",
+      "validatiefout": "Bestand geweigerd: {bericht}",
+      "fout": "Import mislukt: {bericht}",
+      "geen_ketens": "Geen geldige meetketens gevonden in {totaal} rij(en); {fouten} fout(en).",
+      "bevestig_titel": "Import bevestigen",
+      "bevestig_tekst": "{geldig} geldige meetketen(s) gevonden, {fouten} fout(en). Doorgaan met importeren?",
+      "geslaagd": "{toegevoegd} toegevoegd, {overgeslagen} overgeslagen (duplicaat), {fouten} fout(en).",
+      "details_titel": "Importdetails",
+      "foutregel": "Rij {rij}, kolom {kolom}: {bericht}",
+      "foutregel_zonder_rij": "{bericht}",
+      "meer_fouten": "… en nog meer fouten (niet allemaal getoond)."
     }
   },
   "_comment": "Brontaal Nederlands — module history."

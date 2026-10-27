@@ -131,6 +131,22 @@
       "bestandsnaam_detail": "history_detail_{timestamp}.csv",
       "beide_dialoog_titel": "Choose folder for overview + detail",
       "beide_geslaagd": "{aantal} measurement(s) exported as overview and detail to {pad}."
+    },
+    "import": {
+      "knop": "Import",
+      "dialoog_titel": "Import history from CSV or Excel",
+      "bestandsfilter": "CSV or Excel files (*.csv *.xlsx)",
+      "ongeldig_type": "Unsupported file type: {extensie}. Use .csv or .xlsx.",
+      "validatiefout": "File rejected: {bericht}",
+      "fout": "Import failed: {bericht}",
+      "geen_ketens": "No valid measurement chains found in {totaal} row(s); {fouten} error(s).",
+      "bevestig_titel": "Confirm import",
+      "bevestig_tekst": "{geldig} valid measurement chain(s) found, {fouten} error(s). Continue importing?",
+      "geslaagd": "{toegevoegd} added, {overgeslagen} skipped (duplicate), {fouten} error(s).",
+      "details_titel": "Import details",
+      "foutregel": "Row {rij}, column {kolom}: {bericht}",
+      "foutregel_zonder_rij": "{bericht}",
+      "meer_fouten": "… and more errors (not all shown)."
     }
   },
   "_comment": "English translation — module history."

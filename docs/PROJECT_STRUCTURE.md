@@ -77,8 +77,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
           # Beschrijving: Laadt de ingebouwde referentietabellen uit esr_references.json
           # Auteur: Ontwikkelaar
           # Applicatie: Condensator- en ESR-validator (Windows)
-          # Versie: 2.1.0
-          # Datum: 2026-10-26
+          # Versie: 2.1.1
+          # Datum: 2026-10-27
           ```
         - 📄 **/app/data/references/esr_references.json**
       - 📄 **/app/data/.gitkeep**
@@ -390,8 +390,8 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Beschrijving: Compacte centrale read-only weergave van opgeslagen meethistoriek.
         # Auteur: Bart Bossuyt
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-        # Versie: 1.19.0
-        # Datum: 2026-10-22
+        # Versie: 1.20.1
+        # Datum: 2026-10-27
         ```
       - 📄 **/app/gui/main_window.py**
         ```text
@@ -508,6 +508,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
         # Versie: 1.2.0
         # Datum: 2026-10-01
+        ```
+      - 📄 **/app/helpers/history_import.py**
+        ```text
+        # Bestandsnaam: app/helpers/history_import.py
+        # Beschrijving: Pure, GUI- en database-onafhankelijke parser en validator voor
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.1.0
+        # Datum: 2026-10-27
         ```
       - 📄 **/app/helpers/i18n.py**
         ```text
@@ -654,6 +663,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
         # Applicatie: Condensator- en ESR-validator (Windows)
         # Versie: 1.7.1
         # Datum: 2026-10-26
+        ```
+      - 📄 **/app/services/history_import_service.py**
+        ```text
+        # Bestandsnaam: app/services/history_import_service.py
+        # Beschrijving: GUI-onafhankelijke import-service voor de historiek (C1).
+        # Auteur: Bart Bossuyt
+        # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+        # Versie: 1.0.0
+        # Datum: 2026-10-27
         ```
       - 📄 **/app/services/history_service.py**
         ```text
@@ -886,7 +904,7 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: GEEN APPLICATIE
       # Versie: V1.0.0
       ```
-    - 📄 **/tests/est_main_window_update_menu.py**
+    - 📄 **/tests/archive_main_window_update_menuV1.py**
       ```text
       # Bestandsnaam: tests/test_main_window_update_menu.py
       # Beschrijving: GUI-regressietests voor het Help-menu-item "Controleren op
@@ -1381,6 +1399,24 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Versie: 1.2.0
       # Datum: 2026-10-01
       ```
+    - 📄 **/tests/test_history_import.py**
+      ```text
+      # Bestandsnaam: tests/test_history_import.py
+      # Beschrijving: Regressietests voor de pure parser en validator van de
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-27
+      ```
+    - 📄 **/tests/test_history_import_service.py**
+      ```text
+      # Bestandsnaam: tests/test_history_import_service.py
+      # Beschrijving: Regressietests voor HistoryImportService (C1): dedup op
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-27
+      ```
     - 📄 **/tests/test_history_paging.py**
       ```text
       # Bestandsnaam: tests/test_history_paging.py
@@ -1398,6 +1434,15 @@ _Automatisch gegenereerd – niet handmatig aanpassen._
       # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
       # Versie: 1.0.0
       # Datum: 2026-10-01
+      ```
+    - 📄 **/tests/test_history_screen_import.py**
+      ```text
+      # Bestandsnaam: tests/test_history_screen_import.py
+      # Beschrijving: GUI-regressietests voor de C1-importknop in HistoryScreen.
+      # Auteur: Bart Bossuyt
+      # Applicatie: Electronics Diagnostic Tool Hub / ESR Tester (Windows)
+      # Versie: 1.0.0
+      # Datum: 2026-10-27
       ```
     - 📄 **/tests/test_history_screen_report_button.py**
       ```text

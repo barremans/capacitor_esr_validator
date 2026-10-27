@@ -2,8 +2,8 @@
 ================================================================================
 Module:     app/gui/history_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.19.0
-Datum:      2026-10-22
+Versie:     1.20.1
+Datum:      2026-10-27
 Auteur:     Bart Bossuyt
 
 Doel:       Compacte centrale read-only weergave van opgeslagen meethistoriek.
@@ -14,51 +14,13 @@ Doel:       Compacte centrale read-only weergave van opgeslagen meethistoriek.
             voor de volledige opgeslagen meetketen, assessments en referenties.
 
 Wijzigingen:
-  v1.0.0 (2026-10-01)  Eerste compacte historiekpagina.
-  v1.1.0 (2026-10-01)  Read-only detaildialoog toegevoegd.
-  v1.2.0 (2026-10-01)  "Herhaal meting" toegevoegd.
-  v1.3.0 (2026-10-01)  Compacte read-only filterbalk.
-  v1.4.0 (2026-10-01)  Multitool-historiek: Tool/Testtype-filter.
-  v1.5.0 (2026-10-01)  Tabel tool-neutraal met één kolom Meetwaarden.
-  v1.5.1 (2026-10-01)  Live taalwissel vervolledigd.
-  v1.5.2 (2026-10-01)  Fout-refresh maakt selectie-afhankelijke acties inactief.
-  v1.6.0 (2026-10-01)  Optionele Van/Tot-datumfilter.
-  v1.6.1 (2026-10-01)  Initialisatievolgorde datumvelden gecorrigeerd.
-  v1.6.2 (2026-10-01)  Filtervalidatiefouten vertaald getoond.
-  v1.7.0 (2026-10-01)  Historiekpaging via limit/offset-contract.
-  v1.8.0 (2026-10-01)  Read-only CSV-export van de volledige filterselectie.
-  v1.9.0 (2026-10-02)  Export v2: compact inklapbaar filterpaneel, exportscope,
-                        aparte overzicht- en detail-CSV.
-  v1.10.0 (2026-10-02) Exportdialoog gebruikt de ingestelde standaard exportmap.
-  v1.11.0 (2026-10-02) Laatste export-UX: checkboxselectie, exporttype-DDL,
-                        één Exporteren-knop, leesbare timestamp.
-  v1.12.0 (2026-10-05) Sneltoetsen toegevoegd (Fase 4F).
-  v1.13.0 (2026-10-07) Fase 5D'.3: exportdialoog start in laatste_exportmap.
-  v1.14.0 (2026-10-10) Fase 8C: knop "Rapport…" in de detaildialoog en knop
-                        "Rapport" in de tabel-bottom-row.
-  v1.15.0 (2026-10-16) Fase 11A.1: nieuw signaal selection_changed.
-  v1.15.1 (2026-10-16) Fase 11A.1-fix: selection_changed geëmit vanuit
-                        _update_detail_button() met snapshot-dedup.
-  v1.16.0 (2026-10-16) Fase 11A.2: _show_report_for_selected() respecteert
-                        de checkbox-selectie.
-  v1.17.0 (2026-10-16) Fase 11A.3: exportmap-logica via de nieuwe pure
-                        helper app/helpers/dialog_start_directory.
-  v1.17.1 (2026-10-16) Fase 11A.3-fix: _beste_export_start_directory en
-                        _onthoud_laatste_exportmap gebruiken uitsluitend de
-                        lokale laad_instellingen/sla_instellingen_op (dus
-                        de bestaande compatibiliteitswrappers), niet de
-                        centrale helper.
-  v1.18.0 (2026-10-21)  Fase 11H.5: detail-HTML en state-label per thema.
-  v1.19.0 (2026-10-22)  Fase 12E: _show_report_for_selected() kent nu drie
-                        modi. Checkbox-selectie → scope "Selectie"
-                        (bestaand, 11A.2). Geen checkbox-selectie maar
-                        wél actieve filters → scope "Huidige filters"
-                        (nieuw, §2.14). Geen selectie en geen filters →
-                        één rij geselecteerd → scope "Eén meting"
-                        (bestaand). Nieuwe private helper
-                        _heeft_actieve_filters() om te bepalen of de
-                        filter-dict niet-leeg is. Geen wijziging aan
-                        de bestaande selectie- of filterlogica.
+  v1.0.0 t/m v1.20.0  zie eerdere versies.
+  v1.20.1 (2026-10-27)  Fix: _run_import bewaart de import-samenvatting
+                        over de daaropvolgende refresh() heen. Zonder
+                        deze fix overschreef refresh() de melding met
+                        "leeg" of "aantal", waardoor de gebruiker de
+                        import-uitkomst niet zag. Geen wijziging aan
+                        refresh() zelf; geen invloed op bestaande tests.
 ================================================================================
 """
 
@@ -83,6 +45,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -109,6 +72,12 @@ from app.helpers.history_filters import (
     parse_local_date_start_ms,
     parse_local_date_end_ms,
 )
+from app.helpers.history_import import (
+    ImportValidatieFout,
+    ONDERSTEUNDE_EXTENSIES,
+    parse_bestand,
+)
+from app.services.history_import_service import HistoryImportService
 from app.services.history_service import MeasurementHistoryService
 from app.services.repeat_measurement_service import build_repeat_measurement_preset
 
@@ -126,8 +95,6 @@ from app.helpers.history_formatting import (
 )
 
 
-# Sinds 11H.5: kleuren voor de detail-HTML per thema. De donkere set is
-# de bestaande set; de lichte set is nieuw.
 DETAIL_HTML_COLORS: dict[str, dict[str, str]] = {
     "dark": {
         "body_bg": "#1E1E1E",
@@ -161,13 +128,14 @@ class HistoryScreen(QWidget):
         *,
         theme: str = "dark",
         history_service: MeasurementHistoryService | None = None,
+        import_service: HistoryImportService | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self.taal = taal
-        # 11H.5: thema bepaalt de detail-HTML en de state-label-kleur.
         self.theme = normaliseer_thema(theme)
         self._history_service = history_service or MeasurementHistoryService()
+        self._import_service = import_service or HistoryImportService()
         self._page_size = 100
         self._page_index = 0
         self._has_next_page = False
@@ -223,12 +191,6 @@ class HistoryScreen(QWidget):
         return DETAIL_HTML_COLORS.get(self.theme, DETAIL_HTML_COLORS["dark"])
 
     def apply_theme(self, theme: str) -> None:
-        """Werkt het thema bij en past de state-label-kleur aan.
-
-        Geen refresh: de bestaande tabel en detaildata blijven staan.
-        De detail-HTML wordt pas opnieuw gerenderd als de gebruiker de
-        detaildialoog opent.
-        """
         nieuw = normaliseer_thema(theme)
         if nieuw == self.theme:
             return
@@ -273,6 +235,11 @@ class HistoryScreen(QWidget):
         top.addWidget(self.export_btn)
 
         self.export_csv_btn = self.export_btn
+
+        # C1: import-knop naast de export-knop.
+        self.import_btn = QPushButton(self._t("historiek.import.knop"))
+        self.import_btn.clicked.connect(self._import_from_file)
+        top.addWidget(self.import_btn)
 
         self.refresh_btn = QPushButton(self._t("knop.verversen"))
         self.refresh_btn.clicked.connect(self.refresh)
@@ -570,15 +537,6 @@ class HistoryScreen(QWidget):
         )
 
     def _heeft_actieve_filters(self) -> bool:
-        """True als er minstens één filterveld een waarde heeft.
-
-        Wordt gebruikt door _show_report_for_selected om te bepalen of
-        scope "Huidige filters" zinvol is (fase 12E, §2.14). Roept
-        _active_filters() aan en controleert of het resultaat niet leeg
-        is. Als _active_filters() een ValueError gooit (ongeldige
-        datum), beschouwen we dat als "geen actieve filters": de
-        rapport-knop valt dan terug op zijn bestaande gedrag.
-        """
         try:
             return bool(self._active_filters())
         except ValueError:
@@ -604,6 +562,7 @@ class HistoryScreen(QWidget):
         self.title_label.setText(self._t("scherm.historiek"))
         self.refresh_btn.setText(self._t("knop.verversen"))
         self.export_btn.setText(self._t("historiek.export.knop"))
+        self.import_btn.setText(self._t("historiek.import.knop"))
         self.detail_btn.setText(self._t("knop.details"))
         self.repeat_btn.setText(self._t("knop.herhaal_meting"))
         self.report_btn.setText(self._t("report.knop_tabel"))
@@ -762,13 +721,6 @@ class HistoryScreen(QWidget):
 
         return self._load_all_filtered_rows_for_export(filters)
 
-    # ------------------------------------------------------------------ export-mappen
-    # 11A.3: HistoryScreen houdt zijn bestaande contract. De centrale
-    # helper dialog_start_directory is bedoeld voor nieuwe code
-    # (AnalysisScreen, ReportDialog, ImportWizard). HistoryScreen gebruikt
-    # uitsluitend de lokale laad_instellingen/sla_instellingen_op, zodat
-    # bestaande tests die die namen monkeypatchen blijven werken.
-
     @staticmethod
     def _map_bestaat(pad: str) -> bool:
         if not pad:
@@ -874,7 +826,7 @@ class HistoryScreen(QWidget):
         default_filename = self._default_export_filename("DETAIL")
         file_path, _selected_filter = QFileDialog.getSaveFileName(
             self,
-            self._t("historiek.export.detail_dialoog_titel"),
+            self._t("historiek.export.dialoog_titel"),
             self._export_start_path(default_filename),
             self._t("historiek.export.bestandsfilter"),
         )
@@ -1096,6 +1048,137 @@ class HistoryScreen(QWidget):
         self._onthoud_laatste_exportmap(Path(directory))
         self._open_export_directory_if_enabled(overview_path)
 
+    # ------------------------------------------------------------------ C1: import
+
+    def _choose_import_file(self) -> str | None:
+        start_directory = self._beste_export_start_directory()
+        filter_tekst = self._t("historiek.import.bestandsfilter")
+        file_path, _selected_filter = QFileDialog.getOpenFileName(
+            self,
+            self._t("historiek.import.dialoog_titel"),
+            str(start_directory) if start_directory is not None else "",
+            filter_tekst,
+        )
+        if not file_path:
+            return None
+        if Path(file_path).suffix.lower() not in ONDERSTEUNDE_EXTENSIES:
+            self.state_label.setText(
+                self._t(
+                    "historiek.import.ongeldig_type",
+                    extensie=Path(file_path).suffix or "(geen)",
+                )
+            )
+            return None
+        return file_path
+
+    def _run_import(self, file_path: str) -> None:
+        try:
+            resultaat = parse_bestand(file_path)
+        except ImportValidatieFout as exc:
+            self.state_label.setText(
+                self._t("historiek.import.validatiefout", bericht=str(exc))
+            )
+            return
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("historiek.import.fout", bericht=str(exc))
+            )
+            return
+
+        if not resultaat.ketens:
+            self.state_label.setText(
+                self._t(
+                    "historiek.import.geen_ketens",
+                    totaal=resultaat.totaal_rijen,
+                    fouten=len(resultaat.fouten),
+                )
+            )
+            self._show_import_result(resultaat, uitkomst=None)
+            return
+
+        antwoord = QMessageBox.question(
+            self,
+            self._t("historiek.import.bevestig_titel"),
+            self._t(
+                "historiek.import.bevestig_tekst",
+                geldig=len(resultaat.ketens),
+                fouten=len(resultaat.fouten),
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if antwoord != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            uitkomst = self._import_service.importeer(resultaat.ketens)
+        except Exception as exc:
+            self.state_label.setText(
+                self._t("historiek.import.fout", bericht=str(exc))
+            )
+            return
+
+        # Bewaar de import-samenvatting; refresh() mag die niet overschrijven.
+        samenvatting = self._t(
+            "historiek.import.geslaagd",
+            toegevoegd=uitkomst.toegevoegd,
+            overgeslagen=uitkomst.overgeslagen,
+            fouten=uitkomst.fouten,
+        )
+        self._show_import_result(resultaat, uitkomst=uitkomst)
+        self.refresh()
+        self.state_label.setText(samenvatting)
+
+    def _show_import_result(self, resultaat, *, uitkomst) -> None:
+        toegevoegd = uitkomst.toegevoegd if uitkomst is not None else 0
+        overgeslagen = uitkomst.overgeslagen if uitkomst is not None else 0
+        fouten = uitkomst.fouten if uitkomst is not None else len(resultaat.fouten)
+        self.state_label.setText(
+            self._t(
+                "historiek.import.geslaagd",
+                toegevoegd=toegevoegd,
+                overgeslagen=overgeslagen,
+                fouten=fouten,
+            )
+        )
+        details = list(resultaat.fouten)
+        if uitkomst is not None and uitkomst.fout_details:
+            details.extend(
+                ImportFoutMelding(rij_index=0, bericht=tekst)
+                for tekst in uitkomst.fout_details
+            )
+        if not details:
+            return
+        regels = [self._format_import_fout(fout) for fout in details[:50]]
+        if len(details) > 50:
+            regels.append(self._t("historiek.import.meer_fouten"))
+        QMessageBox.information(
+            self,
+            self._t("historiek.import.details_titel"),
+            "\n".join(regels),
+        )
+
+    def _format_import_fout(self, fout) -> str:
+        if getattr(fout, "rij_index", 0):
+            return self._t(
+                "historiek.import.foutregel",
+                rij=fout.rij_index,
+                kolom=fout.kolom,
+                bericht=fout.bericht,
+            )
+        return self._t(
+            "historiek.import.foutregel_zonder_rij",
+            bericht=getattr(fout, "bericht", str(fout)),
+        )
+
+    def _import_from_file(self) -> None:
+        file_path = self._choose_import_file()
+        if file_path is None:
+            return
+        self._run_import(file_path)
+
+    # ------------------------------------------------------------------ einde C1
+
     def _row_values(self, row: dict[str, Any]) -> list[str]:
         measurement = row["measurement"]
         return [
@@ -1216,17 +1299,6 @@ class HistoryScreen(QWidget):
         self.repeat_requested.emit(preset)
 
     def _show_report_for_selected(self) -> None:
-        """Open de rapportdialoog voor de huidige selectie of filters.
-
-        Volgorde (fase 12E):
-          1. Checkbox-selectie aanwezig → scope "Selectie" (bestaand, 11A.2).
-          2. Geen checkbox-selectie, maar wél actieve filters → scope
-             "Huidige filters" (nieuw, §2.14).
-          3. Geen checkbox-selectie, geen filters, één rij geselecteerd →
-             scope "Eén meting" (bestaand).
-          4. Niets van dat alles → doe niets (de knop is dan uitgeschakeld,
-             maar de guard blijft).
-        """
         checkbox_ids = self._selected_measurement_ids()
         if checkbox_ids:
             self._open_report_dialog_voor_ids(
@@ -1303,7 +1375,6 @@ class HistoryScreen(QWidget):
     def _open_report_dialog_voor_filters(
         self, filters: dict[str, Any], *, scope: str
     ) -> None:
-        """Open de rapportdialoog voor de actieve filters (fase 12E)."""
         from app.gui.dialogs.report_dialog import ReportDialog
 
         werkplaats = ""
@@ -1581,3 +1652,12 @@ class HistoryScreen(QWidget):
             f"<p><i>{escape(self._t('historiek.detail_opmerking_opgeslagen_waarden'))}</i></p>"
         )
         return "\n".join(html)
+
+
+# Kleine hulpklasse om fout_details uit de service uniform te kunnen
+# tonen naast de ImportFout-objecten uit de parser.
+class ImportFoutMelding:
+    def __init__(self, *, rij_index: int, bericht: str) -> None:
+        self.rij_index = rij_index
+        self.kolom = ""
+        self.bericht = bericht
