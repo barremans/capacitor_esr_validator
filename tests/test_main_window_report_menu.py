@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_main_window_report_menu.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.4.1
-Datum:      2026-10-20
+Versie:     1.4.2
+Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor het menu-item "Rapport maken…".
@@ -33,6 +33,12 @@ Wijzigingen:
                         selectietabel leeg en faalde
                         test_rapport_action_enabled_op_analyse_met_selectie
                         met AttributeError op selection_table.item(0,0).
+  v1.4.2 (2026-10-26)  Fase 5C: nieuwe test
+                        test_rapport_action_reageert_op_selectie_bij_scope_selected.
+                        Bewijst dat het menu-item "Rapport maken…" ook
+                        enabled wordt als de gebruiker bij scope SELECTED
+                        een rij aanvinkt (de 5C-flow). Bestaande tests
+                        ongewijzigd.
 ================================================================================
 """
 
@@ -317,3 +323,32 @@ def test_rapport_action_heeft_icoon(window):
     assert not window.rapport_action.icon().isNull(), (
         "Rapport-actie heeft geen icoon"
     )
+
+
+# ---------------------------------------------------------------------------
+# Fase 5C — menu-item reageert op de nieuwe selectie-flow
+# ---------------------------------------------------------------------------
+
+def test_rapport_action_reageert_op_selectie_bij_scope_selected(window):
+    """5C: bij scope SELECTED wordt het menu-item enabled zodra een rij
+    wordt aangevinkt.
+
+    Vóór 5C gebeurde dat pas bij een expliciete refresh of scope-wissel;
+    sinds v1.9.1 ververst _on_selection_item_changed onmiddellijk en
+    emit _update_selection_count() het selection_changed-signaal, dat
+    main_window._update_report_action_state() aanstuurt.
+    """
+    stub = _AnalysisStub([_overview_row(i + 1) for i in range(3)])
+    window.analysis_page._analysis_service = stub
+    window._show_analysis()
+    QApplication.processEvents()
+
+    assert window.analysis_page.export_scope_combo.currentData() == "SELECTED"
+    assert window.rapport_action.isEnabled() is False
+
+    window.analysis_page.selection_table.item(0, 0).setCheckState(
+        __import__("PySide6.QtCore", fromlist=["Qt"]).Qt.CheckState.Checked
+    )
+    QApplication.processEvents()
+
+    assert window.rapport_action.isEnabled() is True

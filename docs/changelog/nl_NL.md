@@ -17,17 +17,19 @@ Opmerking over de versienummering:
 - Voor de actuele versie: zie `app/version.py` of Help → Over.
 -->
 
-### Chat 5 — Analyse: Y-as, X-as en leesbaarheid (26 oktober 2026)
+### Chat 5 — Analyse: Y-as, X-as, leesbaarheid en selectie (26–27 oktober 2026)
 
 **Waarom deze wijziging**
 
-De Analyse-pagina had twee hardnekkige visuele problemen die de
-grafieken onleesbaar maakten: de Y-as werd volledig uitgerekt door één
-extreme meting (masterplan C2, deel 1), en de X-as toonde op elke tick
-letterlijk "..." bij log-verdeelde data (masterplan C2, deel 2). Beide
-zijn opgelost met pure, testbare helpers.
+De Analyse-pagina had drie hardnekkige problemen die de grafieken
+onleesbaar of niet-reagerend maakten: de Y-as werd volledig uitgerekt
+door één extreme meting (masterplan C2, deel 1), de X-as toonde op elke
+tick letterlijk "..." bij log-verdeelde data (masterplan C2, deel 2), en
+het aanvinken van een rij in de selectietabel werkte de grafiek niet bij
+bij scope "Alleen selectie" (masterplan C2, deel 3). Alle drie zijn
+opgelost met pure, testbare helpers en één GUI-flow-wijziging.
 
-**Oplossing: twee sub-fases**
+**Oplossing: drie sub-fases**
 
 - **5A — Slimme Y-as-clamping (outliers).** De Y-as van de tijdreeksen
   en de scatter werd rechtstreeks op min/max gezet. Eén meting van
@@ -46,28 +48,58 @@ zijn opgelost met pure, testbare helpers.
   de rotatie (−45° voor brede bereiken). `AnalysisScreen` v1.9.0 en
   `report_chart` v1.2.0 gebruiken dezelfde helper. Baseline
   1779 → **1787** (+8).
+- **5C — Selectie stuurt de grafiek bij scope "Alleen selectie".**
+  Het aanvinken van een rij in de selectietabel werkte de grafiek niet
+  bij bij scope `SELECTED`; de gebruiker moest eerst op "Verversen"
+  of een scope-wissel drukken. `AnalysisScreen._on_selection_item_changed`
+  roept nu `refresh(preserve_selection=True)` aan als de scope
+  `SELECTED` is. Bij scope `FILTERED` blijft de grafiek bewust
+  ongewijzigd: de filters bepalen de grafiek, niet de tabelselectie.
+  De dubbele `selection_changed.emit()` is verwijderd omdat
+  `_update_selection_count()` al emit. `AnalysisScreen`
+  v1.9.0 → **v1.9.1**. Baseline 1787 → **1793** (+6).
 
-**Belangrijke observatie**
+**Belangrijke observaties**
 
-Tijdens 5B bleek dat een `NameError` in een test vaak wijst op een
-ontbrekende import in het testbestand, niet op een ontbrekende functie
-in de productiecode. De helper stond wel in `chart_axis.py`, maar de
-import ontbrak in `test_chart_axis.py`. Les: bij een `NameError` altijd
-eerst de imports controleren.
+- **5B:** een `NameError` in een test wijst vaak op een ontbrekende
+  import in het testbestand, niet op een ontbrekende functie in de
+  productiecode. Controleer altijd eerst de imports.
+- **5C (signaal-flow):** een GUI-wijziging die een signaal-flow raakt,
+  kan een dubbele emit blootleggen. `_on_selection_item_changed` én
+  `_update_selection_count` emitterden allebei `selection_changed`;
+  dat was onschadelijk (idempotent) maar slordig. Opgeruimd.
+- **5C ("reageert niet" kan ook "reageert bewust niet" zijn):** het
+  openstaande punt OV-C5-8 ("bij scope FILTERED reageert de grafiek
+  niet op tabelselectie") bleek geen bug maar gewenst gedrag. De fix
+  is daarom "reageren bij SELECTED, bewust niet bij FILTERED", nu
+  gedocumenteerd in de code en vastgelegd in een test.
+- **5C (bestaande test met onrealistische staat):** de oude versie van
+  `test_analysis_report_met_selectie_blijft_for_measurements` zette
+  handmatig een rij in de selectietabel die niet uit de service kwam.
+  Sinds 5C triggert `setItem` een refresh, en die gooit zo'n rij weg.
+  De test is herschreven volgens de echte GUI-flow; een nieuwe test
+  legt het bewuste gedrag vast. Les: een test die een onrealistische
+  staat simuleert, kan breken zodra de productiecode meer valideert —
+  herschrijf de test, niet de productiecode.
 
 **Voor ontwikkelaars**
 
 - **Nieuw:** `app/helpers/chart_axis.py` (v1.1.1) — `bereken_y_as_range`
   en `bereken_x_as_ticks`.
-- **Gewijzigd:** `app/gui/analysis_screen.py` (v1.7.2 → **v1.9.0**) —
-  Y-as-clamping, X-as-ticks, `state_label`-indicator.
+- **Gewijzigd:** `app/gui/analysis_screen.py` (v1.7.2 → **v1.9.1**) —
+  Y-as-clamping, X-as-ticks, `state_label`-indicator,
+  selectie-gedreven refresh bij scope SELECTED.
 - **Gewijzigd:** `app/helpers/report_chart.py` (v1.0.3 → **v1.2.0**) —
   dezelfde helpers in beide render-functies.
 - **Nieuwe i18n-key:** `analyse.outliers_verborgen` (NL + EN).
 - **Nieuwe tests:** `tests/test_chart_axis.py` (v1.1.0, 12 tests).
-- **Uitgebreid:** `tests/test_analysis_screen.py` (v1.6.2 → v1.8.0,
-  +6 tests), `tests/test_report_chart.py` (v1.0.0 → v1.2.0, +3 tests).
-- **Baseline:** 1766 → **1787 passed** (+21 tests over 5A en 5B).
+- **Uitgebreid:** `tests/test_analysis_screen.py` (v1.6.2 → v1.8.1,
+  +10 tests over 5A/5B/5C), `tests/test_report_chart.py`
+  (v1.0.0 → v1.2.0, +3 tests),
+  `tests/test_main_window_report_menu.py` (v1.4.1 → v1.4.2, +1 test),
+  `tests/test_report_dialog_scope_filters.py` (v1.0.1 → v1.0.2,
+  1 test herschreven, +1 test).
+- **Baseline:** 1766 → **1793 passed** (+27 tests over 5A, 5B en 5C).
 
 ### Chat 4 — Assessment, schema v4 en type-match (26 oktober 2026)
 

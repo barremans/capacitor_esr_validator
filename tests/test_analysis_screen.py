@@ -2,7 +2,7 @@
 ================================================================================
 Module:     tests/test_analysis_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.8.0
+Versie:     1.8.1
 Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
@@ -41,6 +41,13 @@ Wijzigingen:
                         en de labelsAngle kloppen voor het echte
                         CSV-bereik en voor een klein bereik. Nieuwe
                         helper _x_value_axis() toegevoegd.
+  v1.8.1 (2026-10-26)  Fase 5C: vier tests voor de selectie-gedreven
+                        grafiek bij scope SELECTED en het bewust
+                        ongewijzigd blijven bij scope FILTERED. Bewijst
+                        dat _on_selection_item_changed onmiddellijk
+                        ververst bij SELECTED, dat de selectie bewaard
+                        blijft, en dat de rapport-knop correct blijft
+                        reageren in beide scopes.
 ================================================================================
 """
 
@@ -1188,5 +1195,142 @@ def test_scatter_x_as_klein_bereik_gebruikt_decimalen() -> None:
         assert axis_x.labelFormat() == "%.2f"
         assert axis_x.tickCount() == 4
         assert axis_x.labelsAngle() == 0
+    finally:
+        widget.deleteLater()
+
+
+# ============================================================================
+# v1.8.1 — selectie-gedreven grafiek bij scope-wissel (fase 5C)
+# ============================================================================
+
+def test_selectie_bij_scope_selected_ververst_grafiek() -> None:
+    """Scope SELECTED: aanvinken van een rij ververst de grafiek direct.
+
+    Vóór 5C gebeurde dat pas bij een expliciete refresh of scope-wissel.
+    Nu roept _on_selection_item_changed refresh(preserve_selection=True)
+    aan, en de service krijgt de aangevinkte id.
+    """
+    _app()
+    stub = _StubAnalysisService(
+        rows=[
+            _row(1, _ms(2026, 10, 1), esr_ohm=0.1),
+            _row(2, _ms(2026, 10, 2), esr_ohm=0.2),
+            _row(3, _ms(2026, 10, 3), esr_ohm=0.3),
+        ],
+        esr_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.2, 2, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.refresh()
+        assert widget.export_scope_combo.currentData() == _EXPORT_SCOPE_SELECTED
+        stub.measurement_id_calls.clear()
+
+        # Rij 0 is de meest recente meting (id=3) vanwege de sortering.
+        widget.selection_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+
+        assert any(
+            ids == [3] for ids in stub.measurement_id_calls
+        ), stub.measurement_id_calls
+    finally:
+        widget.deleteLater()
+
+
+def test_selectie_bij_scope_filtered_ververst_niet() -> None:
+    """Scope FILTERED: aanvinken van een rij ververst de grafiek NIET.
+
+    Dit is bewust gedrag: bij scope FILTERED bepalen de filters de
+    grafiek, niet de tabelselectie. Alleen de teller en de rapport-
+    knop worden bijgewerkt. Geen nieuwe service-calls.
+    """
+    _app()
+    stub = _StubAnalysisService(
+        rows=[
+            _row(1, _ms(2026, 10, 1), esr_ohm=0.1),
+            _row(2, _ms(2026, 10, 2), esr_ohm=0.2),
+            _row(3, _ms(2026, 10, 3), esr_ohm=0.3),
+        ],
+        esr_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.2, 2, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.export_scope_combo.setCurrentIndex(
+            widget.export_scope_combo.findData(_EXPORT_SCOPE_FILTERED)
+        )
+        widget.refresh()
+        assert widget.export_scope_combo.currentData() == _EXPORT_SCOPE_FILTERED
+        stub.calls.clear()
+
+        widget.selection_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+
+        assert stub.calls == [], stub.calls
+        # Teller is wel bijgewerkt.
+        assert "1" in widget.selection_count_label.text()
+    finally:
+        widget.deleteLater()
+
+
+def test_selectie_bij_scope_selected_behoudt_selectie_na_refresh() -> None:
+    """Na de automatische refresh blijft de aangevinkte rij aangevinkt."""
+    _app()
+    stub = _StubAnalysisService(
+        rows=[
+            _row(1, _ms(2026, 10, 1), esr_ohm=0.1),
+            _row(2, _ms(2026, 10, 2), esr_ohm=0.2),
+            _row(3, _ms(2026, 10, 3), esr_ohm=0.3),
+        ],
+        esr_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.2, 2, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        widget.refresh()
+        assert widget.export_scope_combo.currentData() == _EXPORT_SCOPE_SELECTED
+
+        widget.selection_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+
+        assert widget._selected_measurement_ids() == [3]
+        item = widget.selection_table.item(0, 0)
+        assert item.checkState() == Qt.CheckState.Checked
+    finally:
+        widget.deleteLater()
+
+
+def test_rapport_knop_blijft_correct_bij_scope_wissel() -> None:
+    """De rapport-knop reageert correct in beide scopes na aanvinken."""
+    _app()
+    stub = _StubAnalysisService(
+        rows=[
+            _row(1, _ms(2026, 10, 1), esr_ohm=0.1),
+            _row(2, _ms(2026, 10, 2), esr_ohm=0.2),
+            _row(3, _ms(2026, 10, 3), esr_ohm=0.3),
+        ],
+        esr_series=[
+            TimeSeriesPoint(_ms(2026, 10, 1), 0.1, 1, "ESR_CAPACITOR"),
+            TimeSeriesPoint(_ms(2026, 10, 2), 0.2, 2, "ESR_CAPACITOR"),
+        ],
+    )
+    widget = AnalysisScreen(taal="nl_NL", analysis_service=stub)
+    try:
+        # Scope SELECTED: aanvinken -> rapport-knop aan.
+        widget.refresh()
+        assert widget.report_btn.isEnabled() is False
+        widget.selection_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        assert widget.report_btn.isEnabled() is True
+
+        # Scope FILTERED: aanvinken -> rapport-knop aan (selectie telt).
+        widget.export_scope_combo.setCurrentIndex(
+            widget.export_scope_combo.findData(_EXPORT_SCOPE_FILTERED)
+        )
+        widget.refresh(preserve_selection=True)
+        widget.selection_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        assert widget.report_btn.isEnabled() is True
     finally:
         widget.deleteLater()

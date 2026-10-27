@@ -16,17 +16,20 @@ Note on version numbering:
 - For the current version: see `app/version.py` or Help → About.
 -->
 
-### Chat 5 — Analysis: Y-axis, X-axis and readability (26 October 2026)
+### Chat 5 — Analysis: Y-axis, X-axis, readability and selection (26–27 October 2026)
 
 **Why this change**
 
-The Analysis page had two persistent visual problems that made the
-charts unreadable: the Y-axis was completely stretched by a single
-extreme measurement (master plan C2, part 1), and the X-axis showed
+The Analysis page had three persistent problems that made the charts
+unreadable or unresponsive: the Y-axis was completely stretched by a
+single extreme measurement (master plan C2, part 1), the X-axis showed
 literally "..." on every tick for log-distributed data (master plan
-C2, part 2). Both have been fixed with pure, testable helpers.
+C2, part 2), and checking a row in the selection table did not update
+the chart at scope "Selection only" (master plan C2, part 3). All
+three have been fixed with pure, testable helpers and one GUI-flow
+change.
 
-**Solution: two sub-phases**
+**Solution: three sub-phases**
 
 - **5A — Smart Y-axis clamping (outliers).** The Y-axis of the time
   series and the scatter plot was set directly to min/max. One
@@ -45,28 +48,61 @@ C2, part 2). Both have been fixed with pure, testable helpers.
   rotation (−45° for wide ranges). `AnalysisScreen` v1.9.0 and
   `report_chart` v1.2.0 use the same helper. Baseline
   1779 → **1787** (+8).
+- **5C — Selection drives the chart at scope "Selection only".**
+  Checking a row in the selection table did not update the chart at
+  scope `SELECTED`; the user had to press "Refresh" or switch scope
+  first. `AnalysisScreen._on_selection_item_changed` now calls
+  `refresh(preserve_selection=True)` when the scope is `SELECTED`. At
+  scope `FILTERED` the chart deliberately stays unchanged: the filters
+  determine the chart, not the table selection. The duplicate
+  `selection_changed.emit()` was removed because
+  `_update_selection_count()` already emits. `AnalysisScreen`
+  v1.9.0 → **v1.9.1**. Baseline 1787 → **1793** (+6).
 
-**Important observation**
+**Important observations**
 
-During 5B it turned out that a `NameError` in a test often points to a
-missing import in the test file, not to a missing function in the
-production code. The helper was present in `chart_axis.py`, but the
-import was missing in `test_chart_axis.py`. Lesson: on a `NameError`,
-always check the imports first.
+- **5B:** a `NameError` in a test often points to a missing import in
+  the test file, not to a missing function in the production code.
+  Always check the imports first.
+- **5C (signal flow):** a GUI change that touches a signal flow can
+  expose a double emit. `_on_selection_item_changed` and
+  `_update_selection_count` both emitted `selection_changed`; that was
+  harmless (idempotent) but sloppy. Cleaned up.
+- **5C ("does not respond" can also be "deliberately does not
+  respond"):** the open point OV-C5-8 ("at scope FILTERED the chart
+  does not respond to table selection") turned out to be desired
+  behaviour, not a bug. The fix is therefore "respond at SELECTED,
+  deliberately not at FILTERED", now documented in the code and
+  captured in a test.
+- **5C (existing test with unrealistic state):** the old version of
+  `test_analysis_report_met_selectie_blijft_for_measurements` placed
+  a row manually in the selection table that did not come from the
+  service. Since 5C, `setItem` triggers a refresh, and that refresh
+  discards such a row. The test has been rewritten to follow the real
+  GUI flow; a new test captures the deliberate behaviour. Lesson: a
+  test that simulates an unrealistic state can break as soon as the
+  production code validates more — rewrite the test, not the
+  production code.
 
 **For developers**
 
 - **New:** `app/helpers/chart_axis.py` (v1.1.1) — `bereken_y_as_range`
   and `bereken_x_as_ticks`.
-- **Changed:** `app/gui/analysis_screen.py` (v1.7.2 → **v1.9.0**) —
-  Y-axis clamping, X-axis ticks, `state_label` indicator.
+- **Changed:** `app/gui/analysis_screen.py` (v1.7.2 → **v1.9.1**) —
+  Y-axis clamping, X-axis ticks, `state_label` indicator,
+  selection-driven refresh at scope SELECTED.
 - **Changed:** `app/helpers/report_chart.py` (v1.0.3 → **v1.2.0**) —
   the same helpers in both render functions.
 - **New i18n key:** `analyse.outliers_verborgen` (NL + EN).
 - **New tests:** `tests/test_chart_axis.py` (v1.1.0, 12 tests).
-- **Extended:** `tests/test_analysis_screen.py` (v1.6.2 → v1.8.0,
-  +6 tests), `tests/test_report_chart.py` (v1.0.0 → v1.2.0, +3 tests).
-- **Baseline:** 1766 → **1787 passed** (+21 tests across 5A and 5B).
+- **Extended:** `tests/test_analysis_screen.py` (v1.6.2 → v1.8.1,
+  +10 tests across 5A/5B/5C), `tests/test_report_chart.py`
+  (v1.0.0 → v1.2.0, +3 tests),
+  `tests/test_main_window_report_menu.py` (v1.4.1 → v1.4.2, +1 test),
+  `tests/test_report_dialog_scope_filters.py` (v1.0.1 → v1.0.2,
+  1 test rewritten, +1 test).
+- **Baseline:** 1766 → **1793 passed** (+27 tests across 5A, 5B and
+  5C).
 
 ### Chat 4 — Assessment, schema v4 and type matching (26 October 2026)
 

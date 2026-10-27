@@ -1,7 +1,7 @@
 # Openvragen en observaties — Electronics Diagnostic Tool Hub / ESR Tester
 
-**Versie:** 3.14.0
-**Datum:** 2026-10-26
+**Versie:** 3.15.1
+**Datum:** 2026-10-27
 **Auteur:** Bart Bossuyt
 **Doel:** expliciet bijhouden wat nog onduidelijk, open of te verifiëren is. Geen bugs, geen beloftes — alleen vragen en observaties.
 
@@ -16,6 +16,8 @@ Wijzigingen:
   v3.12.0 (2026-10-26) Chat 4 / 4A afgerond. §4.44 OV-S4 gemarkeerd als opgelost (type- en keuzelijst-validatie via valideer_en_normaliseer). Nieuwe subsectie 4.47: opgeloste punten in chat 4 / 4A (B1, B2, OV-S4). Nieuwe subsectie 4.48: openstaand na 4A (B1-b ontwerpvraag, B3/OL-status voor 4B, B4/type-match voor 4C). Niets verwijderd; v3.11.0 blijft integraal behouden.
   v3.13.0 (2026-10-26) Chat 5A afgerond: slimme Y-as-clamping met outlier-detectie. Nieuwe subsectie 4.49: opgeloste en openstaande punten na 5A (Y-as-fix, log-schaal als 5A-bis, 5B/5C/5D nog open). Niets verwijderd; v3.12.0 blijft integraal behouden.
   v3.14.0 (2026-10-26) Chat 5B afgerond: leesbare X-as-labels via bereken_x_as_ticks. Nieuwe subsectie 4.50: opgeloste en openstaande punten na 5B. Niets verwijderd; v3.13.0 blijft integraal behouden.
+  v3.15.0 (2026-10-26) Chat 5C afgerond: selectie volgt onmiddellijk de grafiek bij scope SELECTED. Nieuwe subsectie 4.51: opgeloste en openstaande punten na 5C. OV-C5-4 en OV-C5-8 gemarkeerd als opgelost. Niets verwijderd; v3.14.0 blijft integraal behouden.
+  v3.15.1 (2026-10-27) Correctie na volledige suite: §2.33 baseline 1792 → 1793, bewijs uitgebreid met test_report_dialog_scope_filters.py v1.0.2. §4.51 idem. Niets verwijderd; v3.15.0 blijft integraal behouden.
 
 ---
 
@@ -145,6 +147,19 @@ Zie eerdere versies.
 - **Baseline:** 1779 → **1787 passed** (+8).
 - **Zie ook:** §4.50 voor de bijbehorende observaties.
 
+### 2.33 Selectie ververst de grafiek niet bij scope SELECTED (toegevoegd 2026-10-26)
+
+- **Status:** **opgelost in 5C (2026-10-26 / 2026-10-27).**
+- **Symptoom:** bij scope `SELECTED` veranderde de grafiek niet als je een rij aanvinkte; de gebruiker moest eerst op "Verversen" of een scope-wissel drukken. Bij scope `FILTERED` reageerde de grafiek bewust niet op tabelselectie (dat is gewenst gedrag, zie §4.51).
+- **Oorzaak:** `AnalysisScreen._on_selection_item_changed` werkte alleen de teller bij en emit `selection_changed`; het ververste de grafiek niet. `_on_scope_changed` en `_on_scatter_clicked` verversten wél (met `preserve_selection=True`), maar de gewone checkbox-wijziging niet. Daarnaast zat er een dubbele `selection_changed`-emit in de keten (`_on_selection_item_changed` + `_update_selection_count`).
+- **Fix:** `AnalysisScreen` v1.9.1. `_on_selection_item_changed` roept nu `refresh(preserve_selection=True)` aan als de scope `SELECTED` is; bij `FILTERED` blijft de grafiek bewust ongewijzigd (alleen de teller en de rapport-knop worden bijgewerkt). De losse `selection_changed.emit()` is verwijderd; `_update_selection_count()` emit al. Geen wijziging aan de scope-semantiek, export- of rapportlogica.
+- **Bewijs:** 6 nieuwe/gewijzigde tests:
+  - 4 in `test_analysis_screen.py` (v1.8.1): scope SELECTED ververst direct, scope FILTERED ververst niet, selectie blijft bewaard, rapport-knop correct.
+  - 1 in `test_main_window_report_menu.py` (v1.4.2): menu-item wordt enabled bij scope SELECTED.
+  - 1 in `test_report_dialog_scope_filters.py` (v1.0.2): nieuwe test `test_analysis_handmatige_rij_zonder_service_gebruikt_for_filters`. De bestaande `test_analysis_report_met_selectie_blijft_for_measurements` is herschreven volgens de echte GUI-flow (stub-service met rij id=77, `refresh()`, dan aanvinken).
+- **Baseline:** 1787 → **1793 passed** (+6).
+- **Zie ook:** §4.51 voor de bijbehorende observaties.
+
 ---
 
 ## 3. Uit vroegere contextdocumenten (nog steeds relevant)
@@ -216,7 +231,7 @@ Onveranderd t.o.v. v3.12.0.
   - **Status:** **opgelost in 5B.** Zie §4.50.
 
 - **OV-C5-4 — 5C: selectie → grafiek.**
-  - **Status:** open. Scope van **5C**.
+  - **Status:** **opgelost in 5C (2026-10-26 / 2026-10-27).** Zie §2.33 en §4.51.
 
 - **OV-C5-5 — 5D: vergelijkingsmodus.**
   - **Status:** open. Scope van **5D**.
@@ -237,12 +252,36 @@ Onveranderd t.o.v. v3.12.0.
   - **Routering:** aparte chat of 5B-bis (samen met 5A-bis).
 
 - **OV-C5-8 — 5C: selectie → grafiek.**
-  - **Status:** open. Scope van **5C**.
-  - **Samenvatting:** 11G.5 heeft de GUI-flow al geïmplementeerd (scope SELECTED → `measurement_ids` → service). Verificatie nodig wat nog open is. Bij scope FILTERED reageert de grafiek niet op tabelselectie; is dat het openstaande punt?
+  - **Status:** **opgelost in 5C (2026-10-26 / 2026-10-27).** Zie §2.33 en §4.51.
+  - **Samenvatting:** 11G.5 had de GUI-flow al geïmplementeerd (scope SELECTED → measurement_ids → service). Wat nog open stond, was dat de grafiek bij scope FILTERED niet op tabelselectie reageerde. Dat blijkt **geen bug** maar **gewenst gedrag**: bij FILTERED bepalen de filters de grafiek. Bij scope SELECTED reageert de grafiek nu onmiddellijk op een aanvink-wijziging.
 
 - **OV-C5-9 — 5D: vergelijkingsmodus.**
   - **Status:** open. Scope van **5D**.
   - **Samenvatting:** feature, geen bugfix. De starttekst §2.4 suggereert zelf een aparte chat.
+
+### 4.51 Opgeloste en openstaande punten na chat 5C (2026-10-26 / 2026-10-27)
+
+**Opgelost in 5C:**
+
+- **OV-C5-4 / OV-C5-8 — Selectie ververst de grafiek niet bij scope SELECTED.**
+  - **Status:** **opgelost** in 5C (2026-10-26 / 2026-10-27).
+  - **Zie §2.33 voor het volledige verslag.**
+
+**Observaties na 5C:**
+
+- **Signaal-dubbeling opgeruimd.** `_on_selection_item_changed` én `_update_selection_count` emitterden allebei `selection_changed`. Dat was functioneel onschadelijk (idempotent) maar slordig. Bij het toevoegen van de refresh in de keten werd het zichtbaar; de losse emit in `_on_selection_item_changed` is verwijderd. `_update_selection_count` blijft de enige emit-bron.
+- **"Reageert niet" kan ook "reageert bewust niet" zijn.** Het openstaande punt OV-C5-8 ("bij scope FILTERED reageert de grafiek niet op tabelselectie") bleek geen bug maar gewenst gedrag. De fix is daarom niet "altijd reageren", maar "reageren bij SELECTED, bewust niet bij FILTERED". Dat is nu expliciet in de code gedocumenteerd (docstring van `_on_selection_item_changed`) en met een test vastgelegd (`test_selectie_bij_scope_filtered_ververst_niet`).
+- **Bestaande test met onrealistische staat.** De oude versie van `test_analysis_report_met_selectie_blijft_for_measurements` zette handmatig een rij in de selectietabel die niet uit de service kwam. Sinds 5C triggert `setItem` een refresh, en die gooit zo'n rij weg. De test is herschreven volgens de echte GUI-flow; een nieuwe test legt het bewuste gedrag vast. Les: een bestaande test die een onrealistische staat simuleert, kan breken zodra de productiecode meer valideert — herschrijf de test, niet de productiecode.
+
+**Openstaand na 5C:**
+
+- **OV-C5-5 / OV-C5-9 — 5D: vergelijkingsmodus.**
+  - **Status:** open. Scope van **5D** (aparte chat).
+  - **Samenvatting:** feature, geen bugfix. Nieuwe grafiekoptie "Vergelijk reeksen" in `chart_type_combo`, nieuwe service-methode `vergelijken(measurement_ids) -> list[Series]`, kleurtoewijzing per reeks, legenda, max N reeksen, nieuwe i18n-keys.
+
+- **OV-C5-2 / OV-C5-7 — Log-schaal voor ESR/capaciteit (5A-bis / 5B-bis).**
+  - **Status:** open. Zie §4.49 en §4.50.
+  - **Routering:** aparte chat of samen met 5D.
 
 ---
 

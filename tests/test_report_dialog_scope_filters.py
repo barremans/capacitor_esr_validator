@@ -2,8 +2,8 @@
 ================================================================================
 Module:     tests/test_report_dialog_scope_filters.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.0.1
-Datum:      2026-10-22
+Versie:     1.0.2
+Datum:      2026-10-27
 Auteur:     Bart Bossuyt
 
 Doel:       Regressietests voor fase 12E (scope "Huidige filters",
@@ -19,6 +19,19 @@ Wijzigingen:
                        werd ook aangeroepen door cls() in de
                        classmethods, waardoor elke aanroep twee keer
                        in recorder verscheen.
+  v1.0.2 (2026-10-27)  Fase 5C: test_analysis_report_met_selectie_
+                       blijft_for_measurements volgt nu de echte
+                       GUI-flow (stub-service met een rij id=77,
+                       refresh(), dan die rij aanvinken). De oude
+                       variant zette handmatig een rij die niet uit
+                       de service kwam; sinds AnalysisScreen v1.9.1
+                       triggert setItem een refresh(preserve_selection=
+                       True), waardoor die rij weer verdween en de
+                       test op for_filters uitkwam. Nieuwe test
+                       test_analysis_handmatige_rij_zonder_service_
+                       gebruikt_for_filters legt het bewuste gedrag
+                       vast: een rij die niet uit de service komt,
+                       verdwijnt na de automatische refresh.
 ================================================================================
 """
 
@@ -119,6 +132,20 @@ def _detail(measurement_id: int = 42, *, tool_key: str = "ESR_CAPACITOR"):
     }
 
 
+def _overview_row(measurement_id: int):
+    """Rij zoals StorageService.list_measurements() die teruggeeft."""
+    from app.helpers.analysis_series import TimeSeriesPoint  # noqa: F401
+
+    return {
+        "measurement": _detail(measurement_id)["measurement"],
+        "manufacturer": "TEST",
+        "series": "SYNTHETIC",
+        "part_number": None,
+        "final_status": None,
+        "reliability_level": None,
+    }
+
+
 class _StubReportService:
     def __init__(self, *, details_by_id=None, filters_result_ids=None):
         self._details_by_id = details_by_id or {42: _detail(42)}
@@ -194,6 +221,49 @@ class _StubAnalysisService:
                 tool_key="ESR_CAPACITOR",
             ),
         ]
+
+    def esr_series(self, filters=None, *, aggregation="raw", measurement_ids=None):
+        return list(self._esr)
+
+    def capacitance_series(self, filters=None, *, aggregation="raw", measurement_ids=None):
+        return []
+
+    def dissipation_series(self, filters=None, *, aggregation="raw", measurement_ids=None):
+        return []
+
+    def scatter_esr_vs_capacitance(self, filters=None, *, measurement_ids=None):
+        return []
+
+
+class _StubAnalysisServiceMetRij:
+    """Stub die load_rows ondersteunt, zodat de selectietabel gevuld wordt.
+
+    Wordt gebruikt in test_analysis_report_met_selectie_blijft_for_
+    measurements: de test volgt de echte GUI-flow (refresh() vult de
+    tabel, dan vinkt de test een bestaande rij aan) in plaats van
+    handmatig een rij te zetten die niet uit de service komt.
+    """
+
+    def __init__(self, measurement_id: int = 77):
+        from app.helpers.analysis_series import TimeSeriesPoint
+
+        self._measurement_id = int(measurement_id)
+        self._rows = [_overview_row(self._measurement_id)]
+        self._esr = [
+            TimeSeriesPoint(
+                x_ms=1_700_000_000_000,
+                y=0.1,
+                measurement_id=self._measurement_id,
+                tool_key="ESR_CAPACITOR",
+            ),
+        ]
+        self.measurement_id_calls: list[list[int] | None] = []
+
+    def load_rows(self, filters=None, *, measurement_ids=None):
+        self.measurement_id_calls.append(
+            list(measurement_ids) if measurement_ids is not None else None
+        )
+        return list(self._rows)
 
     def esr_series(self, filters=None, *, aggregation="raw", measurement_ids=None):
         return list(self._esr)
@@ -431,10 +501,16 @@ def test_history_report_zonder_filters_en_zonder_selectie_doet_niets(
 
 # ------------------------------------------------------------------ AnalysisScreen
 
-def _maak_analysis_screen(*, filters_actief: bool = False):
+def _maak_analysis_screen(
+    *,
+    filters_actief: bool = False,
+    analysis_service=None,
+):
     from app.gui.analysis_screen import AnalysisScreen
 
-    screen = AnalysisScreen(taal="nl_NL")
+    screen = AnalysisScreen(
+        taal="nl_NL", analysis_service=analysis_service
+    )
     if filters_actief:
         screen.filter_group.setChecked(True)
         screen.filter_manufacturer.setText("TEST")
@@ -462,13 +538,68 @@ def test_analysis_report_zonder_selectie_met_filters_gebruikt_for_filters(
 
 
 def test_analysis_report_met_selectie_blijft_for_measurements(monkeypatch):
+    """Volgt de echte GUI-flow: refresh() vult de tabel, dan vinkt de
+    test een bestaande rij aan, dan opent de rapportdialoog.
+
+    Sinds AnalysisScreen v1.9.1 triggert het aanvinken een refresh
+    (preserve_selection=True). Een handmatig gezette rij die niet uit
+    de service komt, zou daardoor weer verdwijnen; daarom gebruikt
+    deze test een stub-service met een echte rij id=77.
+    """
     recorder: list = []
     monkeypatch.setattr(
         "app.gui.dialogs.report_dialog.ReportDialog",
         _fake_dialog_klasse(recorder),
     )
 
-    screen = _maak_analysis_screen(filters_actief=True)
+    stub = _StubAnalysisServiceMetRij(measurement_id=77)
+    screen = _maak_analysis_screen(
+        filters_actief=True, analysis_service=stub
+    )
+    screen.refresh()
+    assert screen.selection_table.rowCount() == 1
+
+    from PySide6.QtCore import Qt
+
+    item = screen.selection_table.item(0, 0)
+    assert int(item.data(Qt.ItemDataRole.UserRole)) == 77
+    item.setCheckState(Qt.CheckState.Checked)
+
+    # De 5C-refresh heeft de rij hersteld; de selectie is nog steeds [77].
+    assert screen._selected_measurement_ids() == [77]
+
+    screen._open_report_for_selection()
+
+    assert len(recorder) == 1
+    soort, ids, kwargs = recorder[0]
+    assert soort == "for_measurements"
+    assert ids == [77]
+    assert kwargs["scope"] == "Selectie"
+
+
+def test_analysis_handmatige_rij_zonder_service_gebruikt_for_filters(
+    monkeypatch,
+):
+    """Legt het bewuste gedrag van 5C vast: een rij die niet uit de
+    service komt, verdwijnt na de automatische refresh.
+
+    Deze test documenteert waarom de oude variant van
+    test_analysis_report_met_selectie_blijft_for_measurements niet
+    meer werkt: de 5C-refresh gooit een handmatig gezette rij weg
+    (want die zit niet in de service-resultaten), waarna de
+    rapportdialoog op de filters-tak terugvalt.
+    """
+    recorder: list = []
+    monkeypatch.setattr(
+        "app.gui.dialogs.report_dialog.ReportDialog",
+        _fake_dialog_klasse(recorder),
+    )
+
+    # Lege service: geen rijen om te herstellen.
+    screen = _maak_analysis_screen(
+        filters_actief=True, analysis_service=_StubAnalysisService()
+    )
+
     from PySide6.QtWidgets import QTableWidgetItem
     from PySide6.QtCore import Qt
 
@@ -483,13 +614,15 @@ def test_analysis_report_met_selectie_blijft_for_measurements(monkeypatch):
     item.setData(Qt.ItemDataRole.UserRole, 77)
     screen.selection_table.setItem(0, 0, item)
 
+    # De automatische refresh heeft de handmatige rij weggegooid.
+    assert screen._selected_measurement_ids() == []
+
     screen._open_report_for_selection()
 
     assert len(recorder) == 1
-    soort, ids, kwargs = recorder[0]
-    assert soort == "for_measurements"
-    assert ids == [77]
-    assert kwargs["scope"] == "Selectie"
+    soort, _payload, kwargs = recorder[0]
+    assert soort == "for_filters"
+    assert kwargs["scope"] == "Huidige filters"
 
 
 def test_analysis_report_zonder_selectie_en_zonder_filters_meldt_geen_selectie(

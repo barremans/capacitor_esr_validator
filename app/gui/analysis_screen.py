@@ -2,7 +2,7 @@
 ================================================================================
 Module:     app/gui/analysis_screen.py
 Project:    Electronics Diagnostic Tool Hub / ESR Tester (Windows)
-Versie:     1.9.0
+Versie:     1.9.1
 Datum:      2026-10-26
 Auteur:     Bart Bossuyt
 
@@ -59,6 +59,17 @@ Wijzigingen:
                         X-bereik. Voorkomt dat Qt bij een log-verdeeld
                         bereik (bv. 0,1 µF tot 1.160 µF) de labels
                         afkapt tot "...".
+  v1.9.1 (2026-10-26)  Fase 5C: selectie volgt onmiddellijk de grafiek
+                        bij scope SELECTED. _on_selection_item_changed
+                        roept nu refresh(preserve_selection=True) aan
+                        als de scope SELECTED is; bij scope FILTERED
+                        blijft de grafiek bewust ongewijzigd (de
+                        filters bepalen dan de grafiek). De losse
+                        selection_changed.emit() is verwijderd omdat
+                        _update_selection_count() al emit; dat
+                        voorkomt een dubbele emit per klik. Geen
+                        wijziging aan de scope-semantiek, export- of
+                        rapportlogica.
 ================================================================================
 """
 
@@ -930,9 +941,26 @@ class AnalysisScreen(QWidget):
         self._update_selection_count()
 
     def _on_selection_item_changed(self, item: QTableWidgetItem) -> None:
-        if item.column() == 0:
+        """Reageer op een wijziging in de selectie-kolom.
+
+        5C: bij scope SELECTED volgt de grafiek onmiddellijk de
+        aanvink-wijziging via refresh(preserve_selection=True). Bij
+        scope FILTERED blijft de grafiek bewust ongewijzigd: de
+        filters bepalen dan de grafiek, niet de tabelselectie. In dat
+        geval werken we alleen de teller en de rapport-knop bij.
+
+        De losse selection_changed.emit() is verwijderd: zowel
+        _update_selection_count() als refresh() -> _populate_selection_
+        table() -> _update_selection_count() emitteren het signaal al.
+        Dat voorkomt een dubbele emit per klik.
+        """
+        if item.column() != 0:
+            return
+
+        if self.export_scope_combo.currentData() == _EXPORT_SCOPE_SELECTED:
+            self.refresh(preserve_selection=True)
+        else:
             self._update_selection_count()
-            self.selection_changed.emit()
 
     def _selected_measurement_ids(self) -> list[int]:
         ids: list[int] = []
